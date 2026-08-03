@@ -119,9 +119,13 @@ namespace azo::rhi::detail
 					return nullptr;
 				}
 
+				/*
+				 * Nothing to free by hand on the failure path. The temporary owns the page, and push_back gives the strong guarantee, so a growth that throws
+				 * leaves the temporary still holding the memory and ~Page releases it at the end of this condition. Freeing it here as well is a second free of
+				 * the same pointer.
+				 */
 				if (!TryPushBack(m_pages, Page{ static_cast<std::byte *>(memory), bytes }))
 				{
-					HostFree(memory, bytes, static_cast<std::size_t>(kAlign));
 					return nullptr;
 				}
 			}
