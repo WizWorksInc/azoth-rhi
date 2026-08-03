@@ -268,17 +268,18 @@ namespace azo::rhi
 	 * The guard itself does not travel. It is not part of what this holds, it is what keeps what this holds consistent and a fresh one on each side is the correct
 	 * state after the values have separated.
 	 */
-	BackendSelection::BackendSelection(BackendSelection && other) noexcept : m_registry(std::move(other.m_registry)), m_honoredRequest(other.m_honoredRequest), m_includeNull(other.m_includeNull), m_preferred(std::move(other.m_preferred)), m_preferredApis(std::move(other.m_preferredApis)), m_requestedName(other.m_requestedName), m_wasAskedFor(other.m_wasAskedFor)
+	BackendSelection::BackendSelection(BackendSelection && other) noexcept
 	{
 		const std::scoped_lock guard(other.m_guard);
 
-		
-		
-		
-		
-		
-		
-		
+		// Moved in the body and not the initializer list, which runs before the guard is taken and so would read the vectors while a registration was growing them.
+		m_registry		 = std::move(other.m_registry);
+		m_preferred		 = std::move(other.m_preferred);
+		m_preferredApis	 = std::move(other.m_preferredApis);
+		m_requestedName	 = other.m_requestedName;
+		m_wasAskedFor	 = other.m_wasAskedFor;
+		m_honoredRequest = other.m_honoredRequest;
+		m_includeNull	 = other.m_includeNull;
 	}
 
 	BackendSelection & BackendSelection::operator=(BackendSelection && other) noexcept

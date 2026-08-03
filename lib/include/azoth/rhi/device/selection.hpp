@@ -208,7 +208,8 @@ namespace azo::rhi
 		/**
 		 * \brief Backend name moved to the front when present.
 		 *
-		 * Either short or canonical form is accepted. The pointer is borrowed and must outlive the BackendSelection construction.
+		 * Either short or canonical form is accepted. The pointer is borrowed and must outlive the BackendSelection itself, not merely its construction: the
+		 * name is kept as a view and every later Add reads it, as does RequestedName.
 		 */
 		const char * requested = nullptr;
 
