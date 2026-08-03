@@ -115,8 +115,12 @@ namespace azo::rhi::metal4
 		 *
 		 * Metal 3 hands a push constant range straight to the encoder. An argument table binds addresses only, so the bytes need to live in a buffer that
 		 * outlives the submission. Written at a bump offset and grown by adding another block, so a list pushing constants per draw does not allocate per draw.
+		 *
+		 * The cursor is which block the bump offset is inside. Begin rewinds both, so a recording walks the blocks it already owns instead of adding one per
+		 * frame. Without it a list that ever needed two blocks strands the earlier one on every Begin, since the write always lands in the newest.
 		 */
 		detail::HostVector<NS::SharedPtr<MTL::Buffer>> pushConstantBlocks;
+		std::size_t pushConstantBlock	 = 0;
 		std::uint64_t pushConstantOffset = 0;
 
 		// Transient staging buffers, held until the next Begin drops them, as on the other generation.

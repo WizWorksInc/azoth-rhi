@@ -223,33 +223,46 @@ namespace azo::rhi::metal4
 
 		const std::uint64_t aligned = (static_cast<std::uint64_t>(size) + kAlignment - 1) & ~(kAlignment - 1);
 
-		const bool needsBlock = list->pushConstantBlocks.empty() || list->pushConstantOffset + aligned > kBlockSize;
-		if (needsBlock)
+		const bool blockIsFull = list->pushConstantBlocks.empty() || list->pushConstantOffset + aligned > kBlockSize;
+		if (blockIsFull)
 		{
 			if (aligned > kBlockSize)
 			{
 				return 0;
 			}
 
-			MTL::Buffer * block = device->device->newBuffer(kBlockSize, MTL::ResourceStorageModeShared);
-			if (block == nullptr)
+			/*
+			 * A block this list already holds comes first. Begin rewound the cursor, so a recording that needed three blocks last frame walks those same three
+			 * this frame and allocates nothing. Only a recording that outgrows every block it owns adds one.
+			 */
+			const std::size_t next = list->pushConstantBlocks.empty() ? 0 : list->pushConstantBlock + 1;
+			if (next < list->pushConstantBlocks.size())
 			{
-				return 0;
+				list->pushConstantBlock = next;
 			}
-
-			NS::SharedPtr<MTL::Buffer> owned = NS::TransferPtr(block);
-			if (!detail::TryPushBack(list->pushConstantBlocks, owned))
+			else
 			{
-				return 0;
-			}
+				MTL::Buffer * block = device->device->newBuffer(kBlockSize, MTL::ResourceStorageModeShared);
+				if (block == nullptr)
+				{
+					return 0;
+				}
 
-			// Bound by address like everything else here, so it has to be resident like everything else here.
-			NoteListAllocation(list, owned.get());
+				NS::SharedPtr<MTL::Buffer> owned = NS::TransferPtr(block);
+				if (!detail::TryPushBack(list->pushConstantBlocks, owned))
+				{
+					return 0;
+				}
+
+				// Bound by address like everything else here, so it has to be resident like everything else here.
+				NoteListAllocation(list, owned.get());
+				list->pushConstantBlock = list->pushConstantBlocks.size() - 1;
+			}
 
 			list->pushConstantOffset = 0;
 		}
 
-		MTL::Buffer * block = list->pushConstantBlocks.back().get();
+		MTL::Buffer * block = list->pushConstantBlocks[list->pushConstantBlock].get();
 
 		// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): a mapped buffer is a flat run of bytes by construction.
 		std::memcpy(static_cast<std::uint8_t *>(block->contents()) + list->pushConstantOffset, data, size);
@@ -316,8 +329,10 @@ namespace azo::rhi::metal4
 		 *
 		 * A list outlives its recordings once a pool takes them back, so a block rebuilt every Begin would leave the set below holding one dead buffer per
 		 * frame. The caller has waited for the submission that read them, which is what a pool reset promises, so reuse cannot hand back a block the GPU is
-		 * still reading.
+		 * still reading. Rewinding means both the block cursor and the offset inside it, since leaving the cursor on the last block makes every write land
+		 * there and strands the ones before it.
 		 */
+		list->pushConstantBlock	 = 0;
 		list->pushConstantOffset = 0;
 
 		/*
@@ -900,6 +915,19 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "generateMips names a texture this device never created");
 		}
 
+		if (tex->mipmapLevelCount() <= 1)
+		{
+			return Succeed(error);
+		}
+
+		// generateMipmaps cannot filter block-compressed formats. Metal's own limit and not a rule the RHI imposes, so it is asked whatever the mode and refused
+		// here rather than recorded and refused at commit, as the other generation does.
+		const Metal4TextureSlot * slot = device->textures.Resolve(texture, kHandleAlreadyChecked);
+		if (slot != nullptr && IsCompressedFormat(slot->format))
+		{
+			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips cannot filter a block-compressed format on Metal");
+		}
+
 		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
 		if (encoder == nullptr)
 		{
@@ -950,6 +978,17 @@ namespace azo::rhi::metal4
 
 		for (const TextureResolve & region : regions)
 		{
+			// A store-action resolve covers the whole attachment. A region naming a sub-rectangle cannot be honored and resolving everything instead would write
+			// outside what the caller asked for so it is refused, as it is on the other generation.
+			const bool wholeSlice = region.srcOffset.x == 0 && region.srcOffset.y == 0 && region.srcOffset.z == 0 && region.dstOffset.x == 0 &&
+									region.dstOffset.y == 0 && region.dstOffset.z == 0 &&
+									region.extent.width == static_cast<std::uint32_t>(source->width() >> region.srcSubresource.mip) &&
+									region.extent.height == static_cast<std::uint32_t>(source->height() >> region.srcSubresource.mip);
+			if (!wholeSlice)
+			{
+				return Fail(error, ErrorCode::eUnsupportedFeature, "Metal resolveTexture resolves a whole subresource, not a sub-rectangle");
+			}
+
 			const NS::SharedPtr<MTL4::RenderPassDescriptor> pass = NS::TransferPtr(MTL4::RenderPassDescriptor::alloc()->init());
 
 			MTL::RenderPassColorAttachmentDescriptor * attachment = pass->colorAttachments()->object(0);
