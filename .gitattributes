@@ -1,0 +1,42 @@
+# Line endings are the repository's, not the checkout's, so a file edited on Windows and one edited on
+# macOS produce the same diff.
+* text=auto eol=lf
+
+# Anything that is not text. A binary stored normally is re-uploaded whole on every change and bloats the
+# history for everyone who clones, which is what LFS exists to avoid.
+#
+# Sources stay out of this on purpose: shaders, CMake and C++ are text and want to be diffable.
+
+# Images and environment maps
+*.hdr filter=lfs diff=lfs merge=lfs -text
+*.exr filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.psd filter=lfs diff=lfs merge=lfs -text
+
+# Compressed texture containers
+*.ktx filter=lfs diff=lfs merge=lfs -text
+*.ktx2 filter=lfs diff=lfs merge=lfs -text
+*.dds filter=lfs diff=lfs merge=lfs -text
+*.basis filter=lfs diff=lfs merge=lfs -text
+
+# Models. A .gltf is JSON and stays text, unlike the binary container beside it.
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+
+# Compiled shader output, for the cases where a build product is committed to the repository
+*.spv filter=lfs diff=lfs merge=lfs -text
+*.dxil filter=lfs diff=lfs merge=lfs -text
+*.metallib filter=lfs diff=lfs merge=lfs -text
+
+# Archives and libraries
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.7z filter=lfs diff=lfs merge=lfs -text
+*.lib filter=lfs diff=lfs merge=lfs -text
+*.a filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,92 @@
+name: Set up the build environment
+description: Installs the toolchain a job asks for and puts a compiler cache in front of it.
+
+inputs:
+  cc:
+    description: Value for CC. Left to the platform default when empty.
+    required: false
+    default: ""
+  cxx:
+    description: Value for CXX. Left to the platform default when empty.
+    required: false
+    default: ""
+  vulkan-driver:
+    description: Install the Vulkan loader and the Mesa software driver.
+    required: false
+    default: "false"
+  cache-key:
+    description: Names this job's compiler cache. Has to be unique per job.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install the toolchain
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        INPUT_CC: ${{ inputs.cc }}
+        INPUT_CXX: ${{ inputs.cxx }}
+        INPUT_VULKAN_DRIVER: ${{ inputs.vulkan-driver }}
+      run: |
+        packages=(ninja-build ccache)
+        if [ -n "$INPUT_CC" ]; then packages+=("$INPUT_CC"); fi
+        if [ -n "$INPUT_CXX" ]; then packages+=("$INPUT_CXX"); fi
+        if [ "$INPUT_VULKAN_DRIVER" = "true" ]; then
+          packages+=(libvulkan1 mesa-vulkan-drivers vulkan-tools)
+        fi
+
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends "${packages[@]}"
+
+    - name: Install the toolchain
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        for formula in ninja ccache; do
+          if ! brew list --formula --versions "$formula" >/dev/null 2>&1; then
+            brew install --formula "$formula"
+          fi
+        done
+
+    - name: Select the compiler and the generator
+      shell: bash
+      env:
+        INPUT_CC: ${{ inputs.cc }}
+        INPUT_CXX: ${{ inputs.cxx }}
+      run: |
+        if [ -n "$INPUT_CC" ]; then echo "CC=$INPUT_CC" >> "$GITHUB_ENV"; fi
+        if [ -n "$INPUT_CXX" ]; then echo "CXX=$INPUT_CXX" >> "$GITHUB_ENV"; fi
+
+        if [ "$RUNNER_OS" != "Windows" ]; then
+          echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
+        fi
+
+    - name: Configure the compiler cache
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> "$GITHUB_ENV"
+        echo "CCACHE_MAXSIZE=300M" >> "$GITHUB_ENV"
+        echo "CCACHE_COMPILERCHECK=content" >> "$GITHUB_ENV"
+
+    - name: Restore the compiler cache
+      if: runner.os != 'Windows' && github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/.ccache
+        key: ccache-${{ inputs.cache-key }}-
+        restore-keys: ccache-${{ inputs.cache-key }}-
+
+    - name: Restore and save the compiler cache
+      if: runner.os != 'Windows' && github.ref == 'refs/heads/main'
+      uses: actions/cache@v6
+      with:
+        path: ${{ github.workspace }}/.ccache
+        key: ccache-${{ inputs.cache-key }}-${{ github.run_id }}
+        restore-keys: ccache-${{ inputs.cache-key }}-
+
+    - name: Report the Vulkan driver
+      if: runner.os == 'Linux' && inputs.vulkan-driver == 'true'
+      shell: bash
+      run: vulkaninfo --summary || true

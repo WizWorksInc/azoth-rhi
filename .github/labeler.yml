@@ -1,0 +1,112 @@
+"A: RHI":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/*.hpp
+          - lib/include/azoth/rhi/builders/**
+          - lib/include/azoth/rhi/native/**
+          - lib/src/device/facades.cpp
+          - lib/include/azoth/rhi/backend/dispatch.hpp
+          - lib/include/azoth/rhi/backend/blocks/**
+          - lib/include/azoth/rhi/backend/table_validation.hpp
+
+"A: RHI Backends":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/device/selection.hpp
+          - lib/include/azoth/rhi/backend/device_tag.hpp
+          - lib/include/azoth/rhi/backend/resource_tables.hpp
+          - lib/src/backends/**
+          - cmake/azoth_rhi_backends.cmake
+
+"A: WSI":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/present/swapchain.hpp
+          - lib/include/azoth/rhi/builders/swapchain_builders.hpp
+          - lib/include/azoth/rhi/host/presentation_backend.hpp
+          - lib/include/azoth/rhi/host/surface_source.hpp
+          - lib/src/host/presentation_*
+          - lib/src/backends/*/swapchain*
+          - examples/windowing_*/**
+          - tests/unit/swapchain/**
+
+"A: Memory":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/host/allocator.hpp
+          - lib/include/azoth/rhi/backend/allocation_tracker.hpp
+          - lib/src/device/allocation_tracker.cpp
+          - lib/src/backends/*/heap.cpp
+          - lib/src/backends/*/sampler_heap.cpp
+          - tests/unit/allocator/**
+
+"A: Concurrency":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/device/threading.hpp
+          - lib/include/azoth/rhi/backend/support/spin_lock.hpp
+          - tests/unit/detail/spin_lock_test.cpp
+
+"A: Profiling":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/host/profiler.hpp
+          - lib/include/azoth/rhi/core/profiling.hpp
+          - lib/include/azoth/rhi/host/tracy_profiler.hpp
+          - lib/src/host/tracy_profiler.cpp
+          - cmake/azoth_rhi_profiling.cmake
+          - examples/profiler_sink/**
+          - tests/unit/profiler/**
+
+"A: Core Tech":
+  - changed-files:
+      - any-glob-to-any-file:
+          - lib/include/azoth/rhi/core/**
+          - lib/include/azoth/rhi/backend/support/host_containers.hpp
+          - lib/include/azoth/rhi/backend/support/object_pool.hpp
+          - lib/include/azoth/rhi/backend/support/slot_map.hpp
+          - lib/include/azoth/rhi/backend/support/scope_guard.hpp
+          - lib/include/azoth/rhi/backend/support/format_info.hpp
+          - lib/include/azoth/rhi/backend/support/subresource.hpp
+
+"A: Build":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/CMakeLists.txt"
+          - "**/*.cmake"
+          - .github/workflows/**
+          - .clang-format
+          - .clang-tidy
+          - .gitignore
+
+"A: Packaging/Distribution":
+  - changed-files:
+      - any-glob-to-any-file:
+          - cmake/AzothRHIConfig.cmake.in
+          - cmake/azoth_rhi_version.cmake
+          - cmake/in/**
+
+"A: Examples":
+  - changed-files:
+      - any-glob-to-any-file:
+          - examples/**
+
+"A: Testing":
+  - changed-files:
+      - any-glob-to-any-file:
+          - tests/**
+          - cmake/azoth_rhi_test_*.cmake
+
+"T: Documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - .github/ISSUE_TEMPLATE/**
+
+"Changes: No C++":
+  - changed-files:
+      - all-globs-to-all-files:
+          - "!**/*.cpp"
+          - "!**/*.hpp"
+          - "!**/*.mm"
+          - "!**/*.hpp.in"

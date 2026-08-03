@@ -1,0 +1,142 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  sanitizers:
+    name: ${{ matrix.sanitizer }} sanitizer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [ADDRESS, UNDEFINED, THREAD]
+
+    env:
+      BUILD_TYPE: Release
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 1
+      AZOTH_RHI_TEST_REQUIRE_BACKENDS: "null"
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: clang-18
+          cxx: clang++-18
+          cache-key: sanitizer-${{ matrix.sanitizer }}
+
+      - name: Configure
+        env:
+          SANITIZER: ${{ matrix.sanitizer }}
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DAZOTH_RHI_SANITIZER="$SANITIZER" \
+            -DAZOTH_RHI_BACKEND_VULKAN=OFF \
+            -DAZOTH_RHI_BUILD_EXAMPLES=OFF -DAZOTH_RHI_BUILD_BENCHMARKS=OFF | tee configure.log
+
+      - name: Check the sanitizer is in the build
+        env:
+          SANITIZER: ${{ matrix.sanitizer }}
+        run: grep -q "building with the $SANITIZER sanitizer" configure.log
+
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE"
+
+      - name: Test
+        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+
+  stress:
+    name: Stress suites
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    env:
+      BUILD_TYPE: Release
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 2
+      AZOTH_RHI_TEST_REQUIRE_BACKENDS: vulkan,null
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: gcc-14
+          cxx: g++-14
+          vulkan-driver: "true"
+          cache-key: stress-linux-gcc14
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DAZOTH_RHI_BUILD_STRESS_TESTS=ON \
+            -DAZOTH_RHI_BUILD_EXAMPLES=OFF -DAZOTH_RHI_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE"
+
+      - name: Test
+        run: ctest --test-dir build -C "$BUILD_TYPE" -L stress --output-on-failure
+
+  examples:
+    name: ${{ matrix.name }} examples
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc14
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+          - name: macos-appleclang
+            os: macos-15
+          - name: windows-msvc
+            os: windows-2025
+
+    env:
+      BUILD_TYPE: Release
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: ${{ matrix.cc }}
+          cxx: ${{ matrix.cxx }}
+          cache-key: examples-${{ matrix.name }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DAZOTH_RHI_BUILD_EXAMPLES=ON \
+            -DAZOTH_RHI_BUILD_TESTS=OFF -DAZOTH_RHI_BUILD_BENCHMARKS=OFF
+
+      - name: Build the samples
+        run: cmake --build build --config "$BUILD_TYPE" --target rhi_examples

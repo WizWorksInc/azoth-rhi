@@ -1,0 +1,126 @@
+---
+AccessModifierOffset: -4
+AlignAfterOpenBracket: false
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCaseColons: false
+AlignEscapedNewlines: Right
+AlignTrailingComments:
+  Kind: Always
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortCompoundRequirementOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: true
+AttributeMacros: []
+BasedOnStyle: Microsoft
+BinPackArguments: false
+BinPackParameters: BinPack
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterExternBlock: false
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: true
+  SplitEmptyFunction: false
+  SplitEmptyNamespace: false
+  SplitEmptyRecord: false
+BracedInitializerIndentWidth: 4
+BreakAfterAttributes: Never
+BreakBeforeBraces: Allman
+BreakBeforeConceptDeclarations: Always
+BreakTemplateDeclarations: Yes
+ColumnLimit: 160
+CompactNamespaces: false
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+Cpp11BracedListStyle: Block
+DerivePointerAlignment: false
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+EnumTrailingComma: Leave
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Project .h headers.
+  - Regex: '^"azoth/.*\.h"$'
+    Priority: 10
+
+  # Project .hpp headers.
+  - Regex: '^"azoth/.*\.hpp"$'
+    Priority: 20
+
+  # Other quoted .h headers.
+  - Regex: '^"[^"]+\.h"$'
+    Priority: 30
+
+  # Other quoted .hpp headers.
+  - Regex: '^"[^"]+\.hpp"$'
+    Priority: 40
+
+  # Other quoted C++ implementation/detail headers.
+  - Regex: '^"[^"]+\.(hh|hxx|ipp|inl)"$'
+    Priority: 50
+
+  # Angled .h headers.
+  - Regex: '^<[^>]+\.h>$'
+    Priority: 60
+
+  # Angled .hpp headers.
+  - Regex: '^<[^>]+\.hpp>$'
+    Priority: 70
+
+  # Other angled C++ implementation/detail headers.
+  - Regex: '^<[^>]+\.(hh|hxx)>$'
+    Priority: 80
+
+  # Standard library and extensionless angled headers.
+  - Regex: '^<[^>]+>$'
+    Priority: 90
+IncludeIsMainRegex: '$'
+IncludeIsMainSourceRegex: '(\.c|\.cc|\.cpp|\.cxx)$'
+IndentPPDirectives: BeforeHash
+IndentRequiresClause: false
+IndentWidth: 4
+InsertNewlineAtEOF: true
+InsertTrailingCommas: Wrapped
+LineEnding: LF
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: All
+PackConstructorInitializers: CurrentLine
+PointerAlignment: Middle
+QualifierAlignment: Leave
+ReferenceAlignment: Middle
+ReflowComments: IndentOnly
+RequiresClausePosition: OwnLine
+SeparateDefinitionBlocks: Always
+ShortNamespaceLines: 0
+SortIncludes: CaseInsensitive
+SortUsingDeclarations: Lexicographic
+SpaceAfterTemplateKeyword: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyBraces: Never
+SpacesInParens: Never
+Standard: Latest
+StatementAttributeLikeMacros: []
+StatementMacros: []
+TabWidth: 4
+UseTab: Always
+ObjCBlockIndentWidth: 4

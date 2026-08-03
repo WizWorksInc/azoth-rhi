@@ -1,0 +1,54 @@
+name: Labels
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  areas:
+    name: Area labels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: false
+
+  size:
+    name: Size label
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Apply the bucket matching the line count
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          ADDITIONS: ${{ github.event.pull_request.additions }}
+          DELETIONS: ${{ github.event.pull_request.deletions }}
+        run: |
+          CHANGED=$((ADDITIONS + DELETIONS))
+
+          if   [ "$CHANGED" -lt 10 ];   then bucket=XS
+          elif [ "$CHANGED" -lt 100 ];  then bucket=S
+          elif [ "$CHANGED" -lt 1000 ]; then bucket=M
+          elif [ "$CHANGED" -lt 5000 ]; then bucket=L
+          else                               bucket=XL
+          fi
+          echo "$CHANGED lines changed, applying size/$bucket"
+
+          for stale in XS S M L XL; do
+            if [ "$stale" != "$bucket" ]; then
+              gh api -X DELETE "repos/$REPO/issues/$PR/labels/size%2F$stale" >/dev/null 2>&1 || true
+            fi
+          done
+
+          gh api -X POST "repos/$REPO/issues/$PR/labels" -f "labels[]=size/$bucket" >/dev/null

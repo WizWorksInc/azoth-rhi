@@ -1,0 +1,204 @@
+name: Build options
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  shared:
+    name: ${{ matrix.name }} shared
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc14
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+            vulkan_driver: "true"
+            require_backends: vulkan,null
+          - name: macos-appleclang
+            os: macos-15
+            require_backends: metal,null
+          - name: windows-msvc
+            os: windows-2025
+            require_backends: d3d12,null
+
+    env:
+      BUILD_TYPE: Debug
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: ${{ matrix.cc }}
+          cxx: ${{ matrix.cxx }}
+          vulkan-driver: ${{ matrix.vulkan_driver }}
+          cache-key: shared-${{ matrix.name }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DBUILD_SHARED_LIBS=ON -DAZOTH_RHI_BUILD_EXAMPLES=OFF -DAZOTH_RHI_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE"
+
+      - name: Test
+        env:
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
+        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+
+  no-exceptions:
+    name: ${{ matrix.name }} ${{ matrix.build_type }} no-exceptions
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+        include:
+          - name: linux-clang18
+            os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+            vulkan_driver: "true"
+            require_backends: vulkan,null
+          - name: macos-appleclang
+            os: macos-15
+            require_backends: metal,null
+          - name: windows-msvc
+            os: windows-2025
+            require_backends: d3d12,null
+
+    env:
+      BUILD_TYPE: ${{ matrix.build_type }}
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: ${{ matrix.cc }}
+          cxx: ${{ matrix.cxx }}
+          vulkan-driver: ${{ matrix.vulkan_driver }}
+          cache-key: no-exceptions-${{ matrix.name }}-${{ matrix.build_type }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DAZOTH_RHI_NO_EXCEPTIONS=ON \
+            -DAZOTH_RHI_BUILD_EXAMPLES=OFF -DAZOTH_RHI_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE"
+
+      - name: Test
+        env:
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
+        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+
+  profiling-sinks:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tracy-linux-gcc14
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+            require_backends: "null"
+            sink_report: "TRACY: linking"
+            configure_flags: >-
+              -DAZOTH_RHI_TESTS_FETCH_TRACY=ON
+              -DAZOTH_RHI_BACKEND_VULKAN=OFF
+              -DAZOTH_RHI_INSTALL=OFF
+          - name: pix-windows-msvc
+            os: windows-2025
+            require_backends: d3d12,null
+            sink_report: "PIX: linking"
+            configure_flags: >-
+              -DAZOTH_RHI_PIX=ON
+              -DAZOTH_RHI_TESTS_FETCH_PIX=ON
+
+    env:
+      BUILD_TYPE: Release
+      CONFIGURE_FLAGS: ${{ matrix.configure_flags }}
+      SINK_REPORT: ${{ matrix.sink_report }}
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: ${{ matrix.cc }}
+          cxx: ${{ matrix.cxx }}
+          cache-key: profiling-${{ matrix.name }}
+
+      - name: Configure
+        run: |
+          read -ra configure_flags <<< "$CONFIGURE_FLAGS"
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DAZOTH_RHI_BUILD_EXAMPLES=OFF -DAZOTH_RHI_BUILD_BENCHMARKS=OFF \
+            "${configure_flags[@]}" | tee configure.log
+
+      - name: Check the sink is in the build
+        run: grep -q "$SINK_REPORT" configure.log
+
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE"
+
+      - name: Test
+        env:
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
+        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+
+  build-options-passed:
+    name: Build options passed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [shared, no-exceptions, profiling-sinks]
+    if: always()
+    steps:
+      - name: Report what each job did
+        env:
+          RESULTS: ${{ join(needs.*.result, ', ') }}
+        run: echo "$RESULTS"
+
+      - name: Fail unless every job succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

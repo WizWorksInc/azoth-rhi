@@ -1,0 +1,192 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "displayName": "Dev (Debug, everything on)",
+      "description": "Day-to-day build: tests, examples and benchmarks on. Uses out/clang, which the IDE and the sample tooling both expect.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/out/clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "AZOTH_RHI_BUILD_TESTS": "ON",
+        "AZOTH_RHI_BUILD_EXAMPLES": "ON",
+        "AZOTH_RHI_BUILD_BENCHMARKS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimized, tests and examples off. What the budgets are measured against.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "AZOTH_RHI_BUILD_TESTS": "OFF",
+        "AZOTH_RHI_BUILD_EXAMPLES": "OFF",
+        "AZOTH_RHI_BUILD_BENCHMARKS": "ON"
+      }
+    },
+    {
+      "name": "metal3",
+      "displayName": "Metal 3 only",
+      "description": "Only the Metal 3 backend, so a run cannot silently fall through to another one. The way to tell a Metal 3 defect from a Metal 4 one.",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/metal3",
+      "cacheVariables": {
+        "AZOTH_RHI_BACKEND_METAL": "ON",
+        "AZOTH_RHI_BACKEND_METAL4": "OFF",
+        "AZOTH_RHI_BACKEND_VULKAN": "OFF",
+        "AZOTH_RHI_DEFAULT_BACKEND": "metal"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "metal4",
+      "displayName": "Metal 4 only",
+      "description": "Only the Metal 4 backend, the same isolation the other way round.",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/metal4",
+      "cacheVariables": {
+        "AZOTH_RHI_BACKEND_METAL": "OFF",
+        "AZOTH_RHI_BACKEND_METAL4": "ON",
+        "AZOTH_RHI_BACKEND_VULKAN": "OFF",
+        "AZOTH_RHI_DEFAULT_BACKEND": "metal4"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "xcode",
+      "displayName": "Xcode project",
+      "description": "Generates an .xcodeproj, which is what Xcode's own MCP server and its Metal frame capture both attach to. Multi-config, so the configuration is chosen at build time and not here.",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/out/xcode",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_XCODE_GENERATE_SCHEME": "ON",
+        "AZOTH_RHI_BUILD_TESTS": "ON",
+        "AZOTH_RHI_BUILD_EXAMPLES": "ON",
+        "AZOTH_RHI_BUILD_BENCHMARKS": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "no-exceptions",
+      "displayName": "No exceptions",
+      "description": "Proves the library neither throws nor needs exceptions, which only compiling it that way can show.",
+      "inherits": "dev",
+      "cacheVariables": {
+        "AZOTH_RHI_NO_EXCEPTIONS": "ON"
+      }
+    },
+    {
+      "name": "shared",
+      "displayName": "Shared library",
+      "description": "A shared build with hidden visibility, which is what finds a missing AZO_RHI_API without a Windows machine.",
+      "inherits": "dev",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "xcode",
+      "configurePreset": "xcode",
+      "configuration": "Debug"
+    },
+    {
+      "name": "metal3",
+      "configurePreset": "metal3"
+    },
+    {
+      "name": "metal4",
+      "configurePreset": "metal4"
+    },
+    {
+      "name": "no-exceptions",
+      "configurePreset": "no-exceptions"
+    },
+    {
+      "name": "shared",
+      "configurePreset": "shared"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 4
+      }
+    },
+    {
+      "name": "xcode",
+      "configurePreset": "xcode",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 4
+      }
+    },
+    {
+      "name": "metal3",
+      "configurePreset": "metal3",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 4
+      }
+    },
+    {
+      "name": "metal4",
+      "configurePreset": "metal4",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 4
+      }
+    }
+  ]
+}

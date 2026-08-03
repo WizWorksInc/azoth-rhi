@@ -1,0 +1,47 @@
+# Build output, unanchored. A leading slash would only match at the repository root, and a build
+# directory configured below one of the subprojects is just as much build output.
+build/
+build*/
+cmake-build-*/
+out/
+CMakeFiles/
+CMakeCache.txt
+install/
+install*/
+
+/CMakeUserPresets.json
+
+Testing/
+DartConfiguration.tcl
+
+/compile_commands.json
+/.clangd/
+/.cache/clangd/
+/cmake/local.cmake
+/.Internal/
+
+# Dependency source and artifact caches
+/.cache/
+bin/
+
+.idea/
+
+.vs/
+.vscode/
+*.user
+*.suo
+CMakeSettings.json
+
+*.pdb
+*.ilk
+*.dSYM/
+
+__pycache__/
+
+.DS_Store
+
+Thumbs.db
+desktop.ini
+
+*.swp
+*~

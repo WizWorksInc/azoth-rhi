@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }} ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+        include:
+          - name: linux-gcc14
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+            vulkan_driver: "true"
+            require_backends: vulkan,null
+          - name: linux-clang18
+            os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+            vulkan_driver: "true"
+            require_backends: vulkan,null
+          - name: macos-appleclang
+            os: macos-15
+            require_backends: metal,null
+          - name: windows-msvc
+            os: windows-2025
+            require_backends: d3d12,null
+
+    env:
+      BUILD_TYPE: ${{ matrix.build_type }}
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: ${{ matrix.cc }}
+          cxx: ${{ matrix.cxx }}
+          vulkan-driver: ${{ matrix.vulkan_driver }}
+          cache-key: ci-${{ matrix.name }}-${{ matrix.build_type }}
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DAZOTH_RHI_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE"
+
+      - name: Test
+        env:
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
+        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+
+      - name: Install
+        env:
+          INSTALL_PREFIX: ${{ runner.temp }}/azoth-rhi-install
+        run: cmake --install build --config "$BUILD_TYPE" --prefix "$INSTALL_PREFIX"
+
+  ci-passed:
+    name: CI passed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [build-and-test]
+    if: always()
+    steps:
+      - name: Check the matrix result
+        env:
+          RESULT: ${{ needs.build-and-test.result }}
+        run: |
+          echo "build-and-test: $RESULT"
+          [ "$RESULT" = "success" ]

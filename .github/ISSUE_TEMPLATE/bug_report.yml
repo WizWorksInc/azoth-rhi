@@ -1,0 +1,68 @@
+name: Bug report
+description: Report incorrect or unexpected behavior
+labels: ["T: Bugfix", "S: Untriaged"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you called, what you expected, and what you got.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      multiple: true
+      options:
+        - Vulkan
+        - Direct3D 12
+        - Metal
+        - "Null"
+        - Not backend specific
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS and adapter
+      placeholder: macOS 15.3, Apple M2 Pro
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag or commit.
+      placeholder: v0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: compiler
+    attributes:
+      label: Compiler
+      placeholder: Apple Clang 17.0.0
+    validations:
+      required: false
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproducer
+      description: Smallest code that shows it. Note if it needs a real driver.
+      render: cpp
+    validations:
+      required: false
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation output
+      description: Output from the backend validation layers, or from ValidationMode::eDeveloper.
+      render: text
+    validations:
+      required: false
