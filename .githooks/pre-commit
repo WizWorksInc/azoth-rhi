@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+#
+# Formats the staged C++ content before a commit is written, so what lands already agrees with the Lint workflow.
+#
+# Only the staged content is read and rewritten. A file that also carries unstaged edits keeps its working tree copy
+# exactly as it is: the commit gets the formatted version and the edits in progress are neither swept into it nor
+# rewritten underneath you. That file is named in the output so you know its working copy still needs a pass.
+#
+# Enable in a clone with:  git config core.hooksPath .githooks
+# Skip once with:          git commit --no-verify
+
+set -uo pipefail
+
+# The Lint workflow pins clang-format 22.1.8. Formatting with a different major version disagrees with it, which turns
+# every commit into churn the next contributor undoes, so that is refused rather than warned about.
+readonly PINNED_MAJOR=22
+
+if ! command -v clang-format >/dev/null 2>&1; then
+	echo "pre-commit: clang-format is not on PATH." >&2
+	echo "            Install it, for example 'brew install clang-format' or 'pipx install clang-format==22.1.8'," >&2
+	echo "            or commit with --no-verify to skip this." >&2
+	exit 1
+fi
+
+have_major=$(clang-format --version | sed -E 's/.*version ([0-9]+).*/\1/')
+if [ "${have_major}" != "${PINNED_MAJOR}" ]; then
+	echo "pre-commit: clang-format major version ${have_major} does not match the ${PINNED_MAJOR} the Lint workflow pins." >&2
+	echo "            Formatting with it would disagree with CI. Install clang-format ${PINNED_MAJOR}, or use --no-verify." >&2
+	exit 1
+fi
+
+# Added, copied, modified and renamed only. A staged deletion has no content to look up.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.hpp' '*.mm')
+if [ -z "${staged}" ]; then
+	exit 0
+fi
+
+# Files whose working tree copy already differs from what is staged. Their index entry is formatted and their working
+# tree copy is left alone.
+unstaged=$(git diff --name-only -- '*.cpp' '*.hpp' '*.mm')
+
+fixed=""
+left=""
+
+while IFS= read -r file; do
+	[ -n "${file}" ] || continue
+
+	mode=$(git ls-files --stage -- "${file}" | awk '{ print $1 }')
+	[ -n "${mode}" ] || continue
+
+	before=$(git show ":${file}" | git hash-object --stdin)
+	after=$(git show ":${file}" | clang-format --assume-filename="${file}" | git hash-object -w --stdin)
+	[ "${before}" != "${after}" ] || continue
+
+	git update-index --cacheinfo "${mode},${after},${file}"
+	fixed="${fixed}${file}"$'\n'
+
+	# Written back only when the working tree still matches what was staged, so nothing in progress is overwritten.
+	if printf '%s\n' "${unstaged}" | grep -Fxq -- "${file}"; then
+		left="${left}${file}"$'\n'
+	else
+		git cat-file blob "${after}" >"${file}"
+	fi
+done <<<"${staged}"
+
+if [ -z "${fixed}" ]; then
+	exit 0
+fi
+
+echo "pre-commit: formatted the staged content of:"
+printf '%s' "${fixed}" | sed 's/^/  /'
+
+if [ -n "${left}" ]; then
+	echo
+	echo "pre-commit: these also have unstaged edits, so only the committed version was formatted."
+	echo "            Their working tree copy is untouched and still needs a pass:"
+	printf '%s' "${left}" | sed 's/^/  /'
+fi
+
+exit 0
