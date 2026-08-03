@@ -177,7 +177,16 @@ namespace azo::rhi
 				return false;
 			}
 
-			slot->live.store(false, std::memory_order_release);
+			/*
+			 * Exchanged and not stored, so a slot cannot reach the free list twice. Passing validate false skips the live test in Find, which lets an already
+			 * retired handle through, and one index sitting on the free list twice makes the next two Store calls hand out two live handles naming one slot.
+			 * RetireIf guards the same push with the same test.
+			 */
+			if (!slot->live.exchange(false, std::memory_order_acq_rel))
+			{
+				return false;
+			}
+
 			slot->generation.fetch_add(1, std::memory_order_release);
 
 			static_cast<void>(detail::TryPushBack(m_free, detail::SlotOfIndex(handle.index)));
