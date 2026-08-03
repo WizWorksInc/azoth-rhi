@@ -187,4 +187,44 @@ namespace
 			<< "relaxed FIFO fell back to a tearing mode instead of FIFO";
 	}
 
+	/*
+	 * The swapchain lends its back buffers out and keeps owning them, handing the same handles back on every acquire. A destroy that took one would free the slot
+	 * the swapchain still writes through each frame, and the next resource created would be handed it.
+	 *
+	 * Refused in every mode: the layer that would otherwise catch it relies on the backend to say no.
+	 */
+	TEST_P(SwapchainTest, RefusesToDestroyABorrowedBackBufferOrItsView)
+	{
+		rhi::SwapchainDesc desc{};
+		desc.width	= 64;
+		desc.height = 64;
+
+		rhi::Error error{};
+		rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
+		if (!swapchain.IsValid())
+		{
+			GTEST_SKIP() << "no swapchain without a surface on this backend: " << test::Describe(error);
+		}
+
+		for (std::uint32_t index = 0; index < swapchain.GetImageCount(); ++index)
+		{
+			const rhi::TextureHandle backBuffer = swapchain.GetBackBuffer(index);
+			const rhi::TextureViewHandle view	= swapchain.GetBackBufferView(index);
+			ASSERT_TRUE(backBuffer.IsValid()) << "image " << index << " has no back buffer";
+			ASSERT_TRUE(view.IsValid()) << "image " << index << " has no back buffer view";
+
+			rhi::Error textureError{};
+			EXPECT_FALSE(Dev().Destroy(backBuffer, {}, textureError)) << "image " << index << "'s back buffer was destroyed out from under the swapchain";
+			EXPECT_EQ(textureError.code, rhi::ErrorCode::eValidationFailed);
+
+			rhi::Error viewError{};
+			EXPECT_FALSE(Dev().Destroy(view, {}, viewError)) << "image " << index << "'s back buffer view was destroyed out from under the swapchain";
+			EXPECT_EQ(viewError.code, rhi::ErrorCode::eValidationFailed);
+
+			// The refusal has to leave the handles usable, or a caller's mistake would cost them the chain they still hold.
+			EXPECT_EQ(swapchain.GetBackBuffer(index), backBuffer) << "a refused destroy still took the back buffer";
+			EXPECT_EQ(swapchain.GetBackBufferView(index), view) << "a refused destroy still took the back buffer view";
+		}
+	}
+
 } // namespace
