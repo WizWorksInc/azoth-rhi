@@ -60,9 +60,9 @@ namespace azo::rhi::metal4
 				slot->format  = swapchain->format;
 			}
 
-			if (NS::SharedPtr<MTL::Texture> * view = device->textureViews.Resolve(swapchain->backBufferView, false); view != nullptr)
+			if (Metal4TextureViewSlot * view = device->textureViews.Resolve(swapchain->backBufferView, false); view != nullptr)
 			{
-				*view = texture;
+				view->texture = texture;
 			}
 		}
 
@@ -258,7 +258,7 @@ namespace azo::rhi::metal4
 		// Claimed from the tables that hold them so acquire has a slot to write each frame and a caller holding one of these handles resolves it the same way it
 		// resolves any other texture.
 		swapchain->backBuffer	  = device->textures.Store(Metal4TextureSlot{ .format = swapchain->format, .lifetime = SlotLifetime::eSwapchainBorrowed });
-		swapchain->backBufferView = device->textureViews.Store(NS::SharedPtr<MTL::Texture>{});
+		swapchain->backBufferView = device->textureViews.Store(Metal4TextureViewSlot{ .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->imageAvailable = CreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr);
 		swapchain->presentSemaphores.reserve(imageCount);
 		for (std::uint32_t i = 0; i < imageCount; ++i)

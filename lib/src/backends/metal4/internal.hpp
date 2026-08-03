@@ -338,6 +338,19 @@ namespace azo::rhi::metal4
 		TextureDesc desc{};
 	};
 
+	/*
+	 * A view over a texture, which on Metal is another MTLTexture.
+	 *
+	 * It carries the same ownership word the texture slot does, so a destroy can tell the swapchain's back buffer view from one the caller made. Without it the
+	 * view the swapchain hands out every frame could be destroyed by the caller, and acquire would go on writing the drawable into whatever took the slot.
+	 */
+	struct Metal4TextureViewSlot final
+	{
+		NS::SharedPtr<MTL::Texture> texture;
+
+		SlotLifetime lifetime = SlotLifetime::eOwned;
+	};
+
 	// A buffer, in the one table that names it.
 	struct Metal4BufferSlot final
 	{
@@ -459,7 +472,7 @@ namespace azo::rhi::metal4
 		 */
 		SlotMap<BufferTag, Metal4BufferSlot> buffers;
 		SlotMap<TextureTag, Metal4TextureSlot> textures;
-		SlotMap<TextureViewTag, NS::SharedPtr<MTL::Texture>> textureViews;
+		SlotMap<TextureViewTag, Metal4TextureViewSlot> textureViews;
 		SlotMap<SamplerTag, NS::SharedPtr<MTL::SamplerState>> samplers;
 		SlotMap<HeapTag, NS::SharedPtr<MTL::Heap>> heaps;
 		SlotMap<TimelineTag, Metal4Timeline> timelines;

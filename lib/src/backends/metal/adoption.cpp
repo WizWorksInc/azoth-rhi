@@ -129,7 +129,7 @@ namespace azo::rhi::metal
 			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "an adopted texture view names a texture this device never handed out");
 		}
 
-		const TextureViewHandle handle = device->textureViews.Store(NS::RetainPtr(adopted));
+		const TextureViewHandle handle = device->textureViews.Store(MetalTextureViewSlot{ .texture = NS::RetainPtr(adopted) });
 		if (!handle.IsValid())
 		{
 			return FailValue<TextureViewHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted texture view tracking failed");
@@ -177,7 +177,7 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid texture view handle");
 		}
 
-		static_cast<NativeTextureView<MetalApi> *>(outNativeImport)->texture = slot->get();
+		static_cast<NativeTextureView<MetalApi> *>(outNativeImport)->texture = slot->texture.get();
 		return Succeed(error);
 	}
 

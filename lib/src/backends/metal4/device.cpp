@@ -94,6 +94,29 @@ namespace azo::rhi::metal4
 		 */
 		constexpr bool matchIdentity = true;
 
+		/*
+		 * A back buffer and the view over it belong to the swapchain, which hands the same two handles back every frame and outlives this call. Retiring
+		 * either would free its slot, and the next acquire writes that frame's drawable through an unvalidated resolve into whatever took it.
+		 *
+		 * Refused whatever the mode, as Vulkan and Null already do. The validation layer counts on that refusal to put the handle back.
+		 */
+		if (type == ResourceType::eTexture)
+		{
+			const Metal4TextureSlot * const slot = device->textures.Resolve(Typed<TextureHandle>(handle), matchIdentity);
+			if (slot != nullptr && slot->lifetime == SlotLifetime::eSwapchainBorrowed)
+			{
+				return Fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer texture is not allowed");
+			}
+		}
+		else if (type == ResourceType::eTextureView)
+		{
+			const Metal4TextureViewSlot * const slot = device->textureViews.Resolve(Typed<TextureViewHandle>(handle), matchIdentity);
+			if (slot != nullptr && slot->lifetime == SlotLifetime::eSwapchainBorrowed)
+			{
+				return Fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer view is not allowed");
+			}
+		}
+
 		switch (type)
 		{
 		case ResourceType::eBuffer:			  static_cast<void>(device->buffers.Retire(Typed<BufferHandle>(handle), matchIdentity)); break;

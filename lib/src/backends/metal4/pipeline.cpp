@@ -19,7 +19,7 @@ namespace azo::rhi::metal4
 	[[nodiscard]] MTL::Texture * ResolveTextureView(Metal4Device * device, TextureViewHandle handle) noexcept
 	{
 		const auto * tracked = device->textureViews.Resolve(handle, kHandleAlreadyChecked);
-		return tracked != nullptr ? tracked->get() : nullptr;
+		return tracked != nullptr ? tracked->texture.get() : nullptr;
 	}
 
 	namespace

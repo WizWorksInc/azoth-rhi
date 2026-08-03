@@ -176,7 +176,7 @@ namespace azo::rhi::metal4
 		SetMetalLabel(raw, desc.debugName);
 		NS::SharedPtr<MTL::Texture> view = NS::TransferPtr(raw);
 
-		const TextureViewHandle handle = device->textureViews.Store(std::move(view));
+		const TextureViewHandle handle = device->textureViews.Store(Metal4TextureViewSlot{ .texture = std::move(view) });
 		if (!handle.IsValid())
 		{
 			return FailValue<TextureViewHandle>(error, ErrorCode::eOutOfHostMemory, "Metal texture view handle tracking failed");
