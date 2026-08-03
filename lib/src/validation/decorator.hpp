@@ -592,6 +592,18 @@ namespace azo::rhi::validation
 	}
 
 	/*
+	 * Whether there is an open recording for this command to go into.
+	 *
+	 * The thread rule deliberately stands aside before Begin, since no thread has claimed the list yet, which leaves this to say what a command arriving then
+	 * actually did wrong. No backend can be relied on to say it: Vulkan records through entries that return void, so the driver refusing is not something the
+	 * call reports, and one generation of Metal faulted rather than returning at all.
+	 */
+	[[nodiscard]] inline bool RecordedIntoAnOpenList(WrappedCommandList * self, Error * error) noexcept
+	{
+		return self->recording ? true : self->validator->Fail(error, "a command recorded on a list that is not between Begin and End");
+	}
+
+	/*
 	 * A command-list entry with nothing to check, which still has to arrive on the thread that began the list. The recording-thread rule is about the list so
 	 * every entry it publishes carries it. This and RecordedChecked below are Forward and Checked with that rule in front. Kept as two because the entries naming
 	 * no handle are the dynamic state a frame records most of. Routing those through the handle sweep would cost a call to look at nothing.
@@ -610,6 +622,13 @@ namespace azo::rhi::validation
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
 				return self->validator->FailValue<R>(error, "a command recorded on a thread other than the one that began the list");
+			}
+
+			if (!self->recording) [[unlikely]]
+			{
+				Error * error = nullptr;
+				((error = PickError(error, args)), ...);
+				return self->validator->FailValue<R>(error, "a command recorded on a list that is not between Begin and End");
 			}
 
 			return (InnerBlock<Block>(self)->*Member)(self->inner, args...);
@@ -633,6 +652,13 @@ namespace azo::rhi::validation
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
 				return self->validator->FailValue<R>(error, "a command recorded on a thread other than the one that began the list");
+			}
+
+			if (!self->recording) [[unlikely]]
+			{
+				Error * error = nullptr;
+				((error = PickError(error, args)), ...);
+				return self->validator->FailValue<R>(error, "a command recorded on a list that is not between Begin and End");
 			}
 
 			return Checked<Member>::Call(impl, args...);
