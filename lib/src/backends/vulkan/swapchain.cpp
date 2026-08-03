@@ -378,6 +378,14 @@ namespace azo::rhi::vulkan
 		}
 		const vk::Semaphore wait = swapchain->semaphores[slot];
 
+		// The image index gets what the semaphore above gets, and for the same stale-after-a-resize reason. It is otherwise the one argument here handed to the
+		// driver unexamined, and presenting an image the chain does not have is undefined rather than refused.
+		if (imageIndex >= swapchain->backBufferTextures.size())
+		{
+			Fail(error, ErrorCode::eInvalidArgument, "present names an image index this swapchain does not have");
+			return PresentResult{ .status = SwapchainStatus::eError };
+		}
+
 		const vk::PresentInfoKHR present(wait, swapchain->bundle.Swapchain, imageIndex);
 		const vk::Result result		 = queue->queue.presentKHR(present, queue->owner->dispatch);
 		const SwapchainStatus status = MapSwapchainStatus(result);
@@ -450,10 +458,20 @@ namespace azo::rhi::vulkan
 
 	BinarySemaphoreHandle VulkanSwapchainPresentSemaphore(void * impl, std::uint32_t imageIndex) noexcept
 	{
-		const auto * swapchain	 = static_cast<VulkanSwapchain *>(impl);
-		const std::uint32_t slot = (imageIndex < swapchain->acquireBase) ? imageIndex : 0;
+		const auto * swapchain = static_cast<VulkanSwapchain *>(impl);
+
+		/*
+		 * Empty for an index this chain has no image for, as the two accessors above answer the same question. Folding it onto slot zero handed back another
+		 * image's semaphore looking entirely valid, so a caller that kept an index across a resize that shrank the chain would signal one image's semaphore for
+		 * another image's frame, which is the double signal the one-semaphore-per-image rule exists to prevent.
+		 */
+		if (imageIndex >= swapchain->acquireBase)
+		{
+			return {};
+		}
+
 		return BinarySemaphoreHandle{
-			.index		= EncodeWsiSemaphore(swapchain->id, slot),
+			.index		= EncodeWsiSemaphore(swapchain->id, imageIndex),
 			.generation = 1,
 		};
 	}
