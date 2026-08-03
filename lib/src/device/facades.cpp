@@ -241,9 +241,10 @@ namespace azo::rhi
 			return true;
 		}
 
-		void RecordSpan(BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation, const MemorySpan & span)
+		[[nodiscard]] bool RecordSpan(
+			BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation, const MemorySpan & span) noexcept
 		{
-			blocks.Tracker().Record(type,
+			return blocks.Tracker().Record(type,
 				RawHandle{
 					.index		= index,
 					.generation = generation,
@@ -488,10 +489,24 @@ namespace azo::rhi
 		{
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
 			handle = m_blocks->Device().placedMemory->createPlacedBuffer(m_impl, placed, error);
-			if (handle.IsValid())
+
+			// Under the guard with the create, since the tracker is partitioned by kind and that is its whole synchronization.
+			if (handle.IsValid() && !RecordSpan(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, span))
 			{
-				// Under the guard with the create, since the tracker is partitioned by kind and that is its whole synchronization.
-				RecordSpan(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, span);
+				/*
+				 * A span the tracker could not take is one no destroy will ever hand back, so the buffer goes with it rather than the range staying held for the
+				 * life of the device. The span is freed below, on the path a create that produced no handle already takes.
+				 */
+				static_cast<void>(m_blocks->Device().core->destroy(m_impl,
+					ResourceType::eBuffer,
+					{
+						.index		= handle.index,
+						.generation = handle.generation,
+					},
+					DestroyDesc{},
+					nullptr));
+				handle = {};
+				Fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this buffer");
 			}
 		}
 
@@ -571,9 +586,20 @@ namespace azo::rhi
 		{
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
 			handle = m_blocks->Device().placedMemory->createPlacedTexture(m_impl, placed, error);
-			if (handle.IsValid())
+
+			// As in the buffer path above, and for the same reason.
+			if (handle.IsValid() && !RecordSpan(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, span))
 			{
-				RecordSpan(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, span);
+				static_cast<void>(m_blocks->Device().core->destroy(m_impl,
+					ResourceType::eTexture,
+					{
+						.index		= handle.index,
+						.generation = handle.generation,
+					},
+					DestroyDesc{},
+					nullptr));
+				handle = {};
+				Fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this texture");
 			}
 		}
 

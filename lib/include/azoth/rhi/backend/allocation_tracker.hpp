@@ -43,16 +43,18 @@ namespace azo::rhi::detail
 		 * \brief Records the allocator span backing a live resource handle.
 		 *
 		 * \param handle Type-erased backend resource handle used with type to build the live-record key.
+		 * \return False when the record could not be stored, which leaves the span untracked and therefore unreachable by any later destroy.
 		 */
-		void Record(ResourceType type, RawHandle handle, const MemorySpan & span);
+		[[nodiscard]] bool Record(ResourceType type, RawHandle handle, const MemorySpan & span) noexcept;
 
 		/**
 		 * \brief Removes a live span and either returns it immediately or defers it until the destroy retire point completes.
 		 *
-		 * \param desc Destruction policy. A default retire point makes the span immediately releasable.
+		 * \param desc Destruction policy. Only eRequireAlreadyIdle hands the span back here. Every other policy leaves it pending, and one that named no retire
+		 * point is released by the next collect of any kind rather than by this call.
 		 * \param out Written only when the span can be released before this function returns.
 		 */
-		[[nodiscard]] bool Retire(ResourceType type, RawHandle handle, const DestroyDesc & desc, MemorySpan & out);
+		[[nodiscard]] bool Retire(ResourceType type, RawHandle handle, const DestroyDesc & desc, MemorySpan & out) noexcept;
 
 		/**
 		 * \brief Moves pending spans whose retire point is covered by the completed timeline value into out.
@@ -61,23 +63,25 @@ namespace azo::rhi::detail
 		 * \param completedValue Completed value observed on timeline.
 		 * \param out Receives releasable spans. This function does not free memory.
 		 */
-		void TakeReleasable(ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, HostVector<MemorySpan> & out);
+		void TakeReleasable(ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, HostVector<MemorySpan> & out) noexcept;
 
 		/**
-		 * \brief Moves every live and pending span for one resource type into out.
+		 * \brief Moves every pending span for one resource type into out, whatever retire point it named.
+		 *
+		 * Pending only. A live span still backs a resource the caller has not destroyed, so releasing one here would free memory the device is still using.
 		 *
 		 * \attention The caller becomes responsible for releasing every returned span.
 		 */
-		void TakeAll(ResourceType type, HostVector<MemorySpan> & out);
+		void TakeAll(ResourceType type, HostVector<MemorySpan> & out) noexcept;
 
 		/**
 		 * \brief Drops all records without returning spans to the allocator.
 		 *
 		 * \attention Call only when the owning backend heaps are being released as a whole.
 		 */
-		void Forget();
+		void Forget() noexcept;
 
-		[[nodiscard]] std::size_t LiveCount() const;
+		[[nodiscard]] std::size_t LiveCount() const noexcept;
 
 	private:
 		/**
