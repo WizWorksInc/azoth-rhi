@@ -198,8 +198,14 @@ namespace azo::rhi::metal
 		 */
 		caps.supportsTimestampWritesInScope = canWriteTimestamps && device->samplesAtDrawBoundary && device->samplesAtDispatchBoundary;
 
-		// sampleTimestamps is what correlates the two clocks and it needs a countable GPU clock behind it, which is what a sampling point reports.
-		caps.supportsTimestampCalibration = device->samplesAtStageBoundary || device->samplesAtDrawBoundary;
+		/*
+		 * sampleTimestamps is what correlates the two clocks, and a sampling point is necessary without being sufficient: an adapter carrying one can still
+		 * answer with a zero pair, which is the emptiness the call itself reports as uncalibrated. Probed once so the cap cannot promise what the call declines.
+		 */
+		MTL::Timestamp probedCpu = 0;
+		MTL::Timestamp probedGpu = 0;
+		mtl->sampleTimestamps(&probedCpu, &probedGpu);
+		caps.supportsTimestampCalibration = (device->samplesAtStageBoundary || device->samplesAtDrawBoundary) && (probedCpu != 0 || probedGpu != 0);
 
 		// Ray tracing is asked for, not assumed absent, so the flag tracks the hardware even while the blocks stay unimplemented.
 		caps.supportsRayTracing = false; // both halves are declined, and the device answer alone cannot make it true
