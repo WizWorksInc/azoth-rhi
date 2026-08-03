@@ -178,10 +178,15 @@ namespace azo::rhi
 						.exists	  = true,
 					};
 
-					// A combined binding is two members in the struct, the texture then the sampler, because Metal has no combined type to declare.
+					// A combined binding is two members in the struct, the texture then the sampler, because Metal has no combined type to declare. Both halves are
+					// members of the one buffer the set is bound at, so the sampler carries the same space and not the set number.
 					if (entry.type == DescriptorType::eCombinedImageSampler)
 					{
-						result.sampler	  = NativeSlot{ .space = set, .index = member + 1, .klass = NativeSlotClass::eArgumentBufferMember };
+						result.sampler = NativeSlot{
+							.space = MetalArgumentBufferIndexForSet(set),
+							.index = member + 1,
+							.klass = NativeSlotClass::eArgumentBufferMember,
+						};
 						result.hasSampler = true;
 					}
 

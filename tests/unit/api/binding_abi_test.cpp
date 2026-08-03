@@ -195,6 +195,23 @@ namespace
 		EXPECT_EQ(second.resource.index, 0u) << "members are numbered inside their own set, not across sets";
 	}
 
+	TEST(BindingAbi, BothHalvesOfACombinedBindingAreMembersOfTheSetsOwnArgumentBuffer)
+	{
+		const Fixture fixture;
+
+		const rhi::NativeBinding combined = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 3);
+		ASSERT_TRUE(combined.exists);
+		ASSERT_TRUE(combined.hasSampler);
+
+		EXPECT_EQ(combined.resource.space, rhi::MetalArgumentBufferIndexForSet(0));
+		EXPECT_EQ(combined.resource.index, 5u) << "binding 0 took one member, the array at binding 1 took three, the sampler at binding 2 took one";
+
+		EXPECT_EQ(combined.sampler.klass, rhi::NativeSlotClass::eArgumentBufferMember);
+		EXPECT_EQ(combined.sampler.space, combined.resource.space) << "the sampler half is a member of the same buffer as its texture half, not of buffer 0";
+		EXPECT_NE(combined.sampler.space, rhi::kMetalPushConstantBufferIndex) << "a descriptor must not resolve into the reserved push constant buffer";
+		EXPECT_EQ(combined.sampler.index, 6u) << "the texture half took the member above it";
+	}
+
 	TEST(BindingAbi, ABindingTheLayoutDoesNotDeclareHasNoSlot)
 	{
 		const Fixture fixture;
