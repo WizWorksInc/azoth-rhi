@@ -22,7 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # name is an axis and not only an include key. With build_type as the sole axis, every include below merged into both of its combinations and the last
+        # one won, so the whole matrix collapsed to two windows-msvc jobs and neither Linux nor macOS was ever built. Naming the axis makes each include attach
+        # to the combinations that already carry its name.
         build_type: [Debug, Release]
+        name: [linux-gcc14, linux-clang18, macos-appleclang, windows-msvc]
         include:
           - name: linux-gcc14
             os: ubuntu-24.04
