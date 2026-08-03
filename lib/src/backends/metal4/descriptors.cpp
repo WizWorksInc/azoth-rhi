@@ -188,15 +188,17 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eUnsupportedFeature, "this device has no argument buffers, which the Metal 4 backend binds sets through");
 		}
 
-		// A dynamic offset shifts where inside the argument buffer the set starts, which is what the other generation expresses by passing an offset to
-		// setBuffer.
-		std::uint64_t offset = 0;
-		for (const DynamicDescriptorOffset & dynamic : dynamicOffsets)
-		{
-			offset += dynamic.offset;
-		}
+		/*
+		 * Dynamic offsets do not move the set, on either generation. A set is one argument buffer holding a GPU address per buffer descriptor, so shifting one
+		 * descriptor means rewriting that member, not moving the buffer every member is read from. Metal 3 reaches the same place by returning above its own
+		 * dynamic-offset loop once it is binding an argument buffer.
+		 *
+		 * Summing them into the set's base address, which is what this did, moved every member of the set past the end of its allocation, and the shader then
+		 * read whatever followed as GPU addresses and resource ids.
+		 */
+		static_cast<void>(dynamicOffsets);
 
-		list->argumentTable->setAddress(tracked->argumentBuffer->gpuAddress() + offset, MetalArgumentBufferIndexForSet(setIndex));
+		list->argumentTable->setAddress(tracked->argumentBuffer->gpuAddress(), MetalArgumentBufferIndexForSet(setIndex));
 		return Succeed(error);
 	}
 
