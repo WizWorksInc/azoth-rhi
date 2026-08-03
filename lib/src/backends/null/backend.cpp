@@ -15,6 +15,7 @@
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
+#include "azoth/rhi/backend/support/subresource.hpp"
 #include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/profiling.hpp"
@@ -433,6 +434,20 @@ namespace azo::rhi
 				return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend exports nothing, so nothing it creates is exportable");
 			}
 
+			/*
+			 * Refused here even though there is no driver to refuse it. This backend is what a machine with no GPU runs the suite against, so a description it
+			 * accepts is one nothing catches until a real backend sees it, and the two below are refused by every other backend.
+			 */
+			if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
+			{
+				return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+			}
+
+			if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, desc.type == TextureType::eTex3D ? desc.depth : 1))
+			{
+				return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
+			}
+
 			const TextureHandle handle = MintCreated<TextureHandle>(device, error);
 			if (!handle.IsValid())
 			{
@@ -479,6 +494,12 @@ namespace azo::rhi
 			if (!desc.exportableHandleTypes.Empty())
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend exports nothing, so nothing it creates is exportable");
+			}
+
+			// Refused for the reason the texture extent above is: this is the backend a run with no GPU checks against.
+			if (desc.size == 0)
+			{
+				return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
 			}
 
 			const BufferHandle handle = MintCreated<BufferHandle>(device, error);

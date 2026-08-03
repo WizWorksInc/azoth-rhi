@@ -246,6 +246,12 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidArgument, "buffer memory info output pointer is null");
 		}
 
+		// The same rule creation applies, so a caller cannot size a heap against a description that could never be created.
+		if (desc.size == 0)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
+		}
+
 		auto * device						 = static_cast<Metal4Device *>(impl);
 		const MTL::SizeAndAlign sizeAndAlign = device->device->heapBufferSizeAndAlign(static_cast<NS::UInteger>(desc.size), MetalBufferStorage(desc.memory));
 		*out								 = MemoryInfo{

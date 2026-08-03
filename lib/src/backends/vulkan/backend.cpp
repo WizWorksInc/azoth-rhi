@@ -14,6 +14,7 @@
 
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
+#include "azoth/rhi/backend/support/subresource.hpp"
 #include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/hash.hpp"
 #include "azoth/rhi/core/profiling.hpp"
@@ -1903,6 +1904,12 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
 			}
 
+			// Refused here and not left to the driver, because on MoltenVK the image becomes an MTLTexture and Metal asserts on a chain longer than the extent holds.
+			if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, desc.type == TextureType::eTex3D ? desc.depth : 1))
+			{
+				return Fail(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
+			}
+
 			const vk::Format format = MapFormat(desc.format);
 			if (format == vk::Format::eUndefined)
 			{
@@ -2235,6 +2242,10 @@ namespace azo::rhi
 			if (t.width == 0 || t.height == 0 || t.depth == 0)
 			{
 				return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+			}
+			if (t.mipLevels > detail::MaxMipLevels(t.width, t.height, t.type == TextureType::eTex3D ? t.depth : 1))
+			{
+				return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
 			}
 			const vk::Format format = MapFormat(t.format);
 			if (format == vk::Format::eUndefined)

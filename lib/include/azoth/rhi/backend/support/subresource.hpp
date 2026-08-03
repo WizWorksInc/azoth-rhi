@@ -22,11 +22,26 @@
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/constants.hpp"
 
+#include <bit>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 
 namespace azo::rhi::detail
 {
+	/**
+	 * \brief Returns how many mip levels an extent can hold, the full chain down to one texel.
+	 *
+	 * Shared because no driver here refuses a texture asking for more. Metal asserts inside validateWithDevice and takes the process with it, and MoltenVK
+	 * builds the same descriptor and dies the same way, so every backend refuses it first.
+	 *
+	 * \note Zero on a zero extent, which is refused separately.
+	 */
+	[[nodiscard]] constexpr std::uint32_t MaxMipLevels(const std::uint32_t width, const std::uint32_t height, const std::uint32_t depth) noexcept
+	{
+		const std::uint32_t largest = width > height ? (width > depth ? width : depth) : (height > depth ? height : depth);
+		return static_cast<std::uint32_t>(std::bit_width(largest));
+	}
+
 	/**
 	 * \brief Concrete texture subresource range after sentinel counts have been resolved and bounds have been clamped.
 	 */

@@ -15,6 +15,7 @@
 #include "backends/metal_common/conversions.hpp"
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/backend/support/subresource.hpp"
 
 // newLibrary takes a dispatch_data_t for a compiled library, which metal-cpp declares without including this itself.
 #include <dispatch/dispatch.h>
@@ -275,6 +276,23 @@ namespace azo::rhi::metal_common
 		if (pixelFormat == MTL::PixelFormatInvalid)
 		{
 			Fail(error, ErrorCode::eUnsupportedFormat, "texture format is not supported by Metal");
+			return {};
+		}
+
+		/*
+		 * Checked here rather than left to Metal, which does not refuse a zero extent, it asserts inside validateWithDevice and takes the process with it. An
+		 * abort is worse than the throw the API already rules out, since a caller cannot catch it either. Vulkan refuses the same descriptor by hand.
+		 */
+		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
+		{
+			Fail(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+			return {};
+		}
+
+		const std::uint32_t volumeDepth = desc.type == TextureType::eTex3D ? desc.depth : 1;
+		if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, volumeDepth))
+		{
+			Fail(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
 			return {};
 		}
 

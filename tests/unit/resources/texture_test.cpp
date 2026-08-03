@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <string_view>
 #include <type_traits>
 
 namespace rhi  = azo::rhi;
@@ -522,6 +523,49 @@ namespace
 		const rhi::SamplerHandle sampler = Dev().CreateSampler(samplerDesc, error);
 		EXPECT_FALSE(sampler.IsValid()) << "a backend with no conversion object accepted one";
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature);
+	}
+
+	/*
+	 * Both of these reached a driver assertion before they were checked here. Metal refuses neither by returning an error, it asserts inside validateWithDevice
+	 * and takes the process down, and Vulkan on MoltenVK builds the same descriptor and dies the same way. The Null backend accepted both, which is why a run
+	 * with no GPU never saw it.
+	 */
+	TEST_P(TextureTest, RefusesATextureWithAZeroDimension)
+	{
+		for (const char * axis : { "width", "height", "depth" })
+		{
+			rhi::TextureDesc desc = test::samples::SampledTexture2D();
+			if (std::string_view(axis) == "width")
+			{
+				desc.width = 0;
+			}
+			else if (std::string_view(axis) == "height")
+			{
+				desc.height = 0;
+			}
+			else
+			{
+				desc.depth = 0;
+			}
+
+			rhi::Error error{};
+			const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
+			EXPECT_FALSE(texture.IsValid()) << "a texture with a zero " << axis << " was accepted";
+			EXPECT_EQ(error.code, rhi::ErrorCode::eInvalidArgument) << "zero " << axis;
+		}
+	}
+
+	TEST_P(TextureTest, RefusesMoreMipLevelsThanTheExtentCanHold)
+	{
+		rhi::TextureDesc desc = test::samples::SampledTexture2D(16);
+
+		// Sixteen texels give five levels counting the base, so six is the first that cannot exist.
+		desc.mipLevels = 6;
+
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
+		EXPECT_FALSE(texture.IsValid()) << "a 16x16 texture was given a sixth mip level";
+		EXPECT_EQ(error.code, rhi::ErrorCode::eInvalidArgument);
 	}
 
 	TEST_P(TextureTest, RefusesToViewATextureThatWasNeverCreated)
