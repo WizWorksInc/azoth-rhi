@@ -117,30 +117,40 @@ namespace azo::rhi::metal4
 			}
 		}
 
+		bool retired = false;
 		switch (type)
 		{
-		case ResourceType::eBuffer:			  static_cast<void>(device->buffers.Retire(Typed<BufferHandle>(handle), matchIdentity)); break;
-		case ResourceType::eTexture:		  static_cast<void>(device->textures.Retire(Typed<TextureHandle>(handle), matchIdentity)); break;
-		case ResourceType::eTextureView:	  static_cast<void>(device->textureViews.Retire(Typed<TextureViewHandle>(handle), matchIdentity)); break;
-		case ResourceType::eSampler:		  static_cast<void>(device->samplers.Retire(Typed<SamplerHandle>(handle), matchIdentity)); break;
-		case ResourceType::eHeap:			  static_cast<void>(device->heaps.Retire(Typed<HeapHandle>(handle), matchIdentity)); break;
-		case ResourceType::eTimeline:		  static_cast<void>(device->timelines.Retire(Typed<TimelineHandle>(handle), matchIdentity)); break;
-		case ResourceType::eBinarySemaphore:  static_cast<void>(device->binarySemaphores.Retire(Typed<BinarySemaphoreHandle>(handle), matchIdentity)); break;
-		case ResourceType::eGraphicsPipeline: static_cast<void>(device->graphicsPipelines.Retire(Typed<GraphicsPipelineHandle>(handle), matchIdentity)); break;
-		case ResourceType::eComputePipeline:  static_cast<void>(device->computePipelines.Retire(Typed<ComputePipelineHandle>(handle), matchIdentity)); break;
-		case ResourceType::eQueryPool:		  static_cast<void>(device->queryPools.Retire(Typed<QueryPoolHandle>(handle), matchIdentity)); break;
+		case ResourceType::eBuffer:			  retired = device->buffers.Retire(Typed<BufferHandle>(handle), matchIdentity); break;
+		case ResourceType::eTexture:		  retired = device->textures.Retire(Typed<TextureHandle>(handle), matchIdentity); break;
+		case ResourceType::eTextureView:	  retired = device->textureViews.Retire(Typed<TextureViewHandle>(handle), matchIdentity); break;
+		case ResourceType::eSampler:		  retired = device->samplers.Retire(Typed<SamplerHandle>(handle), matchIdentity); break;
+		case ResourceType::eHeap:			  retired = device->heaps.Retire(Typed<HeapHandle>(handle), matchIdentity); break;
+		case ResourceType::eTimeline:		  retired = device->timelines.Retire(Typed<TimelineHandle>(handle), matchIdentity); break;
+		case ResourceType::eBinarySemaphore:  retired = device->binarySemaphores.Retire(Typed<BinarySemaphoreHandle>(handle), matchIdentity); break;
+		case ResourceType::eGraphicsPipeline: retired = device->graphicsPipelines.Retire(Typed<GraphicsPipelineHandle>(handle), matchIdentity); break;
+		case ResourceType::eComputePipeline:  retired = device->computePipelines.Retire(Typed<ComputePipelineHandle>(handle), matchIdentity); break;
+		case ResourceType::eQueryPool:		  retired = device->queryPools.Retire(Typed<QueryPoolHandle>(handle), matchIdentity); break;
 
 		// Retired here, not left to the arena reset so a set destroyed by hand hands its slot back instead of outliving every destroy.
-		case ResourceType::eDescriptorSet: static_cast<void>(device->descriptorSets.Retire(Typed<DescriptorSetHandle>(handle), matchIdentity)); break;
+		case ResourceType::eDescriptorSet: retired = device->descriptorSets.Retire(Typed<DescriptorSetHandle>(handle), matchIdentity); break;
 
 		// No native object behind either, but both hold what a pipeline checks its shaders against, so both have a slot of their own to hand back.
 		case ResourceType::eDescriptorSetLayout:
-			static_cast<void>(device->descriptorSetLayouts.Retire(Typed<DescriptorSetLayoutHandle>(handle), matchIdentity));
+			retired = device->descriptorSetLayouts.Retire(Typed<DescriptorSetLayoutHandle>(handle), matchIdentity);
 			break;
-		case ResourceType::ePipelineLayout: static_cast<void>(device->pipelineLayouts.Retire(Typed<PipelineLayoutHandle>(handle), matchIdentity)); break;
+		case ResourceType::ePipelineLayout: retired = device->pipelineLayouts.Retire(Typed<PipelineLayoutHandle>(handle), matchIdentity); break;
 
 		// The kinds with nothing native behind them, tracked for liveness alone.
-		default: static_cast<void>(device->tracked.Retire(type, handle, matchIdentity)); break;
+		default: retired = device->tracked.Retire(type, handle, matchIdentity); break;
+		}
+
+		/*
+		 * The retire already matched on identity, so it has the answer to whether this handle was live. Reporting success anyway would be the silent no-op the
+		 * API rules out, and it is the same answer Vulkan gives, in every validation mode, since the slot has to be resolved either way.
+		 */
+		if (!retired)
+		{
+			return Fail(error, ErrorCode::eValidationFailed, "destroy of a stale, foreign, or already destroyed handle");
 		}
 
 		[[maybe_unused]] const std::uint64_t pending = device->pendingRetire.fetch_add(1, std::memory_order_relaxed) + 1;

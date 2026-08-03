@@ -41,7 +41,11 @@ namespace
 		EXPECT_EQ(MakeDeviceDesc().validation, test::kValidationMode);
 	}
 
-	TEST_P(ValidationModeTest, TracksHandleLivenessInEveryModeExceptOff)
+	/*
+	 * Refused in every mode, though not by the same thing. Off, the decorator is not installed and the backend's own slot map answers, which it resolves anyway
+	 * to find the object to free. In the other modes the registry catches it first. What the mode buys is where the answer comes from, not whether there is one.
+	 */
+	TEST_P(ValidationModeTest, RefusesADoubleDestroyInEveryMode)
 	{
 		rhi::Error error{};
 		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
@@ -49,17 +53,8 @@ namespace
 		ASSERT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 
 		rhi::Error secondError{};
-		const bool acceptedDoubleDestroy = Dev().Destroy(buffer, {}, secondError);
-
-		if constexpr (test::kValidatesHandles)
-		{
-			EXPECT_FALSE(acceptedDoubleDestroy) << "handle liveness is tracked in this mode, so a double destroy has to be refused";
-			EXPECT_TRUE(test::ErrorIsPopulated(secondError));
-		}
-		else
-		{
-			EXPECT_TRUE(acceptedDoubleDestroy) << "handle tracking ran in a mode that promised not to";
-		}
+		EXPECT_FALSE(Dev().Destroy(buffer, {}, secondError)) << "a double destroy was accepted, which would free the native object twice";
+		EXPECT_TRUE(test::ErrorIsPopulated(secondError));
 	}
 
 	TEST_P(ValidationModeTest, TracksResourceStateOnlyWhenTheModeSaysItWill)
