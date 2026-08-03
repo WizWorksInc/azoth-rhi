@@ -243,7 +243,8 @@ namespace azo::rhi::vulkan
 			return FailValue<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set allocation failed");
 		}
 
-		const DescriptorSetHandle handle = device->descriptorSetSlots.Store(DescriptorSetSlot{ .set = allocated.value.front(), .layout = desc.layout });
+		const DescriptorSetHandle handle =
+			device->descriptorSetSlots.Store(DescriptorSetSlot{ .set = allocated.value.front(), .arena = arena, .layout = desc.layout });
 		if (!handle.IsValid())
 		{
 			return FailValue<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set handle tracking failed");
@@ -260,6 +261,19 @@ namespace azo::rhi::vulkan
 		{
 			return Fail(error, ErrorCode::eNativeApiError, "Vulkan descriptor pool reset failed");
 		}
+
+		/*
+		 * The slots go back with the sets the pool just freed. Reset is the only way a set is reclaimed here, destroy of one being unsupported, so without this
+		 * every allocate takes a slot index for the life of the device: a per-frame arena walks through the twenty-four bit index space and then fails every
+		 * allocation from there on.
+		 *
+		 * Under the descriptor-set guard, which the facade takes around reset for exactly this walk.
+		 */
+		static_cast<void>(arena->owner->descriptorSetSlots.RetireIf(
+			[arena](const DescriptorSetSlot & slot) noexcept
+			{
+				return slot.arena == arena;
+			}));
 
 		return Succeed(error);
 	}
@@ -408,6 +422,13 @@ namespace azo::rhi::vulkan
 				{
 					if (offset.binding == dynamic->binding && offset.arrayIndex == element)
 					{
+						// Vulkan states a dynamic offset in 32 bits, so one that does not fit cannot be bound at all. Refused rather than truncated, which would
+						// bind a perfectly legal looking offset into the wrong part of a buffer with nothing anywhere reporting it.
+						if (offset.offset > std::numeric_limits<std::uint32_t>::max())
+						{
+							return Fail(error, ErrorCode::eInvalidArgument, "a dynamic descriptor offset does not fit the 32 bits Vulkan binds it in");
+						}
+
 						chosen = static_cast<std::uint32_t>(offset.offset);
 						break;
 					}

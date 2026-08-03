@@ -266,11 +266,15 @@ namespace azo::rhi::vulkan
 
 	struct VulkanDescriptorArena;
 
-	// A descriptor set allocated from an arena's pool. A set outliving the reset that freed its VkDescriptorSet is refused above this, which is why the slot
-	// carries nothing about the arena it came from.
+	// A descriptor set allocated from an arena's pool. A set outliving the reset that freed its VkDescriptorSet is refused above this, in the modes that check, but
+	// the slot still has to go back or the table only grows.
 	struct DescriptorSetSlot final
 	{
 		vk::DescriptorSet set;
+
+		// Which arena's pool it came from, so a reset can find the slots that pool just freed. The validation layer refuses a handle to one of them, but its
+		// registry is not this table, so nothing else would ever hand these indices back.
+		const VulkanDescriptorArena * arena = nullptr;
 
 		// What it was allocated against, kept because the dynamic offsets a bind carries have to be ordered by the layout and not by the order the caller listed
 		// them, and a bind is given only the set.
