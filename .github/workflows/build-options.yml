@@ -30,7 +30,7 @@ jobs:
             vulkan_driver: "true"
             require_backends: vulkan,null
           - name: macos-appleclang
-            os: macos-26
+            os: macos-latest
             require_backends: metal,null
           - name: windows-msvc
             os: windows-2025
@@ -85,7 +85,7 @@ jobs:
             vulkan_driver: "true"
             require_backends: vulkan,null
           - name: macos-appleclang
-            os: macos-26
+            os: macos-latest
             require_backends: metal,null
           - name: windows-msvc
             os: windows-2025

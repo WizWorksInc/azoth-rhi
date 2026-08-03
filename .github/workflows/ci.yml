@@ -40,9 +40,10 @@ jobs:
             cxx: clang++-18
             vulkan_driver: "true"
             require_backends: vulkan,null
-          # macOS 26, not 15, because Metal 4 is only there. On 15 the backend has no driver at all and its entire suite skips.
+          # Metal 4 needs macOS 26 or newer, which latest now is. The runner's adapter still does not report the Metal 4 family, so that backend skips here
+          # whatever the image, and Metal 3 is what actually gets exercised.
           - name: macos-appleclang
-            os: macos-26
+            os: macos-latest
             require_backends: metal,null
           - name: windows-msvc
             os: windows-2025
