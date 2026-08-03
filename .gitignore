@@ -1,11 +1,13 @@
-build/
-build*/
-cmake-build-*/
-out/
+# Anchored to the repository root. Unanchored, build*/ matches any directory whose name merely starts with build, at any depth, which silently swallowed
+# lib/include/azoth/rhi/builders and tests/unit/builders and left a checkout that cannot configure.
+/build/
+/build*/
+/cmake-build-*/
+/out/
 CMakeFiles/
 CMakeCache.txt
-install/
-install*/
+/install/
+/install*/
 
 /CMakeUserPresets.json
 
@@ -20,7 +22,7 @@ DartConfiguration.tcl
 
 # Dependency source and artifact caches
 /.cache/
-bin/
+/bin/
 
 .idea/
 
