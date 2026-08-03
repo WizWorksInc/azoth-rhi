@@ -196,8 +196,17 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "setViewport outside a rendering scope");
 		}
 
-		list->renderEncoder->setViewport(
-			MTL::Viewport{ viewport.x, viewport.y, viewport.width, viewport.height, viewport.minDepth, viewport.maxDepth });
+		// Metal's own NDC runs Y up so eYUp needs nothing done. Presenting eYDown means flipping: origin to the bottom edge, height negated. Winding is left as
+		// authored either way. The same flip the other generation makes, and without it this backend alone renders vertically mirrored.
+		double originY = viewport.y;
+		double height  = viewport.height;
+		if (GetClipSpace() == ClipSpaceConvention::eYDown)
+		{
+			originY = static_cast<double>(viewport.y) + static_cast<double>(viewport.height);
+			height	= -static_cast<double>(viewport.height);
+		}
+
+		list->renderEncoder->setViewport(MTL::Viewport{ viewport.x, originY, viewport.width, height, viewport.minDepth, viewport.maxDepth });
 		return Succeed(error);
 	}
 
@@ -292,6 +301,16 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer names a buffer this device never created");
 		}
 
+		/*
+		 * The length is what bounds an indexed draw on this generation, which takes an address and a span where Metal 3 passes the buffer object and lets
+		 * Metal bound it. An offset past the end has to be refused here because the subtraction below wraps, and the span it would produce covers most of the
+		 * address space.
+		 */
+		if (offset > resolved->length())
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "setIndexBuffer offset is past the end of the buffer");
+		}
+
 		// Held, not bound, a draw taking the index buffer as an argument on this generation.
 		list->boundIndexBuffer = resolved->gpuAddress() + offset;
 		list->boundIndexLength = resolved->length() - offset;
@@ -330,6 +349,13 @@ namespace azo::rhi::metal4
 		// The first index is folded into the address, this generation taking no first-index argument.
 		const std::uint64_t indexSize = list->boundIndexType == MTL::IndexTypeUInt32 ? 4 : 2;
 		const std::uint64_t byteStart = static_cast<std::uint64_t>(firstIndex) * indexSize;
+
+		// The same span rule as setIndexBuffer, applied to where this draw actually reads. Subtracting a first index past the end wraps, so the draw would be
+		// handed a span reaching well beyond the allocation instead of a refusal.
+		if (byteStart + (static_cast<std::uint64_t>(indexCount) * indexSize) > list->boundIndexLength)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "drawIndexed reads past the end of the bound index buffer");
+		}
 
 		list->renderEncoder->drawIndexedPrimitives(list->boundPrimitive,
 			indexCount,
