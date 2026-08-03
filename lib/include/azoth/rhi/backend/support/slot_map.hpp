@@ -187,6 +187,7 @@ namespace azo::rhi
 		/**
 		 * \brief Retires every live slot accepted by predicate.
 		 *
+		 * \note As in Retire, a slot whose index the free list cannot take stays retired but is not recycled.
 		 * \attention This is a writer-side operation. The caller must serialize it against Store, Retire, and Reset for this table.
 		 */
 		template <class Fn>
@@ -206,7 +207,7 @@ namespace azo::rhi
 
 				slot.live.store(false, std::memory_order_release);
 				slot.generation.fetch_add(1, std::memory_order_release);
-				m_free.push_back(index);
+				static_cast<void>(detail::TryPushBack(m_free, index));
 				++retired;
 			}
 
