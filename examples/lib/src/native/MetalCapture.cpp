@@ -19,7 +19,6 @@
 #ifdef AZOTH_RHI_EXAMPLES_HAVE_METAL
 
 	#include <azoth/rhi/native/metal_native.hpp>
-
 	#include <Foundation/Foundation.hpp>
 	#include <Metal/Metal.hpp>
 

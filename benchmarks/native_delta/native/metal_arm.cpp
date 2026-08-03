@@ -181,7 +181,7 @@ namespace bench::native
 			// The device that made the buffer, which is the same one the RHI is on and is one fewer accessor than asking for it separately.
 			if (work.pipeline.IsValid())
 			{
-				g_arm.pipeline = g_arm.four ? BuildMetal4Pipeline(g_arm.buffer->device(), g_arm.compiler) : BuildMetalPipeline(g_arm.buffer->device());
+				g_arm.pipeline	  = g_arm.four ? BuildMetal4Pipeline(g_arm.buffer->device(), g_arm.compiler) : BuildMetalPipeline(g_arm.buffer->device());
 				g_arm.hasPipeline = g_arm.pipeline != nullptr;
 			}
 

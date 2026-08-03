@@ -73,7 +73,6 @@ namespace langs
 					.keepsEntryPointName = true },
 			};
 
-
 			/*
 			 * Both Metal backends take the same binary, so Metal 4 looks its target up under the Metal 3 id instead of duplicating the row. The binding ABI
 			 * does not change with the generation: a metallib compiled once is bound the same way whether an encoder or an argument table does the binding.

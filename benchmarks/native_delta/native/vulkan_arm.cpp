@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 // Ensure that a result cannot throw across a noexcept boundary.
 #ifndef VULKAN_HPP_NO_EXCEPTIONS
-#define VULKAN_HPP_NO_EXCEPTIONS
+	#define VULKAN_HPP_NO_EXCEPTIONS
 #endif
 #undef VULKAN_HPP_ASSERT_ON_RESULT
 #define VULKAN_HPP_ASSERT_ON_RESULT(expression)

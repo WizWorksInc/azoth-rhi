@@ -185,8 +185,8 @@ int main(int argc, char ** argv)
 	const rhi::PipelineLayoutHandle computeLayout = dev.CreatePipelineLayout(
 		rhi::PipelineLayoutDesc{ .sets = workSetLayouts, .pushConstants = workPushConstants, .debugName = "timing.computeLayout" }, error);
 
-	const rhi::ComputePipelineHandle computePipeline = dev.CreateComputePipeline(
-		rhi::ComputePipelineDesc{ .layout = computeLayout, .shader = computeShader, .debugName = "timing.computePipeline" }, error);
+	const rhi::ComputePipelineHandle computePipeline =
+		dev.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = computeLayout, .shader = computeShader, .debugName = "timing.computePipeline" }, error);
 
 	const rhi::BufferHandle accumulator = dev.CreateBuffer(
 		rhi::BufferDesc{
@@ -215,15 +215,15 @@ int main(int argc, char ** argv)
 	const std::array graphicsShaders{ vertexShader, pixelShader };
 	rhi::VertexInputDesc vertexInput{};
 	rhi::GraphicsPipelineDesc graphicsDesc{};
-	graphicsDesc.layout							= graphicsLayout;
-	graphicsDesc.shaders						= graphicsShaders;
-	graphicsDesc.vertexInput					= &vertexInput;
-	graphicsDesc.raster.cullMode				= rhi::CullMode::eNone;
+	graphicsDesc.layout							 = graphicsLayout;
+	graphicsDesc.shaders						 = graphicsShaders;
+	graphicsDesc.vertexInput					 = &vertexInput;
+	graphicsDesc.raster.cullMode				 = rhi::CullMode::eNone;
 	graphicsDesc.renderTarget.colorFormats.at(0) = rhi::Format::eRGBA8UNorm;
-	graphicsDesc.renderTarget.colorFormatCount	= 1;
-	graphicsDesc.blend.attachmentCount			= 1;
-	graphicsDesc.dynamicStates					= rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
-	graphicsDesc.debugName						= "timing.graphicsPipeline";
+	graphicsDesc.renderTarget.colorFormatCount	 = 1;
+	graphicsDesc.blend.attachmentCount			 = 1;
+	graphicsDesc.dynamicStates					 = rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
+	graphicsDesc.debugName						 = "timing.graphicsPipeline";
 
 	const rhi::GraphicsPipelineHandle graphicsPipeline = dev.CreateGraphicsPipeline(graphicsDesc, error);
 
@@ -257,8 +257,8 @@ int main(int argc, char ** argv)
 	 * Three pools, asked for one at a time so a backend that has only the first still runs the rest of the sample. An invalid handle here is a decline and not a
 	 * fault: the create call reported why, and everything below tests the handle before recording against it.
 	 */
-	const rhi::QueryPoolHandle timestamps = dev.CreateQueryPool(
-		rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kTimestampCount, .debugName = "timing.timestamps" }, error);
+	const rhi::QueryPoolHandle timestamps =
+		dev.CreateQueryPool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kTimestampCount, .debugName = "timing.timestamps" }, error);
 	if (!timestamps.IsValid())
 	{
 		fw::ReportError("this device reports timestamp queries and then refused the pool", error);
@@ -521,8 +521,8 @@ int main(int argc, char ** argv)
 	 */
 	if (occlusion.IsValid())
 	{
-		const std::uint64_t visible	 = raw.at(kOcclusionByte / sizeof(std::uint64_t));
-		const std::uint64_t covered	 = static_cast<std::uint64_t>(kExtent) * kExtent;
+		const std::uint64_t visible = raw.at(kOcclusionByte / sizeof(std::uint64_t));
+		const std::uint64_t covered = static_cast<std::uint64_t>(kExtent) * kExtent;
 		LOG_INFO(fw::Log(), "  {:<22} {}, and {} pixels were covered", "occlusion", visible, covered);
 		if (visible == 0)
 		{
@@ -539,8 +539,8 @@ int main(int argc, char ** argv)
 	// Every timestamp the sample recorded has to have been taken, or the numbers above are differences across a sentinel.
 	for (std::uint32_t slot = 0; slot < kTimestampCount; ++slot)
 	{
-		const bool skipped = !timeTheDispatch &&
-							 (slot == static_cast<std::uint32_t>(Slot::eComputeBegin) || slot == static_cast<std::uint32_t>(Slot::eComputeEnd));
+		const bool skipped =
+			!timeTheDispatch && (slot == static_cast<std::uint32_t>(Slot::eComputeBegin) || slot == static_cast<std::uint32_t>(Slot::eComputeEnd));
 		if (!skipped && !Taken(raw.at(slot)))
 		{
 			LOG_ERROR(fw::Log(), "timestamp {} was never sampled", slot);

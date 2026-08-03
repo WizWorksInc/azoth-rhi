@@ -153,7 +153,7 @@ int main(int argc, char ** argv)
 			.count	 = kMaxTextures,
 			.stages	 = rhi::ShaderStage::eCompute,
 			.flags	 = rhi::Flags<rhi::DescriptorBindingFlag>(rhi::DescriptorBindingFlag::eBindless) | rhi::DescriptorBindingFlag::ePartiallyBound |
-					 rhi::DescriptorBindingFlag::eUpdateAfterBind | rhi::DescriptorBindingFlag::eVariableDescriptorCount,
+					   rhi::DescriptorBindingFlag::eUpdateAfterBind | rhi::DescriptorBindingFlag::eVariableDescriptorCount,
 		},
 	};
 
@@ -183,10 +183,10 @@ int main(int argc, char ** argv)
 	{
 		textures.at(slot) = dev.CreateTexture(
 			rhi::TextureDesc{
-				.type	   = rhi::TextureType::eTex2D,
-				.format	   = rhi::Format::eRGBA8UNorm,
-				.width	   = 1,
-				.height	   = 1,
+				.type	= rhi::TextureType::eTex2D,
+				.format = rhi::Format::eRGBA8UNorm,
+				.width	= 1,
+				.height = 1,
 				// eColorAttachment because these are cleared to tell them apart, and a clear goes through a render target on two of the three backends.
 				.usage	   = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eColorAttachment,
 				.debugName = "bindless.texture",
@@ -238,8 +238,8 @@ int main(int argc, char ** argv)
 		error);
 
 	// The length lands here, below the layout's upper bound, which is what eVariableDescriptorCount is for.
-	const rhi::DescriptorSetHandle set = arena.Allocate(
-		rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
+	const rhi::DescriptorSetHandle set =
+		arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
 	if (!set.IsValid())
 	{
 		fw::ReportError("the variable length set was refused", error);
@@ -406,8 +406,13 @@ int main(int argc, char ** argv)
 		const float tolerance = 1.5f / 255.0f;
 		if (std::abs(gathered.at(base) - expected.r) > tolerance || std::abs(gathered.at(base + 1) - expected.g) > tolerance)
 		{
-			LOG_ERROR(fw::Log(), "slot {} came back {:.3f},{:.3f} and was cleared to {:.3f},{:.3f}", slot, gathered.at(base), gathered.at(base + 1),
-				expected.r, expected.g);
+			LOG_ERROR(fw::Log(),
+				"slot {} came back {:.3f},{:.3f} and was cleared to {:.3f},{:.3f}",
+				slot,
+				gathered.at(base),
+				gathered.at(base + 1),
+				expected.r,
+				expected.g);
 			wrong += 1;
 		}
 	}

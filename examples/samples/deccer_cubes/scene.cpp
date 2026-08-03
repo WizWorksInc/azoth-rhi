@@ -130,44 +130,46 @@ namespace deccer
 			 * The parser was asked to load external buffers, so a URI that named a file has already become bytes and only the two in-memory forms are left. A URI
 			 * arriving here is one the parser was told to leave alone, which this reads itself.
 			 */
-			std::visit(fastgltf::visitor{
-						   [](auto &) {},
-						   [&](const fastgltf::sources::Array & array)
-						   {
-							   encoded = std::span(reinterpret_cast<const std::uint8_t *>(array.bytes.data()), array.bytes.size());
-						   },
-						   [&](const fastgltf::sources::Vector & vector)
-						   {
-							   encoded = std::span(reinterpret_cast<const std::uint8_t *>(vector.bytes.data()), vector.bytes.size());
-						   },
-						   [&](const fastgltf::sources::BufferView & view)
-						   {
-							   const fastgltf::BufferView & bufferView = asset.bufferViews[view.bufferViewIndex];
-							   const fastgltf::Buffer & buffer		   = asset.buffers[bufferView.bufferIndex];
-							   std::visit(fastgltf::visitor{
-											  [](auto &) {},
-											  [&](const fastgltf::sources::Array & array)
-											  {
-												  encoded = std::span(reinterpret_cast<const std::uint8_t *>(array.bytes.data()) + bufferView.byteOffset,
-													  bufferView.byteLength);
-											  },
-											  [&](const fastgltf::sources::Vector & vector)
-											  {
-												  encoded = std::span(reinterpret_cast<const std::uint8_t *>(vector.bytes.data()) + bufferView.byteOffset,
-													  bufferView.byteLength);
-											  },
-										  },
-								   buffer.data);
-						   },
-						   [&](const fastgltf::sources::URI & uri)
-						   {
-							   owned = ReadFile((directory / std::string_view(uri.uri.path())).string());
-							   if (!owned.empty())
-							   {
-								   encoded = owned;
-							   }
-						   },
-					   },
+			std::visit(
+				fastgltf::visitor{
+					[](auto &) {},
+					[&](const fastgltf::sources::Array & array)
+					{
+						encoded = std::span(reinterpret_cast<const std::uint8_t *>(array.bytes.data()), array.bytes.size());
+					},
+					[&](const fastgltf::sources::Vector & vector)
+					{
+						encoded = std::span(reinterpret_cast<const std::uint8_t *>(vector.bytes.data()), vector.bytes.size());
+					},
+					[&](const fastgltf::sources::BufferView & view)
+					{
+						const fastgltf::BufferView & bufferView = asset.bufferViews[view.bufferViewIndex];
+						const fastgltf::Buffer & buffer			= asset.buffers[bufferView.bufferIndex];
+						std::visit(
+							fastgltf::visitor{
+								[](auto &) {},
+								[&](const fastgltf::sources::Array & array)
+								{
+									encoded =
+										std::span(reinterpret_cast<const std::uint8_t *>(array.bytes.data()) + bufferView.byteOffset, bufferView.byteLength);
+								},
+								[&](const fastgltf::sources::Vector & vector)
+								{
+									encoded =
+										std::span(reinterpret_cast<const std::uint8_t *>(vector.bytes.data()) + bufferView.byteOffset, bufferView.byteLength);
+								},
+							},
+							buffer.data);
+					},
+					[&](const fastgltf::sources::URI & uri)
+					{
+						owned = ReadFile((directory / std::string_view(uri.uri.path())).string());
+						if (!owned.empty())
+						{
+							encoded = owned;
+						}
+					},
+				},
 				image.data);
 
 			if (encoded.empty())
@@ -249,26 +251,30 @@ namespace deccer
 			const std::size_t base = scene.vertices.size();
 			scene.vertices.resize(base + positions.count);
 
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, positions,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset,
+				positions,
 				[&](const fastgltf::math::fvec3 value, const std::size_t index)
 				{
 					scene.vertices[base + index].position = { value.x(), value.y(), value.z() };
 				});
 
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, normals,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset,
+				normals,
 				[&](const fastgltf::math::fvec3 value, const std::size_t index)
 				{
 					scene.vertices[base + index].normal = { value.x(), value.y(), value.z() };
 				});
 
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset, uvs,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset,
+				uvs,
 				[&](const fastgltf::math::fvec2 value, const std::size_t index)
 				{
 					scene.vertices[base + index].uv = { value.x(), value.y() };
 				});
 
 			scene.indices.reserve(scene.indices.size() + indices.count);
-			fastgltf::iterateAccessor<std::uint32_t>(asset, indices,
+			fastgltf::iterateAccessor<std::uint32_t>(asset,
+				indices,
 				[&](const std::uint32_t index)
 				{
 					scene.indices.push_back(index);
@@ -329,7 +335,9 @@ namespace deccer
 		const std::size_t root = asset.defaultScene.value_or(0);
 
 		bool ok = true;
-		fastgltf::iterateSceneNodes(asset, root, fastgltf::math::fmat4x4(),
+		fastgltf::iterateSceneNodes(asset,
+			root,
+			fastgltf::math::fmat4x4(),
 			[&](const fastgltf::Node & node, const fastgltf::math::fmat4x4 & world)
 			{
 				if (!ok || !node.meshIndex.has_value())

@@ -14,9 +14,9 @@
 
 #include "shaders.hpp"
 
-#include "FW/utility/AssetPath.hpp"
-
 #include "azoth/rhi/device/api_tags.hpp"
+
+#include "FW/utility/AssetPath.hpp"
 
 #include <slang-com-ptr.h>
 #include <slang.h>

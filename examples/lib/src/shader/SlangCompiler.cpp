@@ -137,8 +137,7 @@ namespace fw::shader
 		return true;
 	}
 
-	rhi::ShaderBinary SlangCompiler::Compile(
-		const std::filesystem::path & relative, const char * entryPoint, const rhi::ShaderStage stage, std::string & error)
+	rhi::ShaderBinary SlangCompiler::Compile(const std::filesystem::path & relative, const char * entryPoint, const rhi::ShaderStage stage, std::string & error)
 	{
 		if (m_session->session == nullptr)
 		{

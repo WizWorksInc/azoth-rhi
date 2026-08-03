@@ -177,11 +177,8 @@ namespace deccer
 		}
 
 		// The same, for a run of levels partway down a chain, which mip generation needs because it leaves the level it read and the levels it wrote in different states.
-		[[nodiscard]] rhi::TextureBarrier CubeLevels(const rhi::TextureHandle texture,
-			const std::uint32_t baseMip,
-			const std::uint32_t mips,
-			const rhi::ResourceState & before,
-			const rhi::ResourceState & after)
+		[[nodiscard]] rhi::TextureBarrier CubeLevels(const rhi::TextureHandle texture, const std::uint32_t baseMip, const std::uint32_t mips,
+			const rhi::ResourceState & before, const rhi::ResourceState & after)
 		{
 			return rhi::TextureBarrier{
 				.texture = texture,
@@ -598,26 +595,25 @@ namespace deccer
 			rhi::BufferTextureCopy{ .textureExtent = { .width = photo.width, .height = photo.height } },
 		};
 
-		bool recorded = list.Barriers(rhi::BarrierBatch{ .textures = sourceToCopyDst }, rhiError) &&
-						list.CopyBufferToTexture(source.texture, source.staging, regions, rhiError) &&
-						list.Barriers(rhi::BarrierBatch{ .textures = sourceToSampled }, rhiError) &&
-						list.Barriers(rhi::BarrierBatch{ .textures = toWritten }, rhiError) && list.SetComputePipeline(equirectPipeline, rhiError) &&
-						list.BindDescriptorSet(convolveLayout, 0, equirectDescriptors, {}, rhiError) &&
-						list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(equirectConstants), &equirectConstants, rhiError) &&
-						list.Dispatch(GroupCount(environmentSize), GroupCount(environmentSize), kCubeFaces, rhiError) &&
-						list.Barriers(rhi::BarrierBatch{ .textures = toMipSource }, rhiError) &&
+		bool recorded =
+			list.Barriers(rhi::BarrierBatch{ .textures = sourceToCopyDst }, rhiError) &&
+			list.CopyBufferToTexture(source.texture, source.staging, regions, rhiError) &&
+			list.Barriers(rhi::BarrierBatch{ .textures = sourceToSampled }, rhiError) && list.Barriers(rhi::BarrierBatch{ .textures = toWritten }, rhiError) &&
+			list.SetComputePipeline(equirectPipeline, rhiError) && list.BindDescriptorSet(convolveLayout, 0, equirectDescriptors, {}, rhiError) &&
+			list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(equirectConstants), &equirectConstants, rhiError) &&
+			list.Dispatch(GroupCount(environmentSize), GroupCount(environmentSize), kCubeFaces, rhiError) &&
+			list.Barriers(rhi::BarrierBatch{ .textures = toMipSource }, rhiError) &&
 
-						/*
-						 * The chain the prefilter reads down. Level zero is what the projection above wrote and the rest are halvings of it, which is what lets
-						 * 128 samples of a wide lobe come back smooth instead of hitting or missing the sun.
-						 */
-						list.GenerateMips(environment, rhiError) && list.Barriers(rhi::BarrierBatch{ .textures = toSampled }, rhiError) &&
+			/*
+			 * The chain the prefilter reads down. Level zero is what the projection above wrote and the rest are halvings of it, which is what lets
+			 * 128 samples of a wide lobe come back smooth instead of hitting or missing the sun.
+			 */
+			list.GenerateMips(environment, rhiError) && list.Barriers(rhi::BarrierBatch{ .textures = toSampled }, rhiError) &&
 
-						list.SetComputePipeline(irradiancePipeline, rhiError) &&
-						list.BindDescriptorSet(convolveLayout, 0, irradianceDescriptors, {}, rhiError) &&
-						list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(irradianceConstants), &irradianceConstants, rhiError) &&
-						list.Dispatch(GroupCount(kIrradianceSize), GroupCount(kIrradianceSize), kCubeFaces, rhiError) &&
-						list.SetComputePipeline(prefilterPipeline, rhiError);
+			list.SetComputePipeline(irradiancePipeline, rhiError) && list.BindDescriptorSet(convolveLayout, 0, irradianceDescriptors, {}, rhiError) &&
+			list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(irradianceConstants), &irradianceConstants, rhiError) &&
+			list.Dispatch(GroupCount(kIrradianceSize), GroupCount(kIrradianceSize), kCubeFaces, rhiError) &&
+			list.SetComputePipeline(prefilterPipeline, rhiError);
 
 		// One level per roughness, from a mirror at the top to fully rough at the bottom. The levels are separate subresources fed from a texture nothing here
 		// writes, so they need nothing between them.
