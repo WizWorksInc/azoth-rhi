@@ -500,6 +500,55 @@ namespace azo::rhi::validation
 		return AllUsable(validator, write.set, write.accelerationStructure);
 	}
 
+	/*
+	 * A layout bakes its immutable samplers in rather than a set writing them, so this is the one create whose handles are reachable only through a span inside a
+	 * span. Left unswept, a destroyed sampler is compiled into a live layout: the backend resolves it with the flag that says the validation layer already
+	 * checked, which skips the generation test, and the dead native sampler is what the pipeline gets.
+	 */
+	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorSetLayoutDesc & desc) noexcept
+	{
+		for (const DescriptorBinding & binding : desc.bindings)
+		{
+			for (const SamplerHandle sampler : binding.immutableSamplers)
+			{
+				if (!AllUsable(validator, sampler))
+				{
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	/*
+	 * The timelines a submission waits on and signals. Queue wait and signal already refuse a retired timeline one at a time, and a submit naming the same handle
+	 * reached the backend unchecked, where it is resolved with live state and generation skipped.
+	 *
+	 * The swapchain edges are deliberately not swept here. Those semaphores are encoded by the presentation path rather than vended from the handle registry, so
+	 * the registry has nothing to say about them.
+	 */
+	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const SubmitDesc & desc) noexcept
+	{
+		for (const TimelinePoint & point : desc.waits)
+		{
+			if (!ArgumentIsUsable(validator, point))
+			{
+				return false;
+			}
+		}
+
+		for (const TimelinePoint & point : desc.signals)
+		{
+			if (!ArgumentIsUsable(validator, point))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	// A span is checked one element at a time, whatever the element turns out to carry.
 	template <class T>
 	[[nodiscard]] bool ArgumentIsUsable(DeviceValidator & validator, const std::span<const T> items) noexcept

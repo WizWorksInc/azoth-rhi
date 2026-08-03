@@ -310,6 +310,39 @@ namespace
 		EXPECT_TRUE(test::Ok(first.Get().Destroy(theirs, {}, error), error));
 	}
 
+	TEST_P(DecoratorTest, ACommandRecordedOutsideBeginAndEndIsRefused)
+	{
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+
+		rhi::Error error{};
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.unopened", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+
+		/*
+		 * A barrier, because it is the entry that reaches the driver with the least standing in its way: it carries no handles when its batch is empty, and the
+		 * state tracking has nothing recorded yet to disagree with. Before Begin the thread rule stands aside as well, no thread having claimed the list, so
+		 * this is the only rule left to speak.
+		 */
+		rhi::Error beforeError{};
+		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{}, beforeError)) << "a barrier was recorded on a list that never opened";
+		EXPECT_EQ(beforeError.code, rhi::ErrorCode::eValidationFailed);
+
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{}, error), error)) << "a barrier between Begin and End was refused";
+		ASSERT_TRUE(test::Ok(list.End(error), error));
+
+		rhi::Error afterError{};
+		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{}, afterError)) << "a barrier was recorded on a list that had already closed";
+		EXPECT_EQ(afterError.code, rhi::ErrorCode::eValidationFailed);
+	}
+
 	TEST_P(DecoratorTest, ARecordingIsRefusedOutOfOrder)
 	{
 		rhi::DeviceDesc desc = test::DefaultDeviceDesc();

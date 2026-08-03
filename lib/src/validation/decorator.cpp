@@ -246,6 +246,12 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedDevice *>(impl);
 
+			if (!ArgumentIsUsable(*self->validator, desc))
+			{
+				return self->validator->FailValue<DescriptorSetLayoutHandle>(
+					error, "a descriptor set layout bakes in an immutable sampler this device has already taken back");
+			}
+
 			const DescriptorSetLayoutHandle layout = self->blocks.core->createDescriptorSetLayout(self->inner, desc, error);
 			if (!layout.IsValid())
 			{
@@ -1106,6 +1112,11 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedQueue *>(impl);
 
+			if (!ArgumentIsUsable(*self->validator, desc))
+			{
+				return self->validator->Fail(error, "a submit waits on or signals a timeline this device has already taken back");
+			}
+
 			/*
 			 * The lists travel as facades so each one has to be rebuilt naming the object behind it. Allocated, not kept on the stack because the count is the caller's
 			 * and a submit is a per-frame call and not a recorded command, which is the path that may not allocate.
@@ -1222,7 +1233,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1440,7 +1451,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1527,7 +1538,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1623,7 +1634,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1659,7 +1670,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1684,7 +1695,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1707,7 +1718,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1729,7 +1740,7 @@ namespace azo::rhi::validation
 		// What a draw needs to be legal, shared by both spellings of it.
 		[[nodiscard]] bool DrawIsLegal(WrappedCommandList * self, Error * error) noexcept
 		{
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
@@ -1768,7 +1779,7 @@ namespace azo::rhi::validation
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 
-			if (!RecordedOnItsOwnThread(self, error))
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
 				return false;
 			}
