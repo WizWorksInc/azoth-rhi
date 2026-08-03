@@ -519,6 +519,35 @@ namespace azo::rhi
 			return raw;
 		}
 
+		/*
+		 * Which host clock a calibration pairs the device clock with, and whether the adapter offers both.
+		 *
+		 * Not the same question as whether VK_EXT_calibrated_timestamps is enabled: a driver may expose it and enumerate neither domain, and a calibration
+		 * naming one the adapter lacks is refused. Shared so the cap and the call cannot disagree.
+		 */
+		[[nodiscard]] bool VulkanCalibrationDomains(
+			vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, vk::TimeDomainEXT & hostDomain) noexcept
+		{
+			const auto enumerated = phys.getCalibrateableTimeDomainsEXT<HostAllocatorAdapter<vk::TimeDomainEXT>>(dispatch);
+			if (enumerated.result != vk::Result::eSuccess)
+			{
+				return false;
+			}
+
+			const detail::HostVector<vk::TimeDomainEXT> & domains = enumerated.value;
+			const auto hasDomain								  = [&domains](vk::TimeDomainEXT domain) noexcept
+			{
+				return std::ranges::find(domains, domain) != domains.end();
+			};
+
+#ifdef _WIN32
+			hostDomain = vk::TimeDomainEXT::eQueryPerformanceCounter;
+#else
+			hostDomain = hasDomain(vk::TimeDomainEXT::eClockMonotonicRaw) ? vk::TimeDomainEXT::eClockMonotonicRaw : vk::TimeDomainEXT::eClockMonotonic;
+#endif
+			return hasDomain(vk::TimeDomainEXT::eDevice) && hasDomain(hostDomain);
+		}
+
 		// Picks a physical device, creates the logical device, its queues and the VMA allocator, then fills the capability and adapter records from real queries.
 		// Null with *error set on failure. The instance is borrowed.
 		[[nodiscard]] VulkanDevice * MakeOwnedDevice(VulkanInstance * instance, const DeviceDesc & desc, Error * error)
@@ -1027,12 +1056,13 @@ namespace azo::rhi
 			}
 
 			/*
-			 * Two published sets, chosen by whether this device enabled a transport from each external family.
+			 * Two published sets, chosen by whether this device enabled a transport from either external family.
 			 *
-			 * Block presence is what this codebase reports capability from, so a device without the extensions publishes no ExternalSharingApi at all and not one whose
-			 * entries refuse. A caller then finds the same answer here that Instance::QueryExternalHandleSupport already gave it.
+			 * Block presence is what this codebase reports capability from, and QueryExternalHandleSupport answers per object kind, so demanding both families
+			 * left an adapter with memory transports and no semaphore ones calling a texture shareable through a block nothing published. Each entry already
+			 * refuses the transport it lacks, so publishing on either keeps the two answers together.
 			 */
-			const bool sharesExternally	   = (hasExternalMemoryFd || hasExternalMemoryWin32) && (hasExternalSemaphoreFd || hasExternalSemaphoreWin32);
+			const bool sharesExternally	   = hasExternalMemoryFd || hasExternalMemoryWin32 || hasExternalSemaphoreFd || hasExternalSemaphoreWin32;
 			record->object				   = sharesExternally ? PublishingObject<Published<CoreDeviceApi, &CoreDeviceBlock>,
 																	Published<PresentApi, &PresentBlock>,
 																	Published<PlacedMemoryApi, &PlacedMemoryBlock>,
@@ -1292,11 +1322,14 @@ namespace azo::rhi
 			record->caps.bindingTier					   = bindless ? BindingTier::eUnbounded : BindingTier::eBasic;
 			record->caps.supportsPartiallyBoundDescriptors = bindless;
 			record->caps.supportsUpdateAfterBind		   = static_cast<bool>(supported12.descriptorBindingSampledImageUpdateAfterBind);
-			record->caps.supportsTimestampCalibration	   = hasCalibratedTimestamps;
-			record->caps.maxBindlessSampledTextures		   = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
-			record->caps.maxBindlessStorageBuffers		   = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
-			record->caps.maxSamplerDescriptors			   = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
-			record->caps.supportsTimestampQueries		   = static_cast<bool>(limits.timestampComputeAndGraphics);
+			// The extension alone is not the capability. An adapter offering it without enumerating both clocks refuses every calibration, so the domains are
+			// asked for here and the answer is what the cap reports.
+			vk::TimeDomainEXT calibrationHostDomain	  = vk::TimeDomainEXT::eDevice;
+			record->caps.supportsTimestampCalibration = hasCalibratedTimestamps && VulkanCalibrationDomains(phys, record->dispatch, calibrationHostDomain);
+			record->caps.maxBindlessSampledTextures	  = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
+			record->caps.maxBindlessStorageBuffers	  = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
+			record->caps.maxSamplerDescriptors		  = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
+			record->caps.supportsTimestampQueries	  = static_cast<bool>(limits.timestampComputeAndGraphics);
 			// vkCmdWriteTimestamp2 is legal inside a render-pass instance, so the scope a timestamp sits in is not a restriction Vulkan carries.
 			record->caps.supportsTimestampWritesInScope = record->caps.supportsTimestampQueries;
 			record->caps.supportsAnisotropy				= static_cast<bool>(enabledFeatures.samplerAnisotropy);
@@ -2218,8 +2251,8 @@ namespace azo::rhi
 
 			const vk::Buffer buffer			  = created.value;
 			const vk::MemoryRequirements reqs = device->device.getBufferMemoryRequirements(buffer, device->dispatch);
-			// Checked in every mode, since binding to memory the buffer does not fit is undefined and not merely wrong.
-			// The range is subtracted and not added, an offset a suballocator produced by underflow being free to wrap the sum back inside the heap.
+			// Checked in every mode, since binding to memory the buffer does not fit is undefined and not merely wrong. The range is subtracted and not added,
+			// an offset a suballocator produced by underflow being free to wrap the sum back inside the heap.
 			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset > heap.size ||
 				reqs.size > heap.size - desc.offset)
 			{
@@ -2301,8 +2334,8 @@ namespace azo::rhi
 
 			const vk::Image image			  = createdImage.value;
 			const vk::MemoryRequirements reqs = device->device.getImageMemoryRequirements(image, device->dispatch);
-			// Same in every mode and for the same reason as the placed buffer above.
-			// The range is subtracted and not added, an offset a suballocator produced by underflow being free to wrap the sum back inside the heap.
+			// Same in every mode and for the same reason as the placed buffer above. The range is subtracted and not added, an offset a suballocator produced by
+			// underflow being free to wrap the sum back inside the heap.
 			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset > heap.size ||
 				reqs.size > heap.size - desc.offset)
 			{
@@ -3632,24 +3665,9 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eUnsupportedFeature, "VK_EXT_calibrated_timestamps is not available on this device");
 			}
 
-			const auto enumeratedDomains = device->phys.getCalibrateableTimeDomainsEXT<HostAllocatorAdapter<vk::TimeDomainEXT>>(device->dispatch);
-			if (enumeratedDomains.result != vk::Result::eSuccess)
-			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan timestamp calibration failed");
-			}
-
-			const detail::HostVector<vk::TimeDomainEXT> & domains = enumeratedDomains.value;
-			const auto hasDomain								  = [&domains](vk::TimeDomainEXT domain) noexcept
-			{
-				return std::ranges::find(domains, domain) != domains.end();
-			};
-#ifdef _WIN32
-			const vk::TimeDomainEXT hostDomain = vk::TimeDomainEXT::eQueryPerformanceCounter;
-#else
-			const vk::TimeDomainEXT hostDomain =
-				hasDomain(vk::TimeDomainEXT::eClockMonotonicRaw) ? vk::TimeDomainEXT::eClockMonotonicRaw : vk::TimeDomainEXT::eClockMonotonic;
-#endif
-			if (!hasDomain(vk::TimeDomainEXT::eDevice) || !hasDomain(hostDomain))
+			// The same question the cap was settled from, asked through the same helper so the two cannot drift apart again.
+			vk::TimeDomainEXT hostDomain = vk::TimeDomainEXT::eDevice;
+			if (!VulkanCalibrationDomains(device->phys, device->dispatch, hostDomain))
 			{
 				return Fail(error, ErrorCode::eUnsupportedFeature, "the adapter cannot calibrate the device and host clocks together");
 			}
