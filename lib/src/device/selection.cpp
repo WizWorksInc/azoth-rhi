@@ -184,7 +184,9 @@ namespace azo::rhi
 
 	} // namespace
 
-	StaticBackendRegistration::StaticBackendRegistration(const BackendEntry & entry) noexcept : m_entry(entry), m_next(g_selfRegistered.load(std::memory_order_relaxed))
+	StaticBackendRegistration::StaticBackendRegistration(const BackendEntry & entry) noexcept
+		: m_entry(entry),
+		  m_next(g_selfRegistered.load(std::memory_order_relaxed))
 	{
 		/*
 		 * Release on the push and acquire on the walk so a reader that sees this node sees the entry inside it too.
@@ -192,7 +194,7 @@ namespace azo::rhi
 		 * Says nothing about unloading, which is a module's problem: a node can never be taken off so the only ordering that has to hold is the one between writing a
 		 * node and another thread reading it.
 		 */
-		
+
 		while (!g_selfRegistered.compare_exchange_weak(m_next, this, std::memory_order_release, std::memory_order_relaxed))
 		{
 		}

@@ -177,7 +177,7 @@ namespace azo::rhi::d3d12
 							   .size										 = desc.size,
 							   .hostVisible									 = hostVisible,
 							   .exportableHandleTypes						 = desc.exportableHandleTypes,
-						   .desc											 = detail::Recorded(desc) }),
+							   .desc										 = detail::Recorded(desc) }),
 			error);
 	}
 

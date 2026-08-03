@@ -240,6 +240,7 @@ namespace azo::rhi::test::minimal
 		{
 			delete static_cast<Object *>(impl);
 		}
+
 		// NOLINTEND(cppcoreguidelines-owning-memory)
 
 		const CoreDeviceApi & CoreBlock() noexcept

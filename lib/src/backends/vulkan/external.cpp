@@ -469,7 +469,7 @@ namespace azo::rhi::vulkan
 			.coherent															  = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
 			.hostVisible														  = mappable,
 			.persistentMapped													  = (allocFlags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
-			.desc																	  = detail::Recorded(desc.desc) });
+			.desc																  = detail::Recorded(desc.desc) });
 		if (!handle.IsValid())
 		{
 			vmaDestroyBuffer(device->allocator, raw, allocation);

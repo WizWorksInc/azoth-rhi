@@ -61,8 +61,7 @@ namespace
 			GTEST_SKIP() << "this device binds no sparse memory";
 		}
 
-		EXPECT_GT(Caps().sparseTileSizeBytes, 0u)
-			<< "this device reports a sparse tier but no tile size, so nothing can be sized against it";
+		EXPECT_GT(Caps().sparseTileSizeBytes, 0u) << "this device reports a sparse tier but no tile size, so nothing can be sized against it";
 	}
 
 	TEST_P(DeviceTest, TheDescriptorLimitsAreFilledIn)
@@ -365,7 +364,7 @@ namespace
 
 		const rhi::DeviceCaps & available = Caps();
 		// NOLINTNEXTLINE(readability-qualified-auto): libc++ makes this array iterator a raw pointer and MSVC does not, so auto * here builds on one and not the other.
-		const auto missing				  = std::ranges::find_if(kEveryFeature,
+		const auto missing = std::ranges::find_if(kEveryFeature,
 			[&available](const rhi::DeviceFeature feature) noexcept
 			{
 				return !available.Supports(feature);

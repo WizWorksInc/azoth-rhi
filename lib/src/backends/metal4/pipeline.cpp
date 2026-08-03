@@ -226,8 +226,7 @@ namespace azo::rhi::metal4
 		 * Where the other generation makes an MTLFunction. The library underneath is the same object built by the same shared code, so a metallib does not have
 		 * to be compiled twice to serve both paths.
 		 */
-		[[nodiscard]] NS::SharedPtr<MTL4::LibraryFunctionDescriptor> FunctionDescriptorFor(
-			Metal4Device * device, const ShaderBinary & shader, Error * error)
+		[[nodiscard]] NS::SharedPtr<MTL4::LibraryFunctionDescriptor> FunctionDescriptorFor(Metal4Device * device, const ShaderBinary & shader, Error * error)
 		{
 			NS::SharedPtr<MTL::Library> library = MetalCompileLibrary(device->device.get(), shader, error);
 			if (library.get() == nullptr)
@@ -469,7 +468,7 @@ namespace azo::rhi::metal4
 		// Both stages, since either can be the one asking for a set the layout does not bind.
 		if (MTL::RenderPipelineReflection * info = rawState->reflection();
 			info != nullptr && !(FunctionBuffersAreBound(device, desc.layout, info->vertexBindings(), error) &&
-									FunctionBuffersAreBound(device, desc.layout, info->fragmentBindings(), error)))
+								   FunctionBuffersAreBound(device, desc.layout, info->fragmentBindings(), error)))
 		{
 			rawState->release();
 			return {};

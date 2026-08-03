@@ -27,15 +27,15 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.beginRendering");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = RecordingListOf(object);
+		CmdList * list		  = RecordingListOf(object);
 		if (list == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
-		const NS::SharedPtr<NS::AutoreleasePool> pool		= NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
+		const NS::SharedPtr<NS::AutoreleasePool> pool		 = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 		const NS::SharedPtr<MTL4::RenderPassDescriptor> pass = NS::TransferPtr(MTL4::RenderPassDescriptor::alloc()->init());
 
 		std::uint32_t colorIndex = 0;
@@ -153,9 +153,9 @@ namespace azo::rhi::metal4
 
 	bool CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "setGraphicsPipeline outside a rendering scope");
@@ -267,9 +267,9 @@ namespace azo::rhi::metal4
 	 */
 	bool CmdSetVertexBuffer(void * impl, const std::uint32_t slot, BufferHandle buffer, const std::uint64_t offset, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->argumentTable.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "setVertexBuffer outside a rendering scope");
@@ -287,9 +287,9 @@ namespace azo::rhi::metal4
 
 	bool CmdSetIndexBuffer(void * impl, BufferHandle buffer, const std::uint64_t offset, const bool index32, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
@@ -378,9 +378,9 @@ namespace azo::rhi::metal4
 	bool CmdDrawIndirect(
 		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "drawIndirect outside a rendering scope");
@@ -405,9 +405,9 @@ namespace azo::rhi::metal4
 	bool CmdDrawIndexedIndirect(
 		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "drawIndexedIndirect outside a rendering scope");

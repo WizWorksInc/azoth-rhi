@@ -134,12 +134,11 @@ namespace azo::rhi::metal
 		SetMetalLabel(raw, desc.texture.debugName);
 		NS::SharedPtr<MTL::Texture> texture = NS::TransferPtr(raw);
 
-		const TextureHandle handle = device->textures.Store(MetalTextureSlot{
-			.texture = std::move(texture),
-			.format			= desc.texture.format,
-			.usage			= desc.texture.usage,
-			.mutableFormat	= desc.texture.allowFormatViews,
-			.desc			= detail::Recorded(desc.texture) });
+		const TextureHandle handle = device->textures.Store(MetalTextureSlot{ .texture = std::move(texture),
+			.format																	   = desc.texture.format,
+			.usage																	   = desc.texture.usage,
+			.mutableFormat															   = desc.texture.allowFormatViews,
+			.desc																	   = detail::Recorded(desc.texture) });
 		if (!handle.IsValid())
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal placed texture handle tracking failed");

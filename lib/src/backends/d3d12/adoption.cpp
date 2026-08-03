@@ -52,7 +52,7 @@ namespace azo::rhi::d3d12
 							   .resource = external,
 							   .size	 = desc.desc.size,
 							   .lifetime = LifetimeOf(desc.lifetime),
-						   .desc	 = detail::Recorded(desc.desc),
+							   .desc	 = detail::Recorded(desc.desc),
 						   }),
 			error);
 	}
@@ -83,7 +83,7 @@ namespace azo::rhi::d3d12
 							   .usage										 = desc.desc.usage,
 							   .mutableFormat								 = desc.desc.allowFormatViews,
 							   .lifetime									 = LifetimeOf(desc.lifetime),
-						   .desc										 = detail::Recorded(desc.desc) }),
+							   .desc										 = detail::Recorded(desc.desc) }),
 			error);
 	}
 

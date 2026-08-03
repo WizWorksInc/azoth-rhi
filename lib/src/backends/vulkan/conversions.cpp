@@ -289,7 +289,7 @@ namespace azo::rhi::vulkan
 	{
 		// Straight through the loader and not the Vulkan-Hpp wrapper: this fills a struct the C++ bindings only declare under VK_ENABLE_BETA_EXTENSIONS, so the whole
 		// query stays on the C entry points instead of splitting across the two.
-		auto *const physical	   = static_cast<VkPhysicalDevice>(phys);
+		auto * const physical  = static_cast<VkPhysicalDevice>(phys);
 		std::uint32_t extCount = 0;
 		if (dispatch.vkEnumerateDeviceExtensionProperties(physical, nullptr, &extCount, nullptr) != VK_SUCCESS || extCount == 0)
 		{
@@ -1075,7 +1075,7 @@ namespace azo::rhi::vulkan
 
 	[[nodiscard]] vk::ImageSubresourceRange MapSubresourceRange(const TextureSubresourceRange & range) noexcept
 	{
-		return {MapAspect(range.aspects), range.baseMip, range.mipCount, range.baseLayer, range.layerCount};
+		return { MapAspect(range.aspects), range.baseMip, range.mipCount, range.baseLayer, range.layerCount };
 	}
 
 	// The aspect a view of this format must name. Depth-stencil formats report the depth aspect, matching the implicit default view a texture gets alongside its

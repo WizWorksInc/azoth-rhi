@@ -295,7 +295,7 @@ namespace azo::rhi::d3d12
 								   .usage										 = desc.usage,
 								   .mutableFormat								 = desc.allowFormatViews,
 								   .reserved									 = true,
-							   .desc										 = detail::Recorded(desc) }),
+								   .desc										 = detail::Recorded(desc) }),
 				error);
 		}
 
@@ -331,7 +331,7 @@ namespace azo::rhi::d3d12
 							   .usage										   = desc.usage,
 							   .mutableFormat								   = desc.allowFormatViews,
 							   .exportableHandleTypes						   = desc.exportableHandleTypes,
-						   .desc											   = detail::Recorded(desc) }),
+							   .desc										   = detail::Recorded(desc) }),
 			error);
 	}
 

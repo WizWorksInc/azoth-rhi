@@ -16,8 +16,7 @@
 
 namespace azo::rhi::metal4
 {
-	BufferHandle AdoptBuffer(
-		void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
+	BufferHandle AdoptBuffer(void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.adoptBuffer");
 
@@ -273,8 +272,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool GetNativeBinarySemaphore(
-		void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
+	bool GetNativeBinarySemaphore(void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{

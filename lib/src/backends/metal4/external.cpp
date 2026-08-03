@@ -72,8 +72,8 @@ namespace azo::rhi::metal4
 		return Fail(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
 	}
 
-	bool ExportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const HeapHandle heap, [[maybe_unused]] const ExternalHandleType type,
-		ExternalHandle * out, Error * error) noexcept
+	bool ExportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const HeapHandle heap, [[maybe_unused]] const ExternalHandleType type, ExternalHandle * out,
+		Error * error) noexcept
 	{
 		if (out != nullptr)
 		{
@@ -138,8 +138,7 @@ namespace azo::rhi::metal4
 		return ReturnObject(slot->event->newSharedEventHandle(), type, out, error);
 	}
 
-	bool ExportBinarySemaphore(
-		void * impl, const BinarySemaphoreHandle semaphore, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+	bool ExportBinarySemaphore(void * impl, const BinarySemaphoreHandle semaphore, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -213,11 +212,11 @@ namespace azo::rhi::metal4
 		// Not shared onward, whatever the description said: this texture was created elsewhere, so handing out a handle to it would share a payload this device does
 		// not own.
 		const TextureHandle handle = device->textures.Store(Metal4TextureSlot{ .texture = std::move(texture),
-			.format																	   = desc.desc.format,
-			.usage																	   = desc.desc.usage,
-			.mutableFormat															   = desc.desc.allowFormatViews,
-			.shared																	   = false,
-			.desc																	   = detail::Recorded(desc.desc) });
+			.format																		= desc.desc.format,
+			.usage																		= desc.desc.usage,
+			.mutableFormat																= desc.desc.allowFormatViews,
+			.shared																		= false,
+			.desc																		= detail::Recorded(desc.desc) });
 		if (!handle.IsValid())
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported texture handle tracking failed");

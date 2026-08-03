@@ -429,7 +429,7 @@ namespace azo::rhi::metal4
 		device->caps.hasDedicatedComputeQueue  = device->caps.computeQueueCount != 0;
 		device->caps.hasDedicatedTransferQueue = device->caps.copyQueueCount != 0;
 
-		Metal4Device * raw		  = device.get();
+		Metal4Device * raw		   = device.get();
 		Metal4BackendOwner & owner = Owner();
 
 		std::uint32_t deviceTag = 0;
@@ -464,7 +464,7 @@ namespace azo::rhi::metal4
 
 		instance->object = PublishingObject<Published<InstanceApi, &InstanceBlock>, Published<ExternalCapabilityApi, &ExternalCapabilityBlock>>();
 
-		Metal4Instance * raw		  = instance.get();
+		Metal4Instance * raw	   = instance.get();
 		Metal4BackendOwner & owner = Owner();
 		if (!detail::TryPushBack(owner.instances, std::move(instance)))
 		{
@@ -481,7 +481,7 @@ namespace azo::rhi::metal4
 		// Capture the owning instance before the device record is dropped so we can retire the instance alongside its last device (below). The tag goes back at the
 		// same time so the ceiling is devices alive at once, not devices ever created.
 		Metal4Instance * owningInstance = nullptr;
-		std::uint32_t releasedTag	   = 0;
+		std::uint32_t releasedTag		= 0;
 		for (const HostUniquePtr<Metal4Device> & device : owner.devices)
 		{
 			if (device.get() == impl)

@@ -113,7 +113,7 @@ namespace azo::rhi::metal4
 	 */
 	bool CmdResetQueryPool(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, Error * error) noexcept
 	{
-		auto * object			 = static_cast<Metal4Object *>(impl);
+		auto * object			  = static_cast<Metal4Object *>(impl);
 		Metal4QueryPool * tracked = ResolveQueryPool(object->owner, pool);
 		if (tracked == nullptr)
 		{
@@ -138,8 +138,8 @@ namespace azo::rhi::metal4
 	 */
 	bool CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, Flags<PipelineStage>, Error * error) noexcept
 	{
-		auto * object			 = static_cast<Metal4Object *>(impl);
-		CmdList * list			 = ListOf(object);
+		auto * object			  = static_cast<Metal4Object *>(impl);
+		CmdList * list			  = ListOf(object);
 		Metal4QueryPool * tracked = ResolveQueryPool(object->owner, pool);
 		if (tracked == nullptr || tracked->heap.get() == nullptr)
 		{
@@ -215,11 +215,11 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveQueryData");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 
-		Metal4QueryPool * tracked  = ResolveQueryPool(device, pool);
+		Metal4QueryPool * tracked = ResolveQueryPool(device, pool);
 		MTL::Buffer * destination = ResolveBuffer(device, dst);
 		if (tracked == nullptr || tracked->heap.get() == nullptr || destination == nullptr)
 		{

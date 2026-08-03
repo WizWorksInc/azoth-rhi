@@ -208,8 +208,8 @@ namespace azo::rhi::metal4
 	 * Metal 3 hands the bytes to the encoder and lets it copy them. An argument table binds addresses and has no inline form, so the bytes are written into a
 	 * block the list owns and the address of that goes in the table. Buffer zero is the index the ABI reserves for them on both generations.
 	 */
-	bool CmdPushConstants(void * impl, PipelineLayoutHandle, Flags<ShaderStage>, const std::uint32_t offset, const std::uint32_t size, const void * data,
-		Error * error) noexcept
+	bool CmdPushConstants(
+		void * impl, PipelineLayoutHandle, Flags<ShaderStage>, const std::uint32_t offset, const std::uint32_t size, const void * data, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.pushConstants");
 
@@ -309,7 +309,7 @@ namespace azo::rhi::metal4
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "descriptor write names a set this device never created");
 			}
-			const auto * sampler		 = device->samplers.Resolve(write.sampler, kHandleAlreadyChecked);
+			const auto * sampler										  = device->samplers.Resolve(write.sampler, kHandleAlreadyChecked);
 			set->bindings[DescriptorKey(write.binding, write.arrayIndex)] = Metal4Descriptor{
 				.type	 = DescriptorType::eSampler,
 				.sampler = sampler != nullptr ? sampler->get() : nullptr,
@@ -381,7 +381,7 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.descriptorArena.allocate");
 
-		auto * arena		 = static_cast<Metal4Object *>(impl);
+		auto * arena		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = arena->owner;
 		if (!Resolves(device, desc.layout))
 		{
@@ -397,8 +397,8 @@ namespace azo::rhi::metal4
 		NS::SharedPtr<MTL::Buffer> argumentBuffer;
 		if (device->caps.bindingTier >= BindingTier::eUnbounded)
 		{
-			const auto * setLayout	  = device->descriptorSetLayouts.Resolve(desc.layout, kHandleAlreadyChecked);
-			std::uint32_t memberCount = 0;
+			const auto * setLayout	   = device->descriptorSetLayouts.Resolve(desc.layout, kHandleAlreadyChecked);
+			std::uint32_t memberCount  = 0;
 			std::uint32_t ignoredIndex = 0;
 			if (setLayout != nullptr)
 			{
@@ -442,7 +442,7 @@ namespace azo::rhi::metal4
 
 		// A Metal descriptor set is a plain table of resolved bindings with no pool memory to hand back so the reset bumps the epoch that makes every set allocated
 		// before it stale, then drops those sets.
-		auto * arena		 = static_cast<Metal4Object *>(impl);
+		auto * arena		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = arena->owner;
 
 		const std::uint64_t bumped = arena->arenaEpoch.fetch_add(1, std::memory_order_release) + 1;

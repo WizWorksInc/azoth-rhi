@@ -611,11 +611,11 @@ namespace azo::rhi::vulkan
 			}
 			// An attachment count past this array is refused above. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			key.colors[i] = RenderPassAttachmentKey{ .format = slot->format,
-			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				.samples										= slot->samples,
-				.loadOp											= MapLoadOp(a.load),
-				.storeOp										= MapStoreOp(a.store),
-				.layout											= MapTextureLayout(a.state.layout) };
+				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				.samples = slot->samples,
+				.loadOp	 = MapLoadOp(a.load),
+				.storeOp = MapStoreOp(a.store),
+				.layout	 = MapTextureLayout(a.state.layout) };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
 		}
@@ -1050,7 +1050,7 @@ namespace azo::rhi::vulkan
 	// Maps a single-subresource selector (one mip, one layer) to the layers form the copy commands take.
 	[[nodiscard]] vk::ImageSubresourceLayers MapSubresourceLayers(const TextureSubresource & sub) noexcept
 	{
-		return {MapAspect(sub.aspects), sub.mip, sub.layer, 1};
+		return { MapAspect(sub.aspects), sub.mip, sub.layer, 1 };
 	}
 
 	// Transfer commands. The RHI is explicit so the caller has already barriered the resources into the transfer layouts (eTransferSrcOptimal /

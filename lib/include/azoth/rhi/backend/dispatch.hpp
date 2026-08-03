@@ -516,16 +516,16 @@ namespace azo::rhi
 	 */
 	struct DeviceBlocks final
 	{
-		const CoreDeviceApi * core				   = nullptr;
-		const PresentApi * present				   = nullptr;
-		const PlacedMemoryApi * placedMemory	   = nullptr;
-		const RayTracingApi * rayTracing		   = nullptr;
-		const QueryApi * query					   = nullptr;
-		const PipelineCacheApi * pipelineCache	   = nullptr;
-		const ResidencyApi * residency			   = nullptr;
+		const CoreDeviceApi * core					   = nullptr;
+		const PresentApi * present					   = nullptr;
+		const PlacedMemoryApi * placedMemory		   = nullptr;
+		const RayTracingApi * rayTracing			   = nullptr;
+		const QueryApi * query						   = nullptr;
+		const PipelineCacheApi * pipelineCache		   = nullptr;
+		const ResidencyApi * residency				   = nullptr;
 		const ResourceIntrospectionApi * introspection = nullptr;
-		const AdoptionApi * adoption			   = nullptr;
-		const ExternalSharingApi * externalSharing = nullptr;
+		const AdoptionApi * adoption				   = nullptr;
+		const ExternalSharingApi * externalSharing	   = nullptr;
 	};
 
 	/**

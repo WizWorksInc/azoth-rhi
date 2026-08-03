@@ -285,8 +285,8 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	bool MetalPushConstants(void * impl, [[maybe_unused]] const PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
-		const void * data, Error * error) noexcept
+	bool MetalPushConstants(void * impl, [[maybe_unused]] const PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset,
+		std::uint32_t size, const void * data, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr)

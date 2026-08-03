@@ -233,7 +233,7 @@ namespace azo::rhi::d3d12
 							   .resource	= std::move(resource),
 							   .size		= desc.buffer.size,
 							   .hostVisible = hostVisible,
-						   .desc		= detail::Recorded(desc.buffer),
+							   .desc		= detail::Recorded(desc.buffer),
 						   }),
 			error);
 	}
@@ -280,7 +280,7 @@ namespace azo::rhi::d3d12
 							   .arrayLayers									 = static_cast<std::uint32_t>(resourceDesc.DepthOrArraySize),
 							   .usage										 = desc.texture.usage,
 							   .mutableFormat								 = desc.texture.allowFormatViews,
-						   .desc											 = detail::Recorded(desc.texture) }),
+							   .desc										 = detail::Recorded(desc.texture) }),
 			error);
 	}
 

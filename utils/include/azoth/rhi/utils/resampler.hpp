@@ -90,8 +90,8 @@ namespace azo::rhi::utils
 		/**
 		 * \brief Copies regions of one texture into another, resampling where the extents differ.
 		 */
-		[[nodiscard]] bool Blit(CommandList & list, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter,
-			Error & error) noexcept;
+		[[nodiscard]] bool Blit(
+			CommandList & list, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error & error) noexcept;
 
 		/**
 		 * \brief Hands back the views and descriptor sets recording created, once the work naming them has completed.
@@ -110,7 +110,6 @@ namespace azo::rhi::utils
 		Resampler() = default;
 
 	private:
-
 		// Everything one recorded resample needed, kept alive until Retire or destruction.
 		struct Transient final
 		{

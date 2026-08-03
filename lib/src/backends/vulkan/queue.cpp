@@ -142,7 +142,7 @@ namespace azo::rhi::vulkan
 			}
 
 			bufferBinds.push_back(vk::SparseMemoryBind{ bind.resourceOffset, bind.page.size, memory, bind.page.heapOffset, {} });
-			bufferInfos.emplace_back( vk::Buffer(slot->buffer), 1, &bufferBinds.back() );
+			bufferInfos.emplace_back(vk::Buffer(slot->buffer), 1, &bufferBinds.back());
 		}
 
 		for (const SparseTextureBind & bind : desc.textures)
@@ -178,7 +178,7 @@ namespace azo::rhi::vulkan
 			imageBind.memoryOffset = bind.page.heapOffset;
 
 			imageBinds.push_back(imageBind);
-			imageInfos.emplace_back( vk::Image(slot->image), 1, &imageBinds.back() );
+			imageInfos.emplace_back(vk::Image(slot->image), 1, &imageBinds.back());
 		}
 
 		vk::TimelineSemaphoreSubmitInfo timelineInfo{};

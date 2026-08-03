@@ -165,8 +165,8 @@ namespace
 			asSource.isSource		   = true;
 
 			rhi::Error sourceError{};
-			EXPECT_FALSE(
-				Dev().CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = asSource, .debugName = "azoth.rhi.test.source" }, sourceError)
+			EXPECT_FALSE(Dev()
+					.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = asSource, .debugName = "azoth.rhi.test.source" }, sourceError)
 					.IsValid());
 			EXPECT_EQ(sourceError.code, rhi::ErrorCode::eUnsupportedFormat) << "a device reporting no source support took a source binary anyway";
 		}
@@ -210,10 +210,10 @@ namespace
 
 		const rhi::VertexInputDesc vertexInput{};
 		rhi::GraphicsPipelineDesc desc{};
-		desc.layout						 = layout;
-		desc.vertexInput				 = &vertexInput;
+		desc.layout							 = layout;
+		desc.vertexInput					 = &vertexInput;
 		desc.raster.conservativeRasterEnable = true;
-		desc.debugName					 = "azoth.rhi.test.conservativePipeline";
+		desc.debugName						 = "azoth.rhi.test.conservativePipeline";
 
 		rhi::Error pipelineError{};
 		const rhi::GraphicsPipelineHandle pipeline = Dev().CreateGraphicsPipeline(desc, pipelineError);

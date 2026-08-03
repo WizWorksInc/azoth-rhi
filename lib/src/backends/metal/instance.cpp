@@ -496,7 +496,8 @@ namespace azo::rhi::metal
 	 *
 	 * Metal exposes no per adapter query for any of this. Neither Metal type is a file descriptor or an NT handle so the compatible mask names only itself.
 	 */
-	bool MetalQueryExternalHandleSupport([[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
+	bool MetalQueryExternalHandleSupport(
+		[[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{

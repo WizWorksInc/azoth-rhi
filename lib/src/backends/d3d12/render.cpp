@@ -314,7 +314,7 @@ namespace azo::rhi::d3d12
 		view.BufferLocation = bufSlot->resource->GetGPUVirtualAddress() + offset;
 		view.SizeInBytes	= static_cast<UINT>(bufSlot->size - offset);
 		// The slot is compared against the size on the same line. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-		view.StrideInBytes	= slot < list->vertexStrides.size() ? list->vertexStrides[slot] : 0;
+		view.StrideInBytes = slot < list->vertexStrides.size() ? list->vertexStrides[slot] : 0;
 		// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 		list->list->IASetVertexBuffers(slot, 1, &view);
 		return Succeed(error);

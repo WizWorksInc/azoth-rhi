@@ -102,8 +102,8 @@ namespace azo::rhi::metal4
 			 * Only a list that reached End has anything to commit. Its command buffer is made with the list and is never null, so a null test asks a different
 			 * question, and committing one that never began asserts inside the queue instead of coming back as an error.
 			 */
-			auto * listObject		= static_cast<Metal4Object *>(detail::UnwrappedImplOf(*list));
-			const CmdList * record	= ListOf(listObject);
+			auto * listObject	   = static_cast<Metal4Object *>(detail::UnwrappedImplOf(*list));
+			const CmdList * record = ListOf(listObject);
 			if (record == nullptr || record->commandBuffer.get() == nullptr || record->lifecycle < 2)
 			{
 				continue;
@@ -392,7 +392,7 @@ namespace azo::rhi::metal4
 		{
 			const NS::SharedPtr<MTL::ResidencySetDescriptor> residencyDesc = NS::TransferPtr(MTL::ResidencySetDescriptor::alloc()->init());
 
-			NS::Error * residencyError    = nullptr;
+			NS::Error * residencyError	  = nullptr;
 			MTL::ResidencySet * residency = device->device->newResidencySet(residencyDesc.get(), &residencyError);
 			if (residency == nullptr)
 			{

@@ -174,8 +174,9 @@ namespace azo::rhi
 				if (entry.binding == binding)
 				{
 					NativeBinding result{
-						.resource = NativeSlot{ .space = MetalArgumentBufferIndexForSet(set), .index = member, .klass = NativeSlotClass::eArgumentBufferMember },
-						.exists	  = true,
+						.resource =
+							NativeSlot{ .space = MetalArgumentBufferIndexForSet(set), .index = member, .klass = NativeSlotClass::eArgumentBufferMember },
+						.exists = true,
 					};
 
 					// A combined binding is two members in the struct, the texture then the sampler, because Metal has no combined type to declare. Both halves are

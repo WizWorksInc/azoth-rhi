@@ -62,7 +62,7 @@ namespace azo::rhi::metal4
 
 	[[nodiscard]] Format ResolveTextureFormat(Metal4Device * device, TextureHandle handle) noexcept
 	{
-		auto *const tracked = device->textures.Resolve(handle, kHandleAlreadyChecked);
+		auto * const tracked = device->textures.Resolve(handle, kHandleAlreadyChecked);
 		return tracked != nullptr ? tracked->format : Format::eRGBA8UNorm;
 	}
 

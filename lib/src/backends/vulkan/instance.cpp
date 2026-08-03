@@ -85,7 +85,7 @@ namespace azo::rhi::vulkan
 				.driverVersionRaw			 = props.driverVersion,
 				.driverVersion				 = instance->driverVersions[i].c_str(),
 				.driverInfo					 = instance->driverInfos[i].c_str() };
-				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			FillAdapterIdentity(adapters[i], chain.get<vk::PhysicalDeviceIDProperties>());
 		}
 

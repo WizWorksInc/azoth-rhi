@@ -157,7 +157,6 @@ namespace azo::rhi::vulkan
 		// A sparse image owns no allocation: its tiles arrive through bindSparse and destroy releases the VkImage alone.
 		bool sparse = false;
 
-
 		// What TextureDesc declared. Read by export for the same reason the buffer slot's copy is.
 		Flags<ExternalHandleType> exportableHandleTypes;
 

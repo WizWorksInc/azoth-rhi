@@ -45,9 +45,9 @@ namespace azo::rhi::utils
 		// Matches Constants in resample.slang.
 		struct Constants final
 		{
-			std::uint32_t dstWidth	= 0;
-			std::uint32_t dstHeight = 0;
-			std::uint32_t layers	= 1;
+			std::uint32_t dstWidth	 = 0;
+			std::uint32_t dstHeight	 = 0;
+			std::uint32_t layers	 = 1;
 			std::uint32_t encodeSrgb = 0;
 		};
 
@@ -134,17 +134,11 @@ namespace azo::rhi::utils
 			return binary;
 		}
 
-		constexpr ResourceState kSampled{
-			.stages = PipelineStage::eComputeShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly
-		};
-		constexpr ResourceState kWritten{
-			.stages = PipelineStage::eComputeShader, .access = Access::eShaderWrite, .layout = TextureLayout::eGeneral
-		};
+		constexpr ResourceState kSampled{ .stages = PipelineStage::eComputeShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly };
+		constexpr ResourceState kWritten{ .stages = PipelineStage::eComputeShader, .access = Access::eShaderWrite, .layout = TextureLayout::eGeneral };
 
 		// Where GenerateMips leaves the texture, stated once here because both paths have to end in the same place.
-		constexpr ResourceState kReadable{
-			.stages = PipelineStage::eFragmentShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly
-		};
+		constexpr ResourceState kReadable{ .stages = PipelineStage::eFragmentShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly };
 	} // namespace
 
 	Result<Resampler> Resampler::Create(Device & device, const ResamplerDesc & desc) noexcept
@@ -158,7 +152,7 @@ namespace azo::rhi::utils
 		if (shader.data == nullptr)
 		{
 			return Error{ .code = ErrorCode::eUnsupportedFeature,
-				.message = "this build of azoth::rhi-utils carries no resample shader for the backend that came up" };
+				.message		= "this build of azoth::rhi-utils carries no resample shader for the backend that came up" };
 		}
 
 		Resampler resampler;
@@ -208,10 +202,10 @@ namespace azo::rhi::utils
 
 		resampler.m_pipeline = device.CreateComputePipeline(
 			ComputePipelineDesc{
-				.layout	   = resampler.m_layout,
-				.shader	   = shader,
+				.layout		   = resampler.m_layout,
+				.shader		   = shader,
 				.pipelineCache = desc.cache,
-				.debugName = desc.debugName != nullptr ? desc.debugName : "azoth.rhi.utils.resample.pipeline",
+				.debugName	   = desc.debugName != nullptr ? desc.debugName : "azoth.rhi.utils.resample.pipeline",
 			},
 			error);
 		if (!resampler.m_pipeline.IsValid())
@@ -231,12 +225,12 @@ namespace azo::rhi::utils
 		  m_sampler(other.m_sampler),
 		  m_transients(std::move(other.m_transients))
 	{
-		other.m_device	 = Device{};
-		other.m_arena	 = nullptr;
-		other.m_pipeline = {};
-		other.m_layout	 = {};
+		other.m_device	  = Device{};
+		other.m_arena	  = nullptr;
+		other.m_pipeline  = {};
+		other.m_layout	  = {};
 		other.m_setLayout = {};
-		other.m_sampler	 = {};
+		other.m_sampler	  = {};
 	}
 
 	Resampler & Resampler::operator=(Resampler && other) noexcept
@@ -269,9 +263,8 @@ namespace azo::rhi::utils
 	bool Resampler::Retire(const RetirePoint safeAfter, Error & error) noexcept
 	{
 		// An unset retire point means destroy now, which is what destruction wants and what a caller that already waited wants.
-		const DestroyDesc destroyDesc = safeAfter.timeline.IsValid()
-											? DestroyDesc{ .policy = DestroyPolicy::eDeferUntilSafe, .safeAfter = safeAfter }
-											: DestroyDesc{};
+		const DestroyDesc destroyDesc =
+			safeAfter.timeline.IsValid() ? DestroyDesc{ .policy = DestroyPolicy::eDeferUntilSafe, .safeAfter = safeAfter } : DestroyDesc{};
 
 		bool ok = true;
 		for (const Transient & transient : m_transients)
@@ -342,29 +335,25 @@ namespace azo::rhi::utils
 			hardware ? ResourceState{ .stages = PipelineStage::eCopy, .access = Access::eCopyWrite, .layout = TextureLayout::eCopyDst } : kWritten;
 
 		const std::array exit{
-			TextureBarrier{ .texture = texture,
-				.before						 = above,
-				.after						 = kReadable,
-				.range						 = { .baseMip = 0, .mipCount = last, .layerCount = info.desc.arrayLayers } },
-			TextureBarrier{ .texture = texture,
-				.before						 = lastState,
-				.after						 = kReadable,
-				.range						 = { .baseMip = last, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
+			TextureBarrier{
+				.texture = texture, .before = above, .after = kReadable, .range = { .baseMip = 0, .mipCount = last, .layerCount = info.desc.arrayLayers } },
+			TextureBarrier{
+				.texture = texture, .before = lastState, .after = kReadable, .range = { .baseMip = last, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
 		};
 
 		return list.Barriers(BarrierBatch{ .textures = exit }, error);
 	}
 
-	bool Resampler::ResampleLevel(
-		CommandList & list, const TextureHandle texture, const TextureInfo & info, const std::uint32_t dstMip, Error & error) noexcept
+	bool Resampler::ResampleLevel(CommandList & list, const TextureHandle texture, const TextureInfo & info, const std::uint32_t dstMip, Error & error) noexcept
 	{
-		const bool srgb			  = IsSrgb(info.desc.format);
-		const Format storageForm  = srgb ? StorageTwinOf(info.desc.format) : info.desc.format;
+		const bool srgb			   = IsSrgb(info.desc.format);
+		const Format storageForm   = srgb ? StorageTwinOf(info.desc.format) : info.desc.format;
 		const std::uint32_t layers = info.desc.arrayLayers;
 
 		if (srgb && !info.desc.allowFormatViews)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument,
+			return Fail(error,
+				ErrorCode::eInvalidArgument,
 				"resampling an sRGB texture through compute needs TextureDesc::allowFormatViews, no API permitting an sRGB storage image");
 		}
 		if (!info.desc.usage.Contains(TextureUsage::eStorage))
@@ -403,8 +392,7 @@ namespace azo::rhi::utils
 
 		m_transients.push_back(Transient{ .source = source, .destination = destination });
 
-		const DescriptorSetHandle set =
-			m_arena->Allocate(DescriptorSetAllocDesc{ .layout = m_setLayout, .debugName = "azoth.rhi.utils.resample" }, error);
+		const DescriptorSetHandle set = m_arena->Allocate(DescriptorSetAllocDesc{ .layout = m_setLayout, .debugName = "azoth.rhi.utils.resample" }, error);
 		if (!set.IsValid())
 		{
 			return false;
@@ -414,12 +402,12 @@ namespace azo::rhi::utils
 			DescriptorWriteTexture{ .set = set, .binding = kSourceBinding, .type = DescriptorType::eTextureSRV, .view = source, .sampler = m_sampler },
 		};
 		const std::array destinations{
-			DescriptorWriteTexture{ .set			= set,
-				.binding									= kDestinationBinding,
-				.type										= DescriptorType::eTextureUAV,
-				.view										= destination,
-				.sampler									= m_sampler,
-				.expectedLayout								= TextureLayout::eGeneral },
+			DescriptorWriteTexture{ .set = set,
+				.binding				 = kDestinationBinding,
+				.type					 = DescriptorType::eTextureUAV,
+				.view					 = destination,
+				.sampler				 = m_sampler,
+				.expectedLayout			 = TextureLayout::eGeneral },
 		};
 		const std::array samplers{ DescriptorWriteSampler{ .set = set, .binding = kSamplerBinding, .sampler = m_sampler } };
 
@@ -435,9 +423,9 @@ namespace azo::rhi::utils
 		 */
 		const std::array toSampled{
 			TextureBarrier{ .texture = texture,
-				.before						 = dstMip == 1 ? kSampled : kWritten,
-				.after						 = kSampled,
-				.range						 = { .baseMip = dstMip - 1, .mipCount = 1, .layerCount = layers } },
+				.before				 = dstMip == 1 ? kSampled : kWritten,
+				.after				 = kSampled,
+				.range				 = { .baseMip = dstMip - 1, .mipCount = 1, .layerCount = layers } },
 		};
 		const std::array toWritten{
 			TextureBarrier{ .texture = texture, .after = kWritten, .range = { .baseMip = dstMip, .mipCount = 1, .layerCount = layers } },
@@ -456,8 +444,8 @@ namespace azo::rhi::utils
 			   list.Dispatch(GroupCount(constants.dstWidth), GroupCount(constants.dstHeight), layers, error);
 	}
 
-	bool Resampler::Blit(CommandList & list, const TextureHandle dst, const TextureHandle src, const std::span<const TextureBlit> regions,
-		const Filter filter, Error & error) noexcept
+	bool Resampler::Blit(CommandList & list, const TextureHandle dst, const TextureHandle src, const std::span<const TextureBlit> regions, const Filter filter,
+		Error & error) noexcept
 	{
 		if (!IsValid())
 		{
@@ -480,7 +468,8 @@ namespace azo::rhi::utils
 
 		// The compute path resamples whole levels, not arbitrary offset rectangles, which is what generateMips needs and what this utility was extracted to restore.
 		// A region blit through compute is its own piece of work and is refused, not approximated.
-		return Fail(error, ErrorCode::eUnsupportedFeature,
+		return Fail(error,
+			ErrorCode::eUnsupportedFeature,
 			"this device has no hardware scaled blit for these formats, and the compute path resamples whole levels, not regions");
 	}
 } // namespace azo::rhi::utils

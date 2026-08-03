@@ -49,7 +49,7 @@ namespace azo::rhi::metal_common
 	 * Above it a set is an argument buffer at a buffer index. The buffer table is what bounds how many sets there can be. Metal states these in its feature set
 	 * tables and exposes no query for them, unlike the sampler count inside an argument buffer, which is queried.
 	 */
-	inline constexpr std::uint32_t kMetalMaxBufferArguments	= 31;
+	inline constexpr std::uint32_t kMetalMaxBufferArguments	 = 31;
 	inline constexpr std::uint32_t kMetalMaxTextureArguments = 128;
 	inline constexpr std::uint32_t kMetalMaxSamplerArguments = 16;
 

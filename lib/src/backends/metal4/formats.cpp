@@ -60,8 +60,8 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "getBufferInfo names a buffer this device did not create");
 		}
 
-		std::uint64_t allocated	  = 0;
-		MemoryAccess access		  = MemoryAccess::eGpuOnly;
+		std::uint64_t allocated = 0;
+		MemoryAccess access		= MemoryAccess::eGpuOnly;
 		if (slot->buffer.get() != nullptr)
 		{
 			allocated = slot->buffer->allocatedSize();

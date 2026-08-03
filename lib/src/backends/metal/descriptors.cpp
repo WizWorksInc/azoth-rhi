@@ -170,7 +170,7 @@ namespace azo::rhi::metal
 					}
 
 					const MetalDescriptor & descriptor = found->second;
-					const std::uint32_t at			 = member + (element * stride);
+					const std::uint32_t at			   = member + (element * stride);
 					if (descriptor.buffer != nullptr)
 					{
 						MetalWriteArgumentMember(set, at, descriptor.buffer->gpuAddress() + descriptor.offset);
@@ -241,7 +241,7 @@ namespace azo::rhi::metal
 			for (const auto & [key, descriptor] : tracked->bindings)
 			{
 				const MTL::Resource * resource = descriptor.buffer != nullptr ? static_cast<const MTL::Resource *>(descriptor.buffer)
-																			 : static_cast<const MTL::Resource *>(descriptor.texture);
+																			  : static_cast<const MTL::Resource *>(descriptor.texture);
 				if (resource == nullptr)
 				{
 					continue;
@@ -386,7 +386,7 @@ namespace azo::rhi::metal
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "descriptor write names a set this device never created");
 			}
-			const auto * sampler		 = device->samplers.Resolve(write.sampler, kHandleAlreadyChecked);
+			const auto * sampler										  = device->samplers.Resolve(write.sampler, kHandleAlreadyChecked);
 			set->bindings[DescriptorKey(write.binding, write.arrayIndex)] = MetalDescriptor{
 				.type	 = DescriptorType::eSampler,
 				.sampler = sampler != nullptr ? sampler->get() : nullptr,
@@ -506,8 +506,8 @@ namespace azo::rhi::metal
 		NS::SharedPtr<MTL::Buffer> argumentBuffer;
 		if (device->caps.bindingTier >= BindingTier::eUnbounded)
 		{
-			const auto * setLayout	  = device->descriptorSetLayouts.Resolve(desc.layout, kHandleAlreadyChecked);
-			std::uint32_t memberCount = 0;
+			const auto * setLayout	   = device->descriptorSetLayouts.Resolve(desc.layout, kHandleAlreadyChecked);
+			std::uint32_t memberCount  = 0;
 			std::uint32_t ignoredIndex = 0;
 			if (setLayout != nullptr)
 			{

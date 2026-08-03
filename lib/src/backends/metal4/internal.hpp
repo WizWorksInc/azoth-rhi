@@ -275,7 +275,7 @@ namespace azo::rhi::metal4
 		// The arena this set came from and the epoch it was stamped with. A reset bumps the arena's epoch so a set that outlived one no longer matches and binding it
 		// is refused.
 		const Metal4Object * arena = nullptr;
-		std::uint64_t epoch		  = 0;
+		std::uint64_t epoch		   = 0;
 
 		// What this set was allocated against, kept because an argument buffer member's position comes from the layout and not from the binding number, and the
 		// writes that fill it arrive one at a time with only a binding number on them.
@@ -295,7 +295,7 @@ namespace azo::rhi::metal4
 	struct Metal4Object final
 	{
 		const BackendObject * object = nullptr;
-		Metal4Device * owner			 = nullptr;
+		Metal4Device * owner		 = nullptr;
 		QueueType queueType			 = QueueType::eGraphics;
 
 		// The recording state behind a command list object, null on every other kind of object.
@@ -393,7 +393,7 @@ namespace azo::rhi::metal4
 	struct Metal4Swapchain final
 	{
 		const BackendObject * object = nullptr;
-		Metal4Device * owner			 = nullptr;
+		Metal4Device * owner		 = nullptr;
 		CA::MetalLayer * layer		 = nullptr;
 		Format format				 = Format::eBGRA8Srgb;
 		PresentMode presentMode		 = PresentMode::eFifo; // effective mode, only ever immediate or fifo
@@ -584,11 +584,11 @@ namespace azo::rhi::metal4
 
 		// Held through a HostUniquePtr in the backend's device list and pointed at by every facade built off it so it is never copied or moved. The default
 		// constructor is restored because declaring the four below is what would otherwise take it away and HostNew needs it.
-		Metal4Device()								 = default;
-		Metal4Device(const Metal4Device &)			 = delete;
+		Metal4Device()								   = default;
+		Metal4Device(const Metal4Device &)			   = delete;
 		Metal4Device & operator=(const Metal4Device &) = delete;
-		Metal4Device(Metal4Device &&)					 = delete;
-		Metal4Device & operator=(Metal4Device &&)		 = delete;
+		Metal4Device(Metal4Device &&)				   = delete;
+		Metal4Device & operator=(Metal4Device &&)	   = delete;
 	};
 
 	/*
@@ -605,8 +605,7 @@ namespace azo::rhi::metal4
 
 	[[nodiscard]] void * AllocObject(Metal4Device * device, const BackendObject * published, QueueType queueType = QueueType::eGraphics);
 
-	[[nodiscard]] bool RefuseUnexportable(
-		Flags<ExternalHandleType> declared, Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept;
+	[[nodiscard]] bool RefuseUnexportable(Flags<ExternalHandleType> declared, Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept;
 	[[nodiscard]] Metal4BackendOwner & Owner();
 	GraphicsApiId DeviceApiId([[maybe_unused]] void * impl) noexcept;
 	std::string_view DeviceApiName([[maybe_unused]] void * impl) noexcept;
@@ -630,6 +629,7 @@ namespace azo::rhi::metal4
 	[[nodiscard]] MTL::Buffer * ResolveBuffer(Metal4Device * device, BufferHandle handle) noexcept;
 	[[nodiscard]] MTL::Texture * ResolveTexture(Metal4Device * device, TextureHandle handle) noexcept;
 	[[nodiscard]] Format ResolveTextureFormat(Metal4Device * device, TextureHandle handle) noexcept;
+
 	/**
 	 * \brief The recording state behind a command list object.
 	 *
@@ -712,8 +712,7 @@ namespace azo::rhi::metal4
 	bool CmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
 	bool CmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
 	bool CmdClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
-	bool CmdClearTexture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
+	bool CmdClearTexture(void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
 	bool CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
 	bool CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
 	bool CmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
@@ -722,16 +721,14 @@ namespace azo::rhi::metal4
 	/**
 	 * \brief Whether every shader's binding map agrees with the layout it will be bound through.
 	 */
-	[[nodiscard]] bool BindingMapsAgree(
-		Metal4Device * device, PipelineLayoutHandle layout, std::span<const ShaderBinary> shaders, Error * error) noexcept;
+	[[nodiscard]] bool BindingMapsAgree(Metal4Device * device, PipelineLayoutHandle layout, std::span<const ShaderBinary> shaders, Error * error) noexcept;
 
 	/**
 	 * \brief Whether every buffer a compiled function asks for is one the layout actually binds.
 	 *
 	 * Read off the pipeline's own reflection, so a shader numbering its sets elsewhere is refused at creation, not dispatched to read zeros.
 	 */
-	[[nodiscard]] bool FunctionBuffersAreBound(
-		Metal4Device * device, PipelineLayoutHandle layout, const NS::Array * bindings, Error * error) noexcept;
+	[[nodiscard]] bool FunctionBuffersAreBound(Metal4Device * device, PipelineLayoutHandle layout, const NS::Array * bindings, Error * error) noexcept;
 
 	PipelineLayoutHandle CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
 	GraphicsPipelineHandle CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
@@ -748,13 +745,12 @@ namespace azo::rhi::metal4
 	bool CmdSetDepthBias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept;
 	bool CmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
 	bool CmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
-	bool CmdDraw(void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance,
-		Error * error) noexcept;
+	bool CmdDraw(
+		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept;
 	bool CmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
 		std::uint32_t firstInstance, Error * error) noexcept;
 	bool CmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool CmdDrawIndexedIndirect(
-		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
+	bool CmdDrawIndexedIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
 
 	/// Binding, which goes through an argument table, not through calls on the encoder.
 
@@ -780,8 +776,8 @@ namespace azo::rhi::metal4
 	bool CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept;
 	bool CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept;
+	bool CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset,
+		Error * error) noexcept;
 	bool Destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept;
 	bool CollectGarbage(void * impl, ResourceType type, Error * error) noexcept;
 	bool CollectGarbageTimeline(
@@ -807,8 +803,7 @@ namespace azo::rhi::metal4
 	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept;
 	const QueryApi & QueryBlock() noexcept;
 	const ResidencyApi & ResidencyBlock() noexcept;
-	TextureViewHandle AdoptTextureView(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
+	TextureViewHandle AdoptTextureView(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
 	SamplerHandle AdoptSampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
 	bool GetNativeTextureView(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
 	bool GetNativeSampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;

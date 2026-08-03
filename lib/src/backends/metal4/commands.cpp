@@ -32,9 +32,9 @@ namespace azo::rhi::metal4
 
 		NS::UInteger out = 0;
 
-		if (stages.Contains(PipelineStage::eVertexShader) || stages.Contains(PipelineStage::eVertexInput) ||
-			stages.Contains(PipelineStage::eDrawIndirect) || stages.Contains(PipelineStage::eTessellationControlShader) ||
-			stages.Contains(PipelineStage::eTessellationEvaluationShader) || stages.Contains(PipelineStage::eGeometryShader))
+		if (stages.Contains(PipelineStage::eVertexShader) || stages.Contains(PipelineStage::eVertexInput) || stages.Contains(PipelineStage::eDrawIndirect) ||
+			stages.Contains(PipelineStage::eTessellationControlShader) || stages.Contains(PipelineStage::eTessellationEvaluationShader) ||
+			stages.Contains(PipelineStage::eGeometryShader))
 		{
 			out |= MTL::StageVertex;
 		}
@@ -96,7 +96,8 @@ namespace azo::rhi::metal4
 		 * generation will not wait on a fragment producer, and later encoders are covered above.
 		 */
 		template <typename EncoderT>
-		void RecordBarrier(EncoderT * encoder, const MTL::Stages waitable, const MTL::Stages runnable, const MTL::Stages producer, const MTL::Stages consumer) noexcept
+		void RecordBarrier(
+			EncoderT * encoder, const MTL::Stages waitable, const MTL::Stages runnable, const MTL::Stages producer, const MTL::Stages consumer) noexcept
 		{
 			encoder->barrierAfterStages(producer, consumer, MTL4::VisibilityOptionDevice);
 
@@ -522,9 +523,9 @@ namespace azo::rhi::metal4
 
 	bool CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 
 		const auto * tracked = device->computePipelines.Resolve(pipeline, kHandleAlreadyChecked);
 		if (tracked == nullptr || tracked->state.get() == nullptr)
@@ -561,9 +562,9 @@ namespace azo::rhi::metal4
 
 	bool CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
 	{
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->computeEncoder.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "dispatchIndirect without a bound compute pipeline");
@@ -580,12 +581,12 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdCopyBuffer(void * impl, BufferHandle dst, const std::uint64_t dstOffset, BufferHandle src, const std::uint64_t srcOffset,
-		const std::uint64_t size, Error * error) noexcept
+	bool CmdCopyBuffer(void * impl, BufferHandle dst, const std::uint64_t dstOffset, BufferHandle src, const std::uint64_t srcOffset, const std::uint64_t size,
+		Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyBuffer");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
 
 		MTL::Buffer * destination = ResolveBuffer(device, dst);
@@ -609,7 +610,7 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyBufferToTexture");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
 
 		MTL::Texture * texture = ResolveTexture(device, dst);
@@ -660,7 +661,7 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyTextureToBuffer");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
 
 		MTL::Buffer * buffer   = ResolveBuffer(device, dst);
@@ -709,7 +710,7 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyTexture");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
 
 		MTL::Texture * destination = ResolveTexture(device, dst);
@@ -756,9 +757,9 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.clearBuffer");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
@@ -817,14 +818,13 @@ namespace azo::rhi::metal4
 	 * One rendering scope per subresource, opened with a clear load action and closed with no draw in it, which is what performs the clear. The scope is the
 	 * operation, so the compute encoder has to give way first.
 	 */
-	bool CmdClearTexture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+	bool CmdClearTexture(void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.clearTexture");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->commandBuffer.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
@@ -846,9 +846,7 @@ namespace azo::rhi::metal4
 		 */
 		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
 		{
-			return Fail(error,
-				ErrorCode::eInvalidArgument,
-				"clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
+			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
 		}
 
 		EndActiveEncoders(list);
@@ -906,7 +904,7 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.generateMips");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
 
 		MTL::Texture * tex = ResolveTexture(device, texture);
@@ -958,9 +956,9 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveTexture");
 
-		auto * object		 = static_cast<Metal4Object *>(impl);
+		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
+		CmdList * list		  = ListOf(object);
 		if (list == nullptr || list->commandBuffer.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");

@@ -195,12 +195,12 @@ namespace azo::rhi
 			 * Limits an ideal device would state, reported, not left at zero. Zero is not no limit for any of these: an alignment of zero is not an alignment and a
 			 * descriptor ceiling of zero says no set can hold anything. A caller doing the usual arithmetic would divide by zero on the backend that always runs.
 			 */
-			device->caps.maxDescriptorSets				 = 8;
-			device->caps.maxDescriptorsPerSet			 = 65536;
+			device->caps.maxDescriptorSets					= 8;
+			device->caps.maxDescriptorsPerSet				= 65536;
 			device->caps.minUniformBufferOffsetAlignment	= 1;
 			device->caps.minStorageBufferOffsetAlignment	= 1;
-			device->caps.minTexelBufferOffsetAlignment	 = 1;
-			device->caps.optimalBufferCopyOffsetAlignment   = 1;
+			device->caps.minTexelBufferOffsetAlignment		= 1;
+			device->caps.optimalBufferCopyOffsetAlignment	= 1;
 			device->caps.optimalBufferCopyRowPitchAlignment = 1;
 
 			device->adapter.type					  = AdapterType::eCpu;
@@ -533,9 +533,9 @@ namespace azo::rhi
 
 			// Nothing was allocated, so nothing is reported. Memory access follows the declaration, that being the whole of what this backend knows.
 			const MemoryAccess access = record->bufferDesc.memory == MemoryUsage::eGpuOnly || record->bufferDesc.memory == MemoryUsage::eTransient ||
-											record->bufferDesc.memory == MemoryUsage::eReserved
-										  ? MemoryAccess::eGpuOnly
-										  : MemoryAccess::eCpuVisibleCoherent;
+												record->bufferDesc.memory == MemoryUsage::eReserved
+											? MemoryAccess::eGpuOnly
+											: MemoryAccess::eCpuVisibleCoherent;
 
 			*out = BufferInfo{ .desc = record->bufferDesc, .memoryAccess = access };
 			return true;

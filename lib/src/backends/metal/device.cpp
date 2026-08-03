@@ -146,10 +146,8 @@ namespace azo::rhi::metal
 		case ResourceType::eDescriptorSet: retired = device->descriptorSets.Retire(Typed<DescriptorSetHandle>(handle), matchIdentity); break;
 
 		// No native object behind either, but both hold what a pipeline checks its shaders against, so both have a slot of their own to hand back.
-		case ResourceType::eDescriptorSetLayout:
-			retired = device->descriptorSetLayouts.Retire(Typed<DescriptorSetLayoutHandle>(handle), matchIdentity);
-			break;
-		case ResourceType::ePipelineLayout: retired = device->pipelineLayouts.Retire(Typed<PipelineLayoutHandle>(handle), matchIdentity); break;
+		case ResourceType::eDescriptorSetLayout: retired = device->descriptorSetLayouts.Retire(Typed<DescriptorSetLayoutHandle>(handle), matchIdentity); break;
+		case ResourceType::ePipelineLayout:		 retired = device->pipelineLayouts.Retire(Typed<PipelineLayoutHandle>(handle), matchIdentity); break;
 
 		// The kinds with nothing native behind them, tracked for liveness alone.
 		default: retired = device->tracked.Retire(type, handle, matchIdentity); break;

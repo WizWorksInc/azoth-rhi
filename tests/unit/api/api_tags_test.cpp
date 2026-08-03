@@ -175,7 +175,10 @@ namespace
 	{
 		// Naming a backend is not using it. This case would fail to compile on Linux if the D3D12 tag were guarded by a platform macro, which is the
 		// arrangement the header set out to avoid.
-		constexpr std::array names{ rhi::VulkanApi::canonicalName, rhi::D3D12Api::canonicalName, rhi::MetalApi::canonicalName, rhi::Metal4Api::canonicalName,
+		constexpr std::array names{ rhi::VulkanApi::canonicalName,
+			rhi::D3D12Api::canonicalName,
+			rhi::MetalApi::canonicalName,
+			rhi::Metal4Api::canonicalName,
 			rhi::NullApi::canonicalName };
 
 		for (const std::string_view name : names)

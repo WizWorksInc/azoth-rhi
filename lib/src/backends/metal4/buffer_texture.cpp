@@ -104,13 +104,12 @@ namespace azo::rhi::metal4
 
 		device->NoteAllocation(Metal4Device::Residency::eTextures, texture.get());
 
-		const TextureHandle handle = device->textures.Store(Metal4TextureSlot{
-			.texture = std::move(texture),
-			.format			= desc.format,
-			.usage			= desc.usage,
-			.mutableFormat	= desc.allowFormatViews,
-			.shared			= shared,
-			.desc			= detail::Recorded(desc) });
+		const TextureHandle handle = device->textures.Store(Metal4TextureSlot{ .texture = std::move(texture),
+			.format																		= desc.format,
+			.usage																		= desc.usage,
+			.mutableFormat																= desc.allowFormatViews,
+			.shared																		= shared,
+			.desc																		= detail::Recorded(desc) });
 		if (!handle.IsValid())
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal texture handle tracking failed");

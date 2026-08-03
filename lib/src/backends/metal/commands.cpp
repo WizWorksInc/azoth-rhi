@@ -422,7 +422,7 @@ namespace azo::rhi::metal
 
 		// generateMipmaps cannot filter block-compressed formats. Metal's own limit and not a rule the RHI imposes so it is asked whatever the mode and refused here
 		// without recording a blit Metal refuses at commit.
-		auto *const tracked = device->textures.Resolve(texture, kHandleAlreadyChecked);
+		auto * const tracked = device->textures.Resolve(texture, kHandleAlreadyChecked);
 		if (tracked != nullptr && IsCompressedFormat(tracked->format))
 		{
 			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips cannot filter a block-compressed format on Metal");
@@ -505,9 +505,7 @@ namespace azo::rhi::metal
 		 */
 		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
 		{
-			return Fail(error,
-				ErrorCode::eInvalidArgument,
-				"clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
+			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
 		}
 
 		EndActiveEncoders(object);

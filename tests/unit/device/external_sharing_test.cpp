@@ -114,7 +114,7 @@ namespace
 
 	TEST_P(ExternalSharingTest, AWriteOnOneDeviceIsVisibleToAnotherAfterAnImportedTimelineWait)
 	{
-		rhi::ExternalHandleType textureType = rhi::kAllExternalHandleTypes.front();
+		rhi::ExternalHandleType textureType	 = rhi::kAllExternalHandleTypes.front();
 		rhi::ExternalHandleType timelineType = rhi::kAllExternalHandleTypes.front();
 		AZO_RHI_REQUIRE_CAP(SharedTypeFor(rhi::ExternalObjectKind::eTexture, textureType), "a shareable texture");
 		AZO_RHI_REQUIRE_CAP(SharedTypeFor(rhi::ExternalObjectKind::eTimeline, timelineType), "a shareable timeline");

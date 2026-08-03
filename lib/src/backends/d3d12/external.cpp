@@ -176,7 +176,9 @@ namespace azo::rhi::d3d12
 
 		// No allocation and no exportable set: this device owns the reference the open returned and not the memory under it, and re-exporting a payload it did not
 		// create would hand out a handle to memory that is not its to share.
-		return ReturnValue(device->bufferSlots.Store(BufferSlot{ .resource = std::move(resource), .size = desc.desc.size, .hostVisible = false, .desc = detail::Recorded(desc.desc) }), error);
+		return ReturnValue(device->bufferSlots.Store(BufferSlot{
+							   .resource = std::move(resource), .size = desc.desc.size, .hostVisible = false, .desc = detail::Recorded(desc.desc) }),
+			error);
 	}
 
 	TextureHandle D3D12ImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept

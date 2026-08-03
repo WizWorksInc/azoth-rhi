@@ -556,7 +556,7 @@ namespace azo::rhi
 			{
 				adapterIndex = desc.preferredAdapterIndex;
 				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				phys		 = physicals[adapterIndex];
+				phys = physicals[adapterIndex];
 
 				// An explicitly chosen adapter must still satisfy the required features.
 				for (const DeviceFeature feature : desc.requiredFeatures)
@@ -579,7 +579,7 @@ namespace azo::rhi
 				for (std::uint32_t i = 0; i < physicals.size(); ++i)
 				{
 					const vk::PhysicalDevice candidate = physicals[i];
-				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					if (!AdapterSupportsAllFeatures(candidate, instance->dispatch, desc.requiredFeatures))
 					{
 						continue;
@@ -676,9 +676,9 @@ namespace azo::rhi
 			{
 				const vk::QueueFlags flags = qfs[i].queueFlags;
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				const bool graphics		   = static_cast<bool>(flags & vk::QueueFlagBits::eGraphics);
-				const bool compute		   = static_cast<bool>(flags & vk::QueueFlagBits::eCompute);
-				const bool transfer		   = static_cast<bool>(flags & vk::QueueFlagBits::eTransfer);
+				const bool graphics = static_cast<bool>(flags & vk::QueueFlagBits::eGraphics);
+				const bool compute	= static_cast<bool>(flags & vk::QueueFlagBits::eCompute);
+				const bool transfer = static_cast<bool>(flags & vk::QueueFlagBits::eTransfer);
 				if (compute && !graphics && computeFamily == graphicsFamily)
 				{
 					computeFamily = i;
@@ -837,7 +837,7 @@ namespace azo::rhi
 				if (conservativeProps.degenerateTrianglesRasterized == 0u)
 				{
 					conservativeTier = conservativeProps.fullyCoveredFragmentShaderInputVariable != 0u ? ConservativeRasterTier::eInnerCoverage
-																									  : ConservativeRasterTier::eDegenerateCulling;
+																									   : ConservativeRasterTier::eDegenerateCulling;
 				}
 			}
 
@@ -997,7 +997,7 @@ namespace azo::rhi
 			for (FamilyQueues & entry : families)
 			{
 				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				entry.count		   = std::min(entry.count, qfs[entry.family].queueCount);
+				entry.count = std::min(entry.count, qfs[entry.family].queueCount);
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				maxQueuesPerFamily = std::max(maxQueuesPerFamily, entry.count);
 			}
@@ -1039,8 +1039,8 @@ namespace azo::rhi
 																	Published<QueryApi, &QueryBlock>,
 																	Published<PipelineCacheApi, &PipelineCacheBlock>,
 																	Published<ResidencyApi, &ResidencyBlock>,
-															Published<ResourceIntrospectionApi, &ResourceIntrospectionBlock>,
-																			Published<AdoptionApi, &AdoptionBlock>,
+																	Published<ResourceIntrospectionApi, &ResourceIntrospectionBlock>,
+																	Published<AdoptionApi, &AdoptionBlock>,
 																	Published<ExternalSharingApi, &ExternalSharingBlock>>()
 															  : PublishingObject<Published<CoreDeviceApi, &CoreDeviceBlock>,
 																	Published<PresentApi, &PresentBlock>,
@@ -1048,8 +1048,8 @@ namespace azo::rhi
 																	Published<QueryApi, &QueryBlock>,
 																	Published<PipelineCacheApi, &PipelineCacheBlock>,
 																	Published<ResidencyApi, &ResidencyBlock>,
-															Published<ResourceIntrospectionApi, &ResourceIntrospectionBlock>,
-																			Published<AdoptionApi, &AdoptionBlock>>();
+																	Published<ResourceIntrospectionApi, &ResourceIntrospectionBlock>,
+																	Published<AdoptionApi, &AdoptionBlock>>();
 			record->externalMemoryFd	   = hasExternalMemoryFd;
 			record->externalMemoryWin32	   = hasExternalMemoryWin32;
 			record->externalSemaphoreFd	   = hasExternalSemaphoreFd;
@@ -1234,7 +1234,7 @@ namespace azo::rhi
 				if (static_cast<bool>(memProps.memoryHeaps[i].flags & vk::MemoryHeapFlagBits::eDeviceLocal))
 				{
 					deviceLocalBytes += memProps.memoryHeaps[i].size;
-				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				}
 			}
 
@@ -1346,8 +1346,8 @@ namespace azo::rhi
 				}
 			}
 
-			record->caps.maxColorAttachments				= limits.maxColorAttachments;
-			record->caps.maxRenderTargets					= limits.maxColorAttachments;
+			record->caps.maxColorAttachments = limits.maxColorAttachments;
+			record->caps.maxRenderTargets	 = limits.maxColorAttachments;
 
 			/*
 			 * The most descriptors of any one type a single set may declare.
@@ -1355,7 +1355,7 @@ namespace azo::rhi
 			 * Vulkan states a ceiling per descriptor type and not one for the set, so the smallest of them is the number a caller can rely on whatever they fill the set
 			 * with. Taking the largest instead would be a ceiling that only holds for one type.
 			 */
-			record->caps.maxDescriptorsPerSet = std::min({ limits.maxDescriptorSetSamplers,
+			record->caps.maxDescriptorsPerSet				= std::min({ limits.maxDescriptorSetSamplers,
 				limits.maxDescriptorSetUniformBuffers,
 				limits.maxDescriptorSetStorageBuffers,
 				limits.maxDescriptorSetSampledImages,
@@ -1376,7 +1376,7 @@ namespace azo::rhi
 			record->caps.optimalBufferCopyRowPitchAlignment = limits.optimalBufferCopyRowPitchAlignment;
 			record->caps.timestampPeriodNanoseconds			= limits.timestampPeriod;
 			// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			record->caps.timestampValidBits					= qfs[graphicsFamily].timestampValidBits;
+			record->caps.timestampValidBits = qfs[graphicsFamily].timestampValidBits;
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
 			VulkanDevice * raw = record.get();
@@ -1573,8 +1573,8 @@ namespace azo::rhi
 			}
 
 			// Read off what the memory turned out to be, not what was asked for, since this query runs after creation.
-			const MemoryAccess access = slot->hostVisible ? (slot->coherent ? MemoryAccess::eCpuVisibleCoherent : MemoryAccess::eCpuVisible)
-														  : MemoryAccess::eGpuOnly;
+			const MemoryAccess access =
+				slot->hostVisible ? (slot->coherent ? MemoryAccess::eCpuVisibleCoherent : MemoryAccess::eCpuVisible) : MemoryAccess::eGpuOnly;
 
 			*out = BufferInfo{ .desc = slot->desc, .allocationSize = allocationInfo.size, .memoryAccess = access };
 			return true;
@@ -1651,7 +1651,8 @@ namespace azo::rhi
 				NameVulkanObject(device, vk::ObjectType::eBuffer, std::bit_cast<std::uint64_t>(raw), desc.debugName);
 
 				// Never host visible: mapping is a property of the memory, and this buffer has none until bindSparse gives it some.
-				const BufferHandle handle = device->bufferSlots.Store(BufferSlot{ .buffer = raw, .size = desc.size, .sparse = true, .desc = detail::Recorded(desc) });
+				const BufferHandle handle =
+					device->bufferSlots.Store(BufferSlot{ .buffer = raw, .size = desc.size, .sparse = true, .desc = detail::Recorded(desc) });
 				if (!handle.IsValid())
 				{
 					device->device.destroyBuffer(created.value, nullptr, device->dispatch);
@@ -1741,7 +1742,7 @@ namespace azo::rhi
 				.hostVisible														  = mappable,
 				.persistentMapped													  = (allocFlags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
 				.exportableHandleTypes												  = desc.exportableHandleTypes,
-				.desc = detail::Recorded(desc) });
+				.desc																  = detail::Recorded(desc) });
 			if (!handle.IsValid())
 			{
 				vmaDestroyBuffer(device->allocator, raw, allocation);
@@ -2239,7 +2240,7 @@ namespace azo::rhi
 				.hostVisible														  = heap.hostVisible,
 				.placedMemory														  = heap.memory,
 				.placedOffset														  = desc.offset,
-				.desc = detail::Recorded(desc.buffer) });
+				.desc																  = detail::Recorded(desc.buffer) });
 			if (!handle.IsValid())
 			{
 				device->device.destroyBuffer(buffer, nullptr, device->dispatch);
@@ -2657,8 +2658,9 @@ namespace azo::rhi
 
 					if (bad.wrongAbiVersion)
 					{
-						return Fail(
-							error, ErrorCode::eUnsupportedFormat, "a shader binary was built against a revision of the binding ABI this build does not implement");
+						return Fail(error,
+							ErrorCode::eUnsupportedFormat,
+							"a shader binary was built against a revision of the binding ABI this build does not implement");
 					}
 
 					if (bad.unknownToLayout)
@@ -2666,7 +2668,8 @@ namespace azo::rhi
 						return Fail(error, ErrorCode::eInvalidArgument, "a shader binary claims a binding the pipeline layout does not declare");
 					}
 
-					return Fail(error, ErrorCode::eInvalidArgument, "a shader binary put a binding at a different set and binding than this pipeline layout uses");
+					return Fail(
+						error, ErrorCode::eInvalidArgument, "a shader binary put a binding at a different set and binding than this pipeline layout uses");
 				}
 
 				return true;
@@ -2818,11 +2821,11 @@ namespace azo::rhi
 			{
 				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				key.colors[i] = RenderPassAttachmentKey{ .format = MapFormat(desc.renderTarget.colorFormats[i]),
-				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-					.samples										= samples,
-					.loadOp											= vk::AttachmentLoadOp::eLoad,
-					.storeOp										= vk::AttachmentStoreOp::eStore,
-					.layout											= vk::ImageLayout::eColorAttachmentOptimal };
+					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					.samples = samples,
+					.loadOp	 = vk::AttachmentLoadOp::eLoad,
+					.storeOp = vk::AttachmentStoreOp::eStore,
+					.layout	 = vk::ImageLayout::eColorAttachmentOptimal };
 			}
 
 			if (desc.renderTarget.depthStencilFormat != Format::eUndefined)

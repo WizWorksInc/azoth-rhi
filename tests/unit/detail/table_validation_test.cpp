@@ -138,8 +138,7 @@ namespace
 			rhi::detail::BlockEntries<rhi::AdoptionApi>::kNames.size() + rhi::detail::BlockEntries<rhi::IndirectApi>::kNames.size() +
 			rhi::detail::BlockEntries<rhi::IndirectCountApi>::kNames.size() + rhi::detail::BlockEntries<rhi::SparseApi>::kNames.size() +
 			rhi::detail::BlockEntries<rhi::NativeEscapeApi>::kNames.size() + rhi::detail::BlockEntries<rhi::ExternalCapabilityApi>::kNames.size() +
-			rhi::detail::BlockEntries<rhi::ExternalSharingApi>::kNames.size() +
-			rhi::detail::BlockEntries<rhi::ResourceIntrospectionApi>::kNames.size();
+			rhi::detail::BlockEntries<rhi::ExternalSharingApi>::kNames.size() + rhi::detail::BlockEntries<rhi::ResourceIntrospectionApi>::kNames.size();
 		static_assert(declinable == 73);
 
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::InstanceApi>::kNames.size(), 4u);

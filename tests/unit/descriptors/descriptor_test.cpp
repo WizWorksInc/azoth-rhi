@@ -254,9 +254,9 @@ namespace
 
 		rhi::Error error{};
 
-		constexpr std::uint64_t kRange	  = 256;
-		constexpr std::uint64_t kRoomy	  = 4096;
-		constexpr std::uint64_t kSnug	  = kRange;
+		constexpr std::uint64_t kRange	   = 256;
+		constexpr std::uint64_t kRoomy	   = 4096;
+		constexpr std::uint64_t kSnug	   = kRange;
 		constexpr std::uint64_t kFarOffset = 1024;
 
 		const auto uniformOf = [](const std::uint64_t size) noexcept
@@ -286,8 +286,8 @@ namespace
 			Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .debugName = "azoth.rhi.test.dynamicLayout" }, error);
 		ASSERT_TRUE(test::Ok(pipelineLayout.IsValid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(
-			rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 2 }, error);
+		rhi::DescriptorArena arena =
+			Dev().CreateDescriptorArena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 2 }, error);
 		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
 
 		const rhi::DescriptorSetHandle set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout }, error);
