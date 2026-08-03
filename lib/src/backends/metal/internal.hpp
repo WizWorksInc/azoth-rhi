@@ -370,6 +370,9 @@ namespace azo::rhi::metal
 		// DeviceDesc.enableDebugLabels: bracket command spans as Metal debug groups for Xcode and Instruments.
 		bool debugLabels = true;
 
+		// DeviceDesc.allowDeviceLocalMapping: whether Map may hand back contents() for a private buffer. Refused without it, as the other backends refuse it.
+		bool allowDeviceLocalMapping = false;
+
 		// The instance this device was made from, borrowed or null in the static CreateDevice form that makes no instance. Used only so teardown can retire the
 		// instance alongside its last device.
 		MetalInstance * instanceWrapper = nullptr;

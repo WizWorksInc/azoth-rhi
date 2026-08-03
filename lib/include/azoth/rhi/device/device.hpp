@@ -380,6 +380,15 @@ namespace azo::rhi
 		bool requireSwapchain = true;
 
 		/**
+		 * \brief Lets Map hand back a pointer into memory this device calls device local.
+		 *
+		 * Off by default so every backend answers the same way and a renderer written on a unified adapter does not map what a split one cannot. Turning it on
+		 * only works where DeviceCaps::deviceLocalMemoryIsHostVisible is true, and it is a promise the caller is writing platform-specific code, since ordering
+		 * that pointer against the GPU is theirs to arrange.
+		 */
+		bool allowDeviceLocalMapping = false;
+
+		/**
 		 * \brief Selects dynamic rendering or render-pass-object lowering for rendering scopes.
 		 */
 		DynamicRenderingMode dynamicRendering = DynamicRenderingMode::ePreferred;
@@ -623,6 +632,14 @@ namespace azo::rhi
 		 * \brief Explicit placed resources or aliasing heaps are available.
 		 */
 		bool supportsPlacedResources = false;
+
+		/**
+		 * \brief Memory this device calls device local can also be mapped, because the adapter shares one pool with the host.
+		 *
+		 * False everywhere memory is split, which is what the portable model assumes. True is not permission on its own: Map still refuses a device-local buffer
+		 * unless DeviceDesc::allowDeviceLocalMapping asked for it, so code written against the portable rule keeps behaving the same on a unified adapter.
+		 */
+		bool deviceLocalMemoryIsHostVisible = false;
 
 		/**
 		 * \brief This device has a fixed-function scaled blit, so CommandList::Blit resamples without refusing.

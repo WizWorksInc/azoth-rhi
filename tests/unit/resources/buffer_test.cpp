@@ -38,6 +38,51 @@ namespace
 
 	AZO_RHI_BACKEND_SUITE(BufferTest);
 
+	/*
+	 * Metal used to map a device-local buffer where Vulkan and Null refused, since one shared pool leaves contents() non-null for private storage. Every
+	 * backend gives the same answer now unless the device was created asking for the other one.
+	 */
+	class DeviceLocalMappingTest : public test::BackendTest
+	{
+	protected:
+		[[nodiscard]] rhi::DeviceDesc MakeDeviceDesc() const override
+		{
+			rhi::DeviceDesc desc		 = test::DefaultDeviceDesc();
+			desc.allowDeviceLocalMapping = m_allow;
+			return desc;
+		}
+
+		bool m_allow = false;
+	};
+
+	AZO_RHI_BACKEND_SUITE(DeviceLocalMappingTest);
+
+	TEST_P(DeviceLocalMappingTest, RefusesToMapDeviceLocalMemoryUnlessAsked)
+	{
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "the sample storage buffer is device local, and it did not create";
+
+		rhi::Error mapError{};
+		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, mapError);
+		EXPECT_EQ(mapped.data, nullptr) << "device-local memory was mapped without DeviceDesc::allowDeviceLocalMapping";
+		EXPECT_TRUE(test::ErrorIsPopulated(mapError));
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(DeviceLocalMappingTest, ReportsWhetherDeviceLocalMemoryCouldBeMappedAtAll)
+	{
+		// The capability is the device's own answer, so it is only asserted to be reachable and consistent, never assumed true or false for a given backend.
+		const bool unified = Caps().deviceLocalMemoryIsHostVisible;
+		EXPECT_EQ(unified, Dev().GetCaps().deviceLocalMemoryIsHostVisible);
+
+		if (!unified)
+		{
+			SUCCEED() << CurrentBackend().displayName << " keeps host and device memory apart, so the opt-in cannot apply";
+		}
+	}
+
 	TEST_P(BufferTest, CreatesAndDestroysAStorageBuffer)
 	{
 		rhi::Error error{};

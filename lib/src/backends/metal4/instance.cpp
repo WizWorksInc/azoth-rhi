@@ -339,6 +339,10 @@ namespace azo::rhi::metal4
 		device->debugLabels		= desc.enableDebugLabels;
 		device->device			= std::move(mtlDevice);
 
+		// Only where the adapter really shares one pool, so asking for it on a discrete Mac gets the portable refusal rather than a pointer that is not backed.
+		device->caps.deviceLocalMemoryIsHostVisible = device->device->hasUnifiedMemory();
+		device->allowDeviceLocalMapping				= desc.allowDeviceLocalMapping && device->caps.deviceLocalMemoryIsHostVisible;
+
 		// Each requested type gets its own independent command queues. Metal command queues are always independent so a compute or copy queue is dedicated and a
 		// required dedicated queue always succeeds.
 		const QueuePlan plan  = PlanQueues(desc.queues);

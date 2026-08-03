@@ -445,6 +445,9 @@ namespace azo::rhi::metal4
 		// DeviceDesc.enableDebugLabels: bracket command spans as Metal debug groups for Xcode and Instruments.
 		bool debugLabels = true;
 
+		// DeviceDesc.allowDeviceLocalMapping: whether Map may hand back contents() for a private buffer. Refused without it, as the other backends refuse it.
+		bool allowDeviceLocalMapping = false;
+
 		// The instance this device was made from, borrowed or null in the static CreateDevice form that makes no instance. Used only so teardown can retire the
 		// instance alongside its last device.
 		Metal4Instance * instanceWrapper = nullptr;
@@ -632,6 +635,23 @@ namespace azo::rhi::metal4
 	[[nodiscard]] inline CmdList * ListOf(Metal4Object * object) noexcept
 	{
 		return object != nullptr ? object->list : nullptr;
+	}
+
+	/**
+	 * \brief The same list, but only while it is open for recording.
+	 *
+	 * The command buffer is made at allocation and only takes an allocator at Begin, so a null test answers a different question. Opening an encoder on one
+	 * that never began reaches that missing allocator inside Metal and faults there, past anything this backend could report.
+	 */
+	[[nodiscard]] inline CmdList * RecordingListOf(Metal4Object * object) noexcept
+	{
+		CmdList * list = ListOf(object);
+		if (list == nullptr || list->commandBuffer.get() == nullptr || list->lifecycle != 1)
+		{
+			return nullptr;
+		}
+
+		return list;
 	}
 
 	/// Stages, which this generation names on a barrier where the other one had nothing to name.

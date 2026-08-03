@@ -30,7 +30,18 @@ namespace azo::rhi::metal4
 		}
 
 		MTL::Buffer * raw = tracked->buffer.get();
-		void * contents	  = raw->contents();
+
+		/*
+		 * Private memory is not mappable in the portable model and Vulkan and Null both refuse it. A unified adapter shares one pool, so contents() hands back a
+		 * pointer anyway, and writing through it to a private resource is ordered against nothing the RHI knows about. Opt in per device to get it.
+		 */
+		if (raw->storageMode() == MTL::StorageModePrivate && !device->allowDeviceLocalMapping)
+		{
+			Fail(error, ErrorCode::eInvalidArgument, "map of a buffer whose memory is not host visible, without DeviceDesc::allowDeviceLocalMapping");
+			return {};
+		}
+
+		void * contents = raw->contents();
 		if (contents == nullptr)
 		{
 			Fail(error, ErrorCode::eUnsupportedFeature, "Map of a buffer without CPU-visible storage");
