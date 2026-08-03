@@ -117,7 +117,8 @@ namespace azo::rhi::metal
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
 		}
-		if (firstQuery + queryCount > tracked->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
@@ -255,7 +256,8 @@ namespace azo::rhi::metal
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
 		}
-		if (firstQuery + queryCount > tracked->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}

@@ -275,7 +275,8 @@ namespace azo::rhi::vulkan
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid query pool handle");
 		}
-		if (firstQuery + queryCount > slot->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
@@ -358,7 +359,8 @@ namespace azo::rhi::vulkan
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid query pool or buffer handle");
 		}
-		if (firstQuery + queryCount > poolSlot->queryCount)
+		// Subtracted and not added, as in resetQueryPool above. Here the wrapped range drives a GPU write into the destination buffer.
+		if (firstQuery > poolSlot->queryCount || queryCount > poolSlot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}

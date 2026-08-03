@@ -119,7 +119,8 @@ namespace azo::rhi::metal4
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
 		}
-		if (firstQuery + queryCount > tracked->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
@@ -224,7 +225,8 @@ namespace azo::rhi::metal4
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
 		}
-		if (firstQuery + queryCount > tracked->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
@@ -248,8 +250,18 @@ namespace azo::rhi::metal4
 		MTL::Fence * waitFence = list->wroteEncoderTimestamps ? list->timestampFence.get() : nullptr;
 
 		const std::uint64_t entrySize = device->device->sizeOfCounterHeapEntry(MTL4::CounterHeapTypeTimestamp);
+		const std::uint64_t bytes	  = entrySize * queryCount;
 
-		const MTL4::BufferRange range = MTL4::BufferRange::Make(destination->gpuAddress() + dstOffset, entrySize * queryCount);
+		/*
+		 * Bounded here because a resolve names a raw address and a length on this generation, where the other hands over the buffer object and lets Metal bound
+		 * it. Nothing else stands between a destination offset the caller chose and a GPU write past the end of the allocation.
+		 */
+		if (dstOffset > destination->length() || bytes > destination->length() - dstOffset)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData writes past the end of the destination buffer");
+		}
+
+		const MTL4::BufferRange range = MTL4::BufferRange::Make(destination->gpuAddress() + dstOffset, bytes);
 
 		// No update fence: what reads the destination afterwards is ordered by the caller's own barrier, which is the same contract the other generation works
 		// under.

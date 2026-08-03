@@ -26,7 +26,8 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid handle");
 		}
-		if (firstQuery + queryCount > slot->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
@@ -91,7 +92,8 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid handle");
 		}
-		if (firstQuery + queryCount > slot->queryCount)
+		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
+		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
