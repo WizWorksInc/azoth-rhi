@@ -254,6 +254,18 @@ namespace azo::rhi::d3d12
 				error, ErrorCode::eUnsupportedFormat, "allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not");
 		}
 
+		// The same rules the unplaced create applies, so a caller cannot reach an impossible description by routing it through a heap instead.
+		if (desc.texture.width == 0 || desc.texture.height == 0 || desc.texture.depth == 0)
+		{
+			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+		}
+
+		if (desc.texture.mipLevels >
+			detail::MaxMipLevels(desc.texture.width, desc.texture.height, desc.texture.type == TextureType::eTex3D ? desc.texture.depth : 1))
+		{
+			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
+		}
+
 		ComPtr<ID3D12Heap> heap;
 		{
 			HeapSlot * heapSlot = ResolveHeap(device, desc.heap);

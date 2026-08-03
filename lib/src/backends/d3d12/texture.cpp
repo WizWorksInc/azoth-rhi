@@ -236,17 +236,16 @@ namespace azo::rhi::d3d12
 			return FailValue<TextureHandle>(
 				error, ErrorCode::eUnsupportedFormat, "allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not");
 		}
-		if (desc.width == 0 || desc.height == 0)
+		// Every axis and not only the two a flat texture uses. Depth is one for anything that is not a volume, so a description setting it to zero is as
+		// impossible as a zero width, and the other three backends already refuse it in exactly these words.
+		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture dimensions must be non-zero");
+			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
 		}
-		// Reject a degenerate extent as Vulkan does: a 3D texture needs non-zero depth, everything else at least one array layer.
-		if (desc.type == TextureType::eTex3D)
+
+		if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, desc.type == TextureType::eTex3D ? desc.depth : 1))
 		{
-			if (desc.depth == 0)
-			{
-				return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "a 3D texture must have a non-zero depth");
-			}
+			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
 		}
 		else if (desc.arrayLayers == 0)
 		{

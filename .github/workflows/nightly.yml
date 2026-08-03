@@ -111,7 +111,7 @@ jobs:
             cc: gcc-14
             cxx: g++-14
           - name: macos-appleclang
-            os: macos-15
+            os: macos-26
           - name: windows-msvc
             os: windows-2025
 

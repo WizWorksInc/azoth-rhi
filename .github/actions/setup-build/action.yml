@@ -39,6 +39,17 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends "${packages[@]}"
 
+    # Windows has no packaged Vulkan the way apt does, so the loader and a software ICD are fetched and the ICD is registered under
+    # HKLM\SOFTWARE\Khronos\Vulkan\Drivers. Only the runtime is installed: the headers come from vk-dynamic at configure time, so the SDK itself is not needed.
+    # Pinned to a commit rather than a tag, this being a third-party action running inside the job.
+    - name: Install the Vulkan loader and a software driver
+      if: runner.os == 'Windows' && inputs.vulkan-driver == 'true'
+      uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
+      with:
+        install_runtime_only: true
+        install_lavapipe: true
+        cache: true
+
     - name: Install the toolchain
       if: runner.os == 'macOS'
       shell: bash

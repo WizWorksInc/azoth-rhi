@@ -40,11 +40,13 @@ jobs:
             cxx: clang++-18
             vulkan_driver: "true"
             require_backends: vulkan,null
+          # macOS 26, not 15, because Metal 4 is only there. On 15 the backend has no driver at all and its entire suite skips.
           - name: macos-appleclang
-            os: macos-15
+            os: macos-26
             require_backends: metal,null
           - name: windows-msvc
             os: windows-2025
+            vulkan_driver: "true"
             require_backends: d3d12,null
 
     env:

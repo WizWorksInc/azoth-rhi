@@ -30,10 +30,11 @@ jobs:
             vulkan_driver: "true"
             require_backends: vulkan,null
           - name: macos-appleclang
-            os: macos-15
+            os: macos-26
             require_backends: metal,null
           - name: windows-msvc
             os: windows-2025
+            vulkan_driver: "true"
             require_backends: d3d12,null
 
     env:
@@ -84,10 +85,11 @@ jobs:
             vulkan_driver: "true"
             require_backends: vulkan,null
           - name: macos-appleclang
-            os: macos-15
+            os: macos-26
             require_backends: metal,null
           - name: windows-msvc
             os: windows-2025
+            vulkan_driver: "true"
             require_backends: d3d12,null
 
     env:

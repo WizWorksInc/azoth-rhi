@@ -53,7 +53,12 @@ namespace
 			const test::DeviceHarness device{ backend, desc };
 			if (!device.IsValid())
 			{
-				GTEST_SKIP() << backend.displayName << " has no driver here";
+				/*
+				 * Pass over this backend, not the rest of them. GTEST_SKIP expands to a return, so skipping here abandoned every backend after the first one
+				 * without a driver, and the caller's counter stayed at zero. On a macOS runner that is Metal 4, which needs an OS the image does not have, so
+				 * Metal and Null were never reached and the parity checks reported that nothing came up at all.
+				 */
+				continue;
 			}
 
 			check(backend, device.Get());
