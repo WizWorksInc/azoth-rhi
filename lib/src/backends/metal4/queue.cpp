@@ -93,12 +93,25 @@ namespace azo::rhi::metal4
 
 		for (const CommandList * list : desc.commandLists)
 		{
-			if (MTL4::CommandBuffer * buffer = CommandBufferOf(list); buffer != nullptr)
+			if (list == nullptr)
 			{
-				if (!detail::TryPushBack(buffers, buffer))
-				{
-					return Fail(error, ErrorCode::eOutOfHostMemory, "submit could not gather its command buffers");
-				}
+				continue;
+			}
+
+			/*
+			 * Only a list that reached End has anything to commit. Its command buffer is made with the list and is never null, so a null test asks a different
+			 * question, and committing one that never began asserts inside the queue instead of coming back as an error.
+			 */
+			auto * listObject		= static_cast<Metal4Object *>(detail::UnwrappedImplOf(*list));
+			const CmdList * record	= ListOf(listObject);
+			if (record == nullptr || record->commandBuffer.get() == nullptr || record->lifecycle < 2)
+			{
+				continue;
+			}
+
+			if (!detail::TryPushBack(buffers, record->commandBuffer.get()))
+			{
+				return Fail(error, ErrorCode::eOutOfHostMemory, "submit could not gather its command buffers");
 			}
 		}
 

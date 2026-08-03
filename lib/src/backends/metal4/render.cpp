@@ -29,10 +29,10 @@ namespace azo::rhi::metal4
 
 		auto * object		 = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		 = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr)
+		CmdList * list		 = RecordingListOf(object);
+		if (list == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool		= NS::TransferPtr(NS::AutoreleasePool::alloc()->init());

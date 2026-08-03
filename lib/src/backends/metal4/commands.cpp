@@ -178,8 +178,8 @@ namespace azo::rhi::metal4
 	 */
 	MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object) noexcept
 	{
-		CmdList * list = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr)
+		CmdList * list = RecordingListOf(object);
+		if (list == nullptr)
 		{
 			return nullptr;
 		}
@@ -369,10 +369,10 @@ namespace azo::rhi::metal4
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.barriers");
 
 		auto * object  = static_cast<Metal4Object *>(impl);
-		CmdList * list = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr)
+		CmdList * list = RecordingListOf(object);
+		if (list == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
 		Flags<PipelineStage> before;
@@ -426,10 +426,10 @@ namespace azo::rhi::metal4
 	bool CmdBeginDebugLabel(void * impl, CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
-		CmdList * list = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr)
+		CmdList * list = RecordingListOf(object);
+		if (list == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
 		if (!object->owner->debugLabels)
@@ -471,10 +471,10 @@ namespace azo::rhi::metal4
 	bool CmdEndDebugLabel(void * impl, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
-		CmdList * list = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr)
+		CmdList * list = RecordingListOf(object);
+		if (list == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
 		if (!object->owner->debugLabels || list->debugLabelScopes.empty())
