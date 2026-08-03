@@ -19,6 +19,7 @@
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/resource_record.hpp"
+#include "azoth/rhi/backend/support/scope_guard.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
 #include "azoth/rhi/backend/support/subresource.hpp"
 #include "azoth/rhi/core/profiling.hpp"

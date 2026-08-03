@@ -673,6 +673,17 @@ namespace azo::rhi::d3d12
 		}
 		dev->deviceTag = deviceTag;
 
+		/*
+		 * The tag goes back on every way out of here that does not reach the owner list. The pool is process-global with a ceiling of 255 and is shared by every
+		 * backend, so a caller probing adapters in a loop would otherwise drop that ceiling by one per failed create until no backend can make a device at all.
+		 * Dismissed once the record is owned, from which point the destroy path releases it.
+		 */
+		auto tagGuard = detail::MakeScopeGuard(
+			[deviceTag]() noexcept
+			{
+				detail::DeviceTags().Release(deviceTag);
+			});
+
 		// Seed each handle registry with the device tag.
 		dev->bufferSlots.Rebind(deviceTag);
 		dev->textureSlots.Rebind(deviceTag);
@@ -797,6 +808,7 @@ namespace azo::rhi::d3d12
 
 		D3D12Device * raw = dev.get();
 		owner.devices.push_back(std::move(dev));
+		tagGuard.Dismiss();
 		Succeed(error);
 		return raw;
 	}

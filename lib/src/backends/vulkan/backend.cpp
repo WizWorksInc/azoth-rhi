@@ -1094,6 +1094,18 @@ namespace azo::rhi
 				return nullptr;
 			}
 			record->deviceTag = deviceTag;
+
+			/*
+			 * The tag goes back on every way out of here that does not reach the owner list. The pool is process-global with a ceiling of 255 and is shared by
+			 * every backend, so a caller probing adapters in a loop would otherwise drop that ceiling by one per failed create until no backend can make a device
+			 * at all. Dismissed once the record is owned, from which point the destroy path releases it.
+			 */
+			auto tagGuard = detail::MakeScopeGuard(
+				[deviceTag]() noexcept
+				{
+					detail::DeviceTags().Release(deviceTag);
+				});
+
 			record->bufferSlots.Rebind(deviceTag);
 			record->pipelineLayoutSlots.Rebind(deviceTag);
 			record->graphicsPipelineSlots.Rebind(deviceTag);
@@ -1377,6 +1389,7 @@ namespace azo::rhi
 				return nullptr;
 			}
 
+			tagGuard.Dismiss();
 			return raw;
 		}
 
@@ -2205,7 +2218,9 @@ namespace azo::rhi
 			const vk::Buffer buffer			  = created.value;
 			const vk::MemoryRequirements reqs = device->device.getBufferMemoryRequirements(buffer, device->dispatch);
 			// Checked in every mode, since binding to memory the buffer does not fit is undefined and not merely wrong.
-			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset + reqs.size > heap.size)
+			// The range is subtracted and not added, an offset a suballocator produced by underflow being free to wrap the sum back inside the heap.
+			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset > heap.size ||
+				reqs.size > heap.size - desc.offset)
 			{
 				device->device.destroyBuffer(buffer, nullptr, device->dispatch);
 				return FailValue<BufferHandle>(error, ErrorCode::eValidationFailed, "placed buffer does not fit the heap (memory type, alignment, or range)");
@@ -2286,7 +2301,9 @@ namespace azo::rhi
 			const vk::Image image			  = createdImage.value;
 			const vk::MemoryRequirements reqs = device->device.getImageMemoryRequirements(image, device->dispatch);
 			// Same in every mode and for the same reason as the placed buffer above.
-			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset + reqs.size > heap.size)
+			// The range is subtracted and not added, an offset a suballocator produced by underflow being free to wrap the sum back inside the heap.
+			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset > heap.size ||
+				reqs.size > heap.size - desc.offset)
 			{
 				device->device.destroyImage(image, nullptr, device->dispatch);
 				return FailValue<TextureHandle>(error, ErrorCode::eValidationFailed, "placed texture does not fit the heap (memory type, alignment, or range)");
