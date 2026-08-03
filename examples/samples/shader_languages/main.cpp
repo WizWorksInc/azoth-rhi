@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * Four shading languages against one RHI, each running the kernel it is actually good at. They do not reach the same answer. What they share is that the
- * binding a shader declares lands where the RHI's ABI says, whichever language declared it.
- *
- * Every kernel writes one storage buffer at set 0 binding 0 and the host checks the numbers that come back.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/builders/resource_builders.hpp"
 #include "azoth/rhi/commands/command.hpp"

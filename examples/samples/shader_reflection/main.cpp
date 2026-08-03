@@ -12,16 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * Building a pipeline layout out of the shader instead of beside it.
- *
- * Every other sample here writes its bindings twice, once in the shader and once in a DescriptorBinding array that has to agree with it, and nothing checks
- * that they do.
- *
- * Slang keeps a reflection of what it compiled, so the second copy is unnecessary. This sample builds its whole layout from that reflection, so adding a
- * resource to reflected.slang changes what runs without touching this file.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/builders/resource_builders.hpp"
 #include "azoth/rhi/commands/command.hpp"

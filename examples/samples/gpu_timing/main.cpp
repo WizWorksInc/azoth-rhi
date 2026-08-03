@@ -12,15 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * Asking the GPU how long it took, the question with the most backend disagreement behind it.
- *
- * A timestamp is a tick and not a time: turning the counter value into milliseconds needs the period CalibrateTimestamp reports. And it cannot always be
- * written where it is wanted, some devices fixing their sample points when a scope opens, so the portable way to time a pass is BeginRenderingDesc::timestamps.
- *
- * The three query types are not one feature. Metal implements timestamp pools only.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/render.hpp"
@@ -67,12 +58,6 @@ namespace
 		std::uint32_t iterations = kIterations;
 	};
 
-	/*
-	 * Where each query's resolved value lands in the one readback buffer.
-	 *
-	 * Every backend writes one 64-bit value per query, packed, at the offset the resolve was given, so three pools sharing a buffer is three offsets and no
-	 * translation. The six timestamps first, then the single occlusion and statistics slots after them.
-	 */
 	enum class Slot : std::uint32_t
 	{
 		eSubmitBegin = 0,

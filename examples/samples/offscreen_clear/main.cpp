@@ -43,11 +43,6 @@ namespace rhi = azo::rhi;
 
 namespace
 {
-
-	// The backend name this sample takes as its first argument or null when it was not given one.
-
-	// The failure line this sample prints, since a diagnostic string is optional.
-
 	const char * Yes(const bool value)
 	{
 		return value ? "yes" : "no";

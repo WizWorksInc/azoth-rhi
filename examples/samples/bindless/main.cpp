@@ -12,16 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * A descriptor array with no size in it, the thing a bound renderer cannot do.
- *
- * Four capabilities line up and the sample turns each on by name. BindingTier::eUnbounded declares an array without a length, eVariableDescriptorCount picks
- * the length when the set is allocated, ePartiallyBound lets unread entries stay unwritten, and eUpdateAfterBind lets a descriptor be written after the set is
- * recorded.
- *
- * That last one is worth watching: half the textures here are written after the list binding them closed.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/sync.hpp"

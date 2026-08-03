@@ -12,16 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * rhi::Unique<T>, the first of the two owning tiers: who holds a handle, and when it dies.
- *
- * Unique owns lifetime and nothing else. What it removes is the Destroy call, not the handle, so a Unique<BufferHandle> still goes anywhere a BufferHandle
- * does, through Get.
- *
- * The interesting part is around the destructor. Ownership moves, so a container of them holds a pool. And destruction is a policy and not an instant, so a
- * resource the GPU is reading can be released later.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/sync.hpp"

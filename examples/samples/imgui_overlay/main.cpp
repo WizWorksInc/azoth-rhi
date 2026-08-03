@@ -12,15 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * Dear ImGui drawn through the RHI.
- *
- * ImGui is split in two everywhere it is used and this sample brings neither half itself. The input half is ImGui's own SDL3 backend. The drawing half is
- * azoth::rhi-imgui, shipped beside the RHI because writing it is the same four hundred lines for everyone.
- *
- * What is left here is what using it looks like. What it draws is ImGui's own demo window, which walks every path this backend has.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/frame_ring.hpp"

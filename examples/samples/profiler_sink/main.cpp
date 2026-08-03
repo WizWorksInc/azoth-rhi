@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * A profiler sink that tallies instead of visualizing. The RHI instruments its own work and calls whatever sink is installed so this prints what a Tracy, PIX
- * or Optick integration would be drawing: which zones the library opened, how often and what its counters were doing.
- *
- * A real sink forwards to a tool without counting. The shape is the same either way, which is why one that only counts is a usable starting point for
- * writing your own.
- */
-
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/c_string.hpp"
@@ -49,15 +41,6 @@
 #include <vector>
 
 namespace rhi = azo::rhi;
-
-namespace
-{
-
-	// The backend name this sample takes as its first argument or null when it was not given one.
-
-	// The failure line this sample prints, since a diagnostic string is optional.
-
-} // namespace
 
 namespace
 {

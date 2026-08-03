@@ -12,16 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * The Tracy sink, the one profiler integration the library ships written. Install rhi::TracyProfiler and the zones, plots and device allocations the RHI
- * reports arrive in a connected Tracy server.
- *
- * Two things are worth watching for in the capture. The RHI's zones nest inside this sample's own, both going to the same client. And there are no GPU zones:
- * the sink forwards CPU work only, a Tracy GPU context needing calibration points from the frame loop.
- *
- * Writing a sink is profiler_sink.
- */
-
 #include "azoth/rhi/builders/device_builder.hpp"
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/sync.hpp"

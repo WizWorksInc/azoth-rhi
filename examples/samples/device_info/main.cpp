@@ -35,11 +35,6 @@ namespace rhi = azo::rhi;
 
 namespace
 {
-
-	// The backend name this sample takes as its first argument or null when it was not given one.
-
-	// The failure line this sample prints, since a diagnostic string is optional.
-
 	const char * Yes(const bool value)
 	{
 		return value ? "yes" : "no";
@@ -121,11 +116,10 @@ int main(int argc, char ** argv)
 	LOG_INFO(fw::Log(), "{}", available);
 	LOG_INFO(fw::Log(), "  profiling: {}, tracy: {}\n", Yes(build.profilingEnabled), Yes(build.tracyEnabled));
 
-	// Register everything this build contains, then let the runtime pick.
+	// Register everything this build contains then let the runtime pick.
 	const char * requested = fw::RequestedBackend(argc, argv);
 
-	// Every backend this build has, registered, with the requested one first. What that set is was settled when the library was compiled so this sample never has
-	// to ask.
+	// Register your backend preference.
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
 	if (requested != nullptr && !backends.HonoredRequest())
 	{
@@ -171,8 +165,6 @@ int main(int argc, char ** argv)
 	const rhi::AdapterInfo & adapter = handle.GetAdapterInfo();
 	const rhi::DeviceCaps & caps	 = handle.GetCaps();
 
-	// The version reported, not the one asked for, which on a backend with more than one generation is the only way to tell which came up. Metal answers
-	// 3 or 4 here.
 	LOG_INFO(fw::Log(), "backend: {} {}.{}", handle.GetGraphicsApiName(), caps.apiVersion.major, caps.apiVersion.minor);
 	LOG_INFO(fw::Log(), "adapter: {} ({})", OrUnknown(adapter.name), Describe(adapter.type));
 	LOG_INFO(fw::Log(), "  vendor id:      0x{:x}", adapter.vendorId);
