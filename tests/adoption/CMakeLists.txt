@@ -27,6 +27,9 @@ add_executable(rhi_adoption native/adoption_test.cpp)
 target_link_libraries(rhi_adoption PRIVATE azoth::rhi azoth::rhi-test GTest::gtest GTest::gtest_main)
 set_target_properties(rhi_adoption PROPERTIES FOLDER tests)
 
+# Built by hand rather than through azoth_rhi_add_gtest_suite, so the staging that helper does is asked for here.
+azoth_rhi_stage_test_runtime(rhi_adoption)
+
 # The native headers are behind their own interface targets so a consumer opts in per backend, and this
 # suite is a consumer like any other. Each one also defines the macro its half of the file is guarded by,
 # since which backends were compiled is deliberately not answerable from a public header.

@@ -25,12 +25,27 @@ include_guard(GLOBAL)
 
 set(AZOTH_RHI_TEST_VALIDATION_MODES eOff eReleaseLight eDeveloper eCapture)
 
+# The mode every suite is built for when it does not ask for its own, which is the axis a run sweeps to
+# check the contract in each shipping configuration rather than only the one the header defaults to.
+# eDeveloper matches that default, so leaving this alone changes nothing.
+set(AZOTH_RHI_TEST_VALIDATION_MODE "eDeveloper" CACHE STRING "ValidationMode every test suite is built for unless it asks for its own")
+set_property(CACHE AZOTH_RHI_TEST_VALIDATION_MODE PROPERTY STRINGS ${AZOTH_RHI_TEST_VALIDATION_MODES})
+
 function(azoth_rhi_apply_validation_mode target mode)
     if(NOT TARGET ${target})
         message(FATAL_ERROR "azoth_rhi_apply_validation_mode: no such target: ${target}")
     endif()
     if(NOT mode IN_LIST AZOTH_RHI_TEST_VALIDATION_MODES)
         message(FATAL_ERROR "azoth_rhi_apply_validation_mode(${target}): ${mode} is not a ValidationMode enumerator.")
+    endif()
+
+    # Last call wins. A suite that names its own mode is applied over the build-wide one, and two -D of the
+    # same name is a redefinition whose winner is the compiler's business and not something a suite should
+    # be reading its own configuration out of.
+    get_target_property(_existing ${target} COMPILE_DEFINITIONS)
+    if(_existing)
+        list(FILTER _existing EXCLUDE REGEX "^AZOTH_RHI_TEST_(VALIDATION_MODE|CONFIGURATION_NAME)=")
+        set_target_properties(${target} PROPERTIES COMPILE_DEFINITIONS "${_existing}")
     endif()
 
     target_compile_definitions(${target} PRIVATE

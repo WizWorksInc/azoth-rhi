@@ -100,6 +100,10 @@ function(azoth_rhi_add_gtest_suite target)
     target_sources(${target} PRIVATE ${ARG_SOURCES} "${AZOTH_RHI_TESTS_ROOT}/main.cpp")
     target_link_libraries(${target} PRIVATE azoth::rhi-test ${ARG_LINK_LIBRARIES})
 
+    # The build-wide mode, which a suite that wants its own overrides by calling this again afterwards.
+    include(azoth_rhi_test_options)
+    azoth_rhi_apply_validation_mode(${target} ${AZOTH_RHI_TEST_VALIDATION_MODE})
+
     if(ARG_COMPILE_DEFINITIONS)
         target_compile_definitions(${target} PRIVATE ${ARG_COMPILE_DEFINITIONS})
     endif()
@@ -121,7 +125,7 @@ function(azoth_rhi_add_gtest_suite target)
 
     azoth_rhi_apply_diagnostic_scheme(${target})
 
-    azoth_rhi_stage_test_sink_runtime(${target})
+    azoth_rhi_stage_test_runtime(${target})
 
     # Discovery at test time, not build time. A device probe belongs in the test run, not in
     # the middle of a build and it keeps cross-compiled builds configurable.
