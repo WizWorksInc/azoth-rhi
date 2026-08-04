@@ -7,16 +7,15 @@ across the public API. You ask a device what it can do and no feature level stan
 answer. An operation a backend cannot perform reports eUnsupportedFeature, never a success that
 quietly records nothing.
 
-It comes out of the Azoth engine, which is closed source, but none of it depends on the engine so
-there is no reason to keep it shut in there. It is written from scratch, not built over somebody
-else's library.
+It comes out of the Azoth engine, my closed source game engine. None of it depends on the engine so there is no reason
+to keep it shut in there.
 
 ## Documentation
 
 - [Overview](overview.md), what the library is, the rules it holds to and how to build and link it.
 - [Guides](guides.md), how to do the things a renderer needs: pick a backend, present to a window,
   install a profiler, own device memory, reach the native objects, add a backend of your own.
-- [Options](options.md), every CMake option and every environment variable the tests read.
-- [Examples](examples.md), what each of the fifteen samples shows.
+- [Options](options.md), the CMake options the build takes and the environment variables read at runtime.
+- [Examples](examples.md), what each of the samples show.
 
 The [CONTRIBUTING.md](../CONTRIBUTING.md) file covers what a change has to hold to.
