@@ -1,0 +1,127 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  track:
+    name: Continuous benchmarking
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      checks: write
+      pull-requests: write
+
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cc: gcc-14
+          cxx: g++-14
+          cache-key: benchmarks-linux-gcc14
+
+      # The release preset is what the budgets are measured against. Vulkan is off because the only driver a runner has is a software
+      # rasteriser, which the two benchmarks tracked here do not want and the native delta could conclude nothing from.
+      - name: Configure
+        run: cmake --preset release -DAZOTH_RHI_BACKEND_VULKAN=OFF
+
+      - name: Build
+        run: cmake --build --preset release --target rhi_bench_recording rhi_bench_dispatch
+
+      # A shared runner does not resolve the two percent each benchmark asks of a quiet machine, so the tolerance named here only has to
+      # catch a runner too busy to have measured anything. What rules on a regression is the threshold Bencher keeps over the history.
+      #
+      # The JSON goes to a file rather than the console because these programs report through their own reporter and print beside it.
+      - name: Run the benchmarks
+        run: |
+          out/release/benchmarks/rhi_bench_recording null --max-spread 10 \
+            --benchmark_out=recording.json --benchmark_out_format=json
+          out/release/benchmarks/rhi_bench_dispatch --validation off --max-spread 10 \
+            --benchmark_out=dispatch.json --benchmark_out_format=json
+
+      # Bencher reads every entry in the file, so the nine repetitions and the spread statistics reported beside them would each land as a
+      # tracked benchmark of its own. Only the median survives, under the name the console reported it by.
+      - name: Keep the median of each benchmark
+        run: |
+          python3 - <<'PY'
+          import json
+
+          for path in ("recording.json", "dispatch.json"):
+              with open(path) as report_file:
+                  report = json.load(report_file)
+
+              medians = [entry for entry in report["benchmarks"] if entry.get("aggregate_name") == "median"]
+              if not medians:
+                  raise SystemExit(f"{path} reported no median, so the run had no repetitions to take one over")
+
+              for entry in medians:
+                  entry["name"] = entry["name"].removesuffix("_median")
+
+              report["benchmarks"] = medians
+              with open(path, "w") as report_file:
+                  json.dump(report, report_file)
+          PY
+
+      - uses: bencherdev/bencher@main
+
+      - name: Track the base branch
+        if: github.event_name != 'pull_request'
+        env:
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+          GH_CHECKS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bencher run \
+            --project azoth-rhi \
+            --branch "$GITHUB_REF_NAME" \
+            --testbed ubuntu-24.04 \
+            --adapter cpp_google \
+            --threshold-measure latency \
+            --threshold-test t_test \
+            --threshold-max-sample-size 64 \
+            --threshold-upper-boundary 0.99 \
+            --thresholds-reset \
+            --error-on-alert \
+            --github-actions "$GH_CHECKS_TOKEN" \
+            --file recording.json \
+            --file dispatch.json
+
+      # A pull request from a fork cannot read the secret, so it builds and runs the benchmarks and stops before reporting them.
+      - name: Track the pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+          GH_CHECKS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          bencher run \
+            --project azoth-rhi \
+            --branch "$GITHUB_HEAD_REF" \
+            --start-point "$GITHUB_BASE_REF" \
+            --start-point-hash "$PR_BASE_SHA" \
+            --start-point-clone-thresholds \
+            --start-point-reset \
+            --testbed ubuntu-24.04 \
+            --adapter cpp_google \
+            --error-on-alert \
+            --github-actions "$GH_CHECKS_TOKEN" \
+            --file recording.json \
+            --file dispatch.json
