@@ -143,6 +143,8 @@ jobs:
               -DAZOTH_RHI_TESTS_FETCH_TRACY=ON
               -DAZOTH_RHI_BACKEND_VULKAN=OFF
               -DAZOTH_RHI_INSTALL=OFF
+          # Install is off for the same reason it is off above. AzothRHI links its sink PUBLIC, so the exported target names it, and a fetched stand-in is a
+          # build tree artifact that was never installed. The consumer check then fails to link winpix.lib, which says nothing about the sink this job tests.
           - name: pix-windows-msvc
             os: windows-2025
             require_backends: d3d12,null
@@ -150,6 +152,7 @@ jobs:
             configure_flags: >-
               -DAZOTH_RHI_PIX=ON
               -DAZOTH_RHI_TESTS_FETCH_PIX=ON
+              -DAZOTH_RHI_INSTALL=OFF
 
     env:
       BUILD_TYPE: Release
