@@ -133,6 +133,28 @@ namespace
 			const std::array signals{ ring.Signal() };
 			ASSERT_TRUE(test::Ok(queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error));
 		}
+
+		// The ring destroys its timeline when this scope ends and the submissions above are still going to signal it.
+		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
+	}
+
+	TEST_P(FrameRingTest, DestroysItsTimelineWhenItGoesOutOfScope)
+	{
+		rhi::Error error{};
+		rhi::Queue queue = GraphicsQueue(error);
+
+		rhi::TimelineHandle timeline{};
+		{
+			const rhi::FrameRing ring = rhi::FrameRing::Create(Dev(), queue, rhi::FrameRingDesc{ .framesInFlight = 2 }, error);
+			ASSERT_TRUE(test::Ok(ring.IsValid(), error));
+			timeline = ring.Timeline();
+		}
+
+		if (test::kValidatesHandles)
+		{
+			rhi::Error destroyed{};
+			EXPECT_FALSE(Dev().Destroy(timeline, {}, destroyed)) << "the ring left its timeline for the device to reclaim";
+		}
 	}
 
 	TEST_P(FrameRingTest, ABoundedBeginGivesUpOnAFrameThatWasNeverSubmitted)

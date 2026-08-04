@@ -24,6 +24,7 @@
 #include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/ownership/unique.hpp"
 
 #include <array>
 #include <cstdint>
@@ -56,7 +57,7 @@ namespace azo::rhi
 	 * It exists because the explicit form of this loop is the same four lines everywhere, one of which is arithmetic that fails silently: too small a value stalls
 	 * and too large a one resets a pool the GPU is still reading.
 	 *
-	 * Begin waits for the frame that last used this slot, recycles its pool and hands back a list.
+	 * The ring owns the timeline and destroys it. The pools have no individual destroy call and stay with the device.
 	 */
 	class FrameRing final
 	{
@@ -65,41 +66,13 @@ namespace azo::rhi
 
 		/*
 		 * Movable so Create can hand one back. Not copyable, because a copy would be a second ring over one set of pools and one timeline. Both would reset the same
-		 * pool and signal the same value with nothing reporting it.
-		 *
-		 * The move is written out, not defaulted because every member is trivially copyable and a defaulted move is therefore a copy. Clearing the source leaves it
-		 * invalid, which is what Begin refuses on.
+		 * pool and signal the same value with nothing reporting it. The defaulted move clears the source timeline, which is what IsValid and Begin refuse on.
 		 */
-		FrameRing(const FrameRing &)			 = delete;
-		FrameRing & operator=(const FrameRing &) = delete;
-		~FrameRing()							 = default;
-
-		FrameRing(FrameRing && other) noexcept
-			: m_queue(other.m_queue),
-			  m_timeline(other.m_timeline),
-			  m_pools(other.m_pools),
-			  m_frame(other.m_frame),
-			  m_depth(other.m_depth),
-			  m_debugName(other.m_debugName)
-		{
-			other.Clear();
-		}
-
-		FrameRing & operator=(FrameRing && other) noexcept
-		{
-			if (this != &other)
-			{
-				m_queue		= other.m_queue;
-				m_timeline	= other.m_timeline;
-				m_pools		= other.m_pools;
-				m_frame		= other.m_frame;
-				m_depth		= other.m_depth;
-				m_debugName = other.m_debugName;
-				other.Clear();
-			}
-
-			return *this;
-		}
+		FrameRing(const FrameRing &)				 = delete;
+		FrameRing & operator=(const FrameRing &)	 = delete;
+		FrameRing(FrameRing &&) noexcept			 = default;
+		FrameRing & operator=(FrameRing &&) noexcept = default;
+		~FrameRing()								 = default;
 
 		/**
 		 * \brief Creates the timeline and the per-frame pools.
@@ -120,7 +93,7 @@ namespace azo::rhi
 			ring.m_queue	 = queue;
 			ring.m_depth	 = desc.framesInFlight;
 			ring.m_debugName = desc.debugName;
-			ring.m_timeline	 = dev.CreateTimeline(TimelineDesc{ .debugName = desc.debugName }, error);
+			ring.m_timeline	 = UniqueTimeline{ dev, dev.CreateTimeline(TimelineDesc{ .debugName = desc.debugName }, error) };
 			if (!ring.m_timeline.IsValid())
 			{
 				return {};
@@ -180,7 +153,7 @@ namespace azo::rhi
 			const std::uint64_t next	 = m_frame + 1;
 			const std::uint64_t retiring = next > m_depth ? next - m_depth : 0;
 
-			if (retiring != 0 && !m_queue.Wait(m_timeline, retiring, timeoutNanoseconds, error))
+			if (retiring != 0 && !m_queue.Wait(m_timeline.Get(), retiring, timeoutNanoseconds, error))
 			{
 				return {};
 			}
@@ -189,7 +162,7 @@ namespace azo::rhi
 			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			CommandPool & pool = m_pools[next % m_depth];
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			if (!pool.Reset(RetirePoint{ .timeline = m_timeline, .value = retiring }, error))
+			if (!pool.Reset(RetirePoint{ .timeline = m_timeline.Get(), .value = retiring }, error))
 			{
 				return {};
 			}
@@ -209,7 +182,7 @@ namespace azo::rhi
 		 */
 		[[nodiscard]] TimelinePoint Signal() const noexcept
 		{
-			return TimelinePoint{ .timeline = m_timeline, .value = m_frame };
+			return TimelinePoint{ .timeline = m_timeline.Get(), .value = m_frame };
 		}
 
 		/**
@@ -217,12 +190,12 @@ namespace azo::rhi
 		 */
 		[[nodiscard]] RetirePoint Retire() const noexcept
 		{
-			return RetirePoint{ .timeline = m_timeline, .value = m_frame };
+			return RetirePoint{ .timeline = m_timeline.Get(), .value = m_frame };
 		}
 
 		[[nodiscard]] TimelineHandle Timeline() const noexcept
 		{
-			return m_timeline;
+			return m_timeline.Get();
 		}
 
 		/**
@@ -251,19 +224,8 @@ namespace azo::rhi
 		}
 
 	private:
-		// Returns a moved-from ring to the state a default-constructed one has, so IsValid reports what is actually true of it.
-		void Clear() noexcept
-		{
-			m_queue		= {};
-			m_timeline	= {};
-			m_pools		= {};
-			m_frame		= 0;
-			m_depth		= 0;
-			m_debugName = nullptr;
-		}
-
 		Queue m_queue;
-		TimelineHandle m_timeline{};
+		UniqueTimeline m_timeline;
 		std::array<CommandPool, kMaxFramesInFlight> m_pools{};
 		std::uint64_t m_frame	 = 0;
 		std::uint32_t m_depth	 = 0;
