@@ -12,19 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# One directory per sample, each with its own CMakeLists.txt calling azoth_rhi_add_example. They are
-# found by looking and not by listing, so adding a sample is dropping a directory in beside its
-# siblings and reconfiguring.
-#
-# Most run headless, so they are meaningful on a machine with no GPU by way of the Null backend, and
-# those are the ones carrying a smoke test. A sample wanting a window links examples/lib's SDL3 window,
-# except windowing_sdl3 and windowing_glfw, which implement rhi::SurfaceSource themselves because
-# showing how that is done is what they are for. The two that draw also need Slang for their shaders,
-# and deccer_cubes needs a glTF it fetches at configure time. Each is skipped when what it needs is not
-# installed, and none of them carries a smoke test, since they want a display.
-
-# CONFIGURE_DEPENDS so a new sample directory is picked up by an already configured tree, not
-# waiting for someone to reconfigure by hand.
 file(GLOB _sample_dirs
         CONFIGURE_DEPENDS
         LIST_DIRECTORIES true
