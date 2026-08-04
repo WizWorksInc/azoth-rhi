@@ -100,6 +100,13 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	// A suite picks its backends through AZOTH_RHI_TEST_BACKENDS, so these would only rewrite the subject of every test that asserts what an order comes out as.
+
+	// NOLINTBEGIN(concurrency-mt-unsafe): startup environment edit, before any test or worker thread exists.
+	static_cast<void>(::unsetenv("AZOTH_RHI_BACKEND"));
+	static_cast<void>(::unsetenv("AZOTH_RHI_BACKEND_FORCE"));
+	// NOLINTEND(concurrency-mt-unsafe)
+
 	::testing::InitGoogleMock(&argc, argv);
 
 	if (const std::string problem = azo::rhi::test::ValidateBackendSelection(); !problem.empty())

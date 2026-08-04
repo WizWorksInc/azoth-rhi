@@ -361,6 +361,36 @@ namespace
 		EXPECT_EQ(backends.Preferred().front().id, rhi::NullApi::id);
 	}
 
+	// Creation takes the first backend in the order that hands back a device, so forcing a run onto one backend has to empty the order of everything else.
+	TEST(BackendSelection, KeepsOnlyTheNamedBackendWhenTheRequestIsForced)
+	{
+		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "null", .request = rhi::BackendRequest::eForce } };
+
+		ASSERT_FALSE(backends.IsEmpty());
+		EXPECT_TRUE(backends.HonoredRequest());
+		EXPECT_EQ(backends.Request(), rhi::BackendRequest::eForce);
+		EXPECT_EQ(backends.Preferred().size(), 1u) << "a backend the run was not forced onto was left in the order behind the one it was";
+		EXPECT_EQ(backends.Preferred().front().id, rhi::NullApi::id);
+	}
+
+	TEST(BackendSelection, LeavesTheOrderEmptyWhenAForcedRequestNamesNothingThisBuildHas)
+	{
+		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "notabackend", .request = rhi::BackendRequest::eForce } };
+
+		EXPECT_FALSE(backends.HonoredRequest());
+		EXPECT_TRUE(backends.IsEmpty()) << "the run was forced onto a backend this build has no entry for and something else answered anyway";
+	}
+
+	TEST(BackendSelection, StillTakesTheWholeOrderWhenTheRequestIsOnlyATry)
+	{
+		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "null" } };
+
+		EXPECT_EQ(backends.Request(), rhi::BackendRequest::eTry);
+		EXPECT_TRUE(backends.HonoredRequest());
+		EXPECT_EQ(backends.Preferred().front().id, rhi::NullApi::id);
+		EXPECT_EQ(backends.Preferred().size(), rhi::AvailableBackends().size()) << "eTry is a preference and dropped the rest of the order";
+	}
+
 	TEST(BackendSelection, PrefersAnExplicitRequestOverTheEnvironment)
 	{
 		const rhi::BackendSelection fromRequest{ rhi::BackendPreference{ .requested = "null", .consultEnvironment = true } };

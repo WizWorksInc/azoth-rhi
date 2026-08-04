@@ -151,6 +151,20 @@ namespace azo::rhi
 			return ResolvedRequest{ .name = AZOTH_RHI_BACKEND_DEFAULT, .asked = false };
 		}
 
+		// The environment raises eTry to eForce and never the other way, so a host can pin a binary it did not write without being able to unpin one that meant it.
+		[[nodiscard]] BackendRequest ResolveRequest(const BackendPreference & preference)
+		{
+			if (preference.request == BackendRequest::eForce || !preference.consultEnvironment)
+			{
+				return preference.request;
+			}
+
+			// NOLINTNEXTLINE(concurrency-mt-unsafe): one-time startup env read before worker threads exist.
+			const char * fromEnvironment = std::getenv("AZOTH_RHI_BACKEND_FORCE");
+			const bool forced			 = fromEnvironment != nullptr && *fromEnvironment != '\0' && std::string_view{ fromEnvironment } != "0";
+			return forced ? BackendRequest::eForce : BackendRequest::eTry;
+		}
+
 		// Either form of the name refers to the backend so a command line can say vulkan and a configuration file azoth.rhi.vulkan.
 		[[nodiscard]] bool NameRefersTo(const std::string_view name, const std::string_view canonicalName) noexcept
 		{
@@ -251,7 +265,7 @@ namespace azo::rhi
 		return entry->Register(registry);
 	}
 
-	BackendSelection::BackendSelection(const BackendPreference & preference) : m_includeNull(preference.includeNull)
+	BackendSelection::BackendSelection(const BackendPreference & preference) : m_includeNull(preference.includeNull), m_request(ResolveRequest(preference))
 	{
 		const ResolvedRequest requested = ResolveRequestedName(preference);
 		m_requestedName					= requested.name;
@@ -282,6 +296,7 @@ namespace azo::rhi
 		m_wasAskedFor	 = other.m_wasAskedFor;
 		m_honoredRequest = other.m_honoredRequest;
 		m_includeNull	 = other.m_includeNull;
+		m_request		 = other.m_request;
 	}
 
 	BackendSelection & BackendSelection::operator=(BackendSelection && other) noexcept
@@ -300,6 +315,7 @@ namespace azo::rhi
 		m_wasAskedFor	 = other.m_wasAskedFor;
 		m_honoredRequest = other.m_honoredRequest;
 		m_includeNull	 = other.m_includeNull;
+		m_request		 = other.m_request;
 		return *this;
 	}
 
@@ -360,6 +376,14 @@ namespace azo::rhi
 		// machine that also has a driver.
 		const bool unwantedFallback = !m_includeNull && entry.rank == BackendRank::eFallback && !NameRefersTo(m_requestedName, entry.canonicalName);
 		if (unwantedFallback)
+		{
+			return;
+		}
+
+		// Creation takes the first backend in the order that hands back a device, so a name somebody asked for has to be the whole order. Leaving the rest behind
+		// it is what lets a run pinned to one backend come up on the next one and read as the pinned one passing.
+		const bool notTheOneAskedFor = m_request == BackendRequest::eForce && m_wasAskedFor && !NameRefersTo(m_requestedName, entry.canonicalName);
+		if (notTheOneAskedFor)
 		{
 			return;
 		}

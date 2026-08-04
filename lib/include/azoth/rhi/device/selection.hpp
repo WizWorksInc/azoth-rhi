@@ -201,6 +201,26 @@ namespace azo::rhi
 	}
 
 	/**
+	 * \brief What naming a backend asks selection to do with the rest of the order.
+	 */
+	enum class BackendRequest : std::uint8_t
+	{
+		/**
+		 * \brief Moves the named backend to the front and keeps the rest behind it.
+		 *
+		 * Creation walks that order until one hands back a device, so a machine without the named backend still comes up on another.
+		 */
+		eTry,
+
+		/**
+		 * \brief Makes the named backend the whole order, so its refusal is what creation reports.
+		 *
+		 * What a run testing one backend needs. Under eTry such a run comes up on the next backend and reads as the named one passing.
+		 */
+		eForce,
+	};
+
+	/**
 	 * \brief User and build preference inputs used to form a backend order.
 	 */
 	struct BackendPreference final
@@ -227,10 +247,15 @@ namespace azo::rhi
 
 		/**
 		 * \brief Allows eFallback backends from AddAvailable unless explicitly requested by name.
-		 *
-		 * Set false for programs that must draw, not silently fall through to Null or another no-frame backend.
 		 */
 		bool includeNull = true;
+
+		/**
+		 * \brief What the requested name asks for, whether it came from requested or from AZOTH_RHI_BACKEND.
+		 *
+		 * AZOTH_RHI_BACKEND_FORCE raises eTry to eForce from outside, which is how a run pins a binary it did not write. It never lowers eForce.
+		 */
+		BackendRequest request = BackendRequest::eTry;
 	};
 
 	/**
@@ -356,6 +381,14 @@ namespace azo::rhi
 			return m_honoredRequest;
 		}
 
+		/**
+		 * \brief Returns what the resolved name asked for, after AZOTH_RHI_BACKEND_FORCE has had its say.
+		 */
+		[[nodiscard]] BackendRequest Request() const noexcept
+		{
+			return m_request;
+		}
+
 		[[nodiscard]] GraphicsApiRegistry & Registry() noexcept
 		{
 			return m_registry;
@@ -409,9 +442,10 @@ namespace azo::rhi
 		detail::HostVector<GraphicsApiId> m_preferredApis;
 
 		std::string_view m_requestedName;
-		bool m_wasAskedFor	  = false;
-		bool m_honoredRequest = false;
-		bool m_includeNull	  = true;
+		bool m_wasAskedFor		 = false;
+		bool m_honoredRequest	 = false;
+		bool m_includeNull		 = true;
+		BackendRequest m_request = BackendRequest::eTry;
 	};
 
 } // namespace azo::rhi
