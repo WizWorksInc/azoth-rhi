@@ -23,8 +23,11 @@ jobs:
       checks: write
       pull-requests: write
 
+    # Lifted to the job so the two reporting steps can ask whether it is there. A step cannot read the secrets context in its own if, and a secret that was
+    # never set arrives here as the empty string, which is the whole test.
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 4
+      BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
 
     defaults:
       run:
@@ -83,10 +86,11 @@ jobs:
 
       - uses: bencherdev/bencher@main
 
+      # Reporting is the only part the key buys. Without it the benchmarks still build, run and hold to their spread, and the upload is what drops, which is
+      # the same shape as the fork pull request below.
       - name: Track the base branch
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.BENCHER_API_KEY != ''
         env:
-          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
           GH_CHECKS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bencher run \
@@ -106,9 +110,8 @@ jobs:
 
       # A pull request from a fork cannot read the secret, so it builds and runs the benchmarks and stops before reporting them.
       - name: Track the pull request
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && env.BENCHER_API_KEY != ''
         env:
-          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
           GH_CHECKS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -125,3 +128,8 @@ jobs:
             --github-actions "$GH_CHECKS_TOKEN" \
             --file recording.json \
             --file dispatch.json
+
+      # Said out loud, because a green run that reported nothing and a green run that reported a regression free result look identical from the outside.
+      - name: Say the numbers went nowhere
+        if: env.BENCHER_API_KEY == ''
+        run: echo "::notice::no Bencher API key was readable here, so the benchmarks ran and were not reported"
