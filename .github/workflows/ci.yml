@@ -16,39 +16,36 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: ${{ matrix.name }} ${{ matrix.build_type }}
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target.name }} ${{ matrix.target.backend }} ${{ matrix.build_type }} ${{ matrix.validation }}
+    runs-on: ${{ matrix.target.os }}
     timeout-minutes: 60
+
+    # A backend the runner cannot bring up reports rather than gating, since the run is pinned to it and would otherwise hold every merge on hardware nobody
+    # here controls. Everything else fails the job as usual.
+    continue-on-error: ${{ matrix.target.optional == true }}
+
     strategy:
       fail-fast: false
+
+      # Three axes crossed in full. The backend axis carries its platform with it, because which backends exist is a property of the platform and a plain cross
+      # product would ask Linux for Metal. Every entry names one backend on purpose: the run is pinned to it, so a machine that cannot bring it up fails instead
+      # of quietly proving a different backend works.
       matrix:
-        # name is an axis and not only an include key. With build_type as the sole axis, every include below merged into both of its combinations and the last
-        # one won, so the whole matrix collapsed to two windows-msvc jobs and neither Linux nor macOS was ever built. Naming the axis makes each include attach
-        # to the combinations that already carry its name.
         build_type: [Debug, Release]
-        name: [linux-gcc14, linux-clang18, macos-appleclang, windows-msvc]
-        include:
-          - name: linux-gcc14
-            os: ubuntu-24.04
-            cc: gcc-14
-            cxx: g++-14
-            vulkan_driver: "true"
-            require_backends: vulkan,null
-          - name: linux-clang18
-            os: ubuntu-24.04
-            cc: clang-18
-            cxx: clang++-18
-            vulkan_driver: "true"
-            require_backends: vulkan,null
-          # Metal 4 needs macOS 26 or newer, which latest now is. The runner's adapter still does not report the Metal 4 family, so that backend skips here
-          # whatever the image, and Metal 3 is what actually gets exercised.
-          - name: macos-appleclang
-            os: macos-latest
-            require_backends: metal,null
-          - name: windows-msvc
-            os: windows-2025
-            vulkan_driver: "true"
-            require_backends: d3d12,null
+        validation: [eOff, eReleaseLight, eDeveloper, eCapture]
+        target:
+          - { name: linux-gcc14, os: ubuntu-24.04, cc: gcc-14, cxx: g++-14, backend: vulkan, vulkan_driver: "true" }
+          - { name: linux-gcc14, os: ubuntu-24.04, cc: gcc-14, cxx: g++-14, backend: "null" }
+          - { name: linux-clang18, os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, backend: vulkan, vulkan_driver: "true" }
+          - { name: linux-clang18, os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, backend: "null" }
+          - { name: macos-appleclang, os: macos-latest, backend: metal }
+          # The hosted macOS runner is a virtual machine and the adapter its guest sees does not report the Metal 4 family, so this one cannot come up there
+          # yet. Pinned and optional rather than dropped, so the day those runners expose it the job turns green on its own and says so.
+          - { name: macos-appleclang, os: macos-latest, backend: metal4, optional: true }
+          - { name: macos-appleclang, os: macos-latest, backend: "null" }
+          - { name: windows-msvc, os: windows-2025, backend: d3d12 }
+          - { name: windows-msvc, os: windows-2025, backend: vulkan, vulkan_driver: "true" }
+          - { name: windows-msvc, os: windows-2025, backend: "null" }
 
     env:
       BUILD_TYPE: ${{ matrix.build_type }}
@@ -64,21 +61,36 @@ jobs:
 
       - uses: ./.github/actions/setup-build
         with:
-          cc: ${{ matrix.cc }}
-          cxx: ${{ matrix.cxx }}
-          vulkan-driver: ${{ matrix.vulkan_driver }}
-          cache-key: ci-${{ matrix.name }}-${{ matrix.build_type }}
+          cc: ${{ matrix.target.cc }}
+          cxx: ${{ matrix.target.cxx }}
+          vulkan-driver: ${{ matrix.target.vulkan_driver }}
+          # The validation mode is a compile definition on every suite, so it belongs in the key. Two modes sharing one cache would keep handing each other
+          # objects built for the other one.
+          cache-key: ci-${{ matrix.target.name }}-${{ matrix.build_type }}-${{ matrix.validation }}
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DAZOTH_RHI_BUILD_EXAMPLES=OFF
+        env:
+          VALIDATION: ${{ matrix.validation }}
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DAZOTH_RHI_TEST_VALIDATION_MODE="$VALIDATION" \
+            -DAZOTH_RHI_BUILD_EXAMPLES=OFF
 
       - name: Build
         run: cmake --build build --config "$BUILD_TYPE"
 
+      # Four variables because four different things choose a backend and all of them have to land on the same one. The first two narrow the suites and turn a
+      # backend that will not come up into a failure. The second two pin anything that goes through BackendSelection, which after falling through to the next
+      # backend on a refusal would otherwise let this job pass by testing a backend it was not asked about.
       - name: Test
         env:
-          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
-        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+          BACKEND: ${{ matrix.target.backend }}
+        run: |
+          AZOTH_RHI_TEST_BACKENDS="$BACKEND" \
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS="$BACKEND" \
+          AZOTH_RHI_BACKEND="$BACKEND" \
+          AZOTH_RHI_BACKEND_FORCE=1 \
+            ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
 
       - name: Install
         env:

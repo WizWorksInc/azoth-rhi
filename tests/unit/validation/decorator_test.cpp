@@ -184,6 +184,12 @@ namespace
 				++compared;
 			});
 
+		// A run narrowed to one backend has nothing to disagree with, where one that had two and got one back has a backend that quietly stopped coming up.
+		if (compared == 0 && test::SelectedBackends().size() < 2)
+		{
+			GTEST_SKIP() << "this run selected one backend, so there is no second answer to compare against";
+		}
+
 		EXPECT_GT(compared, 0u) << "only one backend came up, so no two answers were compared";
 	}
 
