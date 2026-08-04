@@ -1614,12 +1614,8 @@ namespace azo::rhi
 	Result<BufferHandle> Device::AdoptBufferWithResult(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept
 	{
 		Error error{};
-		BufferHandle out = ImportBuffer(native, desc, error);
-		if (!out.IsValid())
-		{
-			return error;
-		}
-		return out;
+		const BufferHandle handle = AdoptBufferRaw(Api::id, &native, desc, &error);
+		return handle.IsValid() ? Result<BufferHandle>{ handle } : Result<BufferHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
@@ -1639,12 +1635,8 @@ namespace azo::rhi
 	Result<TextureHandle> Device::AdoptTextureWithResult(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept
 	{
 		Error error{};
-		TextureHandle out = ImportTexture(native, desc, error);
-		if (!out.IsValid())
-		{
-			return error;
-		}
-		return out;
+		const TextureHandle handle = AdoptTextureRaw(Api::id, &native, desc, &error);
+		return handle.IsValid() ? Result<TextureHandle>{ handle } : Result<TextureHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
@@ -1665,13 +1657,9 @@ namespace azo::rhi
 	template <GraphicsApiTag Api>
 	Result<NativeBuffer<Api>> Device::GetNativeBufferWithResult(BufferHandle buffer) noexcept
 	{
-		NativeBuffer<Api> out{};
 		Error error{};
-		if (!ExportBuffer(buffer, out, error))
-		{
-			return error;
-		}
-		return out;
+		NativeBuffer<Api> out{};
+		return GetNativeBufferRaw(Api::id, buffer, &out, &error) ? Result<NativeBuffer<Api>>{ out } : Result<NativeBuffer<Api>>{ error };
 	}
 
 	template <GraphicsApiTag Api>
@@ -1692,13 +1680,9 @@ namespace azo::rhi
 	template <GraphicsApiTag Api>
 	Result<NativeTexture<Api>> Device::GetNativeTextureWithResult(TextureHandle texture) noexcept
 	{
-		NativeTexture<Api> out{};
 		Error error{};
-		if (!ExportTexture(texture, out, error))
-		{
-			return error;
-		}
-		return out;
+		NativeTexture<Api> out{};
+		return GetNativeTextureRaw(Api::id, texture, &out, &error) ? Result<NativeTexture<Api>>{ out } : Result<NativeTexture<Api>>{ error };
 	}
 
 	// A caller who knows the backend at compile time still uses the dynamic dispatch table today. A static device view would need each backend to provide the full

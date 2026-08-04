@@ -14,6 +14,8 @@
 
 #include "azoth/rhi/device/device.hpp"
 
+#include "conformance/matchers.hpp"
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -619,6 +621,116 @@ namespace
 
 		vkDevice.destroyImage(produced.image, nullptr, dispatch);
 		vkDevice.freeMemory(produced.memory, nullptr, dispatch);
+	}
+
+	namespace
+	{
+		// Nothing else instantiates the WithResult bodies, so one wired to the wrong operation compiles until a consumer writes the first call. error is a
+		// reference because a copy could be taken before the sibling call that fills it.
+		template <typename Value>
+		void ExpectFormsAgree(
+			const rhi::CString operation, const bool plainSucceeded, const bool erroredSucceeded, const rhi::Error & error, const rhi::Result<Value> & resulted)
+		{
+			SCOPED_TRACE(operation);
+
+			EXPECT_EQ(plainSucceeded, erroredSucceeded) << "the form carrying no diagnostic disagreed with the one that does";
+			EXPECT_EQ(erroredSucceeded, resulted.HasValue()) << "which form the caller reached for decided whether the call was reported as done";
+			EXPECT_EQ(error.code, resulted.HasValue() ? rhi::ErrorCode::eOk : resulted.GetError().code) << "the two diagnostic forms named different codes";
+		}
+	} // namespace
+
+	TEST(VulkanAdoption, EveryTemplatedEntryAgreesAcrossItsForms)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::VulkanApi>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no Vulkan device on this machine";
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		// Empty payloads and handles this device never handed out, so every entry takes its declining path and none of them adopts an object the sweep would
+		// then have to give back.
+		rhi::Error error{};
+
+		ExpectFormsAgree("Device::AdoptBuffer",
+			device.AdoptBuffer<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {}).IsValid(),
+			device.AdoptBuffer<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {}, error).IsValid(),
+			error,
+			device.AdoptBufferWithResult<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {}));
+
+		ExpectFormsAgree("Device::AdoptTexture",
+			device.AdoptTexture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {}).IsValid(),
+			device.AdoptTexture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {}, error).IsValid(),
+			error,
+			device.AdoptTextureWithResult<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {}));
+
+		ExpectFormsAgree("Device::AdoptTextureView",
+			device.AdoptTextureView<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {}).IsValid(),
+			device.AdoptTextureView<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {}, error).IsValid(),
+			error,
+			device.AdoptTextureViewWithResult<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {}));
+
+		ExpectFormsAgree("Device::AdoptSampler",
+			device.AdoptSampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}).IsValid(),
+			device.AdoptSampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}, error).IsValid(),
+			error,
+			device.AdoptSamplerWithResult<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}));
+
+		ExpectFormsAgree("Device::AdoptTimeline",
+			device.AdoptTimeline<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {}).IsValid(),
+			device.AdoptTimeline<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {}, error).IsValid(),
+			error,
+			device.AdoptTimelineWithResult<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {}));
+
+		ExpectFormsAgree("Device::AdoptBinarySemaphore",
+			device.AdoptBinarySemaphore<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {}).IsValid(),
+			device.AdoptBinarySemaphore<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {}, error).IsValid(),
+			error,
+			device.AdoptBinarySemaphoreWithResult<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {}));
+
+		rhi::NativeBuffer<rhi::VulkanApi> readBackBuffer{};
+		ExpectFormsAgree("Device::GetNativeBuffer",
+			device.GetNativeBuffer<rhi::VulkanApi>(rhi::BufferHandle{}, readBackBuffer),
+			device.GetNativeBuffer<rhi::VulkanApi>(rhi::BufferHandle{}, readBackBuffer, error),
+			error,
+			device.GetNativeBufferWithResult<rhi::VulkanApi>(rhi::BufferHandle{}));
+
+		rhi::NativeTexture<rhi::VulkanApi> readBackTexture{};
+		ExpectFormsAgree("Device::GetNativeTexture",
+			device.GetNativeTexture<rhi::VulkanApi>(rhi::TextureHandle{}, readBackTexture),
+			device.GetNativeTexture<rhi::VulkanApi>(rhi::TextureHandle{}, readBackTexture, error),
+			error,
+			device.GetNativeTextureWithResult<rhi::VulkanApi>(rhi::TextureHandle{}));
+
+		rhi::NativeTextureView<rhi::VulkanApi> readBackView{};
+		ExpectFormsAgree("Device::GetNativeTextureView",
+			device.GetNativeTextureView<rhi::VulkanApi>(rhi::TextureViewHandle{}, readBackView),
+			device.GetNativeTextureView<rhi::VulkanApi>(rhi::TextureViewHandle{}, readBackView, error),
+			error,
+			device.GetNativeTextureViewWithResult<rhi::VulkanApi>(rhi::TextureViewHandle{}));
+
+		rhi::NativeSampler<rhi::VulkanApi> readBackSampler{};
+		ExpectFormsAgree("Device::GetNativeSampler",
+			device.GetNativeSampler<rhi::VulkanApi>(rhi::SamplerHandle{}, readBackSampler),
+			device.GetNativeSampler<rhi::VulkanApi>(rhi::SamplerHandle{}, readBackSampler, error),
+			error,
+			device.GetNativeSamplerWithResult<rhi::VulkanApi>(rhi::SamplerHandle{}));
+
+		rhi::NativeTimeline<rhi::VulkanApi> readBackTimeline{};
+		ExpectFormsAgree("Device::GetNativeTimeline",
+			device.GetNativeTimeline<rhi::VulkanApi>(rhi::TimelineHandle{}, readBackTimeline),
+			device.GetNativeTimeline<rhi::VulkanApi>(rhi::TimelineHandle{}, readBackTimeline, error),
+			error,
+			device.GetNativeTimelineWithResult<rhi::VulkanApi>(rhi::TimelineHandle{}));
+
+		rhi::NativeBinarySemaphore<rhi::VulkanApi> readBackSemaphore{};
+		ExpectFormsAgree("Device::GetNativeBinarySemaphore",
+			device.GetNativeBinarySemaphore<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}, readBackSemaphore),
+			device.GetNativeBinarySemaphore<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}, readBackSemaphore, error),
+			error,
+			device.GetNativeBinarySemaphoreWithResult<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}));
 	}
 
 #endif // AZOTH_RHI_TEST_ADOPTION_VULKAN
