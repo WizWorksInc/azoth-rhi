@@ -3368,8 +3368,7 @@ namespace azo::rhi
 	namespace
 	{
 
-		// Brings up an instance on the first preferred API the registry has an entry point for. Null with error set otherwise. Shared by both dynamic creates, since
-		// only one of the two hands the result to a UniqueInstance.
+		// Brings up an instance on the first preferred API the registry has an entry point for.
 		[[nodiscard]] void * CreateBackendInstance(
 			GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc, Error & error)
 		{
@@ -3413,19 +3412,71 @@ namespace azo::rhi
 		 */
 		[[nodiscard]] const InstanceApi * BlockOrRelease(void * instanceImpl, Error & error)
 		{
-			const InstanceApi * block = detail::CheckedBlock<InstanceApi>(instanceImpl, &error);
+			const auto * block = detail::CheckedBlock<InstanceApi>(instanceImpl, &error);
 			if (block != nullptr)
 			{
 				return block;
 			}
 
-			if (const InstanceApi * partial = detail::QueryBlock<InstanceApi>(instanceImpl); partial != nullptr && partial->destroyInstance != nullptr)
+			if (const auto * partial = detail::QueryBlock<InstanceApi>(instanceImpl); partial != nullptr && partial->destroyInstance != nullptr)
 			{
 				const detail::LifetimeLock lifetime;
 				partial->destroyInstance(instanceImpl);
 			}
 
 			return nullptr;
+		}
+
+		[[nodiscard]] Result<UniqueDevice> CreateDeviceOn(const BackendCreateInfo & backend, const InstanceDesc & instanceDesc, const DeviceDesc & desc)
+		{
+			Error error{};
+
+			void * instanceImpl = nullptr;
+			{
+				const detail::LifetimeLock lifetime;
+				instanceImpl = backend.createInstance(&instanceDesc, &error);
+			}
+
+			if (instanceImpl == nullptr)
+			{
+				return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null instance" } : error;
+			}
+
+			// Checked before createDevice is reached through it, since that entry is one of the ones that could be missing.
+			const InstanceApi * dispatch = BlockOrRelease(instanceImpl, error);
+			if (dispatch == nullptr)
+			{
+				return error;
+			}
+
+			void * deviceImpl = nullptr;
+			{
+				const detail::LifetimeLock lifetime;
+				deviceImpl = dispatch->createDevice(instanceImpl, desc, &error);
+			}
+
+			if (deviceImpl == nullptr)
+			{
+				// On success the instance stays with the backend, which holds it for the devices created from it. A device that never came up leaves nobody to do that so it
+				// is released here, not left for the static teardown at process exit.
+				const detail::LifetimeLock lifetime;
+				dispatch->destroyInstance(instanceImpl);
+				return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null device", } : error;
+			}
+
+			BackendBlockSet * blocks = detail::ResolveDeviceBlocks(deviceImpl, desc, &error);
+			if (blocks == nullptr)
+			{
+				// The device came up but cannot be driven. Unwind it the same way the null-device path above does so a rejected backend does not strand a device and an
+				// instance for the life of the process.
+				detail::ReleaseUndrivableDevice(deviceImpl);
+
+				const detail::LifetimeLock lifetime;
+				dispatch->destroyInstance(instanceImpl);
+				return error;
+			}
+
+			return detail::FacadeBuilder::MakeUniqueDevice(deviceImpl, blocks);
 		}
 
 	} // namespace
@@ -3457,48 +3508,42 @@ namespace azo::rhi
 
 		const InstanceDesc instanceDesc = InstanceDescForDevice(desc);
 
-		Error error{};
-		void * instanceImpl = CreateBackendInstance(registry, preferredApis, instanceDesc, error);
-		if (instanceImpl == nullptr)
+		// The order is walked until a backend hands back a device and not until one is merely registered.
+		Error refusal{};
+		bool anyTried = false;
+
+		for (const GraphicsApiId id : preferredApis)
 		{
-			return error;
+			const BackendCreateInfo * backend = detail::RegistryAccess::Find(registry, id);
+			if (backend == nullptr || backend->createInstance == nullptr)
+			{
+				continue;
+			}
+
+			Result<UniqueDevice> device = CreateDeviceOn(*backend, instanceDesc, desc);
+			if (device)
+			{
+				return device;
+			}
+
+			// The first refusal and not the last, since it comes from the backend nearest what the caller asked for. The ones behind it are backends they may not
+			// know the build even has.
+			if (!anyTried)
+			{
+				refusal	 = device.GetError();
+				anyTried = true;
+			}
 		}
 
-		// Checked before createDevice is reached through it, since that entry is one of the ones that could be missing.
-		const InstanceApi * dispatch = BlockOrRelease(instanceImpl, error);
-		if (dispatch == nullptr)
+		if (!anyTried)
 		{
-			return error;
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "none of the preferred graphics API backends are registered",
+			};
 		}
 
-		void * deviceImpl = nullptr;
-		{
-			const detail::LifetimeLock lifetime;
-			deviceImpl = dispatch->createDevice(instanceImpl, desc, &error);
-		}
-
-		if (deviceImpl == nullptr)
-		{
-			// On success the instance stays with the backend, which holds it for the devices created from it. A device that never came up leaves nobody to do that so it
-			// is released here, not left for the static teardown at process exit.
-			const detail::LifetimeLock lifetime;
-			dispatch->destroyInstance(instanceImpl);
-			return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null device", } : error;
-		}
-
-		BackendBlockSet * blocks = detail::ResolveDeviceBlocks(deviceImpl, desc, &error);
-		if (blocks == nullptr)
-		{
-			// The device came up but cannot be driven. Unwind it the same way the null-device path above does so a rejected backend does not strand a device and an
-			// instance for the life of the process.
-			detail::ReleaseUndrivableDevice(deviceImpl);
-
-			const detail::LifetimeLock lifetime;
-			dispatch->destroyInstance(instanceImpl);
-			return error;
-		}
-
-		return detail::FacadeBuilder::MakeUniqueDevice(deviceImpl, blocks);
+		return refusal;
 	}
 
 } // namespace azo::rhi

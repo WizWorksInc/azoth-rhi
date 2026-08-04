@@ -343,6 +343,54 @@ namespace
 		EXPECT_EQ(holed::g_destroyCalls, 0u);
 	}
 
+	/*
+	 * The order is a list of candidates and not a single pick. A backend can be registered, bring its instance up and still have no device to give, which is what
+	 * a Mac carrying the Metal 4 backend on an adapter that does not report the family does, and the generation behind it is the one that machine can take.
+	 */
+	TEST(CreateDevice, MovesOnToTheNextBackendWhenOneComesUpWithNoDeviceToGive)
+	{
+		const test::Backend * null = test::FindBackend(rhi::NullApi::id);
+		if (null == nullptr)
+		{
+			GTEST_SKIP() << "this build has no Null backend to fall through to";
+		}
+
+		holed::ResetTable();
+
+		rhi::GraphicsApiRegistry registry;
+		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(holed::Backend())));
+		ASSERT_TRUE(test::Ok(null->RegisterInto(registry)));
+
+		constexpr std::array preferred{ rhi::VulkanApi::id, rhi::NullApi::id };
+
+		rhi::DeviceDesc desc{};
+		desc.requireSwapchain = false;
+
+		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, desc);
+
+		ASSERT_TRUE(test::Ok(device)) << "the backend in front refused and the one behind it was never asked";
+		EXPECT_EQ(device.Value().Get().GetGraphicsApiId(), rhi::NullApi::id);
+		EXPECT_EQ(holed::g_destroyCalls, 1u) << "the refusing backend's instance was left behind when the order moved on";
+	}
+
+	TEST(CreateDevice, ReportsTheRefusalOfTheBackendNearestWhatWasAskedFor)
+	{
+		holed::ResetTable();
+
+		rhi::GraphicsApiRegistry registry;
+		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(holed::Backend())));
+
+		constexpr std::array preferred{ rhi::VulkanApi::id, rhi::NullApi::id };
+
+		rhi::DeviceDesc desc{};
+		desc.requireSwapchain = false;
+
+		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, desc);
+
+		ASSERT_FALSE(device.HasValue());
+		EXPECT_NE(device.GetError().code, rhi::ErrorCode::eUnsupportedApi) << "a backend was tried and refused, so the report is its reason and not an absence";
+	}
+
 	TEST(CreateDevice, RejectsAHoledInstanceTableBeforeReachingCreateDeviceThroughIt)
 	{
 		holed::ResetTable();

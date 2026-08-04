@@ -30,11 +30,11 @@
 namespace azo::rhi::test
 {
 
-	inline constexpr ValidationMode kValidationMode = ValidationMode::AZOTH_RHI_TEST_VALIDATION_MODE;
+	constexpr ValidationMode kValidationMode = ValidationMode::AZOTH_RHI_TEST_VALIDATION_MODE;
 
-	inline constexpr bool kValidatesFully = kValidationMode == ValidationMode::eDeveloper || kValidationMode == ValidationMode::eCapture;
+	constexpr bool kValidatesFully = kValidationMode == ValidationMode::eDeveloper || kValidationMode == ValidationMode::eCapture;
 
-	inline constexpr bool kValidatesHandles = kValidationMode != ValidationMode::eOff;
+	constexpr bool kValidatesHandles = kValidationMode != ValidationMode::eOff;
 
 	inline constexpr std::uint64_t kWaitTimeoutNanoseconds = 5'000'000'000ULL;
 

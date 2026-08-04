@@ -21,8 +21,46 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <iostream>
 #include <string>
+
+namespace azo::rhi::test
+{
+
+	DeviceDesc DefaultDeviceDesc() noexcept
+	{
+		DeviceDesc desc{};
+		desc.validation = kValidationMode;
+
+		desc.requireSwapchain = false;
+
+		desc.allowSoftwareAdapter = true;
+
+		static constexpr std::array kExercised{
+			DeviceFeature::eTimestampQueries,
+			DeviceFeature::eSamplerAnisotropy,
+			DeviceFeature::eIndependentBlend,
+			DeviceFeature::eDepthBounds,
+			DeviceFeature::ePipelineStatisticsQueries,
+			DeviceFeature::eMultiDrawIndirect,
+			DeviceFeature::eDrawIndirectFirstInstance,
+			DeviceFeature::eShaderDrawParameters,
+			DeviceFeature::eSparseResources,
+			DeviceFeature::eSparseBuffers,
+			DeviceFeature::eSparseTextures,
+			DeviceFeature::eSparseVolumes,
+			DeviceFeature::eTextureViewSwizzle,
+			DeviceFeature::eMultiPlanarFormats,
+			DeviceFeature::eSamplerYcbcrConversion,
+		};
+		desc.preferredFeatures = kExercised;
+
+		desc.debugName = "azoth.rhi.test.device";
+		return desc;
+	}
+
+} // namespace azo::rhi::test
 
 namespace
 {

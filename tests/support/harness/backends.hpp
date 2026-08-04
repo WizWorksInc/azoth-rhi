@@ -74,38 +74,7 @@ namespace azo::rhi::test
 
 	[[nodiscard]] std::string BackendParamName(const ::testing::TestParamInfo<Backend> & info);
 
-	// Inline on purpose. kValidationMode is a per-target compile definition, so a copy compiled once into the shared harness would bake in the default.
-	[[nodiscard]] inline DeviceDesc DefaultDeviceDesc() noexcept
-	{
-		DeviceDesc desc{};
-		desc.validation = kValidationMode;
-
-		desc.requireSwapchain = false;
-
-		desc.allowSoftwareAdapter = true;
-
-		static constexpr std::array kExercised{
-			DeviceFeature::eTimestampQueries,
-			DeviceFeature::eSamplerAnisotropy,
-			DeviceFeature::eIndependentBlend,
-			DeviceFeature::eDepthBounds,
-			DeviceFeature::ePipelineStatisticsQueries,
-			DeviceFeature::eMultiDrawIndirect,
-			DeviceFeature::eDrawIndirectFirstInstance,
-			DeviceFeature::eShaderDrawParameters,
-			DeviceFeature::eSparseResources,
-			DeviceFeature::eSparseBuffers,
-			DeviceFeature::eSparseTextures,
-			DeviceFeature::eSparseVolumes,
-			DeviceFeature::eTextureViewSwizzle,
-			DeviceFeature::eMultiPlanarFormats,
-			DeviceFeature::eSamplerYcbcrConversion,
-		};
-		desc.preferredFeatures = kExercised;
-
-		desc.debugName = "azoth.rhi.test.device";
-		return desc;
-	}
+	[[nodiscard]] DeviceDesc DefaultDeviceDesc() noexcept;
 
 	class DeviceHarness final
 	{

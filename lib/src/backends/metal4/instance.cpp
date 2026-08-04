@@ -14,6 +14,9 @@
 
 #include "backends/metal4/internal.hpp"
 
+#include <format>
+#include <iterator>
+
 namespace azo::rhi::metal4
 {
 	GraphicsApiId InstanceApiId([[maybe_unused]] void * impl) noexcept
@@ -285,6 +288,28 @@ namespace azo::rhi::metal4
 		return true;
 	}
 
+	/*
+	 * Names the adapter that refused, since which GPU answered is the whole of the answer. A virtualized host is the case this pays for. It hands the guest a
+	 * paravirtual adapter sitting below the family floor while the machine underneath it is Apple silicon that would pass.
+	 *
+	 * The storage is thread_local because Error borrows its message and two threads can be refused by different adapters at once.
+	 */
+	[[nodiscard]] const char * NoMetal4FamilyMessage(MTL::Device * mtlDevice)
+	{
+		static constexpr const char * kPlain = "this adapter does not report the Metal 4 family";
+
+		const NS::String * name = mtlDevice != nullptr ? mtlDevice->name() : nullptr;
+		if (name == nullptr || name->utf8String() == nullptr)
+		{
+			return kPlain;
+		}
+
+		thread_local detail::HostString message;
+		message.clear();
+		std::format_to(std::back_inserter(message), "{}: {}", kPlain, name->utf8String());
+		return message.c_str();
+	}
+
 	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, const char *& refusedReason)
 	{
 		NS::SharedPtr<MTL::Device> mtlDevice;
@@ -316,7 +341,7 @@ namespace azo::rhi::metal4
 
 		if (!AdapterHasMetal4(mtlDevice.get()))
 		{
-			refusedReason = "this adapter does not report the Metal 4 family";
+			refusedReason = NoMetal4FamilyMessage(mtlDevice.get());
 			return nullptr;
 		}
 
