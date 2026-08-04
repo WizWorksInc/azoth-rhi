@@ -16,9 +16,9 @@
 
 namespace azo::rhi::metal4
 {
-	TimelineHandle CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
+	TimelineHandle Metal4CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
 	{
-		if (!RefuseUnexportable(desc.exportableHandleTypes,
+		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedEvent,
 				"Metal exports a timeline only through MTLSharedEventHandle, and this asked for another handle type",
 				error))
@@ -66,9 +66,9 @@ namespace azo::rhi::metal4
 		return tracked != nullptr ? tracked->format : Format::eRGBA8UNorm;
 	}
 
-	BinarySemaphoreHandle CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept
+	BinarySemaphoreHandle Metal4CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept
 	{
-		if (!RefuseUnexportable(desc.exportableHandleTypes,
+		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedEvent,
 				"Metal exports a binary semaphore only through MTLSharedEventHandle, and this asked for another handle type",
 				error))

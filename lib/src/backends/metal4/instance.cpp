@@ -19,12 +19,12 @@
 
 namespace azo::rhi::metal4
 {
-	GraphicsApiId InstanceApiId([[maybe_unused]] void * impl) noexcept
+	GraphicsApiId Metal4InstanceApiId([[maybe_unused]] void * impl) noexcept
 	{
 		return Metal4Api::id;
 	}
 
-	bool EnumerateAdapters([[maybe_unused]] void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
+	bool Metal4EnumerateAdapters([[maybe_unused]] void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -505,7 +505,7 @@ namespace azo::rhi::metal4
 		return raw;
 	}
 
-	void DestroyDevice(void * impl) noexcept
+	void Metal4DestroyDevice(void * impl) noexcept
 	{
 		Metal4BackendOwner & owner = Owner();
 
@@ -554,7 +554,7 @@ namespace azo::rhi::metal4
 		}
 	}
 
-	void DestroyInstance(void * impl) noexcept
+	void Metal4DestroyInstance(void * impl) noexcept
 	{
 		Metal4BackendOwner & owner = Owner();
 		std::erase_if(owner.instances,
@@ -570,7 +570,8 @@ namespace azo::rhi::metal4
 	 *
 	 * Metal exposes no per adapter query for any of this. Neither Metal type is a file descriptor or an NT handle so the compatible mask names only itself.
 	 */
-	bool QueryExternalHandleSupport([[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
+	bool Metal4QueryExternalHandleSupport(
+		[[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -615,7 +616,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	void * InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept
+	void * Metal4InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept
 	{
 		const char * refusedReason = nullptr;
 		Metal4Device * device	   = MakeOwnedDevice(static_cast<Metal4Instance *>(impl), desc, refusedReason);
@@ -628,7 +629,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(static_cast<void *>(device), error);
 	}
 
-	void * CreateInstance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept
+	void * Metal4CreateInstance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept
 	{
 		Metal4Instance * instance = MakeOwnedInstance();
 		if (instance == nullptr)

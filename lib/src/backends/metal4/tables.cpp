@@ -19,36 +19,36 @@ namespace azo::rhi::metal4
 	const CoreDeviceApi & CoreDeviceBlock() noexcept
 	{
 		static const CoreDeviceApi block{
-			.getGraphicsApiId			= &DeviceApiId,
-			.getGraphicsApiName			= &DeviceApiName,
-			.createBuffer				= &CreateBuffer,
-			.createTexture				= &CreateTexture,
-			.createTextureView			= &CreateTextureView,
-			.createSampler				= &CreateSampler,
-			.createDescriptorSetLayout	= &CreateDescriptorSetLayout,
-			.createPipelineLayout		= &CreatePipelineLayout,
-			.createGraphicsPipeline		= &CreateGraphicsPipeline,
-			.createComputePipeline		= &CreateComputePipeline,
-			.createTimeline				= &CreateTimeline,
-			.createBinarySemaphore		= &CreateBinarySemaphore,
-			.createDescriptorArena		= &CreateDescriptorArena,
-			.createCommandPool			= &CreateCommandPool,
-			.getQueue					= &GetQueue,
-			.map						= &Map,
+			.getGraphicsApiId			= &Metal4DeviceApiId,
+			.getGraphicsApiName			= &Metal4DeviceApiName,
+			.createBuffer				= &Metal4CreateBuffer,
+			.createTexture				= &Metal4CreateTexture,
+			.createTextureView			= &Metal4CreateTextureView,
+			.createSampler				= &Metal4CreateSampler,
+			.createDescriptorSetLayout	= &Metal4CreateDescriptorSetLayout,
+			.createPipelineLayout		= &Metal4CreatePipelineLayout,
+			.createGraphicsPipeline		= &Metal4CreateGraphicsPipeline,
+			.createComputePipeline		= &Metal4CreateComputePipeline,
+			.createTimeline				= &Metal4CreateTimeline,
+			.createBinarySemaphore		= &Metal4CreateBinarySemaphore,
+			.createDescriptorArena		= &Metal4CreateDescriptorArena,
+			.createCommandPool			= &Metal4CreateCommandPool,
+			.getQueue					= &Metal4GetQueue,
+			.map						= &Metal4Map,
 			.unmap						= &NoopVoid,
 			.flushMappedRange			= &NoopVoid,
 			.invalidateMappedRange		= &NoopVoid,
-			.updateDescriptorsBuffer	= &UpdateDescriptorsBuffer,
-			.updateDescriptorsTexture	= &UpdateDescriptorsTexture,
-			.updateDescriptorsSampler	= &UpdateDescriptorsSampler,
-			.getCaps					= &DeviceCapsOf,
-			.getFormatSupport			= &DeviceFormatSupport,
-			.getAdapterInfo				= &DeviceAdapterInfo,
-			.getValidationMessageCounts = &DeviceValidationMessageCounts,
-			.destroy					= &Destroy,
-			.collectGarbage				= &CollectGarbage,
-			.collectGarbageTimeline		= &CollectGarbageTimeline,
-			.destroyDevice				= &DestroyDevice,
+			.updateDescriptorsBuffer	= &Metal4UpdateDescriptorsBuffer,
+			.updateDescriptorsTexture	= &Metal4UpdateDescriptorsTexture,
+			.updateDescriptorsSampler	= &Metal4UpdateDescriptorsSampler,
+			.getCaps					= &Metal4DeviceCaps,
+			.getFormatSupport			= &Metal4DeviceFormatSupport,
+			.getAdapterInfo				= &Metal4DeviceAdapterInfo,
+			.getValidationMessageCounts = &Metal4DeviceValidationMessageCounts,
+			.destroy					= &Metal4Destroy,
+			.collectGarbage				= &Metal4CollectGarbage,
+			.collectGarbageTimeline		= &Metal4CollectGarbageTimeline,
+			.destroyDevice				= &Metal4DestroyDevice,
 		};
 
 		return block;
@@ -57,7 +57,7 @@ namespace azo::rhi::metal4
 	const PresentApi & PresentBlock() noexcept
 	{
 		static const PresentApi block{
-			.createSwapchain = &CreateSwapchain,
+			.createSwapchain = &Metal4CreateSwapchain,
 		};
 
 		return block;
@@ -66,11 +66,11 @@ namespace azo::rhi::metal4
 	const PlacedMemoryApi & PlacedMemoryBlock() noexcept
 	{
 		static const PlacedMemoryApi block{
-			.createHeap			  = &CreateHeap,
-			.createPlacedBuffer	  = &CreatePlacedBuffer,
-			.createPlacedTexture  = &CreatePlacedTexture,
-			.getTextureMemoryInfo = &GetTextureMemoryInfo,
-			.getBufferMemoryInfo  = &GetBufferMemoryInfo,
+			.createHeap			  = &Metal4CreateHeap,
+			.createPlacedBuffer	  = &Metal4CreatePlacedBuffer,
+			.createPlacedTexture  = &Metal4CreatePlacedTexture,
+			.getTextureMemoryInfo = &Metal4GetTextureMemoryInfo,
+			.getBufferMemoryInfo  = &Metal4GetBufferMemoryInfo,
 		};
 
 		return block;
@@ -79,9 +79,9 @@ namespace azo::rhi::metal4
 	const RayTracingApi & RayTracingBlock() noexcept
 	{
 		static const RayTracingApi block{
-			.createRayTracingPipeline				= &CreateRayTracingPipeline,
-			.createAccelerationStructure			= &CreateAccelerationStructure,
-			.updateDescriptorsAccelerationStructure = &Unimplemented,
+			.createRayTracingPipeline				= &Metal4CreateRayTracingPipeline,
+			.createAccelerationStructure			= &Metal4CreateAccelerationStructure,
+			.updateDescriptorsAccelerationStructure = &Metal4Unimplemented,
 		};
 
 		return block;
@@ -90,8 +90,8 @@ namespace azo::rhi::metal4
 	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept
 	{
 		static const ResourceIntrospectionApi block{
-			.getTextureInfo = &GetTextureInfo,
-			.getBufferInfo	= &GetBufferInfo,
+			.getTextureInfo = &Metal4GetTextureInfo,
+			.getBufferInfo	= &Metal4GetBufferInfo,
 		};
 
 		return block;
@@ -100,8 +100,8 @@ namespace azo::rhi::metal4
 	const QueryApi & QueryBlock() noexcept
 	{
 		static const QueryApi block{
-			.createQueryPool	= &CreateQueryPool,
-			.calibrateTimestamp = &CalibrateTimestamp,
+			.createQueryPool	= &Metal4CreateQueryPool,
+			.calibrateTimestamp = &Metal4CalibrateTimestamp,
 		};
 
 		return block;
@@ -110,7 +110,7 @@ namespace azo::rhi::metal4
 	const ResidencyApi & ResidencyBlock() noexcept
 	{
 		static const ResidencyApi block{
-			.queryMemoryBudget	  = &QueryMemoryBudget,
+			.queryMemoryBudget	  = &Metal4QueryMemoryBudget,
 			.setResidencyPriority = &NoopVoid,
 		};
 
@@ -120,18 +120,18 @@ namespace azo::rhi::metal4
 	const AdoptionApi & AdoptionBlock() noexcept
 	{
 		static const AdoptionApi block{
-			.adoptBuffer			  = &AdoptBuffer,
-			.adoptTexture			  = &AdoptTexture,
-			.getNativeBuffer		  = &GetNativeBuffer,
-			.getNativeTexture		  = &GetNativeTexture,
-			.adoptTextureView		  = &AdoptTextureView,
-			.adoptSampler			  = &AdoptSampler,
-			.getNativeTextureView	  = &GetNativeTextureView,
-			.getNativeSampler		  = &GetNativeSampler,
-			.adoptTimeline			  = &AdoptTimeline,
-			.adoptBinarySemaphore	  = &AdoptBinarySemaphore,
-			.getNativeTimeline		  = &GetNativeTimeline,
-			.getNativeBinarySemaphore = &GetNativeBinarySemaphore,
+			.adoptBuffer			  = &Metal4AdoptBuffer,
+			.adoptTexture			  = &Metal4AdoptTexture,
+			.getNativeBuffer		  = &Metal4GetNativeBuffer,
+			.getNativeTexture		  = &Metal4GetNativeTexture,
+			.adoptTextureView		  = &Metal4AdoptTextureView,
+			.adoptSampler			  = &Metal4AdoptSampler,
+			.getNativeTextureView	  = &Metal4GetNativeTextureView,
+			.getNativeSampler		  = &Metal4GetNativeSampler,
+			.adoptTimeline			  = &Metal4AdoptTimeline,
+			.adoptBinarySemaphore	  = &Metal4AdoptBinarySemaphore,
+			.getNativeTimeline		  = &Metal4GetNativeTimeline,
+			.getNativeBinarySemaphore = &Metal4GetNativeBinarySemaphore,
 		};
 
 		return block;
@@ -140,10 +140,10 @@ namespace azo::rhi::metal4
 	const InstanceApi & InstanceBlock() noexcept
 	{
 		static const InstanceApi block{
-			.getGraphicsApiId  = &InstanceApiId,
-			.enumerateAdapters = &EnumerateAdapters,
-			.createDevice	   = &InstanceCreateDevice,
-			.destroyInstance   = &DestroyInstance,
+			.getGraphicsApiId  = &Metal4InstanceApiId,
+			.enumerateAdapters = &Metal4EnumerateAdapters,
+			.createDevice	   = &Metal4InstanceCreateDevice,
+			.destroyInstance   = &Metal4DestroyInstance,
 		};
 
 		return block;
@@ -153,7 +153,7 @@ namespace azo::rhi::metal4
 	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept
 	{
 		static const ExternalCapabilityApi block{
-			.queryExternalHandleSupport = &QueryExternalHandleSupport,
+			.queryExternalHandleSupport = &Metal4QueryExternalHandleSupport,
 		};
 
 		return block;
@@ -162,15 +162,15 @@ namespace azo::rhi::metal4
 	const QueueApi & QueueBlock() noexcept
 	{
 		static const QueueApi block{
-			.getType		   = &QueueTypeOf,
-			.getFamilyIndex	   = &QueueFamilyIndex,
-			.submit			   = &QueueSubmit,
-			.waitIdle		   = &QueueWaitIdle,
-			.getCompletedValue = &QueueGetCompletedValue,
-			.wait			   = &QueueWait,
-			.signal			   = &QueueSignal,
-			.beginDebugLabel   = &QueueBeginDebugLabel,
-			.endDebugLabel	   = &QueueEndDebugLabel,
+			.getType		   = &Metal4QueueTypeOf,
+			.getFamilyIndex	   = &Metal4QueueFamilyIndex,
+			.submit			   = &Metal4QueueSubmit,
+			.waitIdle		   = &Metal4QueueWaitIdle,
+			.getCompletedValue = &Metal4QueueGetCompletedValue,
+			.wait			   = &Metal4QueueWait,
+			.signal			   = &Metal4QueueSignal,
+			.beginDebugLabel   = &Metal4QueueBeginDebugLabel,
+			.endDebugLabel	   = &Metal4QueueEndDebugLabel,
 		};
 
 		return block;
@@ -179,8 +179,8 @@ namespace azo::rhi::metal4
 	const CommandPoolApi & CommandPoolBlock() noexcept
 	{
 		static const CommandPoolApi block{
-			.allocate = &CommandPoolAllocate,
-			.reset	  = &CommandPoolReset,
+			.allocate = &Metal4CommandPoolAllocate,
+			.reset	  = &Metal4CommandPoolReset,
 		};
 
 		return block;
@@ -196,42 +196,42 @@ namespace azo::rhi::metal4
 	const RenderCommandApi & RenderCommandBlock() noexcept
 	{
 		static const RenderCommandApi block{
-			.begin = &CmdBegin,
-			.end   = &CmdEnd,
+			.begin = &Metal4CmdBegin,
+			.end   = &Metal4CmdEnd,
 
 			// Real here. Metal 3 lowers this to nothing, tracking its own hazards.
-			.barriers = &CmdBarriers,
+			.barriers = &Metal4CmdBarriers,
 
-			.beginRendering		 = &CmdBeginRendering,
-			.endRendering		 = &CmdEndRendering,
-			.setGraphicsPipeline = &CmdSetGraphicsPipeline,
-			.setComputePipeline	 = &CmdSetComputePipeline,
-			.bindDescriptorSet	 = &CmdBindDescriptorSet,
-			.pushConstants		 = &CmdPushConstants,
-			.setViewport		 = &CmdSetViewport,
-			.setScissor			 = &CmdSetScissor,
-			.setBlendConstants	 = &CmdSetBlendConstants,
-			.setStencilReference = &CmdSetStencilReference,
-			.setDepthBias		 = &CmdSetDepthBias,
-			.setVertexBuffer	 = &CmdSetVertexBuffer,
-			.setIndexBuffer		 = &CmdSetIndexBuffer,
-			.draw				 = &CmdDraw,
-			.drawIndexed		 = &CmdDrawIndexed,
-			.dispatch			 = &CmdDispatch,
+			.beginRendering		 = &Metal4CmdBeginRendering,
+			.endRendering		 = &Metal4CmdEndRendering,
+			.setGraphicsPipeline = &Metal4CmdSetGraphicsPipeline,
+			.setComputePipeline	 = &Metal4CmdSetComputePipeline,
+			.bindDescriptorSet	 = &Metal4CmdBindDescriptorSet,
+			.pushConstants		 = &Metal4CmdPushConstants,
+			.setViewport		 = &Metal4CmdSetViewport,
+			.setScissor			 = &Metal4CmdSetScissor,
+			.setBlendConstants	 = &Metal4CmdSetBlendConstants,
+			.setStencilReference = &Metal4CmdSetStencilReference,
+			.setDepthBias		 = &Metal4CmdSetDepthBias,
+			.setVertexBuffer	 = &Metal4CmdSetVertexBuffer,
+			.setIndexBuffer		 = &Metal4CmdSetIndexBuffer,
+			.draw				 = &Metal4CmdDraw,
+			.drawIndexed		 = &Metal4CmdDrawIndexed,
+			.dispatch			 = &Metal4CmdDispatch,
 
 			// Every one of these is on the compute encoder here, this generation having no blit encoder.
-			.copyBuffer			 = &CmdCopyBuffer,
-			.copyBufferToTexture = &CmdCopyBufferToTexture,
-			.copyTextureToBuffer = &CmdCopyTextureToBuffer,
-			.copyTexture		 = &CmdCopyTexture,
-			.clearBuffer		 = &CmdClearBuffer,
-			.clearTexture		 = &CmdClearTexture,
-			.resolveTexture		 = &CmdResolveTexture,
-			.blit				 = &CmdBlit,
-			.generateMips		 = &CmdGenerateMips,
+			.copyBuffer			 = &Metal4CmdCopyBuffer,
+			.copyBufferToTexture = &Metal4CmdCopyBufferToTexture,
+			.copyTextureToBuffer = &Metal4CmdCopyTextureToBuffer,
+			.copyTexture		 = &Metal4CmdCopyTexture,
+			.clearBuffer		 = &Metal4CmdClearBuffer,
+			.clearTexture		 = &Metal4CmdClearTexture,
+			.resolveTexture		 = &Metal4CmdResolveTexture,
+			.blit				 = &Metal4CmdBlit,
+			.generateMips		 = &Metal4CmdGenerateMips,
 
-			.beginDebugLabel = &CmdBeginDebugLabel,
-			.endDebugLabel	 = &CmdEndDebugLabel,
+			.beginDebugLabel = &Metal4CmdBeginDebugLabel,
+			.endDebugLabel	 = &Metal4CmdEndDebugLabel,
 		};
 
 		return block;
@@ -247,11 +247,11 @@ namespace azo::rhi::metal4
 	const QueryCommandApi & QueryCommandBlock() noexcept
 	{
 		static const QueryCommandApi block{
-			.resetQueryPool	  = &CmdResetQueryPool,
-			.writeTimestamp	  = &CmdWriteTimestamp,
-			.beginQuery		  = &CmdBeginQuery,
-			.endQuery		  = &CmdEndQuery,
-			.resolveQueryData = &CmdResolveQueryData,
+			.resetQueryPool	  = &Metal4CmdResetQueryPool,
+			.writeTimestamp	  = &Metal4CmdWriteTimestamp,
+			.beginQuery		  = &Metal4CmdBeginQuery,
+			.endQuery		  = &Metal4CmdEndQuery,
+			.resolveQueryData = &Metal4CmdResolveQueryData,
 		};
 
 		return block;
@@ -260,9 +260,9 @@ namespace azo::rhi::metal4
 	const IndirectApi & IndirectBlock() noexcept
 	{
 		static const IndirectApi block{
-			.drawIndirect		 = &CmdDrawIndirect,
-			.drawIndexedIndirect = &CmdDrawIndexedIndirect,
-			.dispatchIndirect	 = &CmdDispatchIndirect,
+			.drawIndirect		 = &Metal4CmdDrawIndirect,
+			.drawIndexedIndirect = &Metal4CmdDrawIndexedIndirect,
+			.dispatchIndirect	 = &Metal4CmdDispatchIndirect,
 		};
 
 		return block;
@@ -271,7 +271,7 @@ namespace azo::rhi::metal4
 	const NativeEscapeApi & NativeEscapeBlock() noexcept
 	{
 		static const NativeEscapeApi block{
-			.beginNativeMutation = &BeginNativeMutation,
+			.beginNativeMutation = &Metal4BeginNativeMutation,
 			.endNativeMutation	 = &NoopVoid,
 		};
 
@@ -281,8 +281,8 @@ namespace azo::rhi::metal4
 	const DescriptorArenaApi & DescriptorArenaBlock() noexcept
 	{
 		static const DescriptorArenaApi block{
-			.allocate = &ArenaAllocate,
-			.reset	  = &ArenaReset,
+			.allocate = &Metal4ArenaAllocate,
+			.reset	  = &Metal4ArenaReset,
 		};
 
 		return block;

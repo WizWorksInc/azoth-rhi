@@ -16,7 +16,8 @@
 
 namespace azo::rhi::metal4
 {
-	BufferHandle AdoptBuffer(void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
+	BufferHandle Metal4AdoptBuffer(
+		void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.adoptBuffer");
 
@@ -43,13 +44,13 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	TextureHandle AdoptTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
+	TextureHandle Metal4AdoptTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
 		[[maybe_unused]] const AdoptedTextureDesc & desc, Error * error) noexcept
 	{
 		return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal texture import is not implemented yet");
 	}
 
-	bool GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
+	bool Metal4GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -68,7 +69,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool GetNativeTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
+	bool Metal4GetNativeTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
 		[[maybe_unused]] void * outNativeImport, Error * error) noexcept
 	{
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal texture export is not implemented yet");
@@ -79,19 +80,19 @@ namespace azo::rhi::metal4
 	 * bit and branched anyway holding an object that can never be built or traced with so both calls are refused instead. Refusing one and minting the other would
 	 * be worse than minting both, since whichever call the caller reaches first would decide whether they find out.
 	 */
-	AccelerationStructureHandle CreateAccelerationStructure(
+	AccelerationStructureHandle Metal4CreateAccelerationStructure(
 		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept
 	{
 		return FailValue<AccelerationStructureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
 	}
 
-	RayTracingPipelineHandle CreateRayTracingPipeline(
+	RayTracingPipelineHandle Metal4CreateRayTracingPipeline(
 		[[maybe_unused]] void * impl, [[maybe_unused]] const RayTracingPipelineDesc & desc, Error * error) noexcept
 	{
 		return FailValue<RayTracingPipelineHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
 	}
 
-	bool BeginNativeMutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
+	bool Metal4BeginNativeMutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -108,7 +109,7 @@ namespace azo::rhi::metal4
 	 * Reference counting settles the lifetime question that the other two backends have to declare: the slot takes its own reference and the caller keeps its own,
 	 * so neither frees the other's out from under it whichever AdoptedLifetime the caller named.
 	 */
-	TextureViewHandle AdoptTextureView(
+	TextureViewHandle Metal4AdoptTextureView(
 		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
@@ -138,7 +139,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	SamplerHandle AdoptSampler(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
+	SamplerHandle Metal4AdoptSampler(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -162,7 +163,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	bool GetNativeTextureView(void * impl, const GraphicsApiId api, const TextureViewHandle view, void * outNativeImport, Error * error) noexcept
+	bool Metal4GetNativeTextureView(void * impl, const GraphicsApiId api, const TextureViewHandle view, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -180,7 +181,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool GetNativeSampler(void * impl, const GraphicsApiId api, const SamplerHandle sampler, void * outNativeImport, Error * error) noexcept
+	bool Metal4GetNativeSampler(void * impl, const GraphicsApiId api, const SamplerHandle sampler, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -205,7 +206,8 @@ namespace azo::rhi::metal4
 	 * adoption serves, an event a producer hands over and then signals, and it is the assumption worth stating: a caller adopting an event already part way
 	 * through a sequence gets a counter that disagrees with it.
 	 */
-	TimelineHandle AdoptTimeline(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
+	TimelineHandle Metal4AdoptTimeline(
+		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -229,7 +231,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	BinarySemaphoreHandle AdoptBinarySemaphore(
+	BinarySemaphoreHandle Metal4AdoptBinarySemaphore(
 		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
@@ -254,7 +256,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	bool GetNativeTimeline(void * impl, const GraphicsApiId api, const TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
+	bool Metal4GetNativeTimeline(void * impl, const GraphicsApiId api, const TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{
@@ -272,7 +274,8 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool GetNativeBinarySemaphore(void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
+	bool Metal4GetNativeBinarySemaphore(
+		void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != Metal4Api::id)
 		{

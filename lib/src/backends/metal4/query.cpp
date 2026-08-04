@@ -28,7 +28,7 @@ namespace azo::rhi::metal4
 	 * pass, and pipeline statistics not at all, so both are refused, not approximated. What did change is that a heap needs no counter set probing, the
 	 * type being named on the descriptor.
 	 */
-	QueryPoolHandle CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
+	QueryPoolHandle Metal4CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createQueryPool");
 
@@ -75,7 +75,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	bool CalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
+	bool Metal4CalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
 	{
 		auto * device = static_cast<Metal4Device *>(impl);
 		if (out == nullptr)
@@ -111,7 +111,7 @@ namespace azo::rhi::metal4
 	 * Without it a slot never written this frame still reads whatever the last frame left, and a caller that resolves more slots than it wrote gets a stale
 	 * time instead of a sentinel. Invalidate is exactly the "these hold nothing" the RHI's reset means.
 	 */
-	bool CmdResetQueryPool(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, Error * error) noexcept
+	bool Metal4CmdResetQueryPool(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * object			  = static_cast<Metal4Object *>(impl);
 		Metal4QueryPool * tracked = ResolveQueryPool(object->owner, pool);
@@ -136,7 +136,7 @@ namespace azo::rhi::metal4
 	 * boundaries, which is every Apple part measured so far, and has no way to close a compute encoder to get around it. Here the encoder takes the sample
 	 * itself, so a dispatch can be bracketed as tightly as a caller wants.
 	 */
-	bool CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, Flags<PipelineStage>, Error * error) noexcept
+	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, Flags<PipelineStage>, Error * error) noexcept
 	{
 		auto * object			  = static_cast<Metal4Object *>(impl);
 		CmdList * list			  = ListOf(object);
@@ -191,13 +191,13 @@ namespace azo::rhi::metal4
 	 * Refused, as on the other generation. Metal counts visible samples through a visibility result buffer named on the render pass descriptor, which is a
 	 * different object reached a different way, and a pool a caller brought here has nothing to do with it.
 	 */
-	bool CmdBeginQuery(void * impl, QueryPoolHandle, std::uint32_t, Error * error) noexcept
+	bool Metal4CmdBeginQuery(void * impl, QueryPoolHandle, std::uint32_t, Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
 	}
 
-	bool CmdEndQuery(void * impl, QueryPoolHandle, std::uint32_t, Error * error) noexcept
+	bool Metal4CmdEndQuery(void * impl, QueryPoolHandle, std::uint32_t, Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
@@ -210,7 +210,7 @@ namespace azo::rhi::metal4
 	 * are this generation's way of ordering the resolve against the writes it reads and against whatever reads the buffer afterwards, where the other
 	 * generation gets that ordering from the blit encoder sitting in command order.
 	 */
-	bool CmdResolveQueryData(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, BufferHandle dst,
+	bool Metal4CmdResolveQueryData(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, BufferHandle dst,
 		const std::uint64_t dstOffset, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveQueryData");

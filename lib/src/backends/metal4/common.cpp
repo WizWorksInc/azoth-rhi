@@ -23,7 +23,7 @@ namespace azo::rhi::metal4
 	 * through MTLSharedEventHandle, and a buffer through nothing at all, MTLBuffer having no shared handle and MTLDevice no entry point that makes one from a
 	 * handle.
 	 */
-	bool RefuseUnexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
+	bool Metal4RefuseUnexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
 	{
 		// Anything outside what this kind can take is refused by name. A buffer allows nothing, which this expresses as an empty mask and not as a separate case, so
 		// the one that can export nothing reads the same as the two that can export one thing.
@@ -54,22 +54,22 @@ namespace azo::rhi::metal4
 		return owner;
 	}
 
-	GraphicsApiId DeviceApiId([[maybe_unused]] void * impl) noexcept
+	GraphicsApiId Metal4DeviceApiId([[maybe_unused]] void * impl) noexcept
 	{
 		return Metal4Api::id;
 	}
 
-	std::string_view DeviceApiName([[maybe_unused]] void * impl) noexcept
+	std::string_view Metal4DeviceApiName([[maybe_unused]] void * impl) noexcept
 	{
 		return Metal4Api::displayName;
 	}
 
-	const DeviceCaps & DeviceCapsOf(void * impl) noexcept
+	const DeviceCaps & Metal4DeviceCaps(void * impl) noexcept
 	{
 		return static_cast<Metal4Device *>(impl)->caps;
 	}
 
-	const AdapterInfo & DeviceAdapterInfo(void * impl) noexcept
+	const AdapterInfo & Metal4DeviceAdapterInfo(void * impl) noexcept
 	{
 		return static_cast<Metal4Device *>(impl)->adapter;
 	}
@@ -80,7 +80,7 @@ namespace azo::rhi::metal4
 	 *
 	 * caps.reportsValidationMessageCounts is false for the same reason, since a zero from a device that cannot count would otherwise read as proof of a clean run.
 	 */
-	ValidationMessageCounts DeviceValidationMessageCounts([[maybe_unused]] void * impl) noexcept
+	ValidationMessageCounts Metal4DeviceValidationMessageCounts([[maybe_unused]] void * impl) noexcept
 	{
 		return {};
 	}

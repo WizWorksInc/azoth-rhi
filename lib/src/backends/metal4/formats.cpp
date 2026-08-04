@@ -16,7 +16,7 @@
 
 namespace azo::rhi::metal4
 {
-	bool GetTextureInfo(void * impl, const TextureHandle texture, TextureInfo * out, Error * error) noexcept
+	bool Metal4GetTextureInfo(void * impl, const TextureHandle texture, TextureInfo * out, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.getTextureInfo");
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -45,7 +45,7 @@ namespace azo::rhi::metal4
 		return true;
 	}
 
-	bool GetBufferInfo(void * impl, const BufferHandle buffer, BufferInfo * out, Error * error) noexcept
+	bool Metal4GetBufferInfo(void * impl, const BufferHandle buffer, BufferInfo * out, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.getBufferInfo");
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -74,7 +74,7 @@ namespace azo::rhi::metal4
 		return true;
 	}
 
-	FormatSupport DeviceFormatSupport(void * impl, Format format) noexcept
+	FormatSupport Metal4DeviceFormatSupport(void * impl, Format format) noexcept
 	{
 		auto * device = static_cast<Metal4Device *>(impl);
 

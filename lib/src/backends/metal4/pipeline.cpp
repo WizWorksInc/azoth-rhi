@@ -27,8 +27,8 @@ namespace azo::rhi::metal4
 		/*
 		 * Refuses a pipeline whose shaders claim their bindings landed at argument-table indices other than the ones this backend binds them at.
 		 *
-		 * Metal has no layout object to disagree with, so the disagreement is between what the binary says and what CmdBindDescriptorSet will do. Nothing here
-		 * changes where anything is bound. It changes reading a stale texture at the wrong index into a refusal that names the binding.
+		 * Metal has no layout object to disagree with, so the disagreement is between what the binary says and what Metal4CmdBindDescriptorSet will do. Nothing
+		 * here changes where anything is bound. It changes reading a stale texture at the wrong index into a refusal that names the binding.
 		 */
 		[[nodiscard]] bool BindingMapsAgreeImpl(
 			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
@@ -182,7 +182,7 @@ namespace azo::rhi::metal4
 		return FunctionBuffersAreBoundImpl(device, layout, bindings, error);
 	}
 
-	PipelineLayoutHandle CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
+	PipelineLayoutHandle Metal4CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createPipelineLayout");
 
@@ -248,7 +248,7 @@ namespace azo::rhi::metal4
 		}
 	} // namespace
 
-	ComputePipelineHandle CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
+	ComputePipelineHandle Metal4CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createComputePipeline");
 
@@ -318,7 +318,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	GraphicsPipelineHandle CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
+	GraphicsPipelineHandle Metal4CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createGraphicsPipeline");
 

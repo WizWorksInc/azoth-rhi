@@ -16,7 +16,7 @@
 
 namespace azo::rhi::metal4
 {
-	MappedMemory Map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept
+	MappedMemory Metal4Map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.map");
 
@@ -70,7 +70,7 @@ namespace azo::rhi::metal4
 		};
 	}
 
-	bool QueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept
+	bool Metal4QueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -91,7 +91,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool Destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept
+	bool Metal4Destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.destroy");
 
@@ -173,7 +173,7 @@ namespace azo::rhi::metal4
 	 * All the sweep leaves to do is clear the counter and that counts destroys across the device, not within a kind so it is cleared on the first kind
 	 * the sweep reaches, not sixteen times over.
 	 */
-	bool CollectGarbage(void * impl, ResourceType type, Error * error) noexcept
+	bool Metal4CollectGarbage(void * impl, ResourceType type, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.collectGarbage");
 
@@ -185,10 +185,10 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CollectGarbageTimeline(
+	bool Metal4CollectGarbageTimeline(
 		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept
 	{
-		return CollectGarbage(impl, type, error);
+		return Metal4CollectGarbage(impl, type, error);
 	}
 
 } // namespace azo::rhi::metal4

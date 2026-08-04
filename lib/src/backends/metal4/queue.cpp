@@ -16,12 +16,12 @@
 
 namespace azo::rhi::metal4
 {
-	QueueType QueueTypeOf(void * impl) noexcept
+	QueueType Metal4QueueTypeOf(void * impl) noexcept
 	{
 		return static_cast<Metal4Object *>(impl)->queueType;
 	}
 
-	std::uint32_t QueueFamilyIndex(void * impl) noexcept
+	std::uint32_t Metal4QueueFamilyIndex(void * impl) noexcept
 	{
 		return static_cast<std::uint32_t>(static_cast<Metal4Object *>(impl)->queueType);
 	}
@@ -50,7 +50,7 @@ namespace azo::rhi::metal4
 	 *
 	 * The commit is also a batch: every list goes in one call, one trip into the driver.
 	 */
-	bool QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
+	bool Metal4QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.submit");
 
@@ -164,7 +164,7 @@ namespace azo::rhi::metal4
 	 * without building one out of an allocator, so this signals an event past every value it has held and waits for that on the host, which is the same barrier
 	 * expressed through the primitive this generation does have.
 	 */
-	bool QueueWaitIdle(void * impl, Error * error) noexcept
+	bool Metal4QueueWaitIdle(void * impl, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.waitIdle");
 
@@ -197,7 +197,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept
+	bool Metal4QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -217,7 +217,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept
+	bool Metal4QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept
 	{
 		auto * device = static_cast<Metal4Object *>(impl)->owner;
 
@@ -231,7 +231,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept
+	bool Metal4QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept
 	{
 		auto * device = static_cast<Metal4Object *>(impl)->owner;
 
@@ -265,12 +265,12 @@ namespace azo::rhi::metal4
 	 * what the Vulkan backend does on a device without VK_EXT_debug_utils: a label is instrumentation so a tool that cannot show it is not a reason for the
 	 * frame's call to start reporting failure. Command-list labels are the ones that carry the pass structure and those are recorded.
 	 */
-	bool QueueBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
+	bool Metal4QueueBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 		return Succeed(error);
 	}
 
-	bool QueueEndDebugLabel([[maybe_unused]] void * impl, Error * error) noexcept
+	bool Metal4QueueEndDebugLabel([[maybe_unused]] void * impl, Error * error) noexcept
 	{
 		return Succeed(error);
 	}
@@ -286,7 +286,7 @@ namespace azo::rhi::metal4
 	 */
 	namespace
 	{
-		const void * CommandListQueryInterface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
+		const void * Metal4CommandListQueryInterface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
 		{
 			const auto * list = static_cast<const Metal4Object *>(object);
 
@@ -303,7 +303,7 @@ namespace azo::rhi::metal4
 
 		const BackendObject * CommandListObject() noexcept
 		{
-			static constexpr BackendObject object{ .queryInterface = &CommandListQueryInterface };
+			static constexpr BackendObject object{ .queryInterface = &Metal4CommandListQueryInterface };
 			return &object;
 		}
 	} // namespace
@@ -314,7 +314,7 @@ namespace azo::rhi::metal4
 	 * The allocator and the argument table are made here and kept for the list's life. The command buffer is made here too but is only meaningful between Begin
 	 * and End, since beginning one takes its memory from the allocator and resetting the allocator invalidates whatever it handed out before.
 	 */
-	void * CommandPoolAllocate(void * impl, CString debugName, Error * error) noexcept
+	void * Metal4CommandPoolAllocate(void * impl, CString debugName, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.commandPool.allocate");
 
@@ -431,7 +431,7 @@ namespace azo::rhi::metal4
 	 * Nothing here touches Metal. The allocator each list holds is reset where that list next begins, which is the only place that knows the command buffer
 	 * over it is about to be rebuilt, and resetting one here would strand the other lists this pool has out.
 	 */
-	bool CommandPoolReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
+	bool Metal4CommandPoolReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.commandPool.reset");
 

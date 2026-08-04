@@ -127,10 +127,10 @@ namespace azo::rhi::metal4
 		detail::HostVector<NS::SharedPtr<MTL::Buffer>> keepAlive;
 
 		/**
-		 * \brief The scope's end timestamp, left by BeginRendering for EndRendering to write.
+		 * \brief The scope's end timestamp, left by Metal4CmdBeginRendering for Metal4CmdEndRendering to write.
 		 *
-		 * The end has to be recorded while the encoder is still open, and EndRendering is the last point that is true. Null whenever the scope asked for no end
-		 * timestamp.
+		 * The end has to be recorded while the encoder is still open, and Metal4CmdEndRendering is the last point that is true. Null whenever the scope asked
+		 * for no end timestamp.
 		 */
 		NS::SharedPtr<MTL4::CounterHeap> pendingEndHeap;
 		std::uint32_t pendingEndQuery = 0;
@@ -605,27 +605,28 @@ namespace azo::rhi::metal4
 
 	[[nodiscard]] void * AllocObject(Metal4Device * device, const BackendObject * published, QueueType queueType = QueueType::eGraphics);
 
-	[[nodiscard]] bool RefuseUnexportable(Flags<ExternalHandleType> declared, Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept;
+	[[nodiscard]] bool Metal4RefuseUnexportable(
+		Flags<ExternalHandleType> declared, Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept;
 	[[nodiscard]] Metal4BackendOwner & Owner();
-	GraphicsApiId DeviceApiId([[maybe_unused]] void * impl) noexcept;
-	std::string_view DeviceApiName([[maybe_unused]] void * impl) noexcept;
-	const DeviceCaps & DeviceCapsOf(void * impl) noexcept;
-	const AdapterInfo & DeviceAdapterInfo(void * impl) noexcept;
-	ValidationMessageCounts DeviceValidationMessageCounts(void * impl) noexcept;
-	FormatSupport DeviceFormatSupport(void * impl, Format format) noexcept;
-	bool GetTextureInfo(void * impl, TextureHandle texture, TextureInfo * out, Error * error) noexcept;
-	bool GetBufferInfo(void * impl, BufferHandle buffer, BufferInfo * out, Error * error) noexcept;
-	BufferHandle CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept;
-	TextureHandle CreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept;
-	TextureViewHandle CreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
-	SamplerHandle CreateSampler(void * impl, const SamplerDesc & desc, Error * error) noexcept;
-	bool GetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept;
-	bool GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
+	GraphicsApiId Metal4DeviceApiId([[maybe_unused]] void * impl) noexcept;
+	std::string_view Metal4DeviceApiName([[maybe_unused]] void * impl) noexcept;
+	const DeviceCaps & Metal4DeviceCaps(void * impl) noexcept;
+	const AdapterInfo & Metal4DeviceAdapterInfo(void * impl) noexcept;
+	ValidationMessageCounts Metal4DeviceValidationMessageCounts(void * impl) noexcept;
+	FormatSupport Metal4DeviceFormatSupport(void * impl, Format format) noexcept;
+	bool Metal4GetTextureInfo(void * impl, TextureHandle texture, TextureInfo * out, Error * error) noexcept;
+	bool Metal4GetBufferInfo(void * impl, BufferHandle buffer, BufferInfo * out, Error * error) noexcept;
+	BufferHandle Metal4CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept;
+	TextureHandle Metal4CreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept;
+	TextureViewHandle Metal4CreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
+	SamplerHandle Metal4CreateSampler(void * impl, const SamplerDesc & desc, Error * error) noexcept;
+	bool Metal4GetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept;
+	bool Metal4GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
 	[[nodiscard]] MTL::Heap * ResolveHeap(Metal4Device * device, HeapHandle handle) noexcept;
-	HeapHandle CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept;
-	BufferHandle CreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept;
-	TextureHandle CreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept;
-	TimelineHandle CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept;
+	HeapHandle Metal4CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept;
+	BufferHandle Metal4CreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept;
+	TextureHandle Metal4CreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept;
+	TimelineHandle Metal4CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept;
 	[[nodiscard]] MTL::Buffer * ResolveBuffer(Metal4Device * device, BufferHandle handle) noexcept;
 	[[nodiscard]] MTL::Texture * ResolveTexture(Metal4Device * device, TextureHandle handle) noexcept;
 	[[nodiscard]] Format ResolveTextureFormat(Metal4Device * device, TextureHandle handle) noexcept;
@@ -691,31 +692,32 @@ namespace azo::rhi::metal4
 	 */
 	[[nodiscard]] MTL::GPUAddress WritePushConstants(Metal4Device * device, CmdList * list, const void * data, std::uint32_t size) noexcept;
 
-	BinarySemaphoreHandle CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept;
+	BinarySemaphoreHandle Metal4CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept;
 
 	/// Command list entries.
 
-	bool CmdBegin(void * impl, Error * error) noexcept;
-	bool CmdEnd(void * impl, Error * error) noexcept;
-	bool CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;
-	bool CmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
-	bool CmdEndDebugLabel(void * impl, Error * error) noexcept;
+	bool Metal4CmdBegin(void * impl, Error * error) noexcept;
+	bool Metal4CmdEnd(void * impl, Error * error) noexcept;
+	bool Metal4CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;
+	bool Metal4CmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
+	bool Metal4CmdEndDebugLabel(void * impl, Error * error) noexcept;
 
 	/// Compute and copies, which share one encoder on this generation.
 
-	bool CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
-	bool CmdDispatch(void * impl, std::uint32_t x, std::uint32_t y, std::uint32_t z, Error * error) noexcept;
-	bool CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
-	bool CmdCopyBuffer(
+	bool Metal4CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
+	bool Metal4CmdDispatch(void * impl, std::uint32_t x, std::uint32_t y, std::uint32_t z, Error * error) noexcept;
+	bool Metal4CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
+	bool Metal4CmdCopyBuffer(
 		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept;
-	bool CmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
-	bool CmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
-	bool CmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
-	bool CmdClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
-	bool CmdClearTexture(void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
-	bool CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
-	bool CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
-	bool CmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
+	bool Metal4CmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
+	bool Metal4CmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
+	bool Metal4CmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
+	bool Metal4CmdClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
+	bool Metal4CmdClearTexture(
+		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
+	bool Metal4CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
+	bool Metal4CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
+	bool Metal4CmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
 	[[nodiscard]] MTL::Texture * ResolveTextureView(Metal4Device * device, TextureViewHandle handle) noexcept;
 
 	/**
@@ -730,72 +732,73 @@ namespace azo::rhi::metal4
 	 */
 	[[nodiscard]] bool FunctionBuffersAreBound(Metal4Device * device, PipelineLayoutHandle layout, const NS::Array * bindings, Error * error) noexcept;
 
-	PipelineLayoutHandle CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
-	GraphicsPipelineHandle CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
-	ComputePipelineHandle CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept;
+	PipelineLayoutHandle Metal4CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
+	GraphicsPipelineHandle Metal4CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
+	ComputePipelineHandle Metal4CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept;
 	/// Rendering.
 
-	bool CmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept;
-	bool CmdEndRendering(void * impl, Error * error) noexcept;
-	bool CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
-	bool CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept;
-	bool CmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept;
-	bool CmdSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept;
-	bool CmdSetStencilReference(void * impl, std::uint32_t reference, Error * error) noexcept;
-	bool CmdSetDepthBias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept;
-	bool CmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
-	bool CmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
-	bool CmdDraw(
+	bool Metal4CmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept;
+	bool Metal4CmdEndRendering(void * impl, Error * error) noexcept;
+	bool Metal4CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
+	bool Metal4CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept;
+	bool Metal4CmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept;
+	bool Metal4CmdSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept;
+	bool Metal4CmdSetStencilReference(void * impl, std::uint32_t reference, Error * error) noexcept;
+	bool Metal4CmdSetDepthBias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept;
+	bool Metal4CmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
+	bool Metal4CmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
+	bool Metal4CmdDraw(
 		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept;
-	bool CmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
+	bool Metal4CmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
 		std::uint32_t firstInstance, Error * error) noexcept;
-	bool CmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool CmdDrawIndexedIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
+	bool Metal4CmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
+	bool Metal4CmdDrawIndexedIndirect(
+		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
 
 	/// Binding, which goes through an argument table, not through calls on the encoder.
 
-	bool CmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
+	bool Metal4CmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
-	bool CmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data,
-		Error * error) noexcept;
+	bool Metal4CmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
+		const void * data, Error * error) noexcept;
 
 	/// Writing a set, which is unchanged: a set is the same argument buffer on both generations.
 
-	bool UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
-	bool UpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
-	bool UpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
-	void * CreateDescriptorArena(void * impl, [[maybe_unused]] const DescriptorArenaDesc & desc, Error * error) noexcept;
-	void * CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
-	void * GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
-	MappedMemory Map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept;
-	bool QueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
+	bool Metal4UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
+	bool Metal4UpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
+	bool Metal4UpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
+	void * Metal4CreateDescriptorArena(void * impl, [[maybe_unused]] const DescriptorArenaDesc & desc, Error * error) noexcept;
+	void * Metal4CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
+	void * Metal4GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
+	MappedMemory Metal4Map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept;
+	bool Metal4QueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
 	[[nodiscard]] Metal4QueryPool * ResolveQueryPool(Metal4Device * device, QueryPoolHandle handle) noexcept;
-	QueryPoolHandle CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
-	bool CalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
-	bool CmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
-	bool CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept;
-	bool CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset,
-		Error * error) noexcept;
-	bool Destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept;
-	bool CollectGarbage(void * impl, ResourceType type, Error * error) noexcept;
-	bool CollectGarbageTimeline(
+	QueryPoolHandle Metal4CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
+	bool Metal4CalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
+	bool Metal4CmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
+	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept;
+	bool Metal4CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
+	bool Metal4CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
+	bool Metal4CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
+		std::uint64_t dstOffset, Error * error) noexcept;
+	bool Metal4Destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept;
+	bool Metal4CollectGarbage(void * impl, ResourceType type, Error * error) noexcept;
+	bool Metal4CollectGarbageTimeline(
 		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept;
-	BufferHandle AdoptBuffer(
+	BufferHandle Metal4AdoptBuffer(
 		void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept;
-	TextureHandle AdoptTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
+	TextureHandle Metal4AdoptTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
 		[[maybe_unused]] const AdoptedTextureDesc & desc, Error * error) noexcept;
-	bool GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
-	bool GetNativeTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
+	bool Metal4GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
+	bool Metal4GetNativeTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
 		[[maybe_unused]] void * outNativeImport, Error * error) noexcept;
-	AccelerationStructureHandle CreateAccelerationStructure(
+	AccelerationStructureHandle Metal4CreateAccelerationStructure(
 		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept;
-	RayTracingPipelineHandle CreateRayTracingPipeline(
+	RayTracingPipelineHandle Metal4CreateRayTracingPipeline(
 		[[maybe_unused]] void * impl, [[maybe_unused]] const RayTracingPipelineDesc & desc, Error * error) noexcept;
-	bool BeginNativeMutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept;
-	DescriptorSetHandle ArenaAllocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept;
-	bool ArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
+	bool Metal4BeginNativeMutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept;
+	DescriptorSetHandle Metal4ArenaAllocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept;
+	bool Metal4ArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
 	const CoreDeviceApi & CoreDeviceBlock() noexcept;
 	const PresentApi & PresentBlock() noexcept;
 	const PlacedMemoryApi & PlacedMemoryBlock() noexcept;
@@ -803,15 +806,16 @@ namespace azo::rhi::metal4
 	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept;
 	const QueryApi & QueryBlock() noexcept;
 	const ResidencyApi & ResidencyBlock() noexcept;
-	TextureViewHandle AdoptTextureView(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
-	SamplerHandle AdoptSampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
-	bool GetNativeTextureView(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
-	bool GetNativeSampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
-	TimelineHandle AdoptTimeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
-	BinarySemaphoreHandle AdoptBinarySemaphore(
+	TextureViewHandle Metal4AdoptTextureView(
+		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
+	SamplerHandle Metal4AdoptSampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
+	bool Metal4GetNativeTextureView(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
+	bool Metal4GetNativeSampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
+	TimelineHandle Metal4AdoptTimeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
+	BinarySemaphoreHandle Metal4AdoptBinarySemaphore(
 		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
-	bool GetNativeTimeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
-	bool GetNativeBinarySemaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
+	bool Metal4GetNativeTimeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
+	bool Metal4GetNativeBinarySemaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
 	const AdoptionApi & AdoptionBlock() noexcept;
 	const InstanceApi & InstanceBlock() noexcept;
 	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept;
@@ -822,47 +826,47 @@ namespace azo::rhi::metal4
 	const IndirectApi & IndirectBlock() noexcept;
 	const NativeEscapeApi & NativeEscapeBlock() noexcept;
 	const DescriptorArenaApi & DescriptorArenaBlock() noexcept;
-	AcquireResult SwapchainAcquire(void * impl, [[maybe_unused]] std::uint64_t timeoutNanoseconds, Error * error) noexcept;
-	PresentResult SwapchainPresent(void * impl, [[maybe_unused]] std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished,
+	AcquireResult Metal4SwapchainAcquire(void * impl, [[maybe_unused]] std::uint64_t timeoutNanoseconds, Error * error) noexcept;
+	PresentResult Metal4SwapchainPresent(void * impl, [[maybe_unused]] std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished,
 		[[maybe_unused]] void * queueImpl, Error * error) noexcept;
-	TextureHandle SwapchainBackBuffer(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept;
-	TextureViewHandle SwapchainBackBufferView(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept;
-	BinarySemaphoreHandle SwapchainPresentSemaphore(void * impl, std::uint32_t imageIndex) noexcept;
-	Format SwapchainFormat(void * impl) noexcept;
-	bool SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept;
-	std::uint32_t SwapchainImageCount(void * impl) noexcept;
-	std::uint32_t SwapchainWidth(void * impl) noexcept;
-	std::uint32_t SwapchainHeight(void * impl) noexcept;
-	bool SwapchainResize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept;
-	bool SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept;
+	TextureHandle Metal4SwapchainBackBuffer(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept;
+	TextureViewHandle Metal4SwapchainBackBufferView(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept;
+	BinarySemaphoreHandle Metal4SwapchainPresentSemaphore(void * impl, std::uint32_t imageIndex) noexcept;
+	Format Metal4SwapchainFormat(void * impl) noexcept;
+	bool Metal4SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept;
+	std::uint32_t Metal4SwapchainImageCount(void * impl) noexcept;
+	std::uint32_t Metal4SwapchainWidth(void * impl) noexcept;
+	std::uint32_t Metal4SwapchainHeight(void * impl) noexcept;
+	bool Metal4SwapchainResize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept;
+	bool Metal4SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept;
 	const SwapchainApi & SwapchainBlock() noexcept;
-	void * CreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
-	QueueType QueueTypeOf(void * impl) noexcept;
-	std::uint32_t QueueFamilyIndex(void * impl) noexcept;
-	bool QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
-	bool QueueWaitIdle(void * impl, Error * error) noexcept;
-	bool QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
-	bool QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
-	bool QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
-	bool QueueBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
-	bool QueueEndDebugLabel(void * impl, Error * error) noexcept;
-	void * CommandPoolAllocate(void * impl, [[maybe_unused]] CString debugName, Error * error) noexcept;
-	bool CommandPoolReset(void * impl, RetirePoint safeAfter, Error * error) noexcept;
-	GraphicsApiId InstanceApiId([[maybe_unused]] void * impl) noexcept;
-	bool EnumerateAdapters([[maybe_unused]] void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept;
-	bool QueryExternalHandleSupport(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept;
+	void * Metal4CreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
+	QueueType Metal4QueueTypeOf(void * impl) noexcept;
+	std::uint32_t Metal4QueueFamilyIndex(void * impl) noexcept;
+	bool Metal4QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
+	bool Metal4QueueWaitIdle(void * impl, Error * error) noexcept;
+	bool Metal4QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
+	bool Metal4QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
+	bool Metal4QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
+	bool Metal4QueueBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
+	bool Metal4QueueEndDebugLabel(void * impl, Error * error) noexcept;
+	void * Metal4CommandPoolAllocate(void * impl, [[maybe_unused]] CString debugName, Error * error) noexcept;
+	bool Metal4CommandPoolReset(void * impl, RetirePoint safeAfter, Error * error) noexcept;
+	GraphicsApiId Metal4InstanceApiId([[maybe_unused]] void * impl) noexcept;
+	bool Metal4EnumerateAdapters([[maybe_unused]] void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept;
+	bool Metal4QueryExternalHandleSupport(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept;
 
-	bool ExportBuffer(void * impl, BufferHandle buffer, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool ExportHeap(void * impl, HeapHandle heap, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool ExportTexture(void * impl, TextureHandle texture, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool ExportTimeline(void * impl, TimelineHandle timeline, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool ExportBinarySemaphore(void * impl, BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	BufferHandle ImportBuffer(void * impl, const ExternalBufferImportDesc & desc, Error * error) noexcept;
-	HeapHandle ImportHeap(void * impl, const ExternalHeapImportDesc & desc, Error * error) noexcept;
-	TextureHandle ImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept;
-	TimelineHandle ImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept;
-	BinarySemaphoreHandle ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept;
-	bool CloseExportedHandle(void * impl, const ExternalHandle & handle, Error * error) noexcept;
+	bool Metal4ExportBuffer(void * impl, BufferHandle buffer, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool Metal4ExportHeap(void * impl, HeapHandle heap, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool Metal4ExportTexture(void * impl, TextureHandle texture, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool Metal4ExportTimeline(void * impl, TimelineHandle timeline, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool Metal4ExportBinarySemaphore(void * impl, BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	BufferHandle Metal4ImportBuffer(void * impl, const ExternalBufferImportDesc & desc, Error * error) noexcept;
+	HeapHandle Metal4ImportHeap(void * impl, const ExternalHeapImportDesc & desc, Error * error) noexcept;
+	TextureHandle Metal4ImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept;
+	TimelineHandle Metal4ImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept;
+	BinarySemaphoreHandle Metal4ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept;
+	bool Metal4CloseExportedHandle(void * impl, const ExternalHandle & handle, Error * error) noexcept;
 	const ExternalSharingApi & ExternalSharingBlock() noexcept;
 	void PopulateCaps(Metal4Device * device);
 
@@ -884,10 +888,10 @@ namespace azo::rhi::metal4
 	 */
 	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, const char *& refusedReason);
 	[[nodiscard]] Metal4Instance * MakeOwnedInstance();
-	void DestroyDevice(void * impl) noexcept;
-	void DestroyInstance(void * impl) noexcept;
-	void * InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept;
-	void * CreateInstance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept;
+	void Metal4DestroyDevice(void * impl) noexcept;
+	void Metal4DestroyInstance(void * impl) noexcept;
+	void * Metal4InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept;
+	void * Metal4CreateInstance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept;
 
 	/*
 	 * A handle for a kind this backend tracks for liveness alone, with no native object behind it.
@@ -976,12 +980,12 @@ namespace azo::rhi::metal4
 	}
 
 	template <typename... Args>
-	bool Unimplemented([[maybe_unused]] void * impl, Args... args) noexcept
+	bool Metal4Unimplemented([[maybe_unused]] void * impl, Args... args) noexcept
 	{
 		return Fail(LastError(args...), ErrorCode::eUnsupportedFeature, "Metal 4 RHI backend: operation not implemented yet");
 	}
 
-	// The creation-entry form of Unimplemented, for a kind this backend has nothing to put behind a handle. An invalid handle is what a failed create
+	// The creation-entry form of Metal4Unimplemented, for a kind this backend has nothing to put behind a handle. An invalid handle is what a failed create
 	// returns, so a caller that ignores the error still cannot pass the result anywhere.
 	template <typename HandleT, typename... Args>
 	HandleT UnimplementedHandle([[maybe_unused]] void * impl, Args... args) noexcept
@@ -990,7 +994,7 @@ namespace azo::rhi::metal4
 	}
 
 	template <typename HandleT, typename... Args>
-	HandleT CreateHandle(void * impl, Args... args) noexcept
+	HandleT Metal4CreateHandle(void * impl, Args... args) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.create");
 
@@ -1008,7 +1012,7 @@ namespace azo::rhi::metal4
 	 * Metal binds by argument-table index, not through a layout object, so a layout is a handle and nothing else. The one field it cannot quietly ignore is an
 	 * immutable sampler: dropping one leaves the binding with no sampler at all, which is a blank read and not an error.
 	 */
-	inline DescriptorSetLayoutHandle CreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept
+	inline DescriptorSetLayoutHandle Metal4CreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createDescriptorSetLayout");
 

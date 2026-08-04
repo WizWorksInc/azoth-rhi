@@ -61,7 +61,7 @@ namespace azo::rhi::metal4
 		}
 	} // namespace
 
-	bool ExportBuffer([[maybe_unused]] void * impl, [[maybe_unused]] const BufferHandle buffer, [[maybe_unused]] const ExternalHandleType type,
+	bool Metal4ExportBuffer([[maybe_unused]] void * impl, [[maybe_unused]] const BufferHandle buffer, [[maybe_unused]] const ExternalHandleType type,
 		ExternalHandle * out, Error * error) noexcept
 	{
 		if (out != nullptr)
@@ -72,8 +72,8 @@ namespace azo::rhi::metal4
 		return Fail(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
 	}
 
-	bool ExportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const HeapHandle heap, [[maybe_unused]] const ExternalHandleType type, ExternalHandle * out,
-		Error * error) noexcept
+	bool Metal4ExportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const HeapHandle heap, [[maybe_unused]] const ExternalHandleType type,
+		ExternalHandle * out, Error * error) noexcept
 	{
 		if (out != nullptr)
 		{
@@ -83,7 +83,7 @@ namespace azo::rhi::metal4
 		return Fail(error, ErrorCode::eUnsupportedFeature, kNoHeaps);
 	}
 
-	bool ExportTexture(void * impl, const TextureHandle texture, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+	bool Metal4ExportTexture(void * impl, const TextureHandle texture, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -114,7 +114,7 @@ namespace azo::rhi::metal4
 		return ReturnObject(slot->texture->newSharedTextureHandle(), type, out, error);
 	}
 
-	bool ExportTimeline(void * impl, const TimelineHandle timeline, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+	bool Metal4ExportTimeline(void * impl, const TimelineHandle timeline, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -138,7 +138,8 @@ namespace azo::rhi::metal4
 		return ReturnObject(slot->event->newSharedEventHandle(), type, out, error);
 	}
 
-	bool ExportBinarySemaphore(void * impl, const BinarySemaphoreHandle semaphore, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+	bool Metal4ExportBinarySemaphore(
+		void * impl, const BinarySemaphoreHandle semaphore, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -162,12 +163,12 @@ namespace azo::rhi::metal4
 		return ReturnObject(slot->event->newSharedEventHandle(), type, out, error);
 	}
 
-	BufferHandle ImportBuffer([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalBufferImportDesc & desc, Error * error) noexcept
+	BufferHandle Metal4ImportBuffer([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalBufferImportDesc & desc, Error * error) noexcept
 	{
 		return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
 	}
 
-	HeapHandle ImportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalHeapImportDesc & desc, Error * error) noexcept
+	HeapHandle Metal4ImportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalHeapImportDesc & desc, Error * error) noexcept
 	{
 		return FailValue<HeapHandle>(error, ErrorCode::eUnsupportedFeature, kNoHeaps);
 	}
@@ -179,7 +180,7 @@ namespace azo::rhi::metal4
 	 * and for the debug name. The descriptor is still built from it, so a description that does not name a representable format is refused before the handle is
 	 * touched.
 	 */
-	TextureHandle ImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept
+	TextureHandle Metal4ImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.importTexture");
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -225,7 +226,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	TimelineHandle ImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept
+	TimelineHandle Metal4ImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.importTimeline");
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -258,7 +259,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	BinarySemaphoreHandle ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept
+	BinarySemaphoreHandle Metal4ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.importBinarySemaphore");
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -292,7 +293,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	bool CloseExportedHandle([[maybe_unused]] void * impl, const ExternalHandle & handle, Error * error) noexcept
+	bool Metal4CloseExportedHandle([[maybe_unused]] void * impl, const ExternalHandle & handle, Error * error) noexcept
 	{
 		switch (handle.type)
 		{
@@ -326,17 +327,17 @@ namespace azo::rhi::metal4
 	const ExternalSharingApi & ExternalSharingBlock() noexcept
 	{
 		static const ExternalSharingApi block{
-			.exportBuffer		   = &ExportBuffer,
-			.exportHeap			   = &ExportHeap,
-			.exportTexture		   = &ExportTexture,
-			.exportTimeline		   = &ExportTimeline,
-			.exportBinarySemaphore = &ExportBinarySemaphore,
-			.importBuffer		   = &ImportBuffer,
-			.importHeap			   = &ImportHeap,
-			.importTexture		   = &ImportTexture,
-			.importTimeline		   = &ImportTimeline,
-			.importBinarySemaphore = &ImportBinarySemaphore,
-			.closeExportedHandle   = &CloseExportedHandle,
+			.exportBuffer		   = &Metal4ExportBuffer,
+			.exportHeap			   = &Metal4ExportHeap,
+			.exportTexture		   = &Metal4ExportTexture,
+			.exportTimeline		   = &Metal4ExportTimeline,
+			.exportBinarySemaphore = &Metal4ExportBinarySemaphore,
+			.importBuffer		   = &Metal4ImportBuffer,
+			.importHeap			   = &Metal4ImportHeap,
+			.importTexture		   = &Metal4ImportTexture,
+			.importTimeline		   = &Metal4ImportTimeline,
+			.importBinarySemaphore = &Metal4ImportBinarySemaphore,
+			.closeExportedHandle   = &Metal4CloseExportedHandle,
 		};
 
 		return block;

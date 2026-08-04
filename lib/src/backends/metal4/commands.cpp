@@ -280,7 +280,7 @@ namespace azo::rhi::metal4
 	 * it is reset, which is the same single-use rule expressed as recycling the memory and not the object. Resetting invalidates everything the allocator
 	 * handed out before, which is why an allocator belongs to one list and is never shared.
 	 */
-	bool CmdBegin(void * impl, Error * error) noexcept
+	bool Metal4CmdBegin(void * impl, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
 		CmdList * list = ListOf(object);
@@ -355,7 +355,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdEnd(void * impl, Error * error) noexcept
+	bool Metal4CmdEnd(void * impl, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
 		CmdList * list = ListOf(object);
@@ -380,7 +380,7 @@ namespace azo::rhi::metal4
 	 * One barrier for the batch, not one per resource: Metal's barrier is between stage sets and names no resource, so the batch collapses to the union on each
 	 * side.
 	 */
-	bool CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
+	bool Metal4CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.barriers");
 
@@ -439,7 +439,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdBeginDebugLabel(void * impl, CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
+	bool Metal4CmdBeginDebugLabel(void * impl, CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
 		CmdList * list = RecordingListOf(object);
@@ -484,7 +484,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdEndDebugLabel(void * impl, Error * error) noexcept
+	bool Metal4CmdEndDebugLabel(void * impl, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
 		CmdList * list = RecordingListOf(object);
@@ -521,7 +521,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
+	bool Metal4CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -545,7 +545,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdDispatch(void * impl, const std::uint32_t x, const std::uint32_t y, const std::uint32_t z, Error * error) noexcept
+	bool Metal4CmdDispatch(void * impl, const std::uint32_t x, const std::uint32_t y, const std::uint32_t z, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
 		CmdList * list = ListOf(object);
@@ -560,7 +560,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
+	bool Metal4CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -581,8 +581,8 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdCopyBuffer(void * impl, BufferHandle dst, const std::uint64_t dstOffset, BufferHandle src, const std::uint64_t srcOffset, const std::uint64_t size,
-		Error * error) noexcept
+	bool Metal4CmdCopyBuffer(void * impl, BufferHandle dst, const std::uint64_t dstOffset, BufferHandle src, const std::uint64_t srcOffset,
+		const std::uint64_t size, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyBuffer");
 
@@ -606,7 +606,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
+	bool Metal4CmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyBufferToTexture");
 
@@ -657,7 +657,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
+	bool Metal4CmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyTextureToBuffer");
 
@@ -706,7 +706,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept
+	bool Metal4CmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyTexture");
 
@@ -752,7 +752,7 @@ namespace azo::rhi::metal4
 	 * Four equal bytes lower to a fill, which allocates nothing. Anything else is staged as a word pattern in a shared buffer and copied in, which is what the
 	 * other generation does for every value. Clearing to zero is most of the calls, so keeping the fill for that case saves a staging allocation per clear.
 	 */
-	bool CmdClearBuffer(
+	bool Metal4CmdClearBuffer(
 		void * impl, BufferHandle buffer, const std::uint64_t offset, const std::uint64_t size, const std::uint32_t value, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.clearBuffer");
@@ -818,7 +818,8 @@ namespace azo::rhi::metal4
 	 * One rendering scope per subresource, opened with a clear load action and closed with no draw in it, which is what performs the clear. The scope is the
 	 * operation, so the compute encoder has to give way first.
 	 */
-	bool CmdClearTexture(void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+	bool Metal4CmdClearTexture(
+		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.clearTexture");
 
@@ -900,7 +901,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
+	bool Metal4CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.generateMips");
 
@@ -940,7 +941,7 @@ namespace azo::rhi::metal4
 	 * Refused for the reason the other generation refuses it: Metal has no fixed function scaled blit, on either generation, and resampling belongs to the
 	 * utility target which dispatches a compute shader for it.
 	 */
-	bool CmdBlit(void * impl, TextureHandle, TextureHandle, std::span<const TextureBlit>, Filter, Error * error) noexcept
+	bool Metal4CmdBlit(void * impl, TextureHandle, TextureHandle, std::span<const TextureBlit>, Filter, Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal has no scaled blit, so resampling goes through the utility target's compute path");
@@ -952,7 +953,7 @@ namespace azo::rhi::metal4
 	 * The multisampled source is attached, the single sample destination is named as its resolve target, and ending the scope with no draw in it performs the
 	 * resolve.
 	 */
-	bool CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
+	bool Metal4CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveTexture");
 

@@ -23,7 +23,7 @@ namespace azo::rhi::metal4
 	 * timestamps: Metal 3 has to choose between naming sample points on the pass descriptor and taking them by command, depending on what the adapter samples
 	 * at, and this generation takes a timestamp on the encoder unconditionally. Both branches collapse into one write.
 	 */
-	bool CmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
+	bool Metal4CmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.beginRendering");
 
@@ -113,7 +113,7 @@ namespace azo::rhi::metal4
 			encoder->writeTimestamp(MTL4::TimestampGranularityPrecise, MTL::RenderStageVertex, timestamps->heap.get(), desc.timestamps->beginQuery);
 		}
 
-		// Held for EndRendering, which is the last point the encoder is still open.
+		// Held for Metal4CmdEndRendering, which is the last point the encoder is still open.
 		if (timestamps != nullptr && desc.timestamps->endQuery != kInvalidIndex && timestamps->heap.get() != nullptr)
 		{
 			list->pendingEndHeap  = timestamps->heap;
@@ -123,7 +123,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdEndRendering(void * impl, Error * error) noexcept
+	bool Metal4CmdEndRendering(void * impl, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
 		CmdList * list = ListOf(object);
@@ -151,7 +151,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
+	bool Metal4CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -188,7 +188,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
+	bool Metal4CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -210,7 +210,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept
+	bool Metal4CmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -225,7 +225,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetBlendConstants(void * impl, const float r, const float g, const float b, const float a, Error * error) noexcept
+	bool Metal4CmdSetBlendConstants(void * impl, const float r, const float g, const float b, const float a, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -237,7 +237,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetStencilReference(void * impl, const std::uint32_t reference, Error * error) noexcept
+	bool Metal4CmdSetStencilReference(void * impl, const std::uint32_t reference, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -249,7 +249,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetDepthBias(void * impl, const float constantFactor, const float clamp, const float slopeFactor, Error * error) noexcept
+	bool Metal4CmdSetDepthBias(void * impl, const float constantFactor, const float clamp, const float slopeFactor, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -265,7 +265,7 @@ namespace azo::rhi::metal4
 	 * A vertex buffer, which on this generation is an address in the argument table, not a call on the encoder. The index is the same one the other generation
 	 * uses, so what a shader declares does not change with the path.
 	 */
-	bool CmdSetVertexBuffer(void * impl, const std::uint32_t slot, BufferHandle buffer, const std::uint64_t offset, Error * error) noexcept
+	bool Metal4CmdSetVertexBuffer(void * impl, const std::uint32_t slot, BufferHandle buffer, const std::uint64_t offset, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -285,7 +285,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdSetIndexBuffer(void * impl, BufferHandle buffer, const std::uint64_t offset, const bool index32, Error * error) noexcept
+	bool Metal4CmdSetIndexBuffer(void * impl, BufferHandle buffer, const std::uint64_t offset, const bool index32, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -318,7 +318,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdDraw(void * impl, const std::uint32_t vertexCount, const std::uint32_t instanceCount, const std::uint32_t firstVertex,
+	bool Metal4CmdDraw(void * impl, const std::uint32_t vertexCount, const std::uint32_t instanceCount, const std::uint32_t firstVertex,
 		const std::uint32_t firstInstance, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
@@ -333,7 +333,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdDrawIndexed(void * impl, const std::uint32_t indexCount, const std::uint32_t instanceCount, const std::uint32_t firstIndex,
+	bool Metal4CmdDrawIndexed(void * impl, const std::uint32_t indexCount, const std::uint32_t instanceCount, const std::uint32_t firstIndex,
 		const std::int32_t vertexOffset, const std::uint32_t firstInstance, Error * error) noexcept
 	{
 		CmdList * list = ListOf(static_cast<Metal4Object *>(impl));
@@ -375,7 +375,7 @@ namespace azo::rhi::metal4
 	 * Metal takes one draw per indirect call on both generations, so a batch is issued as the documented one command per entry and not as a multi-draw,
 	 * which is why supportsMultiDrawIndirect stays false.
 	 */
-	bool CmdDrawIndirect(
+	bool Metal4CmdDrawIndirect(
 		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
@@ -402,7 +402,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool CmdDrawIndexedIndirect(
+	bool Metal4CmdDrawIndexedIndirect(
 		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);

@@ -22,10 +22,10 @@ namespace azo::rhi::metal4
 		return tracked != nullptr ? tracked->get() : nullptr;
 	}
 
-	HeapHandle CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
+	HeapHandle Metal4CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
 	{
 		// Metal has no shared heap, so any declaration is refused, the same way a buffer is.
-		if (!RefuseUnexportable(desc.exportableHandleTypes, {}, "Metal exports no heaps, so a heap cannot be created exportable", error))
+		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes, {}, "Metal exports no heaps, so a heap cannot be created exportable", error))
 		{
 			return HeapHandle{};
 		}
@@ -72,7 +72,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	BufferHandle CreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept
+	BufferHandle Metal4CreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createPlacedBuffer");
 
@@ -106,7 +106,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	TextureHandle CreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept
+	TextureHandle Metal4CreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createPlacedTexture");
 

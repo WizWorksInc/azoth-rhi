@@ -58,7 +58,7 @@ namespace azo::rhi
 		info.info.supportsSurfaces			   = true;
 		info.info.supportsDebugMarkers		   = true;
 		info.info.supportsExternalNativeAccess = true;
-		info.createInstance					   = &metal4::CreateInstance;
+		info.createInstance					   = &metal4::Metal4CreateInstance;
 		return registry.Register<Metal4Api>(info);
 	}
 

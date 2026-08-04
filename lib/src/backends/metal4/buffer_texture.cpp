@@ -16,10 +16,10 @@
 
 namespace azo::rhi::metal4
 {
-	BufferHandle CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
+	BufferHandle Metal4CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
 	{
 		// Metal has no shared buffer of any kind, so any declaration at all is refused.
-		if (!RefuseUnexportable(desc.exportableHandleTypes, {}, "Metal exports no buffers, so a buffer cannot be created exportable", error))
+		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes, {}, "Metal exports no buffers, so a buffer cannot be created exportable", error))
 		{
 			return BufferHandle{};
 		}
@@ -61,9 +61,9 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	TextureHandle CreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept
+	TextureHandle Metal4CreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept
 	{
-		if (!RefuseUnexportable(desc.exportableHandleTypes,
+		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedTexture,
 				"Metal exports a texture only through MTLSharedTextureHandle, and this asked for another handle type",
 				error))
@@ -118,7 +118,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	TextureViewHandle CreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept
+	TextureViewHandle Metal4CreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createTextureView");
 
@@ -184,7 +184,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	SamplerHandle CreateSampler(void * impl, const SamplerDesc & desc, Error * error) noexcept
+	SamplerHandle Metal4CreateSampler(void * impl, const SamplerDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createSampler");
 
@@ -214,7 +214,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	bool GetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept
+	bool Metal4GetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
@@ -238,7 +238,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept
+	bool Metal4GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{

@@ -16,7 +16,7 @@
 
 namespace azo::rhi::metal4
 {
-	AcquireResult SwapchainAcquire(void * impl, [[maybe_unused]] std::uint64_t timeoutNanoseconds, Error * error) noexcept
+	AcquireResult Metal4SwapchainAcquire(void * impl, [[maybe_unused]] std::uint64_t timeoutNanoseconds, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.acquire");
 
@@ -77,7 +77,7 @@ namespace azo::rhi::metal4
 		};
 	}
 
-	PresentResult SwapchainPresent(
+	PresentResult Metal4SwapchainPresent(
 		void * impl, [[maybe_unused]] std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, [[maybe_unused]] void * queueImpl, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.present");
@@ -119,17 +119,17 @@ namespace azo::rhi::metal4
 		return PresentResult{ .status = SwapchainStatus::eOk };
 	}
 
-	TextureHandle SwapchainBackBuffer(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept
+	TextureHandle Metal4SwapchainBackBuffer(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept
 	{
 		return static_cast<Metal4Swapchain *>(impl)->backBuffer;
 	}
 
-	TextureViewHandle SwapchainBackBufferView(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept
+	TextureViewHandle Metal4SwapchainBackBufferView(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept
 	{
 		return static_cast<Metal4Swapchain *>(impl)->backBufferView;
 	}
 
-	BinarySemaphoreHandle SwapchainPresentSemaphore(void * impl, std::uint32_t imageIndex) noexcept
+	BinarySemaphoreHandle Metal4SwapchainPresentSemaphore(void * impl, std::uint32_t imageIndex) noexcept
 	{
 		auto * swapchain = static_cast<Metal4Swapchain *>(impl);
 
@@ -143,33 +143,33 @@ namespace azo::rhi::metal4
 		return swapchain->presentSemaphores[imageIndex % swapchain->presentSemaphores.size()];
 	}
 
-	Format SwapchainFormat(void * impl) noexcept
+	Format Metal4SwapchainFormat(void * impl) noexcept
 	{
 		return static_cast<Metal4Swapchain *>(impl)->format;
 	}
 
-	bool SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept
+	bool Metal4SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept
 	{
 		// The layer is created with framebufferOnly off so drawable textures can be copied for capture.
 		return true;
 	}
 
-	std::uint32_t SwapchainImageCount(void * impl) noexcept
+	std::uint32_t Metal4SwapchainImageCount(void * impl) noexcept
 	{
 		return static_cast<Metal4Swapchain *>(impl)->imageCount;
 	}
 
-	std::uint32_t SwapchainWidth(void * impl) noexcept
+	std::uint32_t Metal4SwapchainWidth(void * impl) noexcept
 	{
 		return static_cast<Metal4Swapchain *>(impl)->width;
 	}
 
-	std::uint32_t SwapchainHeight(void * impl) noexcept
+	std::uint32_t Metal4SwapchainHeight(void * impl) noexcept
 	{
 		return static_cast<Metal4Swapchain *>(impl)->height;
 	}
 
-	bool SwapchainResize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept
+	bool Metal4SwapchainResize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept
 	{
 		auto * swapchain  = static_cast<Metal4Swapchain *>(impl);
 		swapchain->width  = width;
@@ -187,13 +187,13 @@ namespace azo::rhi::metal4
 			return mode == PresentMode::eImmediate ? PresentMode::eImmediate : PresentMode::eFifo;
 		}
 
-		PresentMode SwapchainGetPresentMode(void * impl) noexcept
+		PresentMode Metal4SwapchainGetPresentMode(void * impl) noexcept
 		{
 			return static_cast<Metal4Swapchain *>(impl)->presentMode;
 		}
 	} // namespace
 
-	bool SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept
+	bool Metal4SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept
 	{
 		auto * swapchain	   = static_cast<Metal4Swapchain *>(impl);
 		swapchain->presentMode = EffectivePresentMode(mode);
@@ -204,25 +204,25 @@ namespace azo::rhi::metal4
 	const SwapchainApi & SwapchainBlock() noexcept
 	{
 		static const SwapchainApi block{
-			.acquireNextImage			 = &SwapchainAcquire,
-			.present					 = &SwapchainPresent,
-			.getBackBuffer				 = &SwapchainBackBuffer,
-			.getBackBufferView			 = &SwapchainBackBufferView,
-			.getPerImagePresentSemaphore = &SwapchainPresentSemaphore,
-			.getFormat					 = &SwapchainFormat,
-			.getPresentMode				 = &SwapchainGetPresentMode,
-			.getImageCount				 = &SwapchainImageCount,
-			.getWidth					 = &SwapchainWidth,
-			.getHeight					 = &SwapchainHeight,
-			.resize						 = &SwapchainResize,
-			.setPresentMode				 = &SwapchainSetPresentMode,
-			.supportsReadback			 = &SwapchainSupportsReadback,
+			.acquireNextImage			 = &Metal4SwapchainAcquire,
+			.present					 = &Metal4SwapchainPresent,
+			.getBackBuffer				 = &Metal4SwapchainBackBuffer,
+			.getBackBufferView			 = &Metal4SwapchainBackBufferView,
+			.getPerImagePresentSemaphore = &Metal4SwapchainPresentSemaphore,
+			.getFormat					 = &Metal4SwapchainFormat,
+			.getPresentMode				 = &Metal4SwapchainGetPresentMode,
+			.getImageCount				 = &Metal4SwapchainImageCount,
+			.getWidth					 = &Metal4SwapchainWidth,
+			.getHeight					 = &Metal4SwapchainHeight,
+			.resize						 = &Metal4SwapchainResize,
+			.setPresentMode				 = &Metal4SwapchainSetPresentMode,
+			.supportsReadback			 = &Metal4SwapchainSupportsReadback,
 		};
 
 		return block;
 	}
 
-	void * CreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept
+	void * Metal4CreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createSwapchain");
 
@@ -259,11 +259,11 @@ namespace azo::rhi::metal4
 		// resolves any other texture.
 		swapchain->backBuffer	  = device->textures.Store(Metal4TextureSlot{ .format = swapchain->format, .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->backBufferView = device->textureViews.Store(Metal4TextureViewSlot{ .lifetime = SlotLifetime::eSwapchainBorrowed });
-		swapchain->imageAvailable = CreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr);
+		swapchain->imageAvailable = Metal4CreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr);
 		swapchain->presentSemaphores.reserve(imageCount);
 		for (std::uint32_t i = 0; i < imageCount; ++i)
 		{
-			swapchain->presentSemaphores.push_back(CreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr));
+			swapchain->presentSemaphores.push_back(Metal4CreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr));
 		}
 
 		Metal4Swapchain * raw = swapchain.get();

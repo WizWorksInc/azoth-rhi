@@ -164,7 +164,7 @@ namespace azo::rhi::metal4
 	 * the backend. What changes is the step that makes it reachable: a setBuffer on each encoder becomes a setAddress on the table, and the useResource calls
 	 * fall away.
 	 */
-	bool CmdBindDescriptorSet(void * impl, PipelineLayoutHandle, const std::uint32_t setIndex, DescriptorSetHandle set,
+	bool Metal4CmdBindDescriptorSet(void * impl, PipelineLayoutHandle, const std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.bindDescriptorSet");
@@ -208,7 +208,7 @@ namespace azo::rhi::metal4
 	 * Metal 3 hands the bytes to the encoder and lets it copy them. An argument table binds addresses and has no inline form, so the bytes are written into a
 	 * block the list owns and the address of that goes in the table. Buffer zero is the index the ABI reserves for them on both generations.
 	 */
-	bool CmdPushConstants(
+	bool Metal4CmdPushConstants(
 		void * impl, PipelineLayoutHandle, Flags<ShaderStage>, const std::uint32_t offset, const std::uint32_t size, const void * data, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.pushConstants");
@@ -245,7 +245,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept
+	bool Metal4UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.updateDescriptorsBuffer");
 
@@ -272,7 +272,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool UpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept
+	bool Metal4UpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.updateDescriptorsTexture");
 
@@ -297,7 +297,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	bool UpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept
+	bool Metal4UpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.updateDescriptorsSampler");
 
@@ -319,7 +319,7 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	void * CreateDescriptorArena(void * impl, [[maybe_unused]] const DescriptorArenaDesc & desc, Error * error) noexcept
+	void * Metal4CreateDescriptorArena(void * impl, [[maybe_unused]] const DescriptorArenaDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createDescriptorArena");
 
@@ -332,7 +332,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(arena, error);
 	}
 
-	void * CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
+	void * Metal4CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createCommandPool");
 
@@ -360,7 +360,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(pool, error);
 	}
 
-	void * GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept
+	void * Metal4GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept
 	{
 		auto * device = static_cast<Metal4Device *>(impl);
 		if (index >= QueueCountForType(device->caps, type))
@@ -377,7 +377,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(queue, error);
 	}
 
-	DescriptorSetHandle ArenaAllocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept
+	DescriptorSetHandle Metal4ArenaAllocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.descriptorArena.allocate");
 
@@ -436,7 +436,7 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	bool ArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
+	bool Metal4ArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.descriptorArena.reset");
 
