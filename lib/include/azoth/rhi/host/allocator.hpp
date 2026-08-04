@@ -22,7 +22,6 @@
 #include "azoth/rhi/core/api.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
-#include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 
 #include <atomic>
@@ -37,6 +36,8 @@
 
 namespace azo::rhi
 {
+
+	class Device;
 
 	/**
 	 * \brief Sink for CPU allocations routed through HostAllocate and HostAllocatorAdapter.

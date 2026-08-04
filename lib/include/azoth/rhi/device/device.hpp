@@ -19,6 +19,7 @@
  * \brief Public instance, device, capability, adapter, and backend registry API.
  */
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/api.hpp"
@@ -43,7 +44,6 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
-#include <vector>
 
 namespace azo::rhi
 {
@@ -1776,8 +1776,25 @@ namespace azo::rhi
 
 			BackendCreateInfo entry = createInfo;
 			entry.info.id			= Api::id;
-			m_entries.push_back(entry);
-			m_infos.push_back(entry.info);
+
+			if (!detail::TryPushBack(m_entries, entry))
+			{
+				return Error{
+					.code	 = ErrorCode::eOutOfHostMemory,
+					.message = "graphics API registry entry storage allocation failed",
+				};
+			}
+
+			if (!detail::TryPushBack(m_infos, entry.info))
+			{
+				// An entry the info list never learned about is invisible to the duplicate check and still the one creation would find.
+				m_entries.pop_back();
+				return Error{
+					.code	 = ErrorCode::eOutOfHostMemory,
+					.message = "graphics API registry info storage allocation failed",
+				};
+			}
+
 			return {};
 		}
 
@@ -1820,8 +1837,8 @@ namespace azo::rhi
 	private:
 		friend struct detail::RegistryAccess;
 
-		std::vector<BackendCreateInfo> m_entries;
-		std::vector<BackendInfo> m_infos;
+		detail::HostVector<BackendCreateInfo> m_entries;
+		detail::HostVector<BackendInfo> m_infos;
 	};
 
 	/**

@@ -15,15 +15,19 @@
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/host/allocator.hpp"
 
 #include "conformance/matchers.hpp"
 #include "harness/backends.hpp"
 #include "harness/environment.hpp"
+#include "harness/spies.hpp"
 
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <new>
 #include <span>
 #include <string_view>
 
@@ -43,6 +47,32 @@ namespace
 		info.createInstance			   = nullptr;
 		return info;
 	}
+
+	// Register takes exactly two allocations from an empty registry, one per vector, so the count is what picks which of them is refused.
+	class AllocatorRefusingAfter final : public rhi::HostAllocator
+	{
+	public:
+		explicit AllocatorRefusingAfter(const std::size_t allowed) noexcept : m_remaining(allowed) {}
+
+		void * Allocate(const std::size_t size, const std::size_t alignment) override
+		{
+			if (m_remaining == 0)
+			{
+				return nullptr;
+			}
+			--m_remaining;
+			return ::operator new(size, std::align_val_t{ alignment });
+		}
+
+		// Storage outlives the scope this allocator is installed for, so it frees the way an uninstalled seam would.
+		void Free(void * memory, std::size_t, const std::size_t alignment) override
+		{
+			::operator delete(memory, std::align_val_t{ alignment });
+		}
+
+	private:
+		std::size_t m_remaining;
+	};
 
 	TEST(GraphicsApiRegistry, StartsEmpty)
 	{
@@ -92,6 +122,52 @@ namespace
 
 		ASSERT_EQ(registry.EnumerateBackends().size(), 1u);
 		EXPECT_EQ(registry.EnumerateBackends().front().displayName, "first") << "the rejected registration still replaced the first";
+	}
+
+	TEST(GraphicsApiRegistry, ReportsARefusedHostAllocationRatherThanLeavingItThroughBadAlloc)
+	{
+#ifdef AZOTH_RHI_NO_EXCEPTIONS
+		GTEST_SKIP() << "a refused host allocation aborts and cannot be observed under AZOTH_RHI_NO_EXCEPTIONS";
+#else
+		rhi::GraphicsApiRegistry registry;
+
+		AllocatorRefusingAfter allocator(0);
+		const test::ScopedHostAllocator scope(&allocator);
+
+		const rhi::Result<void> registered = registry.Register<rhi::VulkanApi>(StubBackend("stub"));
+
+		EXPECT_TRUE(test::Failed(registered, rhi::ErrorCode::eOutOfHostMemory));
+		EXPECT_TRUE(test::ErrorIsPopulated(registered.GetError()));
+		EXPECT_TRUE(registry.EnumerateBackends().empty());
+#endif
+	}
+
+	TEST(GraphicsApiRegistry, KeepsNoHalfRegistrationWhenOnlyTheSecondOfItsTwoAllocationsIsRefused)
+	{
+#ifdef AZOTH_RHI_NO_EXCEPTIONS
+		GTEST_SKIP() << "a refused host allocation aborts and cannot be observed under AZOTH_RHI_NO_EXCEPTIONS";
+#else
+		rhi::GraphicsApiRegistry registry;
+
+		{
+			AllocatorRefusingAfter allocator(1);
+			const test::ScopedHostAllocator scope(&allocator);
+
+			EXPECT_TRUE(test::Failed(registry.Register<rhi::VulkanApi>(StubBackend("refused")), rhi::ErrorCode::eOutOfHostMemory));
+		}
+
+		// IsRegistered reads the info list, so an entry the info list never learned about would be invisible to the duplicate check and register twice.
+		EXPECT_TRUE(registry.EnumerateBackends().empty());
+		EXPECT_FALSE(registry.IsRegistered(rhi::VulkanApi::id));
+
+		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("retry"))));
+		EXPECT_EQ(registry.EnumerateBackends().size(), 1u);
+
+		// Creation walks the create-info list and takes the first entry under the id, so a refused registration left in it would be the one a device came up on.
+		const rhi::BackendCreateInfo * entry = rhi::detail::RegistryAccess::Find(registry, rhi::VulkanApi::id);
+		ASSERT_NE(entry, nullptr);
+		EXPECT_EQ(entry->info.displayName, "retry");
+#endif
 	}
 
 	TEST(GraphicsApiRegistry, HoldsSeveralBackendsAtOnceInRegistrationOrder)

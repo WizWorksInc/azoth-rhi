@@ -20,6 +20,7 @@
  */
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 
 #include <array>
