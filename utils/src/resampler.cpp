@@ -292,8 +292,15 @@ namespace azo::rhi::utils
 
 		if (info.desc.mipLevels <= 1)
 		{
-			// Nothing below the top to fill. Not an error: a caller generating mips over a texture that has none asked for no work, not for the wrong work.
-			return true;
+			// Nothing below the top to fill, but the exit state is promised whatever the level count, so the one level still moves to where a caller was told to look.
+			const std::array only{
+				TextureBarrier{ .texture = texture,
+					.before				 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
+					.after				 = kReadable,
+					.range				 = { .baseMip = 0, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
+			};
+
+			return list.Barriers(BarrierBatch{ .textures = only }, error);
 		}
 
 		/*
@@ -304,6 +311,19 @@ namespace azo::rhi::utils
 		 */
 		const FormatSupport support = m_device.GetFormatSupport(info.desc.format);
 		const bool hardware			= m_device.GetCaps().supportsScaledBlit && support.blitSrc && support.blitDst;
+
+		// Mip zero arrives a copy destination and the two paths read it from different states, which a caller cannot see to choose between, so the move belongs here.
+		const std::array entry{
+			TextureBarrier{ .texture = texture,
+				.before				 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
+				.after				 = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kSampled,
+				.range				 = { .baseMip = 0, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
+		};
+
+		if (!list.Barriers(BarrierBatch{ .textures = entry }, error))
+		{
+			return false;
+		}
 
 		if (hardware)
 		{
@@ -324,15 +344,14 @@ namespace azo::rhi::utils
 		}
 
 		/*
-		 * One exit state whichever path ran, because a caller cannot see which did. A blit chain ends with every level but the last a transfer source and the last a
-		 * transfer destination, while a compute chain ends with every level but the last shader readable and the last still a storage write. Handing that difference
-		 * to the caller would make their barrier depend on the device they got.
+		 * One exit state whichever path ran, because a caller cannot see which did. A blit chain leaves every level a transfer source, while a compute chain ends with
+		 * every level but the last shader readable and the last still a storage write. Handing that difference to the caller would make their barrier depend on the
+		 * device they got.
 		 */
 		const std::uint32_t last = info.desc.mipLevels - 1;
 		const ResourceState above =
 			hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kSampled;
-		const ResourceState lastState =
-			hardware ? ResourceState{ .use = ResourceUse::eCopyDst, .stages = Stage::eCopy } : kWritten;
+		const ResourceState lastState = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kWritten;
 
 		const std::array exit{
 			TextureBarrier{
@@ -427,8 +446,12 @@ namespace azo::rhi::utils
 				.after				 = kSampled,
 				.range				 = { .baseMip = dstMip - 1, .mipCount = 1, .layerCount = layers } },
 		};
+		// This level arrives a copy destination like every other, so the dispatch is ordered after that upload write rather than against nothing.
 		const std::array toWritten{
-			TextureBarrier{ .texture = texture, .after = kWritten, .range = { .baseMip = dstMip, .mipCount = 1, .layerCount = layers } },
+			TextureBarrier{ .texture = texture,
+				.before				 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
+				.after				 = kWritten,
+				.range				 = { .baseMip = dstMip, .mipCount = 1, .layerCount = layers } },
 		};
 
 		const Constants constants{

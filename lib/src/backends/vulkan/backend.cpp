@@ -870,6 +870,22 @@ namespace azo::rhi
 				}
 			}
 
+			// The feature bit is read, not inferred from the extension: GENERAL as an attachment layout without it is illegal, not just unoptimised.
+			const bool adapterHasUnifiedLayouts = hasExt(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
+			bool unifiedImageLayouts			= false;
+			if (adapterHasUnifiedLayouts)
+			{
+				vk::PhysicalDeviceUnifiedImageLayoutsFeaturesKHR supportedUnified{};
+				vk::PhysicalDeviceFeatures2 unifiedProbe{};
+				unifiedProbe.pNext = &supportedUnified;
+				phys.getFeatures2(&unifiedProbe, instance->dispatch);
+				unifiedImageLayouts = static_cast<bool>(supportedUnified.unifiedImageLayouts);
+			}
+			if (unifiedImageLayouts)
+			{
+				deviceExts.push_back(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
+			}
+
 			// Descriptor indexing is 1.2 core but its features are individually optional so enable only what bindless needs: a runtime-sized, partially-bound,
 			// non-uniform indexable sampled-image array. supportsBindless means all three are there.
 			vk::PhysicalDeviceVulkan12Features supported12{};
@@ -891,6 +907,7 @@ namespace azo::rhi
 			vk::PhysicalDeviceVulkan11Features features11;
 			vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures;
 			vk::PhysicalDeviceSynchronization2Features sync2Features;
+			vk::PhysicalDeviceUnifiedImageLayoutsFeaturesKHR unifiedLayoutFeatures;
 			if (core13)
 			{
 				features12.timelineSemaphore = VK_TRUE;
@@ -931,6 +948,12 @@ namespace azo::rhi
 			{
 				portabilityFeatures.pNext = features11.pNext;
 				features11.pNext		  = &portabilityFeatures;
+			}
+			if (unifiedImageLayouts)
+			{
+				unifiedLayoutFeatures.unifiedImageLayouts = VK_TRUE;
+				unifiedLayoutFeatures.pNext				  = features11.pNext;
+				features11.pNext						  = &unifiedLayoutFeatures;
 			}
 			if (bindless)
 			{
@@ -1111,6 +1134,7 @@ namespace azo::rhi
 			record->apiVersionMinor			  = apiMinor;
 			record->coreVk13				  = core13;
 			record->dynamicRendering		  = useDynamicRendering;
+			record->unifiedImageLayouts		  = unifiedImageLayouts;
 
 			// A distinct tag per live device, carried in the top bits of every handle's index word so another device rejects it outright. The pool is process-global and
 			// returns the tag at teardown so the ceiling is devices alive at once.
@@ -3284,6 +3308,11 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createQueryPool");
 			auto * device = static_cast<VulkanDevice *>(impl);
+			if (desc.queryCount == 0)
+			{
+				return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+			}
+
 			vk::QueryPoolCreateInfo info({}, MapQueryType(desc.type), desc.queryCount);
 			if (desc.type == QueryType::ePipelineStatistics)
 			{
@@ -3819,6 +3848,20 @@ namespace azo::rhi
 		const auto * impl =
 			static_cast<vulkan::VulkanCommandPool *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandPool), vulkan::CommandPoolBlock()));
 		return impl != nullptr ? impl->pool : vk::CommandPool{};
+	}
+
+	Result<native::VulkanQueueView> GetVulkanQueueView(Queue queue)
+	{
+		const auto * impl = static_cast<vulkan::VulkanQueue *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), vulkan::QueueBlock()));
+		if (impl == nullptr)
+		{
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "GetVulkanQueueView called on a queue that is not a Vulkan one",
+			};
+		}
+
+		return native::VulkanQueueView{ .queue = impl->queue, .familyIndex = impl->familyIndex };
 	}
 
 	Result<void> RegisterVulkanBackend(GraphicsApiRegistry & registry)

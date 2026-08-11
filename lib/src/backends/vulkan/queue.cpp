@@ -241,7 +241,7 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid acquire semaphore");
 			}
 
-			waits.emplace_back(sem, 0, MapStages2(ExpandStages(sync.waitStages)));
+			waits.emplace_back(sem, 0, MapStages(sync.waitStages));
 		}
 
 		for (const TimelinePoint & tw : desc.waits)
@@ -251,7 +251,7 @@ namespace azo::rhi::vulkan
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid timeline");
 			}
-			waits.emplace_back(sem, tw.value, MapStages2(ExpandStages(tw.waitStages)));
+			waits.emplace_back(sem, tw.value, MapStages(tw.waitStages));
 		}
 
 		for (const SwapchainSync & sync : desc.swapchains)

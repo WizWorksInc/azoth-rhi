@@ -82,8 +82,8 @@ namespace azo::rhi::utils
 		 * Takes the hardware path when DeviceCaps::supportsScaledBlit and the format's own FormatSupport::blitSrc and blitDst all allow it, and dispatches the
 		 * compute shader otherwise.
 		 *
-		 * The barrier contract differs between the two paths and is handled here: on entry the whole texture is expected in eShaderReadOnly or eGeneral, and on exit
-		 * every level is left in eShaderReadOnly.
+		 * The barrier contract is handled here so a caller never has to know which path ran: on entry every level is expected in ResourceUse::eCopyDst, which is where
+		 * an upload leaves them, and on exit every level is left in eSampledRead for fragment shading.
 		 */
 		[[nodiscard]] bool GenerateMips(CommandList & list, TextureHandle texture, Error & error) noexcept;
 

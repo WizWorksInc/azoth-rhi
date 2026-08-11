@@ -119,12 +119,12 @@ namespace azo::rhi
 	/**
 	 * \brief Returns the native D3D12 command list for an RHI command list, or null when unavailable.
 	 */
-	[[nodiscard]] ID3D12GraphicsCommandList * GetD3D12CommandList(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API ID3D12GraphicsCommandList * GetD3D12CommandList(CommandList commandList);
 
 	/**
 	 * \brief Returns the native D3D12 command allocator for an RHI command pool, or null when unavailable.
 	 */
-	[[nodiscard]] ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandPool commandPool);
+	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandPool commandPool);
 
 	/**
 	 * \brief The ID3D12Fence an adopted timeline stands for.
@@ -207,7 +207,7 @@ namespace azo::rhi::native
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
 		 */
-		[[nodiscard]] static D3D12CommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API D3D12CommandListView MakeCommandListView(void * commandListImpl) noexcept;
 	};
 
 } // namespace azo::rhi::native

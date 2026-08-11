@@ -120,11 +120,27 @@ namespace azo::rhi::metal
 		}
 	}
 
-	// Closes any open encoder and opens a fresh blit encoder for a copy or clear command.
-	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object) noexcept
+	/*
+	 * Closes any open encoder and opens a fresh blit encoder for a copy or clear command.
+	 *
+	 * A rendering scope is refused here. Ending it under the caller is what this used to do, and it answered a transfer with a different operation. Every
+	 * transfer funnels through this one place, so the refusal that keeps the four backends saying the same thing costs one check instead of one per entry point.
+	 */
+	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object, Error * error) noexcept
 	{
+		if (object->list->renderEncoder.get() != nullptr)
+		{
+			return FailValue<MTL::BlitCommandEncoder *>(
+				error, ErrorCode::eInvalidState, "a transfer command cannot be recorded inside a rendering scope, so record it between passes");
+		}
+
 		EndActiveEncoders(object);
 		MTL::BlitCommandEncoder * encoder = object->list->commandBuffer->blitCommandEncoder();
+		if (encoder == nullptr)
+		{
+			return FailValue<MTL::BlitCommandEncoder *>(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
+		}
+
 		ConsumeAliasWait(object->list, encoder);
 		return encoder;
 	}

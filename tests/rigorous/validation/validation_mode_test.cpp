@@ -96,6 +96,49 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
+	// A destroyed handle still reads as valid, which is the only way to reach the resolve: an IsValid check refuses a default-constructed one long before it.
+	TEST_P(ValidationModeTest, RefusesAnAliasBarrierNamingAnUnresolvableHandleInEveryMode)
+	{
+		AZO_RHI_REQUIRE_CAP(Caps().supportsPlacedResources || IsNullBackend(), "placed resources");
+
+		rhi::Error error{};
+		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(), error);
+		if (!heap.IsValid())
+		{
+			GTEST_SKIP() << "this backend refused a heap to place over: " << test::Describe(error);
+		}
+
+		const rhi::PlacedBufferDesc placed{ .buffer = test::samples::StorageBuffer(), .heap = heap, .offset = 0 };
+		const rhi::BufferHandle before = Dev().CreatePlacedBuffer(placed, error);
+		const rhi::BufferHandle after  = Dev().CreatePlacedBuffer(placed, error);
+		if (!before.IsValid() || !after.IsValid())
+		{
+			static_cast<void>(Dev().Destroy(heap, {}, error));
+			GTEST_SKIP() << "this backend refused an aliased placed pair: " << test::Describe(error);
+		}
+
+		ASSERT_TRUE(test::Ok(Dev().Destroy(after, {}, error), error));
+		ASSERT_TRUE(after.IsValid()) << "the handle stopped reading as valid, so nothing below reaches the resolve";
+
+		// Asking a second time to prove it is gone would change what is under test: a refused destroy still clears the record the check below reads.
+
+		{
+			test::Recording recording(Dev());
+			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = before, .afterBuffer = after } };
+
+			rhi::Error aliasError{};
+			EXPECT_FALSE(recording.List().AliasBarriers(barriers, aliasError)) << "an alias barrier naming a destroyed buffer was swallowed";
+			EXPECT_TRUE(test::ErrorIsPopulated(aliasError));
+
+			static_cast<void>(recording.End());
+		}
+
+		static_cast<void>(Dev().Destroy(before, {}, error));
+		static_cast<void>(Dev().Destroy(heap, {}, error));
+	}
+
 	TEST_P(ValidationModeTest, ChecksTheCommandListLifecycleOnlyWhenTheModeSaysItWill)
 	{
 		rhi::Error error{};

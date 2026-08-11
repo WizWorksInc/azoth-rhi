@@ -299,14 +299,19 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
 
-		const vk::PipelineStageFlags2 stageMask = MapStages2(ExpandStages(stage));
+		if (!IsOneTimestampStage(stage))
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp takes a single stage and this mask names more than one");
+		}
+
+		const vk::PipelineStageFlagBits2 stageBit = TimestampStage(stage);
 		if (list->owner->coreVk13)
 		{
-			list->buffer.writeTimestamp2(stageMask, slot->pool, query, list->owner->dispatch);
+			list->buffer.writeTimestamp2(stageBit, slot->pool, query, list->owner->dispatch);
 		}
 		else
 		{
-			list->buffer.writeTimestamp2KHR(stageMask, slot->pool, query, list->owner->dispatch);
+			list->buffer.writeTimestamp2KHR(stageBit, slot->pool, query, list->owner->dispatch);
 		}
 		return Succeed(error);
 	}
@@ -511,10 +516,10 @@ namespace azo::rhi::vulkan
 		// Each of the three was reserved for exactly what the loops below put in it, so none of the appends can grow.
 		for (const MemoryBarrier & b : barriers.memory)
 		{
-			const ExpandedState before = Expand(b.before);
-			const ExpandedState after  = Expand(b.after);
-
-			memoryBarriers.emplace_back(MapStages2(before.stages), MapAccess2(before.access), MapStages2(after.stages), MapAccess2(after.access));
+			memoryBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
+				MapBarrierAccess(b.before.use),
+				MapBarrierStages(b.after.stages, b.after.use),
+				MapBarrierAccess(b.after.use));
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
@@ -525,14 +530,12 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
 
-			const ExpandedState before		 = Expand(b.before);
-			const ExpandedState after		 = Expand(b.after);
 			const OwnershipFamilies families = FamiliesFor(list, b.ownership);
 
-			bufferBarriers.emplace_back(MapStages2(before.stages),
-				MapAccess2(before.access),
-				MapStages2(after.stages),
-				MapAccess2(after.access),
+			bufferBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
+				MapBarrierAccess(b.before.use),
+				MapBarrierStages(b.after.stages, b.after.use),
+				MapBarrierAccess(b.after.use),
 				families.src,
 				families.dst,
 				vk::Buffer(slot->buffer),
@@ -548,16 +551,14 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
 
-			const ExpandedState before		 = Expand(b.before);
-			const ExpandedState after		 = Expand(b.after);
 			const OwnershipFamilies families = FamiliesFor(list, b.ownership);
 
-			imageBarriers.emplace_back(MapStages2(before.stages),
-				MapAccess2(before.access),
-				MapStages2(after.stages),
-				MapAccess2(after.access),
-				MapTextureLayout(before.layout),
-				MapTextureLayout(after.layout),
+			imageBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
+				MapBarrierAccess(b.before.use),
+				MapBarrierStages(b.after.stages, b.after.use),
+				MapBarrierAccess(b.after.use),
+				LayoutForUse(b.before.use, device->unifiedImageLayouts),
+				LayoutForUse(b.after.use, device->unifiedImageLayouts),
 				families.src,
 				families.dst,
 				image,
@@ -590,12 +591,21 @@ namespace azo::rhi::vulkan
 			return Succeed(error);
 		}
 
+		// Checked resolves, not the shared lockless ones that skip the generation: with validation off this refusal is all that stands between a stale handle and the driver.
+		VulkanDevice * device = list->owner;
+		const auto liveBuffer = [device](const BufferHandle handle) noexcept
+		{
+			return !handle.IsValid() || device->bufferSlots.Resolve(handle, true) != nullptr;
+		};
+		const auto liveTexture = [device](const TextureHandle handle) noexcept
+		{
+			return !handle.IsValid() || device->textureSlots.Resolve(handle, true) != nullptr;
+		};
+
 		for (const AliasBarrier & barrier : barriers)
 		{
-			if ((barrier.beforeBuffer.IsValid() && ResolveBuffer(list->owner, barrier.beforeBuffer) == nullptr) ||
-				(barrier.afterBuffer.IsValid() && ResolveBuffer(list->owner, barrier.afterBuffer) == nullptr) ||
-				(barrier.beforeTexture.IsValid() && !ResolveTexture(list->owner, barrier.beforeTexture)) ||
-				(barrier.afterTexture.IsValid() && !ResolveTexture(list->owner, barrier.afterTexture)))
+			if (!liveBuffer(barrier.beforeBuffer) || !liveBuffer(barrier.afterBuffer) || !liveTexture(barrier.beforeTexture) ||
+				!liveTexture(barrier.afterTexture))
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
 			}
@@ -656,7 +666,7 @@ namespace azo::rhi::vulkan
 				.samples = slot->samples,
 				.loadOp	 = MapLoadOp(a.load),
 				.storeOp = MapStoreOp(a.store),
-				.layout	 = MapTextureLayout(ExpandLayout(a.state.use)) };
+				.layout	 = LayoutForUse(a.state.use, device->unifiedImageLayouts) };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
 		}
@@ -673,7 +683,7 @@ namespace azo::rhi::vulkan
 				.samples								 = slot->samples,
 				.loadOp									 = MapLoadOp(desc.depthStencil->load),
 				.storeOp								 = MapStoreOp(desc.depthStencil->store),
-				.layout									 = MapTextureLayout(ExpandLayout(desc.depthStencil->state.use)) };
+				.layout									 = LayoutForUse(desc.depthStencil->state.use, device->unifiedImageLayouts) };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 		}
@@ -796,7 +806,7 @@ namespace azo::rhi::vulkan
 
 			vk::RenderingAttachmentInfo info;
 			info.imageView	 = view;
-			info.imageLayout = MapTextureLayout(ExpandLayout(a.state.use));
+			info.imageLayout = LayoutForUse(a.state.use, device->unifiedImageLayouts);
 			info.loadOp		 = MapLoadOp(a.load);
 			info.storeOp	 = MapStoreOp(a.store);
 			info.clearValue	 = vk::ClearValue(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
@@ -817,7 +827,7 @@ namespace azo::rhi::vulkan
 			const vk::ImageView view = slot->view;
 
 			depthAttachment.imageView	= view;
-			depthAttachment.imageLayout = MapTextureLayout(ExpandLayout(desc.depthStencil->state.use));
+			depthAttachment.imageLayout = LayoutForUse(desc.depthStencil->state.use, device->unifiedImageLayouts);
 			depthAttachment.loadOp		= MapLoadOp(desc.depthStencil->load);
 			depthAttachment.storeOp		= MapStoreOp(desc.depthStencil->store);
 			depthAttachment.clearValue =
@@ -1254,11 +1264,7 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * Generates the mip chain by halving blits down the levels. Contract: every mip is in eTransferDstOptimal on entry (the natural state right after uploading
-	 * mip 0) and every mip is left in eTransferSrcOptimal on exit so the caller follows with one barrier to the layout it needs. A texture with one mip has
-	 * nothing to generate and returns having recorded nothing so it keeps the layout it arrived in and the exit half does not apply.
-	 */
+	// Generates the mip chain by halving blits down the levels. What the caller is held to is stated on CommandList::GenerateMips.
 	bool VulkanCmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
@@ -1285,13 +1291,13 @@ namespace azo::rhi::vulkan
 
 		const vk::Image image	   = vk::Image(slot.image);
 		const std::uint32_t layers = slot.arrayLayers;
-		const auto transition	   = [&](std::uint32_t mip, vk::ImageLayout oldLayout, vk::AccessFlags2 srcAccess, vk::AccessFlags2 dstAccess)
+		const auto transition	   = [&](std::uint32_t mip)
 		{
 			const vk::ImageMemoryBarrier2 barrier(vk::PipelineStageFlagBits2::eTransfer,
-				srcAccess,
+				vk::AccessFlagBits2::eTransferWrite,
 				vk::PipelineStageFlagBits2::eTransfer,
-				dstAccess,
-				oldLayout,
+				vk::AccessFlagBits2::eTransferRead,
+				vk::ImageLayout::eTransferDstOptimal,
 				vk::ImageLayout::eTransferSrcOptimal,
 				VK_QUEUE_FAMILY_IGNORED,
 				VK_QUEUE_FAMILY_IGNORED,
@@ -1302,28 +1308,6 @@ namespace azo::rhi::vulkan
 			device->coreVk13 ? list->buffer.pipelineBarrier2(dep, device->dispatch) : list->buffer.pipelineBarrier2KHR(dep, device->dispatch);
 		};
 
-		/*
-		 * Makes the whole chain available to a blit before the first one runs. The caller got mip zero to eCopyDst through their own barrier, and the widest transfer
-		 * stage the public PipelineStage offers is eCopy, which lowers to VK_PIPELINE_STAGE_2_COPY_BIT. The blits below write at VK_PIPELINE_STAGE_2_BLIT_BIT so the
-		 * caller's barrier does not order against them. Nothing in the public surface can name the blit stage, so closing that gap is this entry point's job.
-		 * eTransfer covers copy and blit both.
-		 */
-		{
-			const vk::ImageMemoryBarrier2 entry(vk::PipelineStageFlagBits2::eTransfer,
-				vk::AccessFlagBits2::eTransferWrite,
-				vk::PipelineStageFlagBits2::eTransfer,
-				vk::AccessFlagBits2::eTransferWrite | vk::AccessFlagBits2::eTransferRead,
-				vk::ImageLayout::eTransferDstOptimal,
-				vk::ImageLayout::eTransferDstOptimal,
-				VK_QUEUE_FAMILY_IGNORED,
-				VK_QUEUE_FAMILY_IGNORED,
-				image,
-				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, slot.mipLevels, 0, layers));
-			vk::DependencyInfo dep;
-			dep.setImageMemoryBarriers(entry);
-			device->coreVk13 ? list->buffer.pipelineBarrier2(dep, device->dispatch) : list->buffer.pipelineBarrier2KHR(dep, device->dispatch);
-		}
-
 		// Depth halves alongside width and height so a 3D texture downsamples through its volume. A 2D or array texture has depth 1, leaving the z extent at 1 and
 		// the per-level slice count untouched.
 		std::int32_t mipWidth  = static_cast<std::int32_t>(slot.width);
@@ -1331,8 +1315,6 @@ namespace azo::rhi::vulkan
 		std::int32_t mipDepth  = static_cast<std::int32_t>(slot.depth);
 		for (std::uint32_t i = 1; i < slot.mipLevels; ++i)
 		{
-			transition(i - 1, vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite, vk::AccessFlagBits2::eTransferRead);
-
 			const std::int32_t nextWidth  = mipWidth > 1 ? mipWidth / 2 : 1;
 			const std::int32_t nextHeight = mipHeight > 1 ? mipHeight / 2 : 1;
 			const std::int32_t nextDepth  = mipDepth > 1 ? mipDepth / 2 : 1;
@@ -1345,13 +1327,14 @@ namespace azo::rhi::vulkan
 			list->buffer.blitImage(
 				image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear, device->dispatch);
 
+			// The level just written feeds the next blit, and the last time round it is what leaves the whole chain a transfer source.
+			transition(i);
+
 			mipWidth  = nextWidth;
 			mipHeight = nextHeight;
 			mipDepth  = nextDepth;
 		}
 
-		// The last level was written as a blit destination so leave it in eTransferSrcOptimal like the rest.
-		transition(slot.mipLevels - 1, vk::ImageLayout::eTransferDstOptimal, vk::AccessFlagBits2::eTransferWrite, vk::AccessFlagBits2::eTransferRead);
 		return Succeed(error);
 	}
 

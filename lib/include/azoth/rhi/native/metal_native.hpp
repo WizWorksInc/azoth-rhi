@@ -107,7 +107,7 @@ namespace azo::rhi::native
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
 		 */
-		[[nodiscard]] static MetalCommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API MetalCommandListView MakeCommandListView(void * commandListImpl) noexcept;
 	};
 
 	/**
@@ -156,7 +156,7 @@ namespace azo::rhi::native
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
 		 */
-		[[nodiscard]] static Metal4CommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API Metal4CommandListView MakeCommandListView(void * commandListImpl) noexcept;
 	};
 
 } // namespace azo::rhi::native
@@ -226,14 +226,14 @@ namespace azo::rhi
 	/**
 	 * \brief Returns the native Metal command buffer backing an RHI command list, or null when unavailable.
 	 */
-	[[nodiscard]] MTL::CommandBuffer * GetMetalCommandBuffer(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL::CommandBuffer * GetMetalCommandBuffer(CommandList commandList);
 
 	/**
 	 * \brief Returns the active Metal render encoder for a command list inside a render pass.
 	 *
 	 * Returns null when the command list is not inside an active Metal render encoding scope.
 	 */
-	[[nodiscard]] MTL::RenderCommandEncoder * GetMetalRenderCommandEncoder(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL::RenderCommandEncoder * GetMetalRenderCommandEncoder(CommandList commandList);
 
 	/**
 	 * \brief The Metal 4 command buffer behind a command list, on a list from a Metal 4 device.
@@ -241,21 +241,21 @@ namespace azo::rhi
 	 * Null on a Metal 3 list, where GetMetalCommandBuffer is the one that answers. The two never both do: a device records through one backend's objects and an
 	 * MTL4CommandBuffer is not an MTLCommandBuffer. Device::GetGraphicsApiId says which to ask for, and asking the wrong one answers null instead of lying.
 	 */
-	[[nodiscard]] MTL4::CommandBuffer * GetMetal4CommandBuffer(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::CommandBuffer * GetMetal4CommandBuffer(CommandList commandList);
 
 	/**
 	 * \brief The active Metal 4 render encoder for a command list inside a rendering scope.
 	 *
 	 * Null outside a scope, and null on a Metal 3 device.
 	 */
-	[[nodiscard]] MTL4::RenderCommandEncoder * GetMetal4RenderCommandEncoder(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::RenderCommandEncoder * GetMetal4RenderCommandEncoder(CommandList commandList);
 
 	/**
 	 * \brief The active Metal 4 compute encoder, which on this generation also carries copies and fills.
 	 *
 	 * Null when no compute scope is open, and null on a Metal 3 device.
 	 */
-	[[nodiscard]] MTL4::ComputeCommandEncoder * GetMetal4ComputeCommandEncoder(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::ComputeCommandEncoder * GetMetal4ComputeCommandEncoder(CommandList commandList);
 
 	/**
 	 * \brief The argument table a command list binds through on Metal 4.
@@ -265,7 +265,7 @@ namespace azo::rhi
 	 *
 	 * Null on a Metal 3 device.
 	 */
-	[[nodiscard]] MTL4::ArgumentTable * GetMetal4ArgumentTable(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::ArgumentTable * GetMetal4ArgumentTable(CommandList commandList);
 
 	/**
 	 * \brief The MTLTexture an adopted texture view stands for, a Metal view over another texture's storage being a texture itself.

@@ -322,7 +322,11 @@ namespace azo::rhi::metal
 
 		// Outside a rendering scope this is a compute push, which is the same block on the same index of the compute encoder. Opened here the way binding a
 		// descriptor set opens one, so the order of the two against a dispatch does not matter.
-		EnsureComputeEncoder(object);
+		if (!EnsureComputeEncoder(object, error))
+		{
+			return false;
+		}
+
 		MTL::ComputeCommandEncoder * compute = object->list->computeEncoder.get();
 		if (compute == nullptr)
 		{

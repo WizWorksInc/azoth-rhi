@@ -35,8 +35,9 @@ namespace azo::rhi::d3d12
 
 		ComPtr<D3D12MA::Allocation> allocation;
 		ComPtr<ID3D12Resource> resource;
+		// Created common rather than in a legacy state, so the scratch never needs transitioning out of one before an enhanced barrier may name it.
 		if (FAILED(device->allocator->CreateResource(
-				&allocationDesc, &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()))))
+				&allocationDesc, &bufferDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()))))
 		{
 			return nullptr;
 		}
@@ -44,6 +45,26 @@ namespace azo::rhi::d3d12
 		list->retiredCopyScratch.push_back(std::move(resource));
 		list->retiredCopyAllocs.push_back(std::move(allocation));
 		return raw;
+	}
+
+	// Orders the repack writes that filled the scratch against the copy that reads it back. Legal on every queue type, so no clamp applies.
+	void BarrierScratchToSource(D3D12CommandList * list, ID3D12Resource * scratch) noexcept
+	{
+		const D3D12_BUFFER_BARRIER toSource{
+			.SyncBefore	  = D3D12_BARRIER_SYNC_COPY,
+			.SyncAfter	  = D3D12_BARRIER_SYNC_COPY,
+			.AccessBefore = D3D12_BARRIER_ACCESS_COPY_DEST,
+			.AccessAfter  = D3D12_BARRIER_ACCESS_COPY_SOURCE,
+			.pResource	  = scratch,
+			.Offset		  = 0,
+			.Size		  = std::numeric_limits<UINT64>::max(),
+		};
+
+		D3D12_BARRIER_GROUP group{};
+		group.Type			  = D3D12_BARRIER_TYPE_BUFFER;
+		group.NumBarriers	  = 1;
+		group.pBufferBarriers = &toSource;
+		list->list7->Barrier(1, &group);
 	}
 
 	/*
@@ -141,13 +162,7 @@ namespace azo::rhi::d3d12
 						list->list->CopyBufferRegion(scratch, scratchOff, srcSlot->resource.Get(), srcOff, rowSizeInBytes);
 					}
 				}
-				D3D12_RESOURCE_BARRIER toSource{};
-				toSource.Type					= D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				toSource.Transition.pResource	= scratch;
-				toSource.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				toSource.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-				toSource.Transition.StateAfter	= D3D12_RESOURCE_STATE_COPY_SOURCE;
-				list->list->ResourceBarrier(1, &toSource);
+				BarrierScratchToSource(list, scratch);
 
 				D3D12_PLACED_SUBRESOURCE_FOOTPRINT scratchFootprint = footprint;
 				scratchFootprint.Offset								= 0;
@@ -237,13 +252,7 @@ namespace azo::rhi::d3d12
 				scratchDst.PlacedFootprint = scratchFootprint;
 				list->list->CopyTextureRegion(&scratchDst, 0, 0, 0, &srcLoc, &srcBox);
 
-				D3D12_RESOURCE_BARRIER toSource{};
-				toSource.Type					= D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				toSource.Transition.pResource	= scratch;
-				toSource.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				toSource.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-				toSource.Transition.StateAfter	= D3D12_RESOURCE_STATE_COPY_SOURCE;
-				list->list->ResourceBarrier(1, &toSource);
+				BarrierScratchToSource(list, scratch);
 
 				for (UINT slice = 0; slice < slices; ++slice)
 				{

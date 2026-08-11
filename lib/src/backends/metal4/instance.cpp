@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/native/metal_config.hpp"
+
 #include "backends/metal4/internal.hpp"
 
 #include <format>
@@ -275,13 +277,13 @@ namespace azo::rhi::metal4
 	 * Zero means take what this backend is, and a stated major pins a generation. Metal 3 is a backend of its own, so pinning it here is a request this one
 	 * cannot honor and is refused. Both platform owners tell callers to pin a tested baseline, so a caller stepping around a driver bug has to be believed.
 	 *
-	 * refusedReason is set to why, and left alone otherwise.
+	 * refusal is set to why, and left alone otherwise.
 	 */
-	[[nodiscard]] bool VersionIsOurs(const ApiVersion requested, const char *& refusedReason) noexcept
+	[[nodiscard]] bool VersionIsOurs(const ApiVersion requested, Error & refusal) noexcept
 	{
 		if (requested.major != 0 && requested.major < 4)
 		{
-			refusedReason = "this is the Metal 4 backend; ask for azoth.rhi.metal to get Metal 3";
+			refusal = Error{ .code = ErrorCode::eUnsupportedFeature, .message = "this is the Metal 4 backend; ask for azoth.rhi.metal to get Metal 3" };
 			return false;
 		}
 
@@ -310,7 +312,7 @@ namespace azo::rhi::metal4
 		return message.c_str();
 	}
 
-	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, const char *& refusedReason)
+	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, Error & refusal)
 	{
 		NS::SharedPtr<MTL::Device> mtlDevice;
 
@@ -333,15 +335,22 @@ namespace azo::rhi::metal4
 			return nullptr;
 		}
 
-		// Both settled before anything is built, since a refusal should cost nothing.
-		if (!VersionIsOurs(desc.apiVersion, refusedReason))
+		// Both settled before anything is built, since a refusal should cost nothing. DeviceDesc::apiVersion is the older way of asking and goes with D8.
+		const auto config = native::FindDeviceConfig<Metal4Api>(desc.backendConfigs);
+		if (config.malformed)
+		{
+			refusal =
+				Error{ .code = ErrorCode::eInvalidArgument, .message = "the Metal 4 configuration block declares a size or version this backend cannot read" };
+			return nullptr;
+		}
+		if (!VersionIsOurs(config.block != nullptr ? config.block->generation : desc.apiVersion, refusal))
 		{
 			return nullptr;
 		}
 
 		if (!AdapterHasMetal4(mtlDevice.get()))
 		{
-			refusedReason = NoMetal4FamilyMessage(mtlDevice.get());
+			refusal = Error{ .code = ErrorCode::eUnsupportedFeature, .message = NoMetal4FamilyMessage(mtlDevice.get()) };
 			return nullptr;
 		}
 
@@ -618,13 +627,13 @@ namespace azo::rhi::metal4
 
 	void * Metal4InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept
 	{
-		const char * refusedReason = nullptr;
-		Metal4Device * device	   = MakeOwnedDevice(static_cast<Metal4Instance *>(impl), desc, refusedReason);
+		Error refusal{};
+		Metal4Device * device = MakeOwnedDevice(static_cast<Metal4Instance *>(impl), desc, refusal);
 		if (device == nullptr)
 		{
-			// A refused version pin is a different failure from having no adapter, so it says which instead of reporting the one message for both.
-			return refusedReason != nullptr ? FailValue<void *>(error, ErrorCode::eUnsupportedFeature, refusedReason)
-											: FailValue<void *>(error, ErrorCode::eNativeApiError, "no Metal device available");
+			// A refused pin or an unreadable config block is a different failure from having no adapter, so each says which instead of sharing one message.
+			return refusal.code != ErrorCode::eOk ? FailValue<void *>(error, refusal.code, refusal.message)
+												  : FailValue<void *>(error, ErrorCode::eNativeApiError, "no Metal device available");
 		}
 		return ReturnValue(static_cast<void *>(device), error);
 	}

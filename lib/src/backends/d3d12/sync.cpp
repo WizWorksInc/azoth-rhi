@@ -204,6 +204,13 @@ namespace azo::rhi::d3d12
 		// CreateCommandList returns a list in the recording state. Close it so Begin can reset it.
 		list->Close();
 
+		// Refused here rather than at the first barrier: the adapter was already filtered on enhanced-barrier support, so a list without Barrier() contradicts it.
+		ComPtr<ID3D12GraphicsCommandList7> list7;
+		if (FAILED(list.As(&list7)))
+		{
+			return FailValue<void *>(error, ErrorCode::eUnsupportedFeature, "recording barriers requires ID3D12GraphicsCommandList7");
+		}
+
 		auto cmd	   = HostNew<D3D12CommandList>();
 		cmd->object	   = PublishingObject<Published<RenderCommandApi, &RenderCommandBlock>,
 			Published<AliasingCommandApi, &AliasingCommandBlock>,
@@ -213,6 +220,7 @@ namespace azo::rhi::d3d12
 			Published<NativeEscapeApi, &NativeEscapeBlock>>();
 		cmd->owner	   = device;
 		cmd->list	   = std::move(list);
+		cmd->list7	   = std::move(list7);
 		cmd->allocator = pool->allocator.Get();
 		cmd->pool	   = pool;
 		cmd->type	   = pool->type;

@@ -203,6 +203,23 @@ namespace azo::rhi::validation
 	};
 
 	/*
+	 * One span of one resource whose state this recording knows, as a half-open box over aspects, mips and layers.
+	 *
+	 * A box rather than one state per resource because a barrier names a range, and GenerateMips needs two states over one texture at once. A buffer is a box
+	 * covering everything, having no subresources to name.
+	 */
+	struct TrackedSubrange final
+	{
+		std::uint64_t key		 = 0;
+		std::uint32_t aspects	 = 0;
+		std::uint32_t mipBegin	 = 0;
+		std::uint32_t mipEnd	 = 0;
+		std::uint32_t layerBegin = 0;
+		std::uint32_t layerEnd	 = 0;
+		std::uint32_t state		 = 0;
+	};
+
+	/*
 	 * A wrapped command list, which is also where recording scope is tracked.
 	 *
 	 * Scope is per list and not in the registry because it is not a property of a resource. A list belongs to one thread for its whole lifetime, which is what
@@ -236,11 +253,11 @@ namespace azo::rhi::validation
 		QueueType queueType = QueueType::eGraphics;
 
 		/*
-		 * What each resource this recording transitioned was last left in, keyed by kind, index and generation. Per recording, not per resource, since a barrier's
-		 * before-state describes where this list left the resource and not where the device did. A pool reuses its lists so this is cleared at Begin. Otherwise the
-		 * second frame's first barrier would disagree with the first frame's last. It needs no lock because a list belongs to one thread.
+		 * What each span of each resource this recording transitioned was last left in. Per recording, not per resource, since a barrier's before-state describes
+		 * where this list left the resource and not where the device did. A pool reuses its lists so this is cleared at Begin. Otherwise the second frame's first
+		 * barrier would disagree with the first frame's last. It needs no lock because a list belongs to one thread.
 		 */
-		detail::HostMap<std::uint64_t, std::uint32_t> recordedStates;
+		detail::HostVector<TrackedSubrange> recordedStates;
 	};
 
 	struct WrappedDescriptorArena final : WrappedObject

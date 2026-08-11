@@ -71,14 +71,11 @@ namespace azo::rhi
 		}
 
 		// No instance in the static form so the device has none to retire when it goes.
-		const char * refusedReason	= nullptr;
-		metal::MetalDevice * device = metal::MakeOwnedDevice(nullptr, desc, refusedReason);
+		Error refusal{};
+		metal::MetalDevice * device = metal::MakeOwnedDevice(nullptr, desc, refusal);
 		if (device == nullptr)
 		{
-			return Error{
-				.code	 = refusedReason != nullptr ? ErrorCode::eUnsupportedFeature : ErrorCode::eNativeApiError,
-				.message = refusedReason != nullptr ? refusedReason : "no Metal device available",
-			};
+			return refusal.code != ErrorCode::eOk ? refusal : Error{ .code = ErrorCode::eNativeApiError, .message = "no Metal device available" };
 		}
 
 		Error error{};

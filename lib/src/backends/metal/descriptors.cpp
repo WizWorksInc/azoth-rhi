@@ -16,16 +16,17 @@
 
 namespace azo::rhi::metal
 {
-	void EnsureComputeEncoder(MetalObject * object)
+	// The compute twin of BeginBlit, and it refuses a rendering scope for the same reason: ending the caller's pass to open a compute encoder is a different
+	// operation from the one asked for. Only the compute-pipeline path can reach that branch, the other two callers looking for an open render encoder first.
+	bool EnsureComputeEncoder(MetalObject * object, Error * error) noexcept
 	{
 		if (object->list == nullptr || object->list->commandBuffer.get() == nullptr)
 		{
-			return;
+			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 		if (object->list->renderEncoder.get() != nullptr)
 		{
-			object->list->renderEncoder->endEncoding();
-			object->list->renderEncoder.reset();
+			return Fail(error, ErrorCode::eInvalidState, "a compute command cannot be recorded inside a rendering scope, so record it between passes");
 		}
 		if (object->list->computeEncoder.get() == nullptr)
 		{
@@ -33,6 +34,8 @@ namespace azo::rhi::metal
 			object->list->computeEncoder				  = NS::RetainPtr(object->list->commandBuffer->computeCommandEncoder());
 			ConsumeAliasWait(object->list, object->list->computeEncoder.get());
 		}
+
+		return Succeed(error);
 	}
 
 	bool MetalSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
@@ -51,7 +54,11 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidHandle, "setComputePipeline names a pipeline this device never created");
 		}
 
-		EnsureComputeEncoder(object);
+		if (!EnsureComputeEncoder(object, error))
+		{
+			return false;
+		}
+
 		object->list->computeEncoder->setComputePipelineState(tracked->state.get());
 		object->list->boundThreadGroup = tracked->threadsPerThreadgroup;
 		return Succeed(error);
@@ -211,9 +218,9 @@ namespace azo::rhi::metal
 		}
 
 		const bool graphics = object->list != nullptr && object->list->renderEncoder.get() != nullptr;
-		if (!graphics)
+		if (!graphics && !EnsureComputeEncoder(object, error))
 		{
-			EnsureComputeEncoder(object);
+			return false;
 		}
 		MTL::RenderCommandEncoder * render	 = graphics ? object->list->renderEncoder.get() : nullptr;
 		MTL::ComputeCommandEncoder * compute = graphics ? nullptr : object->list->computeEncoder.get();

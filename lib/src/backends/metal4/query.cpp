@@ -129,14 +129,32 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
+	namespace
+	{
+		/*
+		 * Which stage of a pass the sample is taken after.
+		 *
+		 * writeTimestamp takes an afterStage and not an afterStages, so a mask has to become one value, and the latest stage it names is the one that satisfies
+		 * every other. Vertex only where the mask names nothing that outlives it, so the sample is never taken earlier than the caller asked for.
+		 */
+		[[nodiscard]] MTL::RenderStages RenderStageFor(const Flags<Stage> stages) noexcept
+		{
+			const Flags<Stage> beyondVertex = stages & ~(Flags<Stage>(Stage::eIndirectFetch) | Stage::eVertexWork);
+			return !stages.Empty() && beyondVertex.Empty() ? MTL::RenderStageVertex : MTL::RenderStageFragment;
+		}
+	} // namespace
+
 	/*
 	 * A timestamp, written wherever the caller asked for one.
 	 *
 	 * This is the difference that made the generation worth adopting. Metal 3 refuses a write inside a dispatch scope on an adapter that samples only at stage
 	 * boundaries, which is every Apple part measured so far, and has no way to close a compute encoder to get around it. Here the encoder takes the sample
 	 * itself, so a dispatch can be bracketed as tightly as a caller wants.
+	 *
+	 * The stage reaches the render encoder, which is the one place Metal names one. A compute encoder and the command buffer sample where they stand, which is
+	 * already at or after every stage a mask could name.
 	 */
-	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, Flags<Stage>, Error * error) noexcept
+	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, const Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * object			  = static_cast<Metal4Object *>(impl);
 		CmdList * list			  = ListOf(object);
@@ -173,7 +191,7 @@ namespace azo::rhi::metal4
 		// Precise, since relaxed may sample only at encoder boundaries, which is the resolution this exists to improve on.
 		if (list->renderEncoder.get() != nullptr)
 		{
-			list->renderEncoder->writeTimestamp(MTL4::TimestampGranularityPrecise, MTL::RenderStageFragment, tracked->heap.get(), query);
+			list->renderEncoder->writeTimestamp(MTL4::TimestampGranularityPrecise, RenderStageFor(stage), tracked->heap.get(), query);
 			return Succeed(error);
 		}
 		if (list->computeEncoder.get() != nullptr)

@@ -31,9 +31,8 @@ namespace
 	template <class T>
 	constexpr bool IsPlainDesc = std::is_trivially_copyable_v<T> && std::is_standard_layout_v<T> && std::is_default_constructible_v<T>;
 
-	// What the two descs measure today on a 64-bit target, read by the tripwire below, not asserted as an ABI promise.
 	constexpr std::size_t kInstanceDescSize = 104;
-	constexpr std::size_t kDeviceDescSize	= 216;
+	constexpr std::size_t kDeviceDescSize	= 232;
 
 	TEST(AbiLayout, EveryResourceDescIsAPlainDescription)
 	{

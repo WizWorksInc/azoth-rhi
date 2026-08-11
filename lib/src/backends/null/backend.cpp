@@ -1436,10 +1436,36 @@ namespace azo::rhi
 			return block;
 		}
 
+		/*
+		 * Resolved rather than waved through, which is what NoopVoid did here.
+		 *
+		 * This backend records nothing, so the temptation is to accept anything, but a caller with validation off reaches it directly and every other backend
+		 * refuses a stale handle at this call. Checked rather than kHandleAlreadyChecked on purpose: a stale generation is the whole defect, and the unchecked
+		 * form is what made the same refusal dead code on Vulkan.
+		 */
+		bool NullAliasBarriers(void * impl, const std::span<const AliasBarrier> barriers, Error * error) noexcept
+		{
+			auto * list				  = static_cast<null::NullObject *>(impl);
+			null::NullDevice * device = list->owner;
+
+			for (const AliasBarrier & barrier : barriers)
+			{
+				if ((barrier.beforeBuffer.IsValid() && device->handles.Resolve(barrier.beforeBuffer, true) == nullptr) ||
+					(barrier.afterBuffer.IsValid() && device->handles.Resolve(barrier.afterBuffer, true) == nullptr) ||
+					(barrier.beforeTexture.IsValid() && device->handles.Resolve(barrier.beforeTexture, true) == nullptr) ||
+					(barrier.afterTexture.IsValid() && device->handles.Resolve(barrier.afterTexture, true) == nullptr))
+				{
+					return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
+				}
+			}
+
+			return Succeed(error);
+		}
+
 		const AliasingCommandApi & AliasingCommandBlock() noexcept
 		{
 			static const AliasingCommandApi block{
-				.aliasBarriers = &NoopVoid,
+				.aliasBarriers = &NullAliasBarriers,
 			};
 
 			return block;

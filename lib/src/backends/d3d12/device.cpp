@@ -14,6 +14,8 @@
 
 #ifdef _WIN32
 
+	#include "azoth/rhi/native/d3d12_config.hpp"
+
 	#include "backends/d3d12/internal.hpp"
 
 namespace azo::rhi::d3d12
@@ -541,7 +543,15 @@ namespace azo::rhi::d3d12
 	{
 		D3D12BackendOwner & owner = Owner();
 
-		const D3D_FEATURE_LEVEL floor = ApiVersionToFloor(desc.apiVersion);
+		// A block this backend cannot read is a caller mistake, so it fails creation rather than coming up on defaults and dropping the configuration in silence.
+		const auto config = native::FindDeviceConfig<D3D12Api>(desc.backendConfigs);
+		if (config.malformed)
+		{
+			Fail(error, ErrorCode::eInvalidArgument, "the Direct3D 12 configuration block declares fewer bytes than this backend reads");
+			return nullptr;
+		}
+
+		const D3D_FEATURE_LEVEL floor = ApiVersionToFloor(config.block != nullptr ? config.block->minimumFeatureLevel : desc.apiVersion);
 
 		// Walk adapters in high-performance order and pick the first that creates a device at the floor and supports enhanced barriers.
 		ComPtr<IDXGIAdapter4> chosenAdapter;

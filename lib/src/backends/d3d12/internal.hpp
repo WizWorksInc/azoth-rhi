@@ -26,9 +26,9 @@
 #include "azoth/rhi/native/d3d12_native.hpp"
 #include "azoth/rhi/resources/binding_abi.hpp"
 
+#include "backends/d3d12/barrier_tables.hpp"
 #include "backends/registration.hpp"
 #include "support/driver_version.hpp"
-#include "support/state_expansion.hpp"
 
 #ifndef NOMINMAX
 	#define NOMINMAX
@@ -37,6 +37,7 @@
 	#define WIN32_LEAN_AND_MEAN
 #endif
 
+// winnt.h arrives with this and defines MemoryBarrier as a store fence macro, so rhi::MemoryBarrier cannot be spelled anywhere below. Deduce that type instead.
 #include <d3d12.h>
 // Declares ID3D12Debug and the info queue. Named, not left to reach us through d3d12.h, which is not guaranteed to pull it in.
 #include <D3D12MemAlloc.h>
@@ -94,6 +95,9 @@ namespace azo::rhi::d3d12
 		ComPtr<ID3D12Resource> resource;
 		std::uint64_t size = 0;
 		bool hostVisible   = false;
+
+		// Which heap the memory came from, since upload and readback each admit a fixed barrier access set. An adopted resource keeps the default and is unrestricted.
+		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT;
 
 		// Who frees the ID3D12Resource. An adopted one is the caller's and destroy retires the slot without touching it.
 		SlotLifetime lifetime = SlotLifetime::eOwned;
@@ -439,6 +443,8 @@ namespace azo::rhi::d3d12
 		const BackendObject * object = nullptr;
 		D3D12Device * owner			 = nullptr;
 		ComPtr<ID3D12GraphicsCommandList> list;
+		// The same list under the interface carrying Barrier(). Queried once at creation, since recording a batch must not pay for a QueryInterface.
+		ComPtr<ID3D12GraphicsCommandList7> list7;
 		ID3D12CommandAllocator * allocator = nullptr; // borrowed from the owning pool
 		D3D12CommandPool * pool			   = nullptr; // the pool that allocated it, which owns its command signature cache
 		D3D12_COMMAND_LIST_TYPE type	   = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -820,7 +826,7 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12BackendOwner & Owner();
 	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept;
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapType(MemoryUsage memory, bool & hostVisible) noexcept;
-	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap) noexcept;
+	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] bool BoundBufferRange(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
 	BufferHandle D3D12CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept;
@@ -959,12 +965,6 @@ namespace azo::rhi::d3d12
 	bool D3D12QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
 	[[nodiscard]] TextureViewSlot * ResolveTextureView(D3D12Device * device, TextureViewHandle handle) noexcept;
 	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(D3D12Device * device, QueryPoolHandle handle) noexcept;
-	[[nodiscard]] D3D12_RESOURCE_STATES MapTextureStates(TextureLayout layout) noexcept;
-	[[nodiscard]] D3D12_RESOURCE_STATES MapBufferStates(Flags<Access> access) noexcept;
-	[[nodiscard]] D3D12_BARRIER_SYNC DeriveBarrierSync(Flags<ResourceUse> use) noexcept;
-	[[nodiscard]] D3D12_BARRIER_SYNC MapBarrierSync(Flags<Stage> stages, Flags<ResourceUse> use) noexcept;
-	[[nodiscard]] D3D12_BARRIER_ACCESS MapBarrierAccess(Flags<ResourceUse> use) noexcept;
-	[[nodiscard]] D3D12_BARRIER_LAYOUT MapBarrierLayout(Flags<ResourceUse> use, QueueType queue) noexcept;
 	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept;
 	[[nodiscard]] D3D12_QUERY_HEAP_TYPE MapQueryHeapType(QueryType type) noexcept;
 	[[nodiscard]] UINT SubresourceIndex(const TextureSubresource & sub, std::uint32_t mipLevels) noexcept;
@@ -1003,6 +1003,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdDispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept;
 	bool D3D12CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
 	[[nodiscard]] ID3D12Resource * AllocateCopyScratch(D3D12Device * device, D3D12CommandList * list, std::uint64_t bytes) noexcept;
+	void BarrierScratchToSource(D3D12CommandList * list, ID3D12Resource * scratch) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_DESC RegionFootprintDesc(const D3D12_RESOURCE_DESC & texDesc, const Extent3D & extent) noexcept;
 	[[nodiscard]] D3D12_BOX RegionSourceBox(const Offset3D & offset, const Extent3D & extent) noexcept;
 	[[nodiscard]] bool RegionIsEmpty(const Extent3D & extent) noexcept;

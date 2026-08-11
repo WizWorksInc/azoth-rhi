@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -103,8 +104,14 @@ int main(int argc, char ** argv)
 	// A suite picks its backends through AZOTH_RHI_TEST_BACKENDS, so these would only rewrite the subject of every test that asserts what an order comes out as.
 
 	// NOLINTBEGIN(concurrency-mt-unsafe): startup environment edit, before any test or worker thread exists.
+#ifdef _WIN32
+	// The CRT has no unsetenv, and _putenv_s with an empty value is how it removes a variable.
+	static_cast<void>(::_putenv_s("AZOTH_RHI_BACKEND", ""));
+	static_cast<void>(::_putenv_s("AZOTH_RHI_BACKEND_FORCE", ""));
+#else
 	static_cast<void>(::unsetenv("AZOTH_RHI_BACKEND"));
 	static_cast<void>(::unsetenv("AZOTH_RHI_BACKEND_FORCE"));
+#endif
 	// NOLINTEND(concurrency-mt-unsafe)
 
 	::testing::InitGoogleMock(&argc, argv);

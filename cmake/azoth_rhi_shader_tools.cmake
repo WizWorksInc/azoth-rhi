@@ -72,10 +72,17 @@ macro(azoth_rhi_provide_slang)
     find_package(slang QUIET CONFIG)
 
     if(NOT slang_FOUND AND AZOTH_RHI_FETCH_SLANG)
+        # An MSVC cross toolchain leaves CMAKE_SYSTEM_PROCESSOR on the host, so the compiler's own target
+        # decides when they disagree, otherwise an ARM64 host targeting x64 fetches a Slang that cannot link.
+        set(_slang_processor "${CMAKE_SYSTEM_PROCESSOR}")
+        if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+            set(_slang_processor "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+        endif()
+
         set(_slang_arch "")
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        if(_slang_processor MATCHES "^(aarch64|arm64|ARM64)$")
             set(_slang_arch "aarch64")
-        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+        elseif(_slang_processor MATCHES "^(x86_64|AMD64|amd64|x64)$")
             set(_slang_arch "x86_64")
         endif()
 

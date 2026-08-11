@@ -175,21 +175,21 @@ namespace azo::rhi
 	 *
 	 * Returns eInvalidHandle when semaphore does not name a semaphore owned by this swapchain.
 	 */
-	[[nodiscard]] Result<vk::Semaphore> GetVulkanSemaphore(Swapchain swapchain, BinarySemaphoreHandle semaphore);
+	[[nodiscard]] AZO_RHI_API Result<vk::Semaphore> GetVulkanSemaphore(Swapchain swapchain, BinarySemaphoreHandle semaphore);
 
 	/**
 	 * \brief Returns the VkCommandBuffer behind an RHI command list.
 	 *
 	 * Intended for raw Vulkan recording while code is being moved onto the RHI command surface.
 	 */
-	[[nodiscard]] vk::CommandBuffer GetVulkanCommandBuffer(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API vk::CommandBuffer GetVulkanCommandBuffer(CommandList commandList);
 
 	/**
 	 * \brief Returns the VkCommandPool behind an RHI command pool.
 	 *
 	 * Intended for transitional helpers that still allocate Vulkan command buffers directly.
 	 */
-	[[nodiscard]] vk::CommandPool GetVulkanCommandPool(CommandPool commandPool);
+	[[nodiscard]] AZO_RHI_API vk::CommandPool GetVulkanCommandPool(CommandPool commandPool);
 
 } // namespace azo::rhi
 
@@ -256,7 +256,22 @@ namespace azo::rhi::native
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
 		 */
-		[[nodiscard]] static VulkanCommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API VulkanCommandListView MakeCommandListView(void * commandListImpl) noexcept;
 	};
 
 } // namespace azo::rhi::native
+
+namespace azo::rhi
+{
+
+	/**
+	 * \brief Returns the VkQueue and queue family index behind an RHI queue.
+	 *
+	 * This is where the family index lives now that Queue::GetFamilyIndex is gone. A family index means something only to Vulkan, so it is named here rather
+	 * than on the generic queue surface. Returns eUnsupportedApi when the queue is not backed by Vulkan.
+	 *
+	 * \note Declared after the native block rather than beside its four siblings above, the return type being defined there.
+	 */
+	[[nodiscard]] AZO_RHI_API Result<native::VulkanQueueView> GetVulkanQueueView(Queue queue);
+
+} // namespace azo::rhi

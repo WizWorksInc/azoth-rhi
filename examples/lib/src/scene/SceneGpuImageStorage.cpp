@@ -336,8 +336,7 @@ namespace fw::scene
 			});
 		}
 
-		// Mip zero is left readable either way. The resampler takes it from there and states where it leaves every level, which is also readable, so a
-		// caller never has to know which of its two paths ran.
+		// The resampler leaves a single-level texture in exactly this state, so this branch survives only to spare a flat scene the compute pipeline.
 		const std::array toRead{
 			azo::rhi::TextureBarrier{
 				.texture = texture,
@@ -349,7 +348,7 @@ namespace fw::scene
 
 		const bool recorded =
 			list.Barriers(azo::rhi::BarrierBatch{ .textures = toCopyDst }, error) && list.CopyBufferToTexture(texture, staging, regions, error) &&
-			list.Barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) && (plan.mips == 1 || GenerateMips(list, texture, error)) && list.End(error);
+			(plan.mips == 1 ? list.Barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) : GenerateMips(list, texture, error)) && list.End(error);
 
 		if (!recorded)
 		{

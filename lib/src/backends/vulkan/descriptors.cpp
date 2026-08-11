@@ -330,7 +330,7 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsTexture with an invalid set or view handle");
 			}
 			const vk::Sampler sampler = w.sampler.IsValid() ? ResolveSampler(device, w.sampler) : vk::Sampler{};
-			imageInfos.emplace_back(sampler, view, MapTextureLayout(ExpandLayout(w.expectedUse)));
+			imageInfos.emplace_back(sampler, view, LayoutForUse(w.expectedUse, device->unifiedImageLayouts));
 			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, MapDescriptorType(w.type), &imageInfos.back());
 		}
 

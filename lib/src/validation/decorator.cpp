@@ -170,6 +170,8 @@ namespace azo::rhi::validation
 		bool ValidatedBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 		bool ValidatedArenaReset(void * impl, RetirePoint safeAfter, Error * error) noexcept;
 		bool ValidatedBarriers(void * impl, const BarrierBatch & batch, Error * error) noexcept;
+		bool ValidatedGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
+		bool ValidatedAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept;
 		bool ValidatedBuildAccelerationStructures(void * impl, std::span<const AccelerationStructureBuildDesc> builds, Error * error) noexcept;
 		TextureViewHandle ValidatedCreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
 		DescriptorSetLayoutHandle ValidatedCreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept;
@@ -632,7 +634,7 @@ namespace azo::rhi::validation
 				.clearTexture		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::clearTexture>::Call,
 				.resolveTexture		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::resolveTexture>::Call,
 				.blit				 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::blit>::Call,
-				.generateMips		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::generateMips>::Call,
+				.generateMips		 = &ValidatedGenerateMips,
 				.beginDebugLabel	 = &RecordedEntry<ChecksThread, &RenderCommandApi::beginDebugLabel>::Call,
 				.endDebugLabel		 = &RecordedEntry<ChecksThread, &RenderCommandApi::endDebugLabel>::Call,
 			};
@@ -644,7 +646,7 @@ namespace azo::rhi::validation
 		const AliasingCommandApi & ValidatingAliasingCommandApi() noexcept
 		{
 			static const AliasingCommandApi block{
-				.aliasBarriers = &RecordedCheckedEntry<ChecksThread, &AliasingCommandApi::aliasBarriers>::Call,
+				.aliasBarriers = &ValidatedAliasBarriers,
 			};
 
 			return block;
@@ -1341,6 +1343,209 @@ namespace azo::rhi::validation
 			return (static_cast<std::uint64_t>(type) << 56u) ^ (static_cast<std::uint64_t>(index) << 32u) ^ generation;
 		}
 
+		// Saturating, since kAllMips and kAllLayers are counts of every remaining one and a plain sum would wrap to nothing.
+		[[nodiscard]] std::uint32_t SpanEnd(const std::uint32_t begin, const std::uint32_t count) noexcept
+		{
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			return count > unbounded - begin ? unbounded : begin + count;
+		}
+
+		[[nodiscard]] TrackedSubrange WholeResourceSpan() noexcept
+		{
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			return TrackedSubrange{
+				.aspects	= unbounded,
+				.mipBegin	= 0,
+				.mipEnd		= unbounded,
+				.layerBegin = 0,
+				.layerEnd	= unbounded,
+			};
+		}
+
+		[[nodiscard]] TrackedSubrange TextureSpan(const TextureSubresourceRange & range) noexcept
+		{
+			return TrackedSubrange{
+				.aspects	= static_cast<std::uint32_t>(range.aspects.Bits()),
+				.mipBegin	= range.baseMip,
+				.mipEnd		= SpanEnd(range.baseMip, range.mipCount),
+				.layerBegin = range.baseLayer,
+				.layerEnd	= SpanEnd(range.baseLayer, range.layerCount),
+			};
+		}
+
+		[[nodiscard]] bool Overlaps(const TrackedSubrange & lhs, const TrackedSubrange & rhs) noexcept
+		{
+			return lhs.key == rhs.key && (lhs.aspects & rhs.aspects) != 0u && lhs.mipBegin < rhs.mipEnd && rhs.mipBegin < lhs.mipEnd &&
+				   lhs.layerBegin < rhs.layerEnd && rhs.layerBegin < lhs.layerEnd;
+		}
+
+		/*
+		 * Appends whatever of one box survives having another cut out of it, at most five pieces: the aspects the cut does not name, the mips below and above it,
+		 * then the layers below and above it within the mips they share.
+		 */
+		[[nodiscard]] bool SubtractInto(detail::HostVector<TrackedSubrange> & into, const TrackedSubrange & from, const TrackedSubrange & cut) noexcept
+		{
+			if (const std::uint32_t untouched = from.aspects & ~cut.aspects; untouched != 0u)
+			{
+				TrackedSubrange piece = from;
+				piece.aspects		  = untouched;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange shared = from;
+			shared.aspects		   = from.aspects & cut.aspects;
+
+			if (shared.mipBegin < cut.mipBegin)
+			{
+				TrackedSubrange piece = shared;
+				piece.mipEnd		  = cut.mipBegin;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			if (shared.mipEnd > cut.mipEnd)
+			{
+				TrackedSubrange piece = shared;
+				piece.mipBegin		  = cut.mipEnd;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange band = shared;
+			band.mipBegin		 = std::max(shared.mipBegin, cut.mipBegin);
+			band.mipEnd			 = std::min(shared.mipEnd, cut.mipEnd);
+
+			if (band.layerBegin < cut.layerBegin)
+			{
+				TrackedSubrange piece = band;
+				piece.layerEnd		  = cut.layerBegin;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			if (band.layerEnd > cut.layerEnd)
+			{
+				TrackedSubrange piece = band;
+				piece.layerBegin	  = cut.layerEnd;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		/*
+		 * The two rules ResourceState documents and nothing enforced. An empty use as an after-state would leave the resource somewhere no backend can name, and
+		 * eDiscard describes contents that are not preserved coming into a barrier, which is not something a barrier can leave behind.
+		 */
+		[[nodiscard]] bool StateIsUsableAsAfter(
+			WrappedCommandList * self, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
+		{
+			static_cast<void>(ownership);
+
+			if (after.use.Contains(ResourceUse::eDiscard))
+			{
+				return self->validator->Fail(
+					error, "a barrier names eDiscard as its after-state, which describes contents arriving at a barrier and not leaving one");
+			}
+
+			return true;
+		}
+
+		void Forget(WrappedCommandList * self, const std::uint64_t key) noexcept
+		{
+			static_cast<void>(std::erase_if(self->recordedStates,
+				[key](const TrackedSubrange & entry)
+				{
+					return entry.key == key;
+				}));
+		}
+
+		/*
+		 * GenerateMips is the one entry point that moves resource state without a barrier, so it is also the one the tracker has to be told about by hand.
+		 *
+		 * Left where command.hpp says it leaves every level, which is eCopySrc, over the whole texture. Before the tracker knew about ranges this went unnoticed:
+		 * the entry barrier for level zero overwrote the single state kept for the resource, so a later barrier claiming eCopySrc over the chain happened to
+		 * match. Once spans became precise that coincidence stopped covering for it.
+		 */
+		bool ValidatedGenerateMips(void * impl, const TextureHandle texture, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			if (!self->blocks.render->generateMips(self->inner, texture, error))
+			{
+				return false;
+			}
+
+			if (self->validator->ChecksState())
+			{
+				TrackedSubrange written = WholeResourceSpan();
+				written.key				= StateKey(ResourceType::eTexture, texture.index, texture.generation);
+				written.state			= PackState(ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy });
+
+				Forget(self, written.key);
+				static_cast<void>(detail::TryPushBack(self->recordedStates, written));
+			}
+
+			return true;
+		}
+
+		/*
+		 * Records what a box was left in, keeping the parts of earlier boxes it did not cover.
+		 *
+		 * A covered part is emptied rather than erased on the spot, since the pieces are appended to the same vector and removing as it grows would move the
+		 * entries still to be visited.
+		 */
+		[[nodiscard]] bool Retrack(WrappedCommandList * self, const TrackedSubrange & box, const std::uint32_t state) noexcept
+		{
+			const std::size_t existing = self->recordedStates.size();
+			for (std::size_t i = 0; i < existing; ++i)
+			{
+				// Copied and not bound by reference, the pieces below being appended to this same vector, whose reallocation would leave a reference dangling.
+				const TrackedSubrange covered = self->recordedStates[i];
+				if (!Overlaps(covered, box))
+				{
+					continue;
+				}
+
+				self->recordedStates[i].aspects = 0u;
+				if (!SubtractInto(self->recordedStates, covered, box))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange written = box;
+			written.state			= state;
+			if (!detail::TryPushBack(self->recordedStates, written))
+			{
+				return false;
+			}
+
+			static_cast<void>(std::erase_if(self->recordedStates,
+				[](const TrackedSubrange & entry)
+				{
+					return entry.aspects == 0u;
+				}));
+			return true;
+		}
+
 		/*
 		 * Queue ownership is declared by a barrier too. Unlike a resource state it is not per recording: a queue that releases a resource stays released from it
 		 * until another queue acquires it. It lives on the registry record where it outlives any one list. A barrier naming no transfer leaves ownership alone. A
@@ -1404,15 +1609,25 @@ namespace azo::rhi::validation
 		 * adopted for.
 		 */
 		[[nodiscard]] bool CheckAndAdvance(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const ResourceState & before, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
+			const TrackedSubrange & span, const ResourceState & before, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
 		{
-			const std::uint64_t key = StateKey(type, index, generation);
-			const auto tracked		= self->recordedStates.find(key);
-			const bool trackedHere	= tracked != self->recordedStates.end();
+			TrackedSubrange box		   = span;
+			box.key					   = StateKey(type, index, generation);
+			const std::uint32_t wanted = PackState(before);
 
-			if (trackedHere && tracked->second != PackState(before))
+			bool trackedHere = false;
+			for (const TrackedSubrange & tracked : self->recordedStates)
 			{
-				return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
+				if (tracked.key != box.key)
+				{
+					continue;
+				}
+
+				trackedHere = true;
+				if (Overlaps(tracked, box) && tracked.state != wanted)
+				{
+					return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
+				}
 			}
 
 			/*
@@ -1420,6 +1635,9 @@ namespace azo::rhi::validation
 			 *
 			 * Consumed, not kept because it stops being true the moment this barrier moves the resource, and because keeping it would mean claiming to track state
 			 * across command lists, which nothing here does. The exchange is what makes exactly one recording consume it when two are running at once.
+			 *
+			 * Once per resource and not once per span, which the boxes above invite the opposite reading of. The declaration covers the whole resource, so the
+			 * first barrier to name any part of it consumes the lot and a later barrier over an untouched span is not checked against it.
 			 */
 			if (!trackedHere)
 			{
@@ -1441,10 +1659,10 @@ namespace azo::rhi::validation
 				return false;
 			}
 
-			if (!detail::TryInsertOrAssign(self->recordedStates, key, PackState(after)))
+			if (!Retrack(self, box, PackState(after)))
 			{
-				// Nothing tracked is better than half tracked: the entry is simply absent so the next barrier naming it is taken, not checked.
-				self->recordedStates.erase(key);
+				// Nothing tracked is better than half tracked: the resource is simply absent so the next barrier naming it is taken, not checked.
+				Forget(self, box.key);
 			}
 
 			return true;
@@ -1454,8 +1672,8 @@ namespace azo::rhi::validation
 		 * A barrier declares the state it believes a resource is in. Getting that wrong stays silent on hardware that does not care. Tracking it here, not per
 		 * backend makes every backend answer the same way, including external ones that track nothing.
 		 *
-		 * The first barrier a resource sees is taken as truth, since nothing before it said what state it was created in. An undefined before-state is likewise
-		 * taken, meaning the caller does not care what was there.
+		 * The first barrier to name a span is taken as truth, since nothing before it said what state that part of the resource was created in. Once a span is
+		 * tracked every later barrier over it is checked, an empty use included, so nothing here reads one as the caller waiving the check.
 		 */
 		bool ValidatedBarriers(void * impl, const BarrierBatch & batch, Error * error) noexcept
 		{
@@ -1473,12 +1691,26 @@ namespace azo::rhi::validation
 
 			if (self->validator->ChecksState())
 			{
+				for (const MemoryBarrier & barrier : batch.memory)
+				{
+					if (!StateIsUsableAsAfter(self, barrier.after, QueueOwnership{}, error))
+					{
+						return false;
+					}
+				}
+
 				for (const BufferBarrier & barrier : batch.buffers)
 				{
+					if (!StateIsUsableAsAfter(self, barrier.after, barrier.ownership, error))
+					{
+						return false;
+					}
+
 					if (!CheckAndAdvance(self,
 							ResourceType::eBuffer,
 							barrier.buffer.index,
 							barrier.buffer.generation,
+							WholeResourceSpan(),
 							barrier.before,
 							barrier.after,
 							barrier.ownership,
@@ -1490,10 +1722,26 @@ namespace azo::rhi::validation
 
 				for (const TextureBarrier & barrier : batch.textures)
 				{
+					if (!StateIsUsableAsAfter(self, barrier.after, barrier.ownership, error))
+					{
+						return false;
+					}
+
+					/*
+					 * Refused rather than tracked as an empty box. A box naming no aspect overlaps nothing, so it would be neither checked against what came
+					 * before nor recorded for what comes after, losing two checks silently, and the backends do not skip it in sympathy: D3D12 empties a range on
+					 * a zero mip or layer count and says nothing about aspects, so a real barrier is recorded for a range this layer ignored.
+					 */
+					if (barrier.range.aspects.Bits() == 0u)
+					{
+						return self->validator->Fail(error, "a texture barrier names no aspect, so it describes no subresource to transition");
+					}
+
 					if (!CheckAndAdvance(self,
 							ResourceType::eTexture,
 							barrier.texture.index,
 							barrier.texture.generation,
+							TextureSpan(barrier.range),
 							barrier.before,
 							barrier.after,
 							barrier.ownership,
@@ -1508,6 +1756,38 @@ namespace azo::rhi::validation
 		}
 
 		/*
+		 * Refused inside a rendering scope, uniformly, the alternative being four backends disagreeing in silence.
+		 *
+		 * Vulkan forbids any barrier there outright under VUID-vkCmdPipelineBarrier2-None-09553 on the dynamic-rendering path, and again on the legacy path
+		 * where the backend declares no subpass dependencies. Metal 3 refuses. Metal 4 accepted it and honoured half, its intra-encoder producer side narrowing
+		 * to vertex under the TBDR rule, so fragment work already recorded in the pass went unordered. Scope is tracked here rather than in a backend because
+		 * VulkanCommandList carries no such flag.
+		 */
+		bool ValidatedAliasBarriers(void * impl, const std::span<const AliasBarrier> barriers, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			// Spelled out rather than left to the generic entry, which is what this used to be. A destroyed handle inside the span went unrefused on every
+			// backend and in every mode, and ValidatedBarriers has always done the same call over its own batch.
+			if (!ArgumentIsUsable(*self->validator, barriers))
+			{
+				return self->validator->Fail(error, "an alias barrier names a resource this device has already taken back");
+			}
+
+			if (self->validator->ChecksState() && self->rendering)
+			{
+				return self->validator->Fail(error, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
+			}
+
+			return self->blocks.aliasing->aliasBarriers(self->inner, barriers, error);
+		}
+
+		/*
 		 * Where one resource a native mutation moved is written back, into both of the places a barrier is checked against.
 		 *
 		 * Both, because which one answers depends on where the next barrier is: this recording's own tracking, and the registry record for the first barrier in
@@ -1518,12 +1798,15 @@ namespace azo::rhi::validation
 		void ReconcileNativeMutation(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
 			const ResourceState & finalState) noexcept
 		{
-			const std::uint64_t key = StateKey(type, index, generation);
-			if (!detail::TryInsertOrAssign(self->recordedStates, key, PackState(finalState)))
-			{
-				// The same answer a barrier gives when the map cannot grow: nothing tracked, so the next barrier naming it is taken and not checked.
-				self->recordedStates.erase(key);
-			}
+			// A native mutation is opaque, so whatever the caller declares covers the whole resource and every span this recording knew of it is replaced.
+			TrackedSubrange written = WholeResourceSpan();
+			written.key				= StateKey(type, index, generation);
+			written.state			= PackState(finalState);
+
+			// A push that fails leaves nothing tracked for the resource, which is the same answer a barrier gives when the vector cannot grow: the next barrier
+			// naming it is taken and not checked.
+			Forget(self, written.key);
+			static_cast<void>(detail::TryPushBack(self->recordedStates, written));
 
 			if (ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
 					.type		= type,

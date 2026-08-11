@@ -220,9 +220,17 @@ namespace azo::rhi::d3d12
 		resourceDesc.Layout			  = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		resourceDesc.Flags			  = MapBufferResourceFlags(desc.buffer.usage);
 
+		// The same refusal the committed path makes, for the same reason: only the default heap can hold an acceleration structure.
+		if (desc.buffer.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
+		{
+			return FailValue<BufferHandle>(error,
+				ErrorCode::eInvalidArgument,
+				"an acceleration structure buffer must be placed in a device-local heap, since Direct3D 12 places one only in the default heap");
+		}
+
 		ComPtr<ID3D12Resource> resource;
 		if (FAILED(device->device->CreatePlacedResource(
-				heap.Get(), desc.offset, &resourceDesc, InitialBufferState(heapType), nullptr, IID_PPV_ARGS(resource.GetAddressOf()))))
+				heap.Get(), desc.offset, &resourceDesc, InitialBufferState(heapType, desc.buffer.usage), nullptr, IID_PPV_ARGS(resource.GetAddressOf()))))
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a buffer");
 		}
@@ -233,6 +241,7 @@ namespace azo::rhi::d3d12
 							   .resource	= std::move(resource),
 							   .size		= desc.buffer.size,
 							   .hostVisible = hostVisible,
+							   .heapType	= heapType,
 							   .desc		= detail::Recorded(desc.buffer),
 						   }),
 			error);

@@ -379,6 +379,9 @@ namespace azo::rhi
 	 *
 	 * An empty stage set asks the backend for a conservative set derived from the use. An empty use is legal only as a before state, where it means the
 	 * contents are not preserved, and it is an error as an after state.
+	 *
+	 * A barrier releasing queue ownership is the exception, since the state this queue leaves the resource in is not something the releasing side can answer.
+	 * Both halves of the pair name the state the acquiring queue wants, and the release names none.
 	 */
 	struct ResourceState final
 	{

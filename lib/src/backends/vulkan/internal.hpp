@@ -27,9 +27,10 @@
 #include "azoth/rhi/resources/binding_abi.hpp"
 #include "azoth/rhi/rhi.hpp"
 
+#include "backends/vulkan/barrier_tables.hpp"
+#include "backends/vulkan/layouts.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
 #include "support/driver_version.hpp"
-#include "support/state_expansion.hpp"
 
 #include <vk_mem_alloc.h>
 
@@ -632,6 +633,9 @@ namespace azo::rhi::vulkan
 		// Whether rendering scopes lower onto vkCmdBeginRendering (true) or synthesized render-pass and framebuffer objects (false). Decided at creation from
 		// DeviceDesc::dynamicRendering and adapter support and mirrored in caps.supportsDynamicRendering.
 		bool dynamicRendering = true;
+
+		// VK_KHR_unified_image_layouts enabled, not merely advertised, which is what LayoutForUse needs before it may collapse the table to GENERAL.
+		bool unifiedImageLayouts = false;
 
 		/*
 		 * Which external transports this device enabled, feature tested per extension, not inferred from the platform.
@@ -1283,9 +1287,6 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] detail::HostVector<vk::DynamicState> MapDynamicStates(Flags<DynamicState> states);
 	[[nodiscard]] bool HasStencilAspect(Format format) noexcept;
 	[[nodiscard]] vk::ImageViewType MapImageViewType(TextureViewType type) noexcept;
-	[[nodiscard]] vk::PipelineStageFlags2 MapStages2(Flags<PipelineStage> stages) noexcept;
-	[[nodiscard]] vk::AccessFlags2 MapAccess2(Flags<Access> access) noexcept;
-	[[nodiscard]] vk::ImageLayout MapTextureLayout(TextureLayout layout) noexcept;
 	[[nodiscard]] vk::ImageAspectFlags MapAspect(Flags<TextureAspect> aspects) noexcept;
 	[[nodiscard]] vk::AttachmentLoadOp MapLoadOp(LoadOp op) noexcept;
 	[[nodiscard]] vk::AttachmentStoreOp MapStoreOp(StoreOp op) noexcept;

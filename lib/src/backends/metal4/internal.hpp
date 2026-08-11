@@ -30,7 +30,6 @@
 
 #include "backends/metal_common/conversions.hpp"
 #include "backends/registration.hpp"
-#include "support/state_expansion.hpp"
 
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
@@ -661,14 +660,10 @@ namespace azo::rhi::metal4
 		return list;
 	}
 
-	/// Stages, which this generation names on a barrier where the other one had nothing to name.
-
-	[[nodiscard]] MTL::Stages StagesFor(Flags<PipelineStage> stages) noexcept;
-
 	/// Encoder lifetime. There is no blit encoder here, so copies open the compute one.
 
 	void EndActiveEncoders(CmdList * list) noexcept;
-	[[nodiscard]] MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object) noexcept;
+	[[nodiscard]] MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object, Error * error) noexcept;
 
 	/**
 	 * \brief Makes one of a list's own transients resident.
@@ -886,10 +881,10 @@ namespace azo::rhi::metal4
 	/**
 	 * \brief Builds a Metal 4 device, or refuses one this adapter or this version pin cannot have.
 	 *
-	 * \param refusedReason Set to why Metal 4 could not be provided, and left alone for every other failure, so a caller can tell a refusal from having no
-	 * adapter at all.
+	 * \param refusal Set to why Metal 4 could not be provided, an adapter without the family, a pinned generation or a config block this backend cannot read,
+	 * and left alone for every other failure, so a caller can tell a refusal from having no adapter at all.
 	 */
-	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, const char *& refusedReason);
+	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, Error & refusal);
 	[[nodiscard]] Metal4Instance * MakeOwnedInstance();
 	void Metal4DestroyDevice(void * impl) noexcept;
 	void Metal4DestroyInstance(void * impl) noexcept;

@@ -30,6 +30,7 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/threading.hpp"
+#include "azoth/rhi/native/device_config.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 #include "azoth/rhi/present/swapchain.hpp"
 #include "azoth/rhi/resources/descriptors.hpp"
@@ -454,6 +455,14 @@ namespace azo::rhi
 		 * DeviceCaps back to see which of them you were given.
 		 */
 		std::span<const DeviceFeature> preferredFeatures;
+
+		/**
+		 * \brief Optional backend configuration, at most one block per backend.
+		 *
+		 * The chosen backend reads the entry naming it and ignores every other, so one description can carry configuration for each backend a build might
+		 * select. A backend with no entry here is created on its defaults.
+		 */
+		std::span<const DeviceConfigEntry> backendConfigs;
 
 		const char * debugName = nullptr;
 	};

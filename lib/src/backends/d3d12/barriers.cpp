@@ -20,6 +20,9 @@
 
 namespace azo::rhi::d3d12
 {
+	// Subresource index selecting every one of them, read as an index only when the range asks for no mip levels.
+	constexpr UINT kAllSubresources = 0xffffffffu;
+
 	[[nodiscard]] TextureViewSlot * ResolveTextureView(D3D12Device * device, TextureViewHandle handle) noexcept
 	{
 		return device->textureViewSlots.Resolve(handle, kHandleAlreadyChecked);
@@ -28,324 +31,6 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(D3D12Device * device, QueryPoolHandle handle) noexcept
 	{
 		return device->queryPoolSlots.Resolve(handle, kHandleAlreadyChecked);
-	}
-
-	// Maps a texture layout onto the D3D12 states a barrier transitions to. ePresent is the common state, as the swapchain requires.
-	[[nodiscard]] D3D12_RESOURCE_STATES MapTextureStates(TextureLayout layout) noexcept
-	{
-		switch (layout)
-		{
-		case TextureLayout::eUndefined:				 return D3D12_RESOURCE_STATE_COMMON;
-		case TextureLayout::eGeneral:				 return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-		case TextureLayout::eColorAttachment:		 return D3D12_RESOURCE_STATE_RENDER_TARGET;
-		case TextureLayout::eDepthStencilAttachment: return D3D12_RESOURCE_STATE_DEPTH_WRITE;
-		case TextureLayout::eDepthStencilReadOnly:	 return D3D12_RESOURCE_STATE_DEPTH_READ;
-		case TextureLayout::eShaderReadOnly:		 return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-		case TextureLayout::eCopySrc:				 return D3D12_RESOURCE_STATE_COPY_SOURCE;
-		case TextureLayout::eCopyDst:				 return D3D12_RESOURCE_STATE_COPY_DEST;
-		case TextureLayout::eResolveSrc:			 return D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
-		case TextureLayout::eResolveDst:			 return D3D12_RESOURCE_STATE_RESOLVE_DEST;
-		case TextureLayout::ePresent:				 return D3D12_RESOURCE_STATE_PRESENT;
-		}
-		return D3D12_RESOURCE_STATE_COMMON;
-	}
-
-	// A write access resolves to UNORDERED_ACCESS, which cannot combine with read states so reads fold in only when no write was asked for.
-	[[nodiscard]] D3D12_RESOURCE_STATES MapBufferStates(Flags<Access> access) noexcept
-	{
-		if (access.Contains(Access::eShaderWrite))
-		{
-			return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-		}
-
-		D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
-		if (access.Contains(Access::eIndirectRead))
-		{
-			states |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-		}
-		if (access.Contains(Access::eVertexRead) || access.Contains(Access::eConstantRead))
-		{
-			states |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_INDEX_BUFFER;
-		}
-		if (access.Contains(Access::eShaderRead))
-		{
-			states |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-		}
-		if (access.Contains(Access::eCopyRead))
-		{
-			states |= D3D12_RESOURCE_STATE_COPY_SOURCE;
-		}
-		if (access.Contains(Access::eCopyWrite))
-		{
-			states |= D3D12_RESOURCE_STATE_COPY_DEST;
-		}
-		return states;
-	}
-
-	[[nodiscard]] D3D12_BARRIER_SYNC DeriveBarrierSync(Flags<ResourceUse> use) noexcept
-	{
-		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
-
-		if (use.Contains(ResourceUse::eIndirectArgs))
-		{
-			sync |= D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
-		}
-		if (use.Contains(ResourceUse::eVertexBuffer) || use.Contains(ResourceUse::eIndexBuffer))
-		{
-			sync |= D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT;
-		}
-		if (use.Contains(ResourceUse::eUniformRead) || use.Contains(ResourceUse::eSampledRead) || use.Contains(ResourceUse::eStorageRead) ||
-			use.Contains(ResourceUse::eStorageWrite))
-		{
-			sync |= D3D12_BARRIER_SYNC_ALL_SHADING;
-		}
-		if (use.Contains(ResourceUse::eColorTarget))
-		{
-			sync |= D3D12_BARRIER_SYNC_RENDER_TARGET;
-		}
-		if (use.Contains(ResourceUse::eDepthStencilTarget) || use.Contains(ResourceUse::eDepthStencilRead))
-		{
-			sync |= D3D12_BARRIER_SYNC_DEPTH_STENCIL;
-		}
-		if (use.Contains(ResourceUse::eCopySrc) || use.Contains(ResourceUse::eCopyDst))
-		{
-			sync |= D3D12_BARRIER_SYNC_COPY;
-		}
-		if (use.Contains(ResourceUse::eResolveSrc) || use.Contains(ResourceUse::eResolveDst))
-		{
-			sync |= D3D12_BARRIER_SYNC_RESOLVE;
-		}
-		if (use.Contains(ResourceUse::eAccelBuildInput) || use.Contains(ResourceUse::eAccelWrite))
-		{
-			sync |= D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
-		}
-		if (use.Contains(ResourceUse::eAccelRead))
-		{
-			sync |= D3D12_BARRIER_SYNC_RAYTRACING | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
-		}
-
-		return sync == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : sync;
-	}
-
-	[[nodiscard]] D3D12_BARRIER_SYNC MapBarrierSync(Flags<Stage> stages, Flags<ResourceUse> use) noexcept
-	{
-		if (stages.Empty())
-		{
-			return DeriveBarrierSync(use);
-		}
-
-		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
-
-		if (stages.Contains(Stage::eIndirectFetch))
-		{
-			sync |= D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
-		}
-		if (stages.Contains(Stage::eVertexWork))
-		{
-			sync |= D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT;
-		}
-		if (stages.Contains(Stage::eFragmentShading))
-		{
-			sync |= D3D12_BARRIER_SYNC_PIXEL_SHADING;
-		}
-		if (stages.Contains(Stage::eDepthStencil))
-		{
-			sync |= D3D12_BARRIER_SYNC_DEPTH_STENCIL;
-		}
-		if (stages.Contains(Stage::eColorOutput))
-		{
-			sync |= D3D12_BARRIER_SYNC_RENDER_TARGET;
-		}
-		if (stages.Contains(Stage::eCompute))
-		{
-			sync |= D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-		}
-		if (stages.Contains(Stage::eCopy))
-		{
-			sync |= D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
-		}
-		if (stages.Contains(Stage::eResolve))
-		{
-			sync |= D3D12_BARRIER_SYNC_RESOLVE;
-		}
-		if (stages.Contains(Stage::eRayTracing))
-		{
-			sync |= D3D12_BARRIER_SYNC_RAYTRACING;
-		}
-		if (stages.Contains(Stage::eAccelBuild))
-		{
-			sync |= D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-					D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
-		}
-		if (stages.Contains(Stage::eAllGraphics))
-		{
-			sync |= D3D12_BARRIER_SYNC_DRAW;
-		}
-		if (stages.Contains(Stage::eAllCommands))
-		{
-			sync |= D3D12_BARRIER_SYNC_ALL;
-		}
-
-		return sync == D3D12_BARRIER_SYNC_NONE ? DeriveBarrierSync(use) : sync;
-	}
-
-	[[nodiscard]] D3D12_BARRIER_ACCESS MapBarrierAccess(Flags<ResourceUse> use) noexcept
-	{
-		if (use.Contains(ResourceUse::eDiscard))
-		{
-			return D3D12_BARRIER_ACCESS_NO_ACCESS;
-		}
-
-		D3D12_BARRIER_ACCESS access = D3D12_BARRIER_ACCESS_COMMON;
-
-		if (use.Contains(ResourceUse::eIndirectArgs))
-		{
-			access |= D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT;
-		}
-		if (use.Contains(ResourceUse::eVertexBuffer))
-		{
-			access |= D3D12_BARRIER_ACCESS_VERTEX_BUFFER;
-		}
-		if (use.Contains(ResourceUse::eIndexBuffer))
-		{
-			access |= D3D12_BARRIER_ACCESS_INDEX_BUFFER;
-		}
-		if (use.Contains(ResourceUse::eUniformRead))
-		{
-			access |= D3D12_BARRIER_ACCESS_CONSTANT_BUFFER;
-		}
-		if (use.Contains(ResourceUse::eSampledRead))
-		{
-			access |= D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
-		}
-		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
-		{
-			access |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
-		}
-		if (use.Contains(ResourceUse::eColorTarget))
-		{
-			access |= D3D12_BARRIER_ACCESS_RENDER_TARGET;
-		}
-		if (use.Contains(ResourceUse::eDepthStencilTarget))
-		{
-			access |= D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE;
-		}
-		if (use.Contains(ResourceUse::eDepthStencilRead))
-		{
-			access |= D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ;
-		}
-		if (use.Contains(ResourceUse::eCopySrc))
-		{
-			access |= D3D12_BARRIER_ACCESS_COPY_SOURCE;
-		}
-		if (use.Contains(ResourceUse::eCopyDst))
-		{
-			access |= D3D12_BARRIER_ACCESS_COPY_DEST;
-		}
-		if (use.Contains(ResourceUse::eResolveSrc))
-		{
-			access |= D3D12_BARRIER_ACCESS_RESOLVE_SOURCE;
-		}
-		if (use.Contains(ResourceUse::eResolveDst))
-		{
-			access |= D3D12_BARRIER_ACCESS_RESOLVE_DEST;
-		}
-		// Build inputs are ordinary geometry buffers read as shader resources. The acceleration structure access below is for reading a built structure.
-		if (use.Contains(ResourceUse::eAccelBuildInput))
-		{
-			access |= D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
-		}
-		if (use.Contains(ResourceUse::eAccelRead))
-		{
-			access |= D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ;
-		}
-		if (use.Contains(ResourceUse::eAccelWrite))
-		{
-			access |= D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE;
-		}
-
-		return access;
-	}
-
-	[[nodiscard]] D3D12_BARRIER_LAYOUT MapBarrierLayout(Flags<ResourceUse> use, QueueType queue) noexcept
-	{
-		if (use.Contains(ResourceUse::eDiscard))
-		{
-			return D3D12_BARRIER_LAYOUT_UNDEFINED;
-		}
-		if (queue == QueueType::eCopy)
-		{
-			return D3D12_BARRIER_LAYOUT_COMMON;
-		}
-		if (use.Contains(ResourceUse::ePresent))
-		{
-			return D3D12_BARRIER_LAYOUT_PRESENT;
-		}
-		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
-		{
-			return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
-		}
-		if (use.Contains(ResourceUse::eDepthStencilRead) && use.Contains(ResourceUse::eSampledRead))
-		{
-			return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
-		}
-
-		D3D12_BARRIER_LAYOUT chosen = D3D12_BARRIER_LAYOUT_COMMON;
-		int distinct				= 0;
-		bool write					= false;
-
-		if (use.Contains(ResourceUse::eColorTarget))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_RENDER_TARGET;
-			write  = true;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eDepthStencilTarget))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
-			write  = true;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eDepthStencilRead))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eSampledRead))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eCopySrc))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_COPY_SOURCE;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eCopyDst))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_COPY_DEST;
-			write  = true;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eResolveSrc))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE;
-			++distinct;
-		}
-		if (use.Contains(ResourceUse::eResolveDst))
-		{
-			chosen = D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
-			write  = true;
-			++distinct;
-		}
-
-		if (distinct <= 1)
-		{
-			return chosen;
-		}
-
-		// GENERIC_READ is read only, so a combination naming a write answers COMMON, which is legal against any access. Validation rejects the pairing upstream.
-		return write ? D3D12_BARRIER_LAYOUT_COMMON : D3D12_BARRIER_LAYOUT_GENERIC_READ;
 	}
 
 	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept
@@ -431,6 +116,10 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createQueryPool");
 
 		auto * device = static_cast<D3D12Device *>(impl);
+		if (desc.queryCount == 0)
+		{
+			return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+		}
 
 		D3D12_QUERY_HEAP_DESC heapDesc{};
 		heapDesc.Type  = MapQueryHeapType(desc.type);
@@ -466,21 +155,29 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
+	// Every recorded barrier becomes a native one. Naming the same state on both sides is an ordering barrier here, not something to drop.
 	bool D3D12CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
-		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		D3D12Device * device = list->owner;
+		auto * list			  = static_cast<D3D12CommandList *>(impl);
+		D3D12Device * device  = list->owner;
+		const QueueType queue = list->queueType;
 
-		detail::HostVector<D3D12_RESOURCE_BARRIER> native;
-		native.reserve(barriers.memory.size() + barriers.buffers.size() + barriers.textures.size());
+		detail::HostVector<D3D12_GLOBAL_BARRIER> globals;
+		detail::HostVector<D3D12_BUFFER_BARRIER> buffers;
+		detail::HostVector<D3D12_TEXTURE_BARRIER> textures;
+		globals.reserve(barriers.memory.size());
+		buffers.reserve(barriers.buffers.size());
+		textures.reserve(barriers.textures.size());
 
-		// A memory barrier lowers to a global UAV barrier, which orders read/write hazards on unordered access.
-		for (std::size_t i = 0; i < barriers.memory.size(); ++i)
+		// Deduced, not named: winnt.h takes MemoryBarrier for its own macro, so spelling the type here expands to a store fence intrinsic.
+		for (const auto & m : barriers.memory)
 		{
-			D3D12_RESOURCE_BARRIER barrier{};
-			barrier.Type		  = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-			barrier.UAV.pResource = nullptr;
-			native.push_back(barrier);
+			globals.push_back(D3D12_GLOBAL_BARRIER{
+				.SyncBefore	  = MapBarrierSync(m.before.stages, m.before.use, queue),
+				.SyncAfter	  = MapBarrierSync(m.after.stages, m.after.use, queue),
+				.AccessBefore = MapBarrierAccess(m.before.use, queue),
+				.AccessAfter  = MapBarrierAccess(m.after.use, queue),
+			});
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
@@ -490,28 +187,27 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
-			const D3D12_RESOURCE_STATES before = MapBufferStates(ExpandAccess(b.before.use));
-			const D3D12_RESOURCE_STATES after  = MapBufferStates(ExpandAccess(b.after.use));
-			if (before == after)
+
+			const D3D12_BARRIER_ACCESS accessBefore = ClampAccessToHeap(MapBarrierAccess(b.before.use, queue), slot->heapType);
+			const D3D12_BARRIER_ACCESS accessAfter	= ClampAccessToHeap(MapBarrierAccess(b.after.use, queue), slot->heapType);
+
+			// Refused rather than clamped: recording this one costs the device, so a caller who names the wrong use has to hear about it instead of losing it.
+			if (slot->desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) &&
+				(!AccessLegalOnAccelerationStructure(accessBefore) || !AccessLegalOnAccelerationStructure(accessAfter)))
 			{
-				// A same state transition is a no-op except in UNORDERED_ACCESS, where a UAV barrier still orders the hazard: the legacy state model cannot tell
-				// shader-read from shader-write so dropping it loses what Vulkan catches through access masks.
-				if (before == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-				{
-					D3D12_RESOURCE_BARRIER uavBarrier{};
-					uavBarrier.Type			 = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-					uavBarrier.UAV.pResource = slot->resource.Get();
-					native.push_back(uavBarrier);
-				}
-				continue;
+				return Fail(error, ErrorCode::eInvalidArgument, "a barrier on an acceleration structure buffer named a use it can never be in");
 			}
-			D3D12_RESOURCE_BARRIER barrier{};
-			barrier.Type				   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrier.Transition.pResource   = slot->resource.Get();
-			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			barrier.Transition.StateBefore = before;
-			barrier.Transition.StateAfter  = after;
-			native.push_back(barrier);
+
+			// offset and size are deliberately not read: a buffer barrier covers the whole resource, and the API takes only zero and the whole size.
+			buffers.push_back(D3D12_BUFFER_BARRIER{
+				.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
+				.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
+				.AccessBefore = accessBefore,
+				.AccessAfter  = accessAfter,
+				.pResource	  = slot->resource.Get(),
+				.Offset		  = 0,
+				.Size		  = std::numeric_limits<UINT64>::max(),
+			});
 		}
 
 		for (const TextureBarrier & t : barriers.textures)
@@ -521,117 +217,166 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
-			const D3D12_RESOURCE_STATES before = MapTextureStates(ExpandLayout(t.before.use));
-			const D3D12_RESOURCE_STATES after  = MapTextureStates(ExpandLayout(t.after.use));
-			if (before == after)
-			{
-				// Same as above for layouts: a storage image written then read across passes stays in eGeneral so only the access mask differs. Emit a per-resource UAV
-				// barrier, not drop the hazard. Every storage-texture use lands here.
-				if (before == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-				{
-					D3D12_RESOURCE_BARRIER uavBarrier{};
-					uavBarrier.Type			 = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-					uavBarrier.UAV.pResource = slot->resource.Get();
-					native.push_back(uavBarrier);
-				}
-				continue;
-			}
 
-			/*
-			 * Resolve the count sentinels against what the texture actually has before looping on them.
-			 *
-			 * The whole-resource test below only catches a range starting at zero so a barrier on one face of a cube with mipCount left at kAllMips took the
-			 * per-subresource path with a count of 0xFFFFFFFF and pushed 32-byte barriers until it ran out of memory.
-			 */
 			const detail::ResolvedSubresourceRange range = detail::ResolveSubresourceRange(t.range, slot->mipLevels, slot->arrayLayers);
 			if (range.IsEmpty())
 			{
 				continue;
 			}
 
-			if (detail::CoversWholeTexture(range, slot->mipLevels, slot->arrayLayers))
+			const bool whole = detail::CoversWholeTexture(range, slot->mipLevels, slot->arrayLayers);
+
+			// Leaving the mip count at zero reads the first field as a subresource index, and that index means every subresource.
+			D3D12_BARRIER_SUBRESOURCE_RANGE subresources{ .IndexOrFirstMipLevel = kAllSubresources };
+			if (!whole)
 			{
-				D3D12_RESOURCE_BARRIER barrier{};
-				barrier.Type				   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				barrier.Transition.pResource   = slot->resource.Get();
-				barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				barrier.Transition.StateBefore = before;
-				barrier.Transition.StateAfter  = after;
-				native.push_back(barrier);
+				// One plane, matching what the legacy path indexed. A partial range over a depth-stencil texture therefore leaves the stencil plane alone.
+				subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{
+					.IndexOrFirstMipLevel = range.baseMip,
+					.NumMipLevels		  = range.mipCount,
+					.FirstArraySlice	  = range.baseLayer,
+					.NumArraySlices		  = range.layerCount,
+					.FirstPlane			  = 0,
+					.NumPlanes			  = 1,
+				};
 			}
-			else
-			{
-				for (std::uint32_t layer = 0; layer < range.layerCount; ++layer)
-				{
-					for (std::uint32_t mip = 0; mip < range.mipCount; ++mip)
-					{
-						D3D12_RESOURCE_BARRIER barrier{};
-						barrier.Type				   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-						barrier.Transition.pResource   = slot->resource.Get();
-						barrier.Transition.Subresource = (range.baseMip + mip) + (range.baseLayer + layer) * slot->mipLevels;
-						barrier.Transition.StateBefore = before;
-						barrier.Transition.StateAfter  = after;
-						native.push_back(barrier);
-					}
-				}
-			}
+
+			const D3D12_BARRIER_LAYOUT before = MapBarrierLayout(t.before.use, queue);
+			textures.push_back(D3D12_TEXTURE_BARRIER{
+				.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
+				.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
+				.AccessBefore = MapBarrierAccess(t.before.use, queue),
+				.AccessAfter  = MapBarrierAccess(t.after.use, queue),
+				.LayoutBefore = before,
+				.LayoutAfter  = MapBarrierLayout(t.after.use, queue),
+				.pResource	  = slot->resource.Get(),
+				.Subresources = subresources,
+				.Flags		  = TextureBarrierFlags(before),
+			});
 		}
 
-		if (!native.empty())
+		std::array<D3D12_BARRIER_GROUP, 3> groups{};
+		UINT32 groupCount = 0;
+		if (!globals.empty())
 		{
-			list->list->ResourceBarrier(static_cast<UINT>(native.size()), native.data());
+			groups[groupCount].Type			   = D3D12_BARRIER_TYPE_GLOBAL;
+			groups[groupCount].NumBarriers	   = static_cast<UINT32>(globals.size());
+			groups[groupCount].pGlobalBarriers = globals.data();
+			++groupCount;
+		}
+		if (!buffers.empty())
+		{
+			groups[groupCount].Type			   = D3D12_BARRIER_TYPE_BUFFER;
+			groups[groupCount].NumBarriers	   = static_cast<UINT32>(buffers.size());
+			groups[groupCount].pBufferBarriers = buffers.data();
+			++groupCount;
+		}
+		if (!textures.empty())
+		{
+			groups[groupCount].Type				= D3D12_BARRIER_TYPE_TEXTURE;
+			groups[groupCount].NumBarriers		= static_cast<UINT32>(textures.size());
+			groups[groupCount].pTextureBarriers = textures.data();
+			++groupCount;
+		}
+
+		if (groupCount != 0)
+		{
+			list->list7->Barrier(groupCount, groups.data());
 		}
 		return Succeed(error);
 	}
 
+	// Nothing in the enhanced model answers the legacy aliasing barrier, so the batch is built from the two things that barrier stood for.
 	bool D3D12CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
-		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		D3D12Device * device = list->owner;
+		auto * list			  = static_cast<D3D12CommandList *>(impl);
+		D3D12Device * device  = list->owner;
+		const QueueType queue = list->queueType;
 
-		detail::HostVector<D3D12_RESOURCE_BARRIER> native;
-		native.reserve(barriers.size());
+		if (barriers.empty())
+		{
+			return Succeed(error);
+		}
+
+		detail::HostVector<D3D12_TEXTURE_BARRIER> textures;
+		textures.reserve(barriers.size());
+
 		for (const AliasBarrier & alias : barriers)
 		{
-			D3D12_RESOURCE_BARRIER barrier{};
-			barrier.Type					 = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
-			barrier.Aliasing.pResourceBefore = nullptr;
-			barrier.Aliasing.pResourceAfter	 = nullptr;
+			// The outgoing half raises no barrier of its own, the global one below having flushed it. Resolved regardless so a stale handle is still refused.
 			if (alias.beforeBuffer.IsValid())
 			{
-				if (BufferSlot * slot = ResolveBuffer(device, alias.beforeBuffer); slot != nullptr)
+				if (ResolveBuffer(device, alias.beforeBuffer) == nullptr)
 				{
-					barrier.Aliasing.pResourceBefore = slot->resource.Get();
+					return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid buffer handle");
 				}
 			}
 			else if (alias.beforeTexture.IsValid())
 			{
-				if (TextureSlot * slot = ResolveTexture(device, alias.beforeTexture); slot != nullptr)
+				if (ResolveTexture(device, alias.beforeTexture) == nullptr)
 				{
-					barrier.Aliasing.pResourceBefore = slot->resource.Get();
+					return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
 				}
 			}
+
+			// An incoming buffer has no layout and no metadata, so the global barrier is all of it. An absent discard flag is D3D12's asymmetry, not a gap.
 			if (alias.afterBuffer.IsValid())
 			{
-				if (BufferSlot * slot = ResolveBuffer(device, alias.afterBuffer); slot != nullptr)
+				if (ResolveBuffer(device, alias.afterBuffer) == nullptr)
 				{
-					barrier.Aliasing.pResourceAfter = slot->resource.Get();
+					return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid buffer handle");
 				}
+				continue;
 			}
-			else if (alias.afterTexture.IsValid())
+			if (!alias.afterTexture.IsValid())
 			{
-				if (TextureSlot * slot = ResolveTexture(device, alias.afterTexture); slot != nullptr)
-				{
-					barrier.Aliasing.pResourceAfter = slot->resource.Get();
-				}
+				continue;
 			}
-			native.push_back(barrier);
+
+			TextureSlot * slot = ResolveTexture(device, alias.afterTexture);
+			if (slot == nullptr)
+			{
+				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
+			}
+
+			// Both layouts come from the table so the copy queue's answer stays in one place rather than being written out a second time here.
+			const D3D12_BARRIER_LAYOUT before = MapBarrierLayout(ResourceUse::eDiscard, queue);
+			textures.push_back(D3D12_TEXTURE_BARRIER{
+				.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
+				.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
+				.AccessBefore = D3D12_BARRIER_ACCESS_NO_ACCESS,
+				.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON,
+				.LayoutBefore = before,
+				.LayoutAfter  = MapBarrierLayout(ResourceUse::eNone, queue),
+				.pResource	  = slot->resource.Get(),
+				.Subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{ .IndexOrFirstMipLevel = kAllSubresources },
+				.Flags		  = TextureBarrierFlags(before),
+			});
 		}
 
-		if (!native.empty())
+		// One for the batch, not per pair: an alias barrier orders heap memory, which no resource over it names. The full flush is the point here, not a cost.
+		const D3D12_GLOBAL_BARRIER global{
+			.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
+			.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
+			.AccessBefore = D3D12_BARRIER_ACCESS_COMMON,
+			.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON,
+		};
+
+		std::array<D3D12_BARRIER_GROUP, 2> groups{};
+		UINT32 groupCount				   = 0;
+		groups[groupCount].Type			   = D3D12_BARRIER_TYPE_GLOBAL;
+		groups[groupCount].NumBarriers	   = 1;
+		groups[groupCount].pGlobalBarriers = &global;
+		++groupCount;
+		if (!textures.empty())
 		{
-			list->list->ResourceBarrier(static_cast<UINT>(native.size()), native.data());
+			groups[groupCount].Type				= D3D12_BARRIER_TYPE_TEXTURE;
+			groups[groupCount].NumBarriers		= static_cast<UINT32>(textures.size());
+			groups[groupCount].pTextureBarriers = textures.data();
+			++groupCount;
 		}
+
+		list->list7->Barrier(groupCount, groups.data());
 		return Succeed(error);
 	}
 

@@ -22,58 +22,150 @@ namespace azo::rhi::metal4
 	 * Coarser on this side than on Vulkan's, because Metal names the stages an encoder runs in and not the finer graph a Vulkan barrier can address. Anything
 	 * with no distinct Metal stage folds into the nearest one that contains it, which widens a barrier instead of narrowing it, and a barrier that waits for
 	 * more than it had to is slow where one that waits for less is wrong.
+	 *
+	 * Constexpr so the rows below can be pinned by a compile. Nothing outside this file calls it.
 	 */
-	MTL::Stages StagesFor(const Flags<PipelineStage> stages) noexcept
+	constexpr MTL::Stages StagesFor(const Flags<Stage> stages) noexcept
 	{
-		if (stages.Contains(PipelineStage::eAllCommands) || stages.Contains(PipelineStage::eAllGraphics))
+		if (stages.Contains(Stage::eAllCommands) || stages.Contains(Stage::eAllGraphics))
 		{
 			return MTL::StageAll;
 		}
 
 		NS::UInteger out = 0;
 
-		if (stages.Contains(PipelineStage::eVertexShader) || stages.Contains(PipelineStage::eVertexInput) || stages.Contains(PipelineStage::eDrawIndirect) ||
-			stages.Contains(PipelineStage::eTessellationControlShader) || stages.Contains(PipelineStage::eTessellationEvaluationShader) ||
-			stages.Contains(PipelineStage::eGeometryShader))
+		// Metal names no stage that fetches indirect arguments, and a barrier cannot tell a draw's fetch from a dispatch's, so eIndirectFetch names both.
+		if (stages.Contains(Stage::eVertexWork) || stages.Contains(Stage::eIndirectFetch))
 		{
 			out |= MTL::StageVertex;
 		}
 
-		// Depth and stencil testing happen inside the fragment stage here, having no encoder stage of their own.
-		if (stages.Contains(PipelineStage::eFragmentShader) || stages.Contains(PipelineStage::eColorOutput) ||
-			stages.Contains(PipelineStage::eEarlyFragmentTests) || stages.Contains(PipelineStage::eLateFragmentTests))
-		{
-			out |= MTL::StageFragment;
-		}
-
-		if (stages.Contains(PipelineStage::eComputeShader))
+		if (stages.Contains(Stage::eCompute) || stages.Contains(Stage::eIndirectFetch))
 		{
 			out |= MTL::StageDispatch;
 		}
 
+		// Depth and stencil testing and colour output happen inside the fragment stage here, having no encoder stage of their own.
+		if (stages.Contains(Stage::eFragmentShading) || stages.Contains(Stage::eDepthStencil) || stages.Contains(Stage::eColorOutput))
+		{
+			out |= MTL::StageFragment;
+		}
+
 		// Copies and buffer clears record on the compute encoder, which Metal still counts as the blit stage and not as dispatch.
-		if (stages.Contains(PipelineStage::eCopy) || stages.Contains(PipelineStage::eClear))
+		if (stages.Contains(Stage::eCopy))
 		{
 			out |= MTL::StageBlit;
 		}
 
 		// A texture clear is a clear load action and a resolve is a multisample-resolve store action, so both are render pass work rather than blit work.
-		if (stages.Contains(PipelineStage::eClear) || stages.Contains(PipelineStage::eResolve))
+		if (stages.Contains(Stage::eCopy) || stages.Contains(Stage::eResolve))
 		{
 			out |= MTL::StageFragment;
 		}
 
-		if (stages.Contains(PipelineStage::eAccelerationStructureBuild))
+		if (stages.Contains(Stage::eAccelBuild))
 		{
 			out |= MTL::StageAccelerationStructure;
 		}
 
-		// eHost is not a GPU stage. A barrier naming only it has nothing to order here, and StageAll is the answer that cannot be wrong.
+		// Metal names no tracing stage, so tracing is whichever shader traces, and vertex, fragment and compute pipelines each link an intersection function
+		// table. StageAccelerationStructure covers operations on a structure, which is what eAccelBuild names, so a trace never reaches it. Tile goes with
+		// object and mesh, since nothing here builds a pipeline that runs them.
+		if (stages.Contains(Stage::eRayTracing))
+		{
+			out |= MTL::StageVertex | MTL::StageFragment | MTL::StageDispatch;
+		}
+
+		// eHost is not a GPU stage, so a barrier naming only it has nothing to order and StageAll cannot be wrong. Zero is not an option either: PlaceBarrier
+		// stores this mask when no encoder is open, and FlushPending reads a zero consumer as nothing pending.
 		return out != 0 ? static_cast<MTL::Stages>(out) : MTL::StageAll;
 	}
 
 	namespace
 	{
+		/*
+		 * The stages a barrier side names, taken from the caller's own set or derived from the use when it left one out.
+		 *
+		 * A use that reaches no memory access derives nothing rather than everything. Present and discard are the whole of that set, and deriving there would
+		 * cost a full-pipeline barrier on the per-frame path for an edge that orders no access on either side.
+		 */
+		[[nodiscard]] constexpr Flags<Stage> StagesOf(const ResourceState & state) noexcept
+		{
+			if (!state.stages.Empty())
+			{
+				return state.stages;
+			}
+
+			Flags<Stage> out{};
+
+			if (state.use.Contains(ResourceUse::eIndirectArgs))
+			{
+				out |= Stage::eIndirectFetch;
+			}
+			if (state.use.Contains(ResourceUse::eVertexBuffer) || state.use.Contains(ResourceUse::eIndexBuffer))
+			{
+				out |= Stage::eVertexWork;
+			}
+
+			// A shader binding names no stage of its own, so any encoder could be the one that reads it.
+			if (state.use.Contains(ResourceUse::eUniformRead) || state.use.Contains(ResourceUse::eSampledRead) ||
+				state.use.Contains(ResourceUse::eStorageRead) || state.use.Contains(ResourceUse::eStorageWrite))
+			{
+				out |= Stage::eAllCommands;
+			}
+
+			if (state.use.Contains(ResourceUse::eColorTarget))
+			{
+				out |= Stage::eColorOutput;
+			}
+			if (state.use.Contains(ResourceUse::eDepthStencilTarget) || state.use.Contains(ResourceUse::eDepthStencilRead))
+			{
+				out |= Stage::eDepthStencil;
+			}
+			if (state.use.Contains(ResourceUse::eCopySrc) || state.use.Contains(ResourceUse::eCopyDst))
+			{
+				out |= Stage::eCopy;
+			}
+			if (state.use.Contains(ResourceUse::eResolveSrc) || state.use.Contains(ResourceUse::eResolveDst))
+			{
+				out |= Stage::eResolve;
+			}
+			if (state.use.Contains(ResourceUse::eHostRead) || state.use.Contains(ResourceUse::eHostWrite))
+			{
+				out |= Stage::eHost;
+			}
+			if (state.use.Contains(ResourceUse::eAccelBuildInput) || state.use.Contains(ResourceUse::eAccelWrite))
+			{
+				out |= Stage::eAccelBuild;
+			}
+			if (state.use.Contains(ResourceUse::eAccelRead))
+			{
+				out |= Flags<Stage>(Stage::eAccelBuild) | Stage::eRayTracing;
+			}
+
+			return out;
+		}
+
+		/*
+		 * The rows above that were shipped wrong once, pinned by a compile so a later edit cannot undo them in silence.
+		 *
+		 * No backend exposes a stage mask, so none of these can be asserted from a test. A constexpr assert is checked wherever this file compiles, which is the
+		 * same instrument the Vulkan layout table and the D3D12 barrier tables are held to.
+		 */
+		static_assert(StagesFor(Stage::eIndirectFetch) == static_cast<MTL::Stages>(MTL::StageVertex | MTL::StageDispatch),
+			"an indirect dispatch fetches its arguments on the dispatch stage, so naming vertex alone leaves the fetch unordered against the write that filled "
+			"the argument buffer");
+
+		static_assert(StagesFor(StagesOf(ResourceState{ .use = ResourceUse::eAccelRead })) ==
+						  static_cast<MTL::Stages>(MTL::StageAccelerationStructure | MTL::StageVertex | MTL::StageFragment | MTL::StageDispatch),
+			"reading an acceleration structure happens in the shaders that trace as well as in a refit, so the build stage alone never orders the trace");
+
+		static_assert((static_cast<NS::UInteger>(StagesFor(Stage::eRayTracing)) & MTL::StageAccelerationStructure) == 0,
+			"Apple's acceleration structure stage is where a build runs and not where a tracing shader runs, which is what eAccelBuild names instead");
+
+		static_assert(StagesFor(Flags<Stage>{}) == MTL::StageAll,
+			"an empty mask has to widen to everything, since PlaceBarrier holds this value and FlushPending reads a zero consumer as nothing pending");
+
 		/*
 		 * What each encoder kind runs, and what an intra-pass barrier inside it may wait for.
 		 *
@@ -207,12 +299,12 @@ namespace azo::rhi::metal4
 	 * them costs an encoder. Here they are the same encoder, so a run of copies and dispatches records into one and the only thing that closes it is a
 	 * rendering scope or the end of the list.
 	 */
-	MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object) noexcept
+	MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object, Error * error) noexcept
 	{
 		CmdList * list = RecordingListOf(object);
 		if (list == nullptr)
 		{
-			return nullptr;
+			return FailValue<MTL4::ComputeCommandEncoder *>(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
 		if (list->computeEncoder.get() != nullptr)
@@ -220,17 +312,18 @@ namespace azo::rhi::metal4
 			return list->computeEncoder.get();
 		}
 
-		// A rendering scope and a compute scope cannot both be open, so opening this closes that.
+		// A rendering scope and a compute scope cannot both be open, and ending the caller's pass to open this one is a different operation from the one asked
+		// for, so it is refused instead. Every transfer and dispatch funnels through here, which is why one check covers them all.
 		if (list->renderEncoder.get() != nullptr)
 		{
-			list->renderEncoder->endEncoding();
-			list->renderEncoder.reset();
+			return FailValue<MTL4::ComputeCommandEncoder *>(
+				error, ErrorCode::eInvalidState, "a transfer or compute command cannot be recorded inside a rendering scope, so record it between passes");
 		}
 
 		MTL4::ComputeCommandEncoder * encoder = list->commandBuffer->computeCommandEncoder();
 		if (encoder == nullptr)
 		{
-			return nullptr;
+			return FailValue<MTL4::ComputeCommandEncoder *>(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
 		}
 
 		encoder->setArgumentTable(list->argumentTable.get());
@@ -422,23 +515,23 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
 
-		Flags<PipelineStage> before;
-		Flags<PipelineStage> after;
+		Flags<Stage> before;
+		Flags<Stage> after;
 
 		for (const BufferBarrier & barrier : barriers.buffers)
 		{
-			before |= Expand(barrier.before).stages;
-			after |= Expand(barrier.after).stages;
+			before |= StagesOf(barrier.before);
+			after |= StagesOf(barrier.after);
 		}
 		for (const TextureBarrier & barrier : barriers.textures)
 		{
-			before |= Expand(barrier.before).stages;
-			after |= Expand(barrier.after).stages;
+			before |= StagesOf(barrier.before);
+			after |= StagesOf(barrier.after);
 		}
 		for (const MemoryBarrier & barrier : barriers.memory)
 		{
-			before |= Expand(barrier.before).stages;
-			after |= Expand(barrier.after).stages;
+			before |= StagesOf(barrier.before);
+			after |= StagesOf(barrier.after);
 		}
 
 		if (before.Empty() && after.Empty())
@@ -458,6 +551,9 @@ namespace azo::rhi::metal4
 	 *
 	 * So no encoder closes here. The barrier names every stage on both sides because an AliasBarrier carries resources rather than stages, and either resource
 	 * may have been touched by any kind of work.
+	 *
+	 * A rendering scope is refused, matching the other generation. Placed inside a pass the intra-encoder half drops fragment from the producer side under the
+	 * constraint above, so the rest of that pass would not be ordered against fragment work already in it and the call would be half honoured in silence.
 	 */
 	bool Metal4CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
@@ -472,6 +568,24 @@ namespace azo::rhi::metal4
 		if (barriers.empty())
 		{
 			return Succeed(error);
+		}
+		if (list->renderEncoder.get() != nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
+		}
+
+		// Checked resolves, unlike everywhere else in this backend. With validation off nothing in front of this looks at a handle at all, and the barrier below
+		// would be placed for a resource the device has already taken back.
+		Metal4Device * device = object->owner;
+		for (const AliasBarrier & barrier : barriers)
+		{
+			if ((barrier.beforeBuffer.IsValid() && device->buffers.Resolve(barrier.beforeBuffer, true) == nullptr) ||
+				(barrier.afterBuffer.IsValid() && device->buffers.Resolve(barrier.afterBuffer, true) == nullptr) ||
+				(barrier.beforeTexture.IsValid() && device->textures.Resolve(barrier.beforeTexture, true) == nullptr) ||
+				(barrier.afterTexture.IsValid() && device->textures.Resolve(barrier.afterTexture, true) == nullptr))
+			{
+				return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
+			}
 		}
 
 		constexpr auto visibility = static_cast<MTL4::VisibilityOptions>(MTL4::VisibilityOptionDevice | MTL4::VisibilityOptionResourceAlias);
@@ -573,10 +687,10 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "setComputePipeline names a pipeline this device never created");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		// The same MTLComputePipelineState the other generation builds. Pipelines did not fork.
@@ -636,10 +750,10 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "copyBuffer names a buffer this device never created");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		encoder->copyFromBuffer(source, srcOffset, destination, dstOffset, size);
@@ -666,10 +780,10 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eUnsupportedFeature, "copyBufferToTexture on a combined depth-stencil format, whose aspects copy separately");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		for (const BufferTextureCopy & region : regions)
@@ -717,10 +831,10 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eUnsupportedFeature, "copyTextureToBuffer on a combined depth-stencil format, whose aspects copy separately");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		for (const BufferTextureCopy & region : regions)
@@ -760,10 +874,10 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "copyTexture names a texture this device never created");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		for (const TextureCopy & region : regions)
@@ -811,10 +925,10 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "clearBuffer names a buffer this device never created");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		const auto byte = static_cast<std::uint8_t>(value & 0xFFu);
@@ -959,18 +1073,19 @@ namespace azo::rhi::metal4
 			return Succeed(error);
 		}
 
-		// generateMipmaps cannot filter block-compressed formats. Metal's own limit and not a rule the RHI imposes, so it is asked whatever the mode and refused
-		// here rather than recorded and refused at commit, as the other generation does.
+		// generateMipmaps renders and filters, so it takes only a format that does both, which rules out compressed, integer and depth alike. Metal's own limit
+		// and not a rule the RHI imposes, so it is asked whatever the mode and refused here rather than recorded and refused at commit.
 		const Metal4TextureSlot * slot = device->textures.Resolve(texture, kHandleAlreadyChecked);
-		if (slot != nullptr && IsCompressedFormat(slot->format))
+		if (slot != nullptr && (IsCompressedFormat(slot->format) || IsIntegerFormat(slot->format) || IsDepthFormat(slot->format)))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips cannot filter a block-compressed format on Metal");
+			return Fail(
+				error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)");
 		}
 
-		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object);
+		MTL4::ComputeCommandEncoder * encoder = BeginCompute(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 compute command encoder creation failed");
+			return false;
 		}
 
 		encoder->generateMipmaps(tex);

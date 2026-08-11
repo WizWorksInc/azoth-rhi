@@ -528,7 +528,7 @@ namespace azo::rhi::metal
 	[[nodiscard]] Format ResolveTextureFormat(MetalDevice * device, TextureHandle handle) noexcept;
 	[[nodiscard]] MTL::CommandBuffer * CmdBufferOf(MetalObject * object) noexcept;
 	void EndActiveEncoders(MetalObject * object) noexcept;
-	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object) noexcept;
+	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object, Error * error) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::RenderCommandEncoder * encoder) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::ComputeCommandEncoder * encoder) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::BlitCommandEncoder * encoder) noexcept;
@@ -574,7 +574,7 @@ namespace azo::rhi::metal
 		std::uint32_t firstInstance, Error * error) noexcept;
 	bool MetalDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
 	bool MetalDrawIndexedIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	void EnsureComputeEncoder(MetalObject * object);
+	[[nodiscard]] bool EnsureComputeEncoder(MetalObject * object, Error * error) noexcept;
 	bool MetalSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
 	bool MetalBindDescriptorSet(void * impl, [[maybe_unused]] PipelineLayoutHandle layout, [[maybe_unused]] std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
@@ -686,12 +686,12 @@ namespace azo::rhi::metal
 	const ExternalSharingApi & ExternalSharingBlock() noexcept;
 	void PopulateCaps(MetalDevice * device);
 	/**
-	 * \brief Builds a device on the generation DeviceDesc::apiVersion asked for.
+	 * \brief Builds a device on the generation the caller's configuration block asked for.
 	 *
-	 * \param refusedReason Set to why a pinned generation could not be provided, and left alone for every other failure, so a caller can tell a refused pin
-	 * from having no adapter at all.
+	 * \param refusal Set to why the caller's own request could not be met, a pinned generation or a config block this backend cannot read, and left alone for
+	 * every other failure, so a caller can tell its own mistake from having no adapter at all.
 	 */
-	[[nodiscard]] MetalDevice * MakeOwnedDevice(MetalInstance * instance, const DeviceDesc & desc, const char *& refusedReason);
+	[[nodiscard]] MetalDevice * MakeOwnedDevice(MetalInstance * instance, const DeviceDesc & desc, Error & refusal);
 	[[nodiscard]] MetalInstance * MakeOwnedInstance();
 	void MetalDestroyDevice(void * impl) noexcept;
 	void MetalDestroyInstance(void * impl) noexcept;

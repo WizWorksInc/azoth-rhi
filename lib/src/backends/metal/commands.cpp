@@ -84,13 +84,16 @@ namespace azo::rhi::metal
 	 * Aliasing is the one hazard Metal will not track here. Heaps are MTLHeapTypePlacement so the RHI can place resources at the offsets the caller picked and a
 	 * placement heap gives up hazard tracking for that control. Two resources over the same bytes are ordered only by fences the backend records. So the barrier
 	 * closes the encoder reading the before-resource, updates a fence and leaves a wait for the next encoder to open.
+	 *
+	 * A rendering scope is refused instead, since ending a pass under the caller substitutes different semantics for the call.
 	 */
 	bool MetalCmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.aliasBarriers");
 
-		auto * object	   = static_cast<MetalObject *>(impl);
-		MetalCmdList * rec = object->list;
+		auto * object		 = static_cast<MetalObject *>(impl);
+		MetalDevice * device = object->owner;
+		MetalCmdList * rec	 = object->list;
 		if (rec == nullptr || rec->commandBuffer.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
@@ -98,6 +101,23 @@ namespace azo::rhi::metal
 		if (barriers.empty())
 		{
 			return Succeed(error);
+		}
+		if (rec->renderEncoder.get() != nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
+		}
+
+		// Checked resolves, unlike everywhere else in this backend. With validation off nothing in front of this looks at a handle at all, and the fence below
+		// would be recorded for a resource the device has already taken back.
+		for (const AliasBarrier & barrier : barriers)
+		{
+			if ((barrier.beforeBuffer.IsValid() && device->buffers.Resolve(barrier.beforeBuffer, true) == nullptr) ||
+				(barrier.afterBuffer.IsValid() && device->buffers.Resolve(barrier.afterBuffer, true) == nullptr) ||
+				(barrier.beforeTexture.IsValid() && device->textures.Resolve(barrier.beforeTexture, true) == nullptr) ||
+				(barrier.afterTexture.IsValid() && device->textures.Resolve(barrier.afterTexture, true) == nullptr))
+			{
+				return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
+			}
 		}
 
 		if (rec->aliasFence.get() == nullptr)
@@ -110,13 +130,7 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		if (rec->renderEncoder.get() != nullptr)
-		{
-			rec->renderEncoder->updateFence(rec->aliasFence.get(), MTL::RenderStageFragment);
-			rec->renderEncoder->endEncoding();
-			rec->renderEncoder.reset();
-		}
-		else if (rec->computeEncoder.get() != nullptr)
+		if (rec->computeEncoder.get() != nullptr)
 		{
 			rec->computeEncoder->updateFence(rec->aliasFence.get());
 			rec->computeEncoder->endEncoding();
@@ -240,7 +254,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		encoder->copyFromBuffer(source, srcOffset, destination, dstOffset, size);
 		encoder->endEncoding();
 		return Succeed(error);
@@ -272,7 +290,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		for (const BufferTextureCopy & region : regions)
 		{
 			// Block arithmetic, not texel arithmetic. A row length is given in texels so it converts through the block grid and the image height counts block rows, not
@@ -323,7 +345,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		for (const BufferTextureCopy & region : regions)
 		{
 			// Block arithmetic, not texel arithmetic. See the matching comment in the buffer-to-texture direction.
@@ -367,7 +393,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		for (const TextureCopy & region : regions)
 		{
 			encoder->copyFromTexture(source,
@@ -420,16 +450,21 @@ namespace azo::rhi::metal
 			return Succeed(error);
 		}
 
-		// generateMipmaps cannot filter block-compressed formats. Metal's own limit and not a rule the RHI imposes so it is asked whatever the mode and refused here
-		// without recording a blit Metal refuses at commit.
+		// generateMipmaps renders and filters, so it takes only a format that does both, which rules out compressed, integer and depth alike. Metal's own limit
+		// and not a rule the RHI imposes so it is asked whatever the mode and refused here without recording a blit Metal refuses at commit.
 		auto * const tracked = device->textures.Resolve(texture, kHandleAlreadyChecked);
-		if (tracked != nullptr && IsCompressedFormat(tracked->format))
+		if (tracked != nullptr && (IsCompressedFormat(tracked->format) || IsIntegerFormat(tracked->format) || IsDepthFormat(tracked->format)))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips cannot filter a block-compressed format on Metal");
+			return Fail(
+				error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		encoder->generateMipmaps(tex);
 		encoder->endEncoding();
 		return Succeed(error);
@@ -467,7 +502,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		encoder->copyFromBuffer(staging.get(), 0, destination, offset, wordCount * 4);
 		encoder->endEncoding();
 		object->list->keepAlive.push_back(std::move(staging));

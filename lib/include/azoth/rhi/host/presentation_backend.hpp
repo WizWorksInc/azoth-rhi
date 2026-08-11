@@ -19,6 +19,7 @@
  * \brief Host presentation backend selection and surface creation.
  */
 
+#include "azoth/rhi/core/api.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/host/allocator.hpp"
@@ -63,7 +64,7 @@ namespace azo::rhi
 	 *
 	 * Precedence is requestedOverride, AZOTH_RHI_BACKEND, then the build default. An unrecognized name falls back to Vulkan.
 	 */
-	[[nodiscard]] GraphicsApiId SelectGraphicsApi(const char * requestedOverride = nullptr);
+	[[nodiscard]] AZO_RHI_API GraphicsApiId SelectGraphicsApi(const char * requestedOverride = nullptr);
 
 	/**
 	 * \brief Creates presentation support for one API.
@@ -71,6 +72,6 @@ namespace azo::rhi
 	 * Returns null when this build has no presentation backend for api. The object is host-allocated so an installed HostAllocator sees it, and the deleter
 	 * preserves the concrete allocation size even though the returned owner is base-typed.
 	 */
-	[[nodiscard]] HostUniquePtr<PresentationBackend> MakePresentationBackend(GraphicsApiId api);
+	[[nodiscard]] AZO_RHI_API HostUniquePtr<PresentationBackend> MakePresentationBackend(GraphicsApiId api);
 
 } // namespace azo::rhi

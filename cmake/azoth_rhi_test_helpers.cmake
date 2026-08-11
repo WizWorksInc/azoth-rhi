@@ -224,6 +224,11 @@ function(azoth_rhi_add_header_self_containment_library target)
             RELATIVE "${_conformance_root}"
             "${_conformance_root}/conformance/*.hpp")
 
+    # A dot-prefixed name is filesystem residue rather than a header, and macOS writes one beside every
+    # file carrying extended attributes, so globbing them in compiles binary metadata as C++.
+    list(FILTER _headers EXCLUDE REGEX "(^|/)\\.")
+    list(FILTER _conformance_headers EXCLUDE REGEX "(^|/)\\.")
+
     list(SORT _headers)
     list(SORT _conformance_headers)
 

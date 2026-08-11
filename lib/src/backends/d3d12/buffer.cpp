@@ -36,9 +36,15 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// The initial resource state D3D12 requires for a buffer placed in the given heap.
-	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap) noexcept
+	// The state both creation forms require for a buffer in this heap. Enhanced barriers treat every buffer as created common regardless, so it is no hazard.
+	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept
 	{
+		// The one buffer that is not treated as common. An acceleration structure is created in this state and stays there for life, and the heap is defaulted above.
+		if (usage.Contains(BufferUsage::eAccelerationStructureStorage))
+		{
+			return D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+		}
+
 		switch (heap)
 		{
 		case D3D12_HEAP_TYPE_UPLOAD:   return D3D12_RESOURCE_STATE_GENERIC_READ;
@@ -50,7 +56,8 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept
 	{
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-		if (usage.Contains(BufferUsage::eStorage))
+		// An acceleration structure buffer carries the flag whether or not the caller asked for storage: builds write it through unordered access underneath.
+		if (usage.Contains(BufferUsage::eStorage) || usage.Contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		}
@@ -93,6 +100,14 @@ namespace azo::rhi::d3d12
 		bool hostVisible			   = false;
 		const D3D12_HEAP_TYPE heapType = MapHeapType(desc.memory, hostVisible);
 
+		// Refused rather than stripped below: a host-visible acceleration structure buffer would lose the unordered-access flag it must keep, and hold nothing.
+		if (desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
+		{
+			return FailValue<BufferHandle>(error,
+				ErrorCode::eInvalidArgument,
+				"an acceleration structure buffer must be device local, since Direct3D 12 places one only in the default heap");
+		}
+
 		D3D12_RESOURCE_DESC resourceDesc{};
 		resourceDesc.Dimension		  = D3D12_RESOURCE_DIMENSION_BUFFER;
 		resourceDesc.Width			  = desc.size;
@@ -118,11 +133,12 @@ namespace azo::rhi::d3d12
 		}
 
 		// Reserved buffer: a virtual range with no backing store, tiled in later through bindSparse. It owns no D3D12MA allocation and cannot be host-visible until
-		// tiles are mapped so the memory hint is ignored. Created in COMMON like any device-local buffer.
+		// tiles are mapped so the memory hint is ignored. Created device local like any other, which the state table answers for.
 		if (desc.allowSparseBinding)
 		{
 			ComPtr<ID3D12Resource> reserved;
-			if (FAILED(device->device->CreateReservedResource(&resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(reserved.GetAddressOf()))))
+			if (FAILED(device->device->CreateReservedResource(
+					&resourceDesc, InitialBufferState(D3D12_HEAP_TYPE_DEFAULT, desc.usage), nullptr, IID_PPV_ARGS(reserved.GetAddressOf()))))
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreateReservedResource failed for a sparse buffer");
 			}
@@ -163,8 +179,12 @@ namespace azo::rhi::d3d12
 
 		ComPtr<D3D12MA::Allocation> allocation;
 		ComPtr<ID3D12Resource> resource;
-		const HRESULT hr = device->allocator->CreateResource(
-			&allocationDesc, &resourceDesc, InitialBufferState(heapType), nullptr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()));
+		const HRESULT hr = device->allocator->CreateResource(&allocationDesc,
+			&resourceDesc,
+			InitialBufferState(heapType, desc.usage),
+			nullptr,
+			allocation.GetAddressOf(),
+			IID_PPV_ARGS(resource.GetAddressOf()));
 		if (FAILED(hr))
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a buffer");
@@ -176,6 +196,7 @@ namespace azo::rhi::d3d12
 							   .resource									 = std::move(resource),
 							   .size										 = desc.size,
 							   .hostVisible									 = hostVisible,
+							   .heapType									 = heapType,
 							   .exportableHandleTypes						 = desc.exportableHandleTypes,
 							   .desc										 = detail::Recorded(desc) }),
 			error);

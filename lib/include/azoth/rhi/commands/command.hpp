@@ -148,6 +148,13 @@ namespace azo::rhi
 
 		bool Barriers(const BarrierBatch & barriers) noexcept;
 		bool Barriers(const BarrierBatch & barriers, Error & error) noexcept;
+		/**
+		 * \brief Orders placed resources that share heap memory, so the resources named after may be used once the ones named before are finished with.
+		 *
+		 * \attention Not legal inside a rendering scope. Record it between passes. Vulkan forbids any barrier there under
+		 * VUID-vkCmdPipelineBarrier2-None-09553, and both Metal generations refuse it because honouring it would mean ending the caller's pass or ordering
+		 * only part of it.
+		 */
 		bool AliasBarriers(std::span<const AliasBarrier> barriers) noexcept;
 		bool AliasBarriers(std::span<const AliasBarrier> barriers, Error & error) noexcept;
 
@@ -352,6 +359,9 @@ namespace azo::rhi
 
 		/**
 		 * \brief Generates the full mip chain of a texture from mip 0 by successive linear downsamples.
+		 *
+		 * \attention Mip 0 is read as a copy source and must be in ResourceUse::eCopySrc on entry. Every level below it is written whole and must be in
+		 * eCopyDst. All of them, mip 0 included, are left in eCopySrc, which a single-mip texture meets already because it records nothing.
 		 */
 		bool GenerateMips(TextureHandle texture) noexcept;
 		bool GenerateMips(TextureHandle texture, Error & error) noexcept;
@@ -363,6 +373,13 @@ namespace azo::rhi
 		 */
 		bool ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount) noexcept;
 		bool ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error & error) noexcept;
+		/**
+		 * \brief Writes a GPU timestamp into a query pool slot once prior work has reached the named stage.
+		 *
+		 * \param stage Exactly one Stage, or an empty set meaning after all prior work. A mask naming more than one stage is refused: a timestamp marks a
+		 * single point in the pipeline and no backend can sample at two. Honoured on Vulkan. Metal 4 honours it inside a rendering scope only. Metal 3 and
+		 * Direct3D 12 drop it and sample where the call sits, which is at or after every stage a mask could name and never earlier.
+		 */
 		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept;
 		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept;
 		bool BeginQuery(QueryPoolHandle pool, std::uint32_t query) noexcept;

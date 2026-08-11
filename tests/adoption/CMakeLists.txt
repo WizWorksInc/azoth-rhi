@@ -22,7 +22,9 @@
 # Under native/ because this suite names graphics API types on purpose, which is the one thing the API
 # boundary gate forbids everywhere else. That directory is the quarantine the gate already recognises, so the
 # rule stays one rule without gaining an exception for a test.
-add_executable(rhi_adoption native/adoption_test.cpp)
+add_executable(rhi_adoption
+        native/adoption_test.cpp
+        native/export_surface_test.cpp)
 
 target_link_libraries(rhi_adoption PRIVATE azoth::rhi azoth::rhi-test GTest::gtest GTest::gtest_main)
 set_target_properties(rhi_adoption PROPERTIES FOLDER tests)

@@ -176,7 +176,7 @@ namespace deccer
 			};
 		}
 
-		// The same, for a run of levels partway down a chain, which mip generation needs because it leaves the level it read and the levels it wrote in different states.
+		// The same, for a run of levels partway down a chain, which mip generation needs because the level it reads and the levels it writes arrive in different states.
 		[[nodiscard]] rhi::TextureBarrier CubeLevels(const rhi::TextureHandle texture, const std::uint32_t baseMip, const std::uint32_t mips,
 			const rhi::ResourceState & before, const rhi::ResourceState & after)
 		{
@@ -538,8 +538,8 @@ namespace deccer
 		};
 
 		/*
-		 * Mip generation reads level zero and writes every level under it, so the two halves of the chain arrive from different places and leave in different
-		 * states. Naming only level zero, and the compute stage that wrote it and not the copy stage filling the rest, is a barrier that orders nothing.
+		 * Mip generation reads level zero and writes every level under it, so the two halves of the chain arrive from different places. Naming only level zero, and
+		 * the compute stage that wrote it and not the copy stage filling the rest, is a barrier that orders nothing.
 		 *
 		 * Metal 3 and Vulkan cover for that. Metal 4 does what it is told and reads the unwritten levels as black, which shows up as specular too dark.
 		 */
@@ -548,10 +548,9 @@ namespace deccer
 			CubeLevels(environment, 1, environmentMips - 1, kUndefined, kCopyDst),
 		};
 
-		// The whole chain, now that every level of it exists, for the convolutions to read down.
+		// The whole chain, now that every level of it exists, for the convolutions to read down. Mip generation leaves every level a copy source, level zero included.
 		const std::array toSampled{
-			CubeLevels(environment, 0, 1, kCopySrc, kSampled),
-			CubeLevels(environment, 1, environmentMips - 1, kCopyDst, kSampled),
+			WholeCube(environment, environmentMips, kCopySrc, kSampled),
 		};
 
 		const std::array toRead{

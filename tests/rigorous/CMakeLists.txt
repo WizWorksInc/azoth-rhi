@@ -24,6 +24,17 @@ azoth_rhi_add_conformance_suite(rhi_conformance
         LABEL conformance)
 target_link_libraries(rhi_conformance PRIVATE rhi_header_self_containment)
 
+# Follows azoth::rhi-utils out of the build, which is what happens when there is no slangc to compile its shader with.
+if(TARGET azoth::rhi-utils)
+    azoth_rhi_collect_test_sources(utils _utils_sources)
+    azoth_rhi_prefix_test_sources("../" "${_utils_sources}" _utils_prefixed)
+
+    azoth_rhi_add_gtest_suite(rhi_utils
+            SOURCES ${_utils_prefixed}
+            LABEL conformance
+            LINK_LIBRARIES azoth::rhi-utils)
+endif()
+
 # The cross-backend campaign. Every backend this build bundled runs the same portable contract, which
 # is what makes the Null backend a reference for the others, not only a stand-in for CI.
 azoth_rhi_add_rigorous_suite(rhi_rigorous_campaign

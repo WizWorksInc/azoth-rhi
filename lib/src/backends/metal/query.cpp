@@ -131,6 +131,10 @@ namespace azo::rhi::metal
 	 * own and a write inside one is refused.
 	 *
 	 * The barrier argument is false throughout. Apple's guidance is that it trades repeatability for cost.
+	 *
+	 * The stage is dropped, since sampleCountersInBuffer names a buffer, an index and a barrier flag but never a stage. The sample lands where the call sits,
+	 * which is at or after every stage a mask could name, so it is coarser than the caller asked for and never earlier. BeginRenderingDesc::timestamps is the
+	 * only stage-granular path this generation has, and the other one carries the stage into its render encoder.
 	 */
 	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
@@ -267,10 +271,10 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> autoreleasePool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder						 = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder						 = BeginBlit(object, error);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
+			return false;
 		}
 		encoder->resolveCounters(tracked->sampleBuffer.get(), NS::Range::Make(firstQuery, queryCount), destination, dstOffset);
 		encoder->endEncoding();
