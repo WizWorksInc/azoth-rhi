@@ -142,18 +142,7 @@ namespace azo::rhi::validation
 				return false;
 			}
 
-			ResourceRecord * record = TableFor(handle.type).Claim(handle.index, handle.generation);
-			if (record == nullptr)
-			{
-				return false;
-			}
-
-			record->use.store(0, std::memory_order_relaxed);
-			record->useKnown.store(false, std::memory_order_relaxed);
-			record->owned.store(false, std::memory_order_relaxed);
-			record->detail.store(0, std::memory_order_relaxed);
-			record->origin.store(0, std::memory_order_relaxed);
-			return true;
+			return TableFor(handle.type).Claim(handle.index, handle.generation) != nullptr;
 		}
 
 		/**
@@ -249,7 +238,20 @@ namespace azo::rhi::validation
 				slot->index.store(index, std::memory_order_relaxed);
 				slot->generation.store(generation, std::memory_order_relaxed);
 
-				// Publish live after index and generation so a reader that sees live also sees the identity fields.
+				/*
+				 * Cleared here rather than by the caller after this returns, because the slot may hold the fields of whoever had it last.
+				 *
+				 * A record is reachable the moment live goes true, and not every reader arrives through a handle the creating thread handed over: RetireFrom
+				 * scans slots and reads origin, so it needs no handoff edge from anyone. Resetting after publication leaves a window where that scan matches a
+				 * stale origin and retires a resource the caller has only just been given.
+				 */
+				slot->record.use.store(0, std::memory_order_relaxed);
+				slot->record.useKnown.store(false, std::memory_order_relaxed);
+				slot->record.owned.store(false, std::memory_order_relaxed);
+				slot->record.detail.store(0, std::memory_order_relaxed);
+				slot->record.origin.store(0, std::memory_order_relaxed);
+
+				// Publish live last so a reader that sees it also sees the identity fields and a record carrying nothing of its previous occupant.
 				if (!slot->live.exchange(true, std::memory_order_release))
 				{
 					m_live.fetch_add(1, std::memory_order_relaxed);
@@ -329,7 +331,7 @@ namespace azo::rhi::validation
 			{
 				for (std::uint32_t chunk = 0; chunk < kMaxChunks; ++chunk)
 				{
-					Slot * slots = m_chunks[chunk];
+					Slot * slots = m_chunks[chunk].load(std::memory_order_relaxed);
 					if (slots == nullptr)
 					{
 						continue;
@@ -338,7 +340,7 @@ namespace azo::rhi::validation
 					const std::uint32_t size = SizeOfChunk(chunk);
 					std::destroy_n(slots, size);
 					HostFree(slots, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
-					m_chunks[chunk] = nullptr;
+					m_chunks[chunk].store(nullptr, std::memory_order_relaxed);
 				}
 
 				m_count.store(0, std::memory_order_relaxed);
@@ -393,14 +395,14 @@ namespace azo::rhi::validation
 				}
 
 				const std::uint32_t chunk = ChunkOfSlot(index);
-				Slot * slots			  = m_chunks[chunk];
+				Slot * slots			  = m_chunks[chunk].load(std::memory_order_acquire);
 				return slots != nullptr ? slots + (index - BaseOfChunk(chunk)) : nullptr; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 			}
 
 			/**
 			 * \brief Returns the slot, creating it when this index has none yet.
 			 *
-			 * Writer side only. The caller serializes creation for this resource kind.
+			 * Two threads racing to create the same chunk both build one, the compare-exchange below picks the winner, and the loser frees what it built.
 			 */
 			[[nodiscard]] Slot * EnsureSlot(const std::uint32_t index) noexcept
 			{
@@ -410,7 +412,8 @@ namespace azo::rhi::validation
 					return nullptr;
 				}
 
-				if (m_chunks[chunk] == nullptr)
+				Slot * slots = m_chunks[chunk].load(std::memory_order_acquire);
+				if (slots == nullptr)
 				{
 					const std::uint32_t size = SizeOfChunk(chunk);
 					void * storage			 = HostAllocate(static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
@@ -419,21 +422,39 @@ namespace azo::rhi::validation
 						return nullptr;
 					}
 
-					auto * slots = static_cast<Slot *>(storage);
-					std::uninitialized_value_construct_n(slots, size);
-					m_chunks[chunk] = slots;
+					auto * built = static_cast<Slot *>(storage);
+					std::uninitialized_value_construct_n(built, size);
+
+					/*
+					 * Installed with a compare-exchange rather than a store, because the create path holds no lock.
+					 *
+					 * A plain store lets two threads that both saw null each install their own, leaking the first and stranding every record published in it, since
+					 * a reader resolves through whichever pointer landed last. Losing the exchange means somebody else's chunk is already there, so ours is freed
+					 * and theirs is used. The failure load acquires so the winner's slots are visible to us.
+					 */
+					slots = nullptr;
+					if (!m_chunks[chunk].compare_exchange_strong(slots, built, std::memory_order_release, std::memory_order_acquire))
+					{
+						std::destroy_n(built, size);
+						HostFree(built, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
+					}
+					else
+					{
+						slots = built;
+					}
 				}
 
+				// Raised with a loop rather than a bare store, a plain compare-then-store letting a smaller reach land after a larger one and lower it.
 				const std::uint32_t reach = BaseOfChunk(chunk) + SizeOfChunk(chunk);
-				if (reach > m_count.load(std::memory_order_relaxed))
+				std::uint32_t seen		  = m_count.load(std::memory_order_relaxed);
+				while (seen < reach && !m_count.compare_exchange_weak(seen, reach, std::memory_order_release, std::memory_order_relaxed))
 				{
-					m_count.store(reach, std::memory_order_release);
 				}
 
-				return m_chunks[chunk] + (index - BaseOfChunk(chunk)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+				return slots + (index - BaseOfChunk(chunk)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 			}
 
-			std::array<Slot *, kMaxChunks> m_chunks{};
+			std::array<std::atomic<Slot *>, kMaxChunks> m_chunks{};
 
 			// Published slot reach. It only rises while the table is live.
 			std::atomic<std::uint32_t> m_count{ 0 };
