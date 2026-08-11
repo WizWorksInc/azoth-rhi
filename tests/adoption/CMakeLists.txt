@@ -35,21 +35,21 @@ azoth_rhi_stage_test_runtime(rhi_adoption)
 # The native headers are behind their own interface targets so a consumer opts in per backend, and this
 # suite is a consumer like any other. Each one also defines the macro its half of the file is guarded by,
 # since which backends were compiled is deliberately not answerable from a public header.
-if(TARGET azoth::rhi-native-vulkan)
+if (TARGET azoth::rhi-native-vulkan)
     target_link_libraries(rhi_adoption PRIVATE azoth::rhi-native-vulkan)
 
     # The same Vulkan-Hpp convention the backend is built with, so a call here hands back a ResultValue and
     # this file checks it without relying on a throw the library would never make.
     target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_VULKAN VULKAN_HPP_NO_EXCEPTIONS)
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_METAL)
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_D3D12)
+if (AZOTH_RHI_BACKEND_D3D12)
     target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_D3D12)
-endif()
+endif ()
 
 # Discovered per case, not registered as one, so a backend with no driver skips its own cases instead
 # of taking the whole suite down with it, and so the run reads as an inventory of what was reachable.

@@ -30,7 +30,7 @@ add_subdirectory(samples)
 
 # One target that builds the lot, for checking that a public API change did not leave a sample behind.
 get_property(_example_targets GLOBAL PROPERTY AZOTH_RHI_EXAMPLE_TARGETS)
-if(_example_targets)
+if (_example_targets)
     add_custom_target(rhi_examples)
     add_dependencies(rhi_examples ${_example_targets})
-endif()
+endif ()

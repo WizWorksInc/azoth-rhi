@@ -27,7 +27,7 @@ target_sources(AzothRHI PRIVATE
         src/validation/decorator.cpp
 )
 
-if(AZOTH_RHI_BACKEND_VULKAN)
+if (AZOTH_RHI_BACKEND_VULKAN)
     target_sources(AzothRHI PRIVATE
             src/backends/vulkan/adoption.cpp
             src/backends/vulkan/backend.cpp
@@ -44,9 +44,9 @@ if(AZOTH_RHI_BACKEND_VULKAN)
             src/backends/vulkan/vma_impl.cpp
             src/host/presentation_vulkan.cpp
     )
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_D3D12)
+if (AZOTH_RHI_BACKEND_D3D12)
     target_sources(AzothRHI PRIVATE
             src/backends/d3d12/backend.cpp
             src/backends/d3d12/barriers.cpp
@@ -70,19 +70,19 @@ if(AZOTH_RHI_BACKEND_D3D12)
             src/backends/d3d12/tables.cpp
             src/backends/d3d12/texture.cpp
     )
-endif()
+endif ()
 
 # How an RHI enum becomes a Metal enum, which is one answer and not one per generation. Compiled when
 # either Metal backend is, and depending on neither: a format added to the RHI is a single switch to
 # extend, not two that drift.
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     target_sources(AzothRHI PRIVATE
             src/backends/metal_common/conversions.cpp
             src/backends/metal_common/metal_cpp_impl.cpp
     )
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_METAL)
+if (AZOTH_RHI_BACKEND_METAL)
     target_sources(AzothRHI PRIVATE
             src/backends/metal/backend.cpp
             src/backends/metal/buffer_texture.cpp
@@ -103,9 +103,9 @@ if(AZOTH_RHI_BACKEND_METAL)
             src/backends/metal/sync.cpp
             src/backends/metal/tables.cpp
     )
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL4)
     target_sources(AzothRHI PRIVATE
             src/backends/metal4/backend.cpp
             src/backends/metal4/buffer_texture.cpp
@@ -126,7 +126,7 @@ if(AZOTH_RHI_BACKEND_METAL4)
             src/backends/metal4/sync.cpp
             src/backends/metal4/tables.cpp
     )
-endif()
+endif ()
 
 # Always built and not configurable so this is unconditional and there is no AZOTH_RHI_BACKEND_NULL to consult.
 target_sources(AzothRHI PRIVATE src/backends/null/backend.cpp)
@@ -141,17 +141,17 @@ target_include_directories(AzothRHI
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # PRIVATE on purpose. Which backends compiled in is answered at runtime by AvailableBackends so a
 # consumer never tests one of these and a public header that did would be a header that changes
 # shape with the build.
-foreach(backend VULKAN D3D12 METAL METAL4)
-    if(AZOTH_RHI_BACKEND_${backend})
+foreach (backend VULKAN D3D12 METAL METAL4)
+    if (AZOTH_RHI_BACKEND_${backend})
         target_compile_definitions(AzothRHI PRIVATE AZOTH_RHI_BACKEND_${backend})
-    endif()
-endforeach()
+    endif ()
+endforeach ()
 
 target_compile_definitions(AzothRHI PRIVATE AZOTH_RHI_BACKEND_DEFAULT="${AZOTH_RHI_DEFAULT_BACKEND}")
 
@@ -163,15 +163,15 @@ target_compile_definitions(AzothRHI PRIVATE AZOTH_RHI_BACKEND_DEFAULT="${AZOTH_R
 target_compile_definitions(AzothRHI PRIVATE AZOTH_RHI_BUILDING)
 
 get_target_property(_azoth_rhi_library_type AzothRHI TYPE)
-if(_azoth_rhi_library_type STREQUAL "SHARED_LIBRARY")
+if (_azoth_rhi_library_type STREQUAL "SHARED_LIBRARY")
     target_compile_definitions(AzothRHI PUBLIC AZOTH_RHI_SHARED)
-endif()
+endif ()
 
-if(AZOTH_RHI_ENABLE_PROFILING)
+if (AZOTH_RHI_ENABLE_PROFILING)
     target_compile_definitions(AzothRHI PUBLIC AZOTH_RHI_ENABLE_PROFILING)
-endif()
+endif ()
 
-if(AZOTH_RHI_NO_EXCEPTIONS)
+if (AZOTH_RHI_NO_EXCEPTIONS)
     # PUBLIC because it changes a header the consumer compiles. A consumer that did not see it would build a different HostAllocatorAdapter::RefuseAllocation
     # than the library was built with, which is the ABI disagreement the option exists to avoid.
     target_compile_definitions(AzothRHI PUBLIC AZOTH_RHI_NO_EXCEPTIONS)
@@ -183,9 +183,9 @@ if(AZOTH_RHI_NO_EXCEPTIONS)
     target_compile_options(AzothRHI PRIVATE
             $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fno-exceptions>
             $<$<CXX_COMPILER_ID:MSVC>:/EHs-c->)
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_VULKAN)
+if (AZOTH_RHI_BACKEND_VULKAN)
     # PRIVATE keeps Vulkan off a consumer's include path. Link requirements still forward.
     target_link_libraries(AzothRHI PRIVATE vk::dynamic_hpp_dispatch)
     target_compile_definitions(AzothRHI PRIVATE VULKAN_HPP_NO_TO_STRING=1)
@@ -215,36 +215,36 @@ if(AZOTH_RHI_BACKEND_VULKAN)
     # entry point, so a consumer that defined this for its own surface creation and a library built without it read the same table at different offsets.
     # The two Windows macros come with it because the macro pulls windows.h into every Vulkan translation unit, and min and max as macros collide with
     # the std and vk names used throughout the backend.
-    if(WIN32)
+    if (WIN32)
         target_compile_definitions(AzothRHI PRIVATE VK_USE_PLATFORM_WIN32_KHR NOMINMAX WIN32_LEAN_AND_MEAN)
-    endif()
-endif()
+    endif ()
+endif ()
 
-if(AZOTH_RHI_BACKEND_VULKAN)
-    if(TARGET GPUOpen::VulkanMemoryAllocator)
+if (AZOTH_RHI_BACKEND_VULKAN)
+    if (TARGET GPUOpen::VulkanMemoryAllocator)
         target_link_libraries(AzothRHI PRIVATE GPUOpen::VulkanMemoryAllocator)
-    elseif(TARGET VulkanMemoryAllocator)
+    elseif (TARGET VulkanMemoryAllocator)
         target_link_libraries(AzothRHI PRIVATE VulkanMemoryAllocator)
-    else()
+    else ()
         message(FATAL_ERROR "AzothRHI: the bundled Vulkan backend is on but no VulkanMemoryAllocator target was found.")
-    endif()
-endif()
+    endif ()
+endif ()
 
-if(AZOTH_RHI_BACKEND_D3D12)
+if (AZOTH_RHI_BACKEND_D3D12)
     target_link_libraries(AzothRHI PRIVATE d3d12 dxgi dxguid)
 
-    if(TARGET D3D12MemoryAllocator)
+    if (TARGET D3D12MemoryAllocator)
         target_link_libraries(AzothRHI PRIVATE D3D12MemoryAllocator)
-    elseif(TARGET GPUOpen::D3D12MemoryAllocator)
+    elseif (TARGET GPUOpen::D3D12MemoryAllocator)
         target_link_libraries(AzothRHI PRIVATE GPUOpen::D3D12MemoryAllocator)
-    else()
+    else ()
         message(FATAL_ERROR "AzothRHI: the Direct3D 12 backend is on but no D3D12MemoryAllocator target was found.")
-    endif()
-endif()
+    endif ()
+endif ()
 
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     target_link_libraries(AzothRHI PRIVATE metal_cpp)
-endif()
+endif ()
 
 # Whether this metal-cpp release carries Metal 4 at all, which is a question about the pinned dependency
 # and not about the machine. Probing for the header and not for a version string, since the tag names
@@ -254,27 +254,27 @@ endif()
 # handling. Turning the backend off quietly instead would hand back a build whose AvailableBackends is
 # missing an entry the configuration asked for, which nothing downstream can tell from a build that never
 # wanted it. What the adapter says is a separate question, asked at runtime through supportsFamily.
-if(AZOTH_RHI_BACKEND_METAL4 AND NOT EXISTS "${metal_cpp_SOURCE_DIR}/Metal/MTL4Counters.hpp")
+if (AZOTH_RHI_BACKEND_METAL4 AND NOT EXISTS "${metal_cpp_SOURCE_DIR}/Metal/MTL4Counters.hpp")
     message(FATAL_ERROR
             "AzothRHI: the Metal 4 backend is enabled but this metal-cpp release "
             "(${AZOTH_RHI_METAL_CPP_TAG}) has no MTL4 headers. Point AZOTH_RHI_METAL_CPP_TAG at a release "
             "for macOS 26 or later, or set AZOTH_RHI_BACKEND_METAL4=OFF.")
-endif()
+endif ()
 
-if(AZOTH_RHI_PIX)
+if (AZOTH_RHI_PIX)
     target_link_libraries(AzothRHI PUBLIC ${AZOTH_RHI_PIX_TARGET})
     target_compile_definitions(AzothRHI PUBLIC AZOTH_RHI_ENABLE_PIX)
     # Outside a debug build, pix3.h compiles its events away without this. Set here, not
     # assumed of whoever supplies the runtime, since a target that only links it need not carry it.
     target_compile_definitions(AzothRHI PRIVATE USE_PIX)
-endif()
+endif ()
 
 # No definition of our own to say the sink is built. Tracy's TRACY_ENABLE arrives on the client
 # target's interface and reaches everything downstream so the header and the sources ask Tracy.
-if(AZOTH_RHI_TRACY_ENABLED)
+if (AZOTH_RHI_TRACY_ENABLED)
     target_sources(AzothRHI PRIVATE src/host/tracy_profiler.cpp)
     target_link_libraries(AzothRHI PUBLIC ${AZOTH_RHI_TRACY_TARGET})
-endif()
+endif ()
 
 # Hidden by default, so what leaves a shared build is what AZO_RHI_API names and nothing else. Without
 # it a dylib or an .so exports every backend internal it happens to have compiled, which is the same
@@ -317,7 +317,7 @@ add_library(azoth::rhi-module-sdk ALIAS AzothRHI-module-sdk)
 target_link_libraries(AzothRHI-module-sdk INTERFACE AzothRHI-backend-sdk)
 set_target_properties(AzothRHI-module-sdk PROPERTIES EXPORT_NAME rhi-module-sdk)
 
-if(AZOTH_RHI_BACKEND_VULKAN)
+if (AZOTH_RHI_BACKEND_VULKAN)
     add_library(AzothRHI-native-vulkan INTERFACE)
     add_library(azoth::rhi-native-vulkan ALIAS AzothRHI-native-vulkan)
     target_link_libraries(AzothRHI-native-vulkan INTERFACE AzothRHI vk::dynamic_hpp_dispatch)
@@ -325,11 +325,11 @@ if(AZOTH_RHI_BACKEND_VULKAN)
 
     # Matched to what the library itself was compiled with. A consumer reading VulkanNativeDevice::dispatch has to lay DispatchLoaderDynamic out the
     # same way the backend that filled it did, and the Win32 entry points are members of that table.
-    if(WIN32)
+    if (WIN32)
         target_compile_definitions(AzothRHI-native-vulkan INTERFACE VK_USE_PLATFORM_WIN32_KHR)
-    endif()
+    endif ()
     set_target_properties(AzothRHI-native-vulkan PROPERTIES EXPORT_NAME rhi-native-vulkan)
-endif()
+endif ()
 
 # The Metal counterpart, and the same gap it closes.
 #
@@ -340,9 +340,9 @@ endif()
 #
 # One target for both backends. The payload types are the same objects on either, and a program that
 # reaches for native access does not know which generation it came up on until it asks.
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     add_library(AzothRHI-native-metal INTERFACE)
     add_library(azoth::rhi-native-metal ALIAS AzothRHI-native-metal)
     target_link_libraries(AzothRHI-native-metal INTERFACE AzothRHI metal_cpp)
     set_target_properties(AzothRHI-native-metal PROPERTIES EXPORT_NAME rhi-native-metal)
-endif()
+endif ()

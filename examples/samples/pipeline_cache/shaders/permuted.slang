@@ -24,35 +24,34 @@
 
 struct VertexOutput
 {
-    float4 position : SV_Position;
-    float2 uv       : TEXCOORD0;
+	float4 position : SV_Position;
+	float2 uv : TEXCOORD0;
 };
 
 static const float2 kPositions[3] = { float2(-1.0, -3.0), float2(-1.0, 1.0), float2(3.0, 1.0) };
 
-[shader("vertex")]
-VertexOutput vertexMain(uint vertexId : SV_VertexID)
+[shader("vertex")] VertexOutput vertexMain(uint vertexId : SV_VertexID)
 {
-    VertexOutput output;
-    output.position = float4(kPositions[vertexId], 0.0, 1.0);
-    output.uv       = kPositions[vertexId] * 0.5 + 0.5;
-    return output;
+	VertexOutput output;
+	output.position = float4(kPositions[vertexId], 0.0, 1.0);
+	output.uv		= kPositions[vertexId] * 0.5 + 0.5;
+	return output;
 }
 
-[shader("fragment")]
-float4 fragmentMain(VertexOutput input) : SV_Target
+	[shader("fragment")] float4 fragmentMain(VertexOutput input)
+	: SV_Target
 {
-    float3 color = float3(0.0);
-    float2 point = input.uv * 8.0;
+	float3 color = float3(0.0);
+	float2 point = input.uv * 8.0;
 
-    // A handful of octaves, so the pipeline this ends up in takes long enough to compile that skipping the compile is visible.
-    float amplitude = 1.0;
-    for (uint octave = 0; octave < 6; ++octave)
-    {
-        color += amplitude * float3(sin(point.x), cos(point.y), sin(point.x + point.y));
-        point *= 2.0;
-        amplitude *= 0.5;
-    }
+	// A handful of octaves, so the pipeline this ends up in takes long enough to compile that skipping the compile is visible.
+	float amplitude = 1.0;
+	for (uint octave = 0; octave < 6; ++octave)
+	{
+		color += amplitude * float3(sin(point.x), cos(point.y), sin(point.x + point.y));
+		point *= 2.0;
+		amplitude *= 0.5;
+	}
 
-    return float4(color * 0.25 + 0.5, 1.0);
+	return float4(color * 0.25 + 0.5, 1.0);
 }

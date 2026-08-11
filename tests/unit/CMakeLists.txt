@@ -16,19 +16,19 @@
 
 include(azoth_rhi_test_modules)
 
-foreach(_module IN LISTS AZOTH_RHI_UNIT_MODULE_ORDER)
+foreach (_module IN LISTS AZOTH_RHI_UNIT_MODULE_ORDER)
     set(_exclude_var AZOTH_RHI_UNIT_MODULE_${_module}_EXCLUDE)
     set(_module_args "")
-    if(DEFINED ${_exclude_var})
+    if (DEFINED ${_exclude_var})
         list(APPEND _module_args EXCLUDE ${${_exclude_var}})
-    endif()
+    endif ()
 
     azoth_rhi_add_unit_module(
             TARGET ${AZOTH_RHI_UNIT_MODULE_${_module}}
             MODULE ${_module}
             LABEL unit
             ${_module_args})
-endforeach()
+endforeach ()
 
 # The one reach into src left in the whole test tree and it belongs to one target and not to
 # every suite through the shared harness. Everything a backend is written against lives in

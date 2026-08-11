@@ -16,20 +16,20 @@
 # other samples would pay for them. Missing either skips the sample and says which one.
 azoth_rhi_provide_sdl3()
 
-if(NOT SDL3_FOUND)
+if (NOT SDL3_FOUND)
     message(STATUS "AzothRHI examples: skipping hello_triangle, SDL3 was not found")
     return()
-endif()
+endif ()
 
 # Slang turns the one shader source into SPIR-V, MSL or DXIL at startup, which is what lets the
 # sample carry a readable shader instead of a precompiled blob per backend. It ships with the Vulkan
 # SDK so a machine set up to build the Vulkan backend usually already has it.
 azoth_rhi_provide_slang()
 
-if(NOT slang_FOUND)
+if (NOT slang_FOUND)
     message(STATUS "AzothRHI examples: skipping hello_triangle, Slang was not found")
     return()
-endif()
+endif ()
 
 azoth_rhi_add_example(hello_triangle
         SOURCES main.cpp

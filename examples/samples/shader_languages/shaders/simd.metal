@@ -32,11 +32,8 @@ struct Bindings
 // A threadgroup of 64 cannot hold more leaders than it holds threads, so this is past any width the hardware will report.
 constant uint kMaxGroups = 64;
 
-kernel void computeMain(device Bindings & set [[buffer(1)]],
-	uint index [[thread_position_in_grid]],
-	uint lane [[thread_index_in_simdgroup]],
-	uint group [[simdgroup_index_in_threadgroup]],
-	uint groups [[simdgroups_per_threadgroup]])
+kernel void computeMain(device Bindings & set [[buffer(1)]], uint index [[thread_position_in_grid]], uint lane [[thread_index_in_simdgroup]],
+	uint group [[simdgroup_index_in_threadgroup]], uint groups [[simdgroups_per_threadgroup]])
 {
 	threadgroup float partials[kMaxGroups];
 

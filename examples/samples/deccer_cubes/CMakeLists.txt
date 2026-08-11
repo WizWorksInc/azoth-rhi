@@ -16,17 +16,17 @@
 # without them skips this sample without failing the configure.
 azoth_rhi_provide_sdl3()
 
-if(NOT SDL3_FOUND)
+if (NOT SDL3_FOUND)
     message(STATUS "AzothRHI examples: skipping deccer_cubes, SDL3 was not found")
     return()
-endif()
+endif ()
 
 azoth_rhi_provide_slang()
 
-if(NOT slang_FOUND)
+if (NOT slang_FOUND)
     message(STATUS "AzothRHI examples: skipping deccer_cubes, Slang was not found")
     return()
-endif()
+endif ()
 
 # The scene, from the deccer-cubes repository. This one glTF carries its buffers and its five
 # textures inside itself as base64 so the sample needs the one file and nothing beside it. The hash
@@ -41,11 +41,11 @@ file(DOWNLOAD
 )
 
 list(GET _download 0 _download_code)
-if(NOT _download_code EQUAL 0)
+if (NOT _download_code EQUAL 0)
     list(GET _download 1 _download_message)
     message(STATUS "AzothRHI examples: skipping deccer_cubes, the scene could not be fetched (${_download_message})")
     return()
-endif()
+endif ()
 
 azoth_rhi_add_example(deccer_cubes
         SOURCES main.cpp scene.cpp ibl.cpp shaders.cpp

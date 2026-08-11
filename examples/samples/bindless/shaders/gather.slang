@@ -23,33 +23,30 @@
 
 struct Params
 {
-    uint count;
+	uint count;
 };
 
 // Declared first and as a push constant, which leaves Metal's buffer 0 free and numbers the block below where the RHI's ABI binds it.
-[[vk::push_constant]]
-ConstantBuffer<Params> gParams;
+[[vk::push_constant]] ConstantBuffer<Params> gParams;
 
 struct Bindless
 {
-    SamplerState sampler;
-    RWStructuredBuffer<float4> output;
+	SamplerState sampler;
+	RWStructuredBuffer<float4> output;
 
-    // The layout's upper bound, not the count the set was allocated with. Entries past that count are never read and are legal to leave unwritten.
-    Texture2D textures[1024];
+	// The layout's upper bound, not the count the set was allocated with. Entries past that count are never read and are legal to leave unwritten.
+	Texture2D textures[1024];
 };
 
 ParameterBlock<Bindless> gSet;
 
-[shader("compute")]
-[numthreads(16, 1, 1)]
-void gatherMain(uint3 thread : SV_DispatchThreadID)
+[shader("compute")][numthreads(16, 1, 1)] void gatherMain(uint3 thread : SV_DispatchThreadID)
 {
-    if (thread.x >= gParams.count)
-    {
-        return;
-    }
+	if (thread.x >= gParams.count)
+	{
+		return;
+	}
 
-    // The index is the thread id, so every invocation reaches a different texture through the one binding.
-    gSet.output[thread.x] = gSet.textures[thread.x].SampleLevel(gSet.sampler, float2(0.5, 0.5), 0.0);
+	// The index is the thread id, so every invocation reaches a different texture through the one binding.
+	gSet.output[thread.x] = gSet.textures[thread.x].SampleLevel(gSet.sampler, float2(0.5, 0.5), 0.0);
 }

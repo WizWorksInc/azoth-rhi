@@ -168,7 +168,7 @@ namespace azo::rhi
 	[[nodiscard]] AZO_RHI_API const StaticBackendRegistration * SelfRegisteredBackends() noexcept;
 
 // Backend self-registration needs a generated namespace-scope object name. NOLINTBEGIN(cppcoreguidelines-macro-usage)
-#define AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b) a##b
+#define AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b) a## b
 #define AZO_RHI_DETAIL_REGISTER_CONCAT(a, b)	   AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b)
 
 	/**

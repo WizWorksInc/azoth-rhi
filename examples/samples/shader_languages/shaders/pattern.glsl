@@ -27,14 +27,15 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, std430) buffer Output
 {
-    float values[];
+	float values[];
 }
+
 gOutput;
 
 // Negative inside the disc, positive outside, zero on it. Distance, not coverage, so the value stays useful under a transform.
 float DiscDistance(vec2 point, float radius)
 {
-    return length(point) - radius;
+	return length(point) - radius;
 }
 
 // Stated, not read back off gl_WorkGroupSize, which Slang's GLSL front end leaves at zero and which would divide the grid away.
@@ -42,10 +43,10 @@ const uint kGrid = 8;
 
 void main()
 {
-    // Not const. GLSL reserves that for constant expressions, and Slang's front end takes it at its word: mark these const and the invocation id folds
-    // away to zero, leaving every thread computing cell zero.
-    vec2 uv = (vec2(gl_GlobalInvocationID.xy) + 0.5) / float(kGrid);
-    uint index = (gl_GlobalInvocationID.y * kGrid) + gl_GlobalInvocationID.x;
+	// Not const. GLSL reserves that for constant expressions, and Slang's front end takes it at its word: mark these const and the invocation id folds
+	// away to zero, leaving every thread computing cell zero.
+	vec2 uv	   = (vec2(gl_GlobalInvocationID.xy) + 0.5) / float(kGrid);
+	uint index = (gl_GlobalInvocationID.y * kGrid) + gl_GlobalInvocationID.x;
 
-    gOutput.values[index] = DiscDistance(uv - 0.5, 0.35);
+	gOutput.values[index] = DiscDistance(uv - 0.5, 0.35);
 }

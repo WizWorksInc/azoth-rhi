@@ -36,13 +36,13 @@ FetchContent_MakeAvailable(googletest)
 #
 # This demotes errors back to warnings for those targets alone. Nothing here relaxes anything for our
 # own code, which still fails on what its compiler chooses to warn about.
-foreach(_gtest_target IN ITEMS gtest gtest_main gmock gmock_main)
-    if(TARGET ${_gtest_target})
+foreach (_gtest_target IN ITEMS gtest gtest_main gmock gmock_main)
+    if (TARGET ${_gtest_target})
         target_compile_options(${_gtest_target} PRIVATE
                 $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-error>
                 $<$<CXX_COMPILER_ID:MSVC>:/WX->)
-    endif()
-endforeach()
+    endif ()
+endforeach ()
 
 include(GoogleTest)
 
@@ -96,22 +96,22 @@ add_library(rhi_test_static_backend STATIC support/backends/static_library_backe
 target_link_libraries(rhi_test_static_backend PUBLIC azoth::rhi)
 target_compile_features(rhi_test_static_backend PUBLIC cxx_std_23)
 
-if(AZOTH_RHI_BUILD_UNIT_TESTS)
+if (AZOTH_RHI_BUILD_UNIT_TESTS)
     add_subdirectory(unit)
-endif()
+endif ()
 
-if(AZOTH_RHI_BUILD_RIGOROUS_TESTS)
+if (AZOTH_RHI_BUILD_RIGOROUS_TESTS)
     add_subdirectory(rigorous)
-endif()
+endif ()
 
 # Grouped with the rigorous suites because it is a cross-checking suite and not a per-module one, and
 # because it is the one suite that reaches for a shader compiler. It skips itself when Slang is absent.
-if(AZOTH_RHI_BUILD_RIGOROUS_TESTS)
+if (AZOTH_RHI_BUILD_RIGOROUS_TESTS)
     add_subdirectory(shader_abi)
-endif()
+endif ()
 
 # Grouped here for the same reason: it is the one suite that names a graphics API, adoption being templated
 # on an API tag and so unreachable from a portable suite.
-if(AZOTH_RHI_BUILD_RIGOROUS_TESTS)
+if (AZOTH_RHI_BUILD_RIGOROUS_TESTS)
     add_subdirectory(adoption)
-endif()
+endif ()

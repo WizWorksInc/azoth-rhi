@@ -17,10 +17,10 @@
 # library the examples merely demonstrate is not something a build should fail over.
 azoth_rhi_provide_sdl3()
 
-if(NOT SDL3_FOUND)
+if (NOT SDL3_FOUND)
     message(STATUS "AzothRHI examples: skipping windowed_present_sdl3, SDL3 was not found")
     return()
-endif()
+endif ()
 
 azoth_rhi_add_example(windowed_present_sdl3
         SOURCES main.cpp native/sdl_natives.cpp

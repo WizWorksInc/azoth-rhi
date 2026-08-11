@@ -77,17 +77,17 @@ set_target_properties(rhi_bench_dispatch PROPERTIES
 # avoids ever naming one. Only the arms this build has a backend for are compiled.
 set(_native_delta_sources native_delta/main.cpp native_delta/native/arms.cpp)
 
-if(AZOTH_RHI_BACKEND_VULKAN)
+if (AZOTH_RHI_BACKEND_VULKAN)
     list(APPEND _native_delta_sources native_delta/native/vulkan_arm.cpp)
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     list(APPEND _native_delta_sources native_delta/native/metal_arm.cpp)
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_D3D12)
+if (AZOTH_RHI_BACKEND_D3D12)
     list(APPEND _native_delta_sources native_delta/native/d3d12_arm.cpp)
-endif()
+endif ()
 
 add_executable(rhi_bench_native_delta ${_native_delta_sources})
 target_link_libraries(rhi_bench_native_delta PRIVATE azoth::rhi-bench-support)
@@ -95,12 +95,12 @@ set_target_properties(rhi_bench_native_delta PROPERTIES
         FOLDER benchmarks
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-if(AZOTH_RHI_BACKEND_VULKAN)
+if (AZOTH_RHI_BACKEND_VULKAN)
     target_link_libraries(rhi_bench_native_delta PRIVATE azoth::rhi-native-vulkan)
     target_compile_definitions(rhi_bench_native_delta PRIVATE AZOTH_RHI_BENCH_VULKAN)
-endif()
+endif ()
 
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     # metal-cpp, since the Metal native header names MTL types it forward declares. The private
     # implementation symbols come from the library, which already defines them.
     #
@@ -114,20 +114,20 @@ if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     target_link_libraries(rhi_bench_native_delta PRIVATE metal_cpp)
     target_compile_definitions(rhi_bench_native_delta PRIVATE AZOTH_RHI_BENCH_METAL)
 
-    if(AZOTH_RHI_BACKEND_METAL)
+    if (AZOTH_RHI_BACKEND_METAL)
         target_compile_definitions(rhi_bench_native_delta PRIVATE AZOTH_RHI_BENCH_METAL3)
-    endif()
-    if(AZOTH_RHI_BACKEND_METAL4)
+    endif ()
+    if (AZOTH_RHI_BACKEND_METAL4)
         target_compile_definitions(rhi_bench_native_delta PRIVATE AZOTH_RHI_BENCH_METAL4)
-    endif()
-endif()
+    endif ()
+endif ()
 
-if(AZOTH_RHI_BACKEND_D3D12)
+if (AZOTH_RHI_BACKEND_D3D12)
     target_link_libraries(rhi_bench_native_delta PRIVATE d3d12)
     target_compile_definitions(rhi_bench_native_delta PRIVATE AZOTH_RHI_BENCH_D3D12)
-endif()
+endif ()
 
-if(AZOTH_RHI_BUILD_TESTS)
+if (AZOTH_RHI_BUILD_TESTS)
     # --benchmark_dry_run is one iteration of each benchmark with no repetitions, which leaves nothing
     # for the spread check to rule on. The warm-up and the budgets are ours so they are named here as
     # well. Small enough with all of them that a debug build runs it in well under a second.
@@ -146,4 +146,4 @@ if(AZOTH_RHI_BUILD_TESTS)
     add_test(NAME benchmark_dispatch_smoke
             COMMAND rhi_bench_dispatch --commands 5000 --warmup 0 --validation off --benchmark_dry_run)
     set_tests_properties(benchmark_dispatch_smoke PROPERTIES LABELS benchmark)
-endif()
+endif ()

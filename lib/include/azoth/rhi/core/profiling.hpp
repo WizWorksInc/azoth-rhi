@@ -21,7 +21,7 @@
 
 #include "azoth/rhi/host/profiler.hpp"
 
-#define AZO_RHI_PROFILE_CONCAT_INNER(first, second) first##second
+#define AZO_RHI_PROFILE_CONCAT_INNER(first, second) first## second
 #define AZO_RHI_PROFILE_CONCAT(first, second)		AZO_RHI_PROFILE_CONCAT_INNER(first, second)
 
 /**

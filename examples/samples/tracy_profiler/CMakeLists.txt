@@ -19,10 +19,10 @@
 #
 # A host builds its own client and adds it before it adds this library. A build of this repository alone
 # has none to add, which is what AZOTH_RHI_TESTS_FETCH_TRACY stands in for.
-if(NOT AZOTH_RHI_TRACY_ENABLED)
+if (NOT AZOTH_RHI_TRACY_ENABLED)
     message(STATUS "AzothRHI examples: skipping tracy_profiler, no Tracy client was found. Turn on AZOTH_RHI_TESTS_FETCH_TRACY to fetch one.")
     return()
-endif()
+endif ()
 
 # Tracy is named by nothing here. The library links the client publicly, so its headers and the
 # TRACY_ENABLE it was built with reach this sample the same way they reach the sink.

@@ -21,8 +21,8 @@
 
 struct Params
 {
-    float scale;
-    float bias;
+	float scale;
+	float bias;
 };
 
 /*
@@ -32,22 +32,19 @@ struct Params
  * Slang leaves buffer 0 free only when the shader declares a push constant, so a shader without one numbers its sets one too low. Pipeline creation refuses
  * that, and declaring the push constant is what makes this run.
  */
-[[vk::push_constant]]
-ConstantBuffer<Params> gParams;
+[[vk::push_constant]] ConstantBuffer<Params> gParams;
 
 // Two kinds on purpose, since telling them apart is the part of reflection with any work in it. A read only structured buffer and a writable one lower to
 // different descriptor types and Slang reports each one differently.
 struct Resources
 {
-    StructuredBuffer<float> input;
-    RWStructuredBuffer<float> output;
+	StructuredBuffer<float> input;
+	RWStructuredBuffer<float> output;
 };
 
 ParameterBlock<Resources> gSet;
 
-[shader("compute")]
-[numthreads(32, 1, 1)]
-void transformMain(uint3 thread : SV_DispatchThreadID)
+[shader("compute")][numthreads(32, 1, 1)] void transformMain(uint3 thread : SV_DispatchThreadID)
 {
-    gSet.output[thread.x] = (gSet.input[thread.x] * gParams.scale) + gParams.bias;
+	gSet.output[thread.x] = (gSet.input[thread.x] * gParams.scale) + gParams.bias;
 }

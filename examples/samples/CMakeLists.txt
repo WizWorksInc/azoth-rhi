@@ -19,8 +19,8 @@ file(GLOB _sample_dirs
         ${CMAKE_CURRENT_SOURCE_DIR}/*)
 list(SORT _sample_dirs)
 
-foreach(_dir IN LISTS _sample_dirs)
-    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${_dir}/CMakeLists.txt)
+foreach (_dir IN LISTS _sample_dirs)
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${_dir}/CMakeLists.txt)
         add_subdirectory(${_dir})
-    endif()
-endforeach()
+    endif ()
+endforeach ()

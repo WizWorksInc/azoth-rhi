@@ -21,28 +21,26 @@
  * Slang reads this file as HLSL because of its extension. Nothing here is Slang syntax.
  */
 
-[[vk::binding(0, 0)]]
-RWStructuredBuffer<float> gOutput : register(u0);
+[[vk::binding(0, 0)]] RWStructuredBuffer<float> gOutput : register(u0);
 
 groupshared float gPartial[64];
 
-[numthreads(64, 1, 1)]
-void computeMain(uint3 group : SV_GroupThreadID, uint3 thread : SV_DispatchThreadID)
+[numthreads(64, 1, 1)] void computeMain(uint3 group : SV_GroupThreadID, uint3 thread : SV_DispatchThreadID)
 {
-    gPartial[group.x] = float(thread.x);
-    GroupMemoryBarrierWithGroupSync();
+	gPartial[group.x] = float(thread.x);
+	GroupMemoryBarrierWithGroupSync();
 
-    // Each pass folds the upper half onto the lower one, so after six the whole group has landed in slot zero.
-    for (uint stride = 32; stride > 0; stride >>= 1)
-    {
-        if (group.x < stride)
-        {
-            gPartial[group.x] += gPartial[group.x + stride];
-        }
+	// Each pass folds the upper half onto the lower one, so after six the whole group has landed in slot zero.
+	for (uint stride = 32; stride > 0; stride >>= 1)
+	{
+		if (group.x < stride)
+		{
+			gPartial[group.x] += gPartial[group.x + stride];
+		}
 
-        GroupMemoryBarrierWithGroupSync();
-    }
+		GroupMemoryBarrierWithGroupSync();
+	}
 
-    // Every lane writes so the buffer carries the running total beside the answer, which makes a partial reduction visible, not silent.
-    gOutput[thread.x] = gPartial[group.x];
+	// Every lane writes so the buffer carries the running total beside the answer, which makes a partial reduction visible, not silent.
+	gOutput[thread.x] = gPartial[group.x];
 }
