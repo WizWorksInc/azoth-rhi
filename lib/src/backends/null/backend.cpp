@@ -599,17 +599,51 @@ namespace azo::rhi
 			return FormatSupport{ .format = format };
 		}
 
-		TextureViewHandle NullCreateTextureView(void * impl, TextureHandle texture, [[maybe_unused]] const TextureViewDesc & desc, Error * error) noexcept
+		TextureViewHandle NullCreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.createTextureView");
 
-			auto * device = static_cast<null::NullDevice *>(impl);
-			if (!Resolves(device, texture))
+			auto * device									   = static_cast<null::NullDevice *>(impl);
+			const null::NullHandleRecord * const sourceTexture = device->handles.Resolve(texture, kHandleAlreadyChecked);
+			if (sourceTexture == nullptr)
 			{
 				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "texture view of an invalid or stale texture handle");
 			}
 
+			// Refused here for the reason the zero extent is refused at creation: a range this backend accepts is one nothing catches until a real backend sees it.
+			const TextureSubresourceRange & r = desc.range;
+			if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
+			{
+				return FailValue<TextureViewHandle>(error,
+					ErrorCode::eInvalidArgument,
+					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+			}
+
+			const TextureDesc & source = sourceTexture->desc;
+			if (r.baseMip >= source.mipLevels || r.mipCount > source.mipLevels - r.baseMip)
+			{
+				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+			}
+			if (r.baseLayer >= source.arrayLayers || r.layerCount > source.arrayLayers - r.baseLayer)
+			{
+				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
+			}
+
 			return MintCreated<TextureViewHandle>(device, error);
+		}
+
+		// Minting one would make this the one backend accepting a desc the other four refuse, which is the disagreement rather than the absence of a driver.
+		QueryPoolHandle NullCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
+		{
+			AZO_RHI_PROFILE_ZONE("rhi.null.createQueryPool");
+
+			auto * device = static_cast<null::NullDevice *>(impl);
+			if (desc.queryCount == 0)
+			{
+				return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+			}
+
+			return MintCreated<QueryPoolHandle>(device, error);
 		}
 
 		BufferHandle NullCreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept
@@ -1304,7 +1338,7 @@ namespace azo::rhi
 		const QueryApi & QueryBlock() noexcept
 		{
 			static const QueryApi block{
-				.createQueryPool	= &NullCreateHandle<QueryPoolHandle>,
+				.createQueryPool	= &NullCreateQueryPool,
 				.calibrateTimestamp = &NullDefault<TimestampCalibration>,
 			};
 

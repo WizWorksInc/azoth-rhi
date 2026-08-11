@@ -558,6 +558,8 @@ namespace azo::rhi::d3d12
 		DXGI_FORMAT textureFormat = DXGI_FORMAT_UNKNOWN;
 		bool mutableFormat		  = false;
 		Format rhiFormat		  = Format::eUndefined;
+		std::uint32_t texMips	  = 1;
+		std::uint32_t texLayers	  = 1;
 		{
 			TextureSlot * slot = ResolveTexture(device, texture);
 			if (slot == nullptr)
@@ -569,6 +571,25 @@ namespace azo::rhi::d3d12
 			textureFormat = slot->format;
 			mutableFormat = slot->mutableFormat;
 			rhiFormat	  = slot->rhiFormat;
+			texMips		  = slot->mipLevels;
+			texLayers	  = slot->arrayLayers;
+		}
+
+		// A range past the end of the texture builds descriptors that read subresources the resource does not have, which the debug layer alone would catch.
+		const TextureSubresourceRange & r = desc.range;
+		if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
+		{
+			return FailValue<TextureViewHandle>(error,
+				ErrorCode::eInvalidArgument,
+				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+		}
+		if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip)
+		{
+			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+		}
+		if (r.baseLayer >= texLayers || r.layerCount > texLayers - r.baseLayer)
+		{
+			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
 		}
 
 		/*
