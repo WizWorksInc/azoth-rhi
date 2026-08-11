@@ -79,6 +79,9 @@ namespace azo::rhi::metal
 	 * This backend builds and traces nothing and DeviceCaps says so with supportsRayTracing false. A handle minted here would leave a caller that read the caps
 	 * bit and branched anyway holding an object that can never be built or traced with so both calls are refused instead. Refusing one and minting the other would
 	 * be worse than minting both, since whichever call the caller reaches first would decide whether they find out.
+	 *
+	 * This is also where BufferUsage::eAccelerationStructureStorage is answered. A Metal acceleration structure is not backed by a caller's buffer, so that usage
+	 * costs the buffer nothing here and refusing the operation is the whole of honouring it.
 	 */
 	AccelerationStructureHandle MetalCreateAccelerationStructure(
 		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept

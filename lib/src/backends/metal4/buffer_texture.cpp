@@ -160,6 +160,11 @@ namespace azo::rhi::metal4
 				error, ErrorCode::eInvalidArgument, "texture view names a format the source texture was not created with allowFormatViews for");
 		}
 
+		if (!ViewRangeFitsTexture(source, desc.range, error))
+		{
+			return TextureViewHandle{};
+		}
+
 		const NS::Range levels = NS::Range::Make(desc.range.baseMip, desc.range.mipCount);
 		const NS::Range slices = NS::Range::Make(desc.range.baseLayer, desc.range.layerCount);
 

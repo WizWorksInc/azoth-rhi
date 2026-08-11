@@ -204,6 +204,14 @@ namespace azo::rhi::metal_common
 	[[nodiscard]] NS::SharedPtr<MTL::TextureDescriptor> BuildTextureDescriptor(const TextureDesc & desc, Error * error) noexcept;
 
 	/**
+	 * \brief Checks a texture view's subresource range against the texture it is taken from.
+	 *
+	 * \return False with the error set. Metal takes the range straight into newTextureView, which asserts inside validateWithDevice rather than refusing, so the
+	 * range is checked here for the same reason the zero extent is.
+	 */
+	[[nodiscard]] bool ViewRangeFitsTexture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept;
+
+	/**
 	 * \brief Builds the sampler descriptor a SamplerDesc asks for, without creating the sampler.
 	 *
 	 * Split from creation because the two backends make the object off their own MTLDevice, and every decision before that point is the same one.

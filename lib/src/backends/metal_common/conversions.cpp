@@ -368,6 +368,34 @@ namespace azo::rhi::metal_common
 		return descriptor;
 	}
 
+	bool ViewRangeFitsTexture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept
+	{
+		if (range.mipCount == kAllMips || range.layerCount == kAllLayers)
+		{
+			return Fail(error,
+				ErrorCode::eInvalidArgument,
+				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+		}
+
+		// Asked of the MTLTexture and not of the recorded desc, since the swapchain's back buffer is tracked without one.
+		const auto mips				= static_cast<std::uint32_t>(texture->mipmapLevelCount());
+		const MTL::TextureType type = texture->textureType();
+		const bool cube				= type == MTL::TextureTypeCube || type == MTL::TextureTypeCubeArray;
+		const auto slices			= static_cast<std::uint32_t>(texture->arrayLength()) * (cube ? 6u : 1u);
+
+		if (range.baseMip >= mips || range.mipCount > mips - range.baseMip)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+		}
+
+		if (range.baseLayer >= slices || range.layerCount > slices - range.baseLayer)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
+		}
+
+		return true;
+	}
+
 	NS::SharedPtr<MTL::SamplerDescriptor> BuildSamplerDescriptor(const SamplerDesc & desc) noexcept
 	{
 		NS::SharedPtr<MTL::SamplerDescriptor> descriptor = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
