@@ -396,13 +396,13 @@ namespace
 		ASSERT_TRUE(test::Ok(sampler.IsValid(), error));
 
 		const std::array writes{ rhi::DescriptorWriteTexture{
-			.set			= set,
-			.binding		= 0,
-			.arrayIndex		= 0,
-			.type			= rhi::DescriptorType::eCombinedImageSampler,
-			.view			= view,
-			.sampler		= sampler,
-			.expectedLayout = rhi::TextureLayout::eShaderReadOnly,
+			.set		 = set,
+			.binding	 = 0,
+			.arrayIndex	 = 0,
+			.type		 = rhi::DescriptorType::eCombinedImageSampler,
+			.view		 = view,
+			.sampler	 = sampler,
+			.expectedUse = rhi::ResourceUse::eSampledRead,
 		} };
 
 		EXPECT_TRUE(test::Ok(Dev().UpdateDescriptors(writes, error), error)) << "a combined image sampler write was refused";

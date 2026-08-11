@@ -316,17 +316,17 @@ int main(int argc, char ** argv)
 		const rhi::TextureHandle backBuffer = acquired.texture;
 		const std::array toAttachment{ rhi::TextureBarrier{
 			.texture = backBuffer,
-			.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-			.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.before	 = { .use = rhi::ResourceUse::eDiscard, .stages = rhi::Stage::eColorOutput },
+			.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		} };
 		const std::array toPresent{ rhi::TextureBarrier{
 			.texture = backBuffer,
-			.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
-			.after	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::ePresent },
+			.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+			.after	 = { .use = rhi::ResourceUse::ePresent },
 		} };
 		const std::array colors{ rhi::RenderingAttachment{
 			.view		= acquired.view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load		= rhi::LoadOp::eClear,
 			.store		= rhi::StoreOp::eStore,
 			.clearColor = FrameColor(frame),

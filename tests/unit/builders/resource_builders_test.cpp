@@ -130,7 +130,6 @@ namespace
 		EXPECT_EQ(desc.arrayLayers, 1u);
 		EXPECT_EQ(desc.samples, rhi::SampleCount::e1);
 		EXPECT_TRUE(desc.usage.Empty());
-		EXPECT_EQ(desc.initialLayout, rhi::TextureLayout::eUndefined);
 	}
 
 	TEST(TextureBuilder, ExtentDefaultsTheDimensionsATwoDimensionalTextureDoesNotUse)
@@ -157,7 +156,6 @@ namespace
 										  .Samples(rhi::SampleCount::e4)
 										  .AddUsage(rhi::TextureUsage::eSampled)
 										  .AddUsage(rhi::TextureUsage::eColorAttachment)
-										  .InitialLayout(rhi::TextureLayout::eShaderReadOnly)
 										  .Memory(rhi::MemoryUsage::eGpuOnly)
 										  .Build();
 
@@ -168,7 +166,6 @@ namespace
 		EXPECT_EQ(desc.samples, rhi::SampleCount::e4);
 		EXPECT_TRUE(desc.usage.Contains(rhi::TextureUsage::eSampled));
 		EXPECT_TRUE(desc.usage.Contains(rhi::TextureUsage::eColorAttachment));
-		EXPECT_EQ(desc.initialLayout, rhi::TextureLayout::eShaderReadOnly);
 	}
 
 	TEST(MapBuilder, DefaultsToWritingTheWholeBuffer)

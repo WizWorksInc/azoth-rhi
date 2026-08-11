@@ -507,16 +507,16 @@ int main(int argc, char ** argv)
 	const std::array intoShaderWrite{
 		rhi::BufferBarrier{
 			.buffer = output,
-			.before = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone },
-			.after	= { .stages = rhi::PipelineStage::eComputeShader, .access = rhi::Access::eShaderWrite },
+			.before = { .use = rhi::ResourceUse::eDiscard },
+			.after	= { .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute },
 		},
 	};
 
 	const std::array afterDispatch{
 		rhi::BufferBarrier{
 			.buffer = output,
-			.before = { .stages = rhi::PipelineStage::eComputeShader, .access = rhi::Access::eShaderWrite },
-			.after	= { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead },
+			.before = { .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute },
+			.after	= { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 		},
 	};
 

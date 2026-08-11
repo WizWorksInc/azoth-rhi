@@ -209,16 +209,16 @@ int main(int argc, char ** argv)
 	const std::array intoStorage{
 		rhi::BufferBarrier{
 			.buffer = storage,
-			.before = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone },
-			.after	= { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite },
+			.before = { .use = rhi::ResourceUse::eDiscard },
+			.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 		},
 	};
 
 	const std::array outOfStorage{
 		rhi::BufferBarrier{
 			.buffer = storage,
-			.before = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite },
-			.after	= { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead },
+			.before = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+			.after	= { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 		},
 	};
 

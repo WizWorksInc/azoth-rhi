@@ -67,7 +67,7 @@ namespace
 		static_assert(IsPlainDesc<rhi::BinarySemaphoreDesc>);
 		static_assert(IsPlainDesc<rhi::SwapchainSync>);
 		static_assert(IsPlainDesc<rhi::ResourceState>);
-		static_assert(IsPlainDesc<rhi::QueueFamilyTransfer>);
+		static_assert(IsPlainDesc<rhi::QueueOwnership>);
 		static_assert(IsPlainDesc<rhi::BufferBarrier>);
 		static_assert(IsPlainDesc<rhi::TextureBarrier>);
 		static_assert(IsPlainDesc<rhi::MemoryBarrier>);
@@ -219,8 +219,8 @@ namespace
 		static_assert(sizeof(rhi::Flags<rhi::TextureUsage>) == sizeof(std::uint32_t));
 		static_assert(sizeof(rhi::Flags<rhi::ShaderStage>) == sizeof(std::uint32_t));
 		static_assert(sizeof(rhi::Flags<rhi::TextureAspect>) == sizeof(std::uint8_t));
-		static_assert(sizeof(rhi::Flags<rhi::PipelineStage>) == sizeof(std::uint64_t));
-		static_assert(sizeof(rhi::Flags<rhi::Access>) == sizeof(std::uint64_t));
+		static_assert(sizeof(rhi::Flags<rhi::Stage>) == sizeof(std::uint64_t));
+		static_assert(sizeof(rhi::Flags<rhi::ResourceUse>) == sizeof(std::uint32_t));
 
 		SUCCEED();
 	}

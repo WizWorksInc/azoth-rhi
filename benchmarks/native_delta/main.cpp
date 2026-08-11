@@ -363,18 +363,18 @@ int main(int argc, char ** argv)
 	// The before state is undefined every pass, since each pass clears the target anyway and a benchmark target has no contents worth keeping.
 	const std::array toAttachment{ rhi::TextureBarrier{
 		.texture = work.target,
-		.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-		.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.before	 = { .use = rhi::ResourceUse::eDiscard },
+		.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 	} };
 	work.holdBarrier.at(0) = rhi::TextureBarrier{
 		.texture = work.target,
-		.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
-		.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+		.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 	};
 
 	const std::array colors{ rhi::RenderingAttachment{
 		.view		= view,
-		.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		.load		= rhi::LoadOp::eClear,
 		.store		= rhi::StoreOp::eStore,
 		.clearColor = { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },

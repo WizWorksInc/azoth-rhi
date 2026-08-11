@@ -361,11 +361,6 @@ namespace azo::rhi::test::minimal
 				{
 					return static_cast<Object *>(impl)->queueType;
 				},
-				.getFamilyIndex =
-					[](void *) noexcept
-				{
-					return std::uint32_t{ 0 };
-				},
 				.submit =
 					[](void *, const SubmitDesc &, Error * error) noexcept
 				{

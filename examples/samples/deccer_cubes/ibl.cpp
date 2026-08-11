@@ -188,36 +188,16 @@ namespace deccer
 			};
 		}
 
-		constexpr rhi::ResourceState kUndefined{ .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined };
-		constexpr rhi::ResourceState kWritten{
-			.stages = rhi::PipelineStage::eComputeShader,
-			.access = rhi::Access::eShaderWrite,
-			.layout = rhi::TextureLayout::eGeneral,
-		};
+		constexpr rhi::ResourceState kUndefined{ .use = rhi::ResourceUse::eDiscard };
+		constexpr rhi::ResourceState kWritten{ .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute };
 
-		constexpr rhi::ResourceState kSampled{
-			.stages = rhi::PipelineStage::eComputeShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		constexpr rhi::ResourceState kSampled{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eCompute };
 
-		constexpr rhi::ResourceState kRead{
-			.stages = rhi::PipelineStage::eFragmentShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		constexpr rhi::ResourceState kRead{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 
-		constexpr rhi::ResourceState kCopyDst{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
+		constexpr rhi::ResourceState kCopyDst{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
-		constexpr rhi::ResourceState kCopySrc{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyRead,
-			.layout = rhi::TextureLayout::eCopySrc,
-		};
+		constexpr rhi::ResourceState kCopySrc{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
 
 		// What an .hdr arrives as. stb decodes one to four floats a texel and offers nothing narrower.
 		constexpr rhi::Format kSourceFormat = rhi::Format::eRGBA32Float;
@@ -503,7 +483,7 @@ namespace deccer
 					.type			= rhi::DescriptorType::eTextureUAV,
 					.view			= output,
 					.sampler		= setSampler,
-					.expectedLayout = rhi::TextureLayout::eGeneral,
+					.expectedUse = rhi::ResourceUse::eStorageWrite,
 				},
 			};
 

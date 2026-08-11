@@ -176,14 +176,14 @@ namespace
 			rhi::Queue producerQueue = Dev().GetQueue(rhi::QueueType::eGraphics);
 			const std::array toCopyDst{ rhi::TextureBarrier{
 				.texture = produced,
-				.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eCopyDst },
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			} };
 			const std::array release{ rhi::TextureBarrier{
 				.texture   = produced,
-				.before	   = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eCopyDst },
-				.after	   = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
-				.ownership = { .src = producerQueue.GetFamilyIndex(), .dst = rhi::kExternalQueueFamily },
+				.before	   = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.after	   = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+				.ownership = { .op = rhi::OwnershipOp::eReleaseToExternal },
 			} };
 			const std::array uploadRegions{ rhi::BufferTextureCopy{
 				.subresource   = { .aspects = rhi::TextureAspect::eColor },
@@ -207,9 +207,9 @@ namespace
 			rhi::Queue consumerQueue = consumer.GetQueue(rhi::QueueType::eGraphics);
 			const std::array acquire{ rhi::TextureBarrier{
 				.texture   = consumed,
-				.before	   = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eCopyDst },
-				.after	   = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
-				.ownership = { .src = rhi::kExternalQueueFamily, .dst = consumerQueue.GetFamilyIndex() },
+				.before	   = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.after	   = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+				.ownership = { .op = rhi::OwnershipOp::eAcquireFromExternal },
 			} };
 			const std::array regions{ rhi::BufferTextureCopy{
 				.subresource   = { .aspects = rhi::TextureAspect::eColor },

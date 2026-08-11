@@ -412,20 +412,29 @@ namespace
 		constexpr rhi::ResourceState untouched{};
 
 		const std::array released{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 0, .dst = 1 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } },
 		};
 		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = released }, error), error));
 
 		const std::array wrong{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 2, .dst = 0 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCopy } },
 		};
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a release from a family that does not own the resource was accepted";
+		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a release from a queue that does not own the resource was accepted";
 		EXPECT_EQ(wrongError.code, rhi::ErrorCode::eValidationFailed);
 
 		const std::array back{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 1, .dst = 0 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
 		};
 		EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = back }, error), error));
 
@@ -633,7 +642,7 @@ namespace
 		EXPECT_EQ(submitError.code, rhi::ErrorCode::eValidationFailed);
 	}
 
-	TEST_P(DecoratorTest, AQueueFamilyTransferThatNamesOnlyOneEndIsRefused)
+	TEST_P(DecoratorTest, AnOwnershipTransferBetweenOneQueueAndItselfIsRefused)
 	{
 		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
 		desc.validation		 = rhi::ValidationMode::eDeveloper;
@@ -647,31 +656,21 @@ namespace
 
 		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.halfTransfer", error);
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.selfTransfer", error);
 		ASSERT_TRUE(test::Ok(list.IsValid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		constexpr rhi::ResourceState untouched{};
 
-		const std::array halfFilled{
-			rhi::BufferBarrier{
-				.buffer	   = buffer,
-				.before	   = untouched,
-				.after	   = untouched,
-				.ownership = { .src = 0, .dst = rhi::kIgnoreQueueFamily },
-			},
-		};
-
-		rhi::Error halfError{};
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = halfFilled }, halfError)) << "a transfer naming one end and ignoring the other was accepted";
-		EXPECT_EQ(halfError.code, rhi::ErrorCode::eValidationFailed);
-
 		const std::array toItself{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 1, .dst = 1 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eGraphics } },
 		};
 
 		rhi::Error selfError{};
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = toItself }, selfError)) << "a transfer from a family to itself was accepted";
+		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = toItself }, selfError)) << "a transfer between one queue and itself was accepted";
 		EXPECT_EQ(selfError.code, rhi::ErrorCode::eValidationFailed);
 
 		const std::array neither{

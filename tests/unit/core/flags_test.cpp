@@ -52,8 +52,8 @@ namespace
 		static_assert(rhi::FlagEnum<Sample>);
 		static_assert(rhi::FlagEnum<rhi::BufferUsage>);
 		static_assert(rhi::FlagEnum<rhi::TextureUsage>);
-		static_assert(rhi::FlagEnum<rhi::PipelineStage>);
-		static_assert(rhi::FlagEnum<rhi::Access>);
+		static_assert(rhi::FlagEnum<rhi::Stage>);
+		static_assert(rhi::FlagEnum<rhi::ResourceUse>);
 		static_assert(rhi::FlagEnum<rhi::ShaderStage>);
 		static_assert(!rhi::FlagEnum<int>);
 		static_assert(!rhi::FlagEnum<unsigned>);
@@ -179,23 +179,18 @@ namespace
 
 	TEST(FlagsInPublicDescs, KeepTheWideAliasesDistinctFromTheStagesTheyCover)
 	{
-		constexpr rhi::Flags<rhi::PipelineStage> alias = rhi::PipelineStage::eAllGraphics;
-		EXPECT_FALSE(alias.Contains(rhi::PipelineStage::eVertexShader));
-		EXPECT_FALSE(alias.Contains(rhi::PipelineStage::eFragmentShader));
-
-		constexpr rhi::Flags<rhi::Access> memory = rhi::Access::eMemoryRead;
-		EXPECT_FALSE(memory.Contains(rhi::Access::eShaderRead));
+		constexpr rhi::Flags<rhi::Stage> alias = rhi::Stage::eAllGraphics;
+		EXPECT_FALSE(alias.Contains(rhi::Stage::eVertexWork));
+		EXPECT_FALSE(alias.Contains(rhi::Stage::eFragmentShading));
 	}
 
 	TEST(FlagsInPublicDescs, SurviveTheFullSixtyFourBitStageDomain)
 	{
-		static_assert(std::same_as<rhi::Flags<rhi::PipelineStage>::Underlying, std::uint64_t>);
-		static_assert(std::same_as<rhi::Flags<rhi::Access>::Underlying, std::uint64_t>);
+		static_assert(std::same_as<rhi::Flags<rhi::Stage>::Underlying, std::uint64_t>);
 
-		constexpr rhi::Flags<rhi::PipelineStage> wide =
-			rhi::Flags<rhi::PipelineStage>(rhi::PipelineStage::eAllCommands) | rhi::PipelineStage::eAccelerationStructureBuild;
-		EXPECT_TRUE(wide.Contains(rhi::PipelineStage::eAllCommands));
-		EXPECT_TRUE(wide.Contains(rhi::PipelineStage::eAccelerationStructureBuild));
+		constexpr rhi::Flags<rhi::Stage> wide = rhi::Flags<rhi::Stage>(rhi::Stage::eAllCommands) | rhi::Stage::eAccelBuild;
+		EXPECT_TRUE(wide.Contains(rhi::Stage::eAllCommands));
+		EXPECT_TRUE(wide.Contains(rhi::Stage::eAccelBuild));
 	}
 
 } // namespace

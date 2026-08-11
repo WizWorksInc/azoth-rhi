@@ -41,29 +41,17 @@ namespace
 
 	[[nodiscard]] rhi::ResourceState UntouchedState() noexcept
 	{
-		return rhi::ResourceState{
-			.stages = rhi::PipelineStage::eNone,
-			.access = rhi::Access::eNone,
-			.layout = rhi::TextureLayout::eUndefined,
-		};
+		return rhi::ResourceState{ .use = rhi::ResourceUse::eDiscard };
 	}
 
 	[[nodiscard]] rhi::ResourceState CopyDestinationState() noexcept
 	{
-		return rhi::ResourceState{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
+		return rhi::ResourceState{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 	}
 
 	[[nodiscard]] rhi::ResourceState ShaderReadState() noexcept
 	{
-		return rhi::ResourceState{
-			.stages = rhi::PipelineStage::eFragmentShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		return rhi::ResourceState{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 	}
 
 	TEST_P(NativeAccessTest, gate_NativeAccessIsModeInvariant)

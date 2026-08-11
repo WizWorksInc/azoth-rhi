@@ -163,6 +163,15 @@ namespace azo::rhi::test
 			});
 	}
 
+	bool BackendIsSelected(const std::string_view shortName)
+	{
+		return std::ranges::any_of(SelectedBackends(),
+			[shortName](const Backend & backend)
+			{
+				return shortName == backend.shortName;
+			});
+	}
+
 	const Backend * FindBackend(const GraphicsApiId id) noexcept
 	{
 		for (const Backend & backend : AvailableBackends())
@@ -215,6 +224,11 @@ namespace azo::rhi::test
 
 	void BackendTest::SetUp()
 	{
+		if (!BackendIsSelected(GetParam().shortName))
+		{
+			GTEST_SKIP() << GetParam().displayName << " is not among the backends AZOTH_RHI_TEST_BACKENDS asked for";
+		}
+
 		m_harness = std::make_unique<DeviceHarness>(GetParam(), MakeDeviceDesc());
 		if (m_harness->IsValid())
 		{

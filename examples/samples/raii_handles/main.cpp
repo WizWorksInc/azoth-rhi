@@ -236,16 +236,16 @@ namespace
 		const std::array toCopyDst{
 			rhi::TextureBarrier{
 				.texture = resources.texture.Get(),
-				.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eCopyDst },
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			},
 		};
 
 		const std::array toCopySrc{
 			rhi::TextureBarrier{
 				.texture = resources.texture.Get(),
-				.before	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eCopyDst },
-				.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
+				.before	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 			},
 		};
 

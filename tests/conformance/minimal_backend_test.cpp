@@ -49,13 +49,13 @@ namespace
 		return backends;
 	}
 
-	TEST(MinimalBackend, TheRequiredBlocksComeToSeventySevenEntries)
+	TEST(MinimalBackend, TheRequiredBlocksComeToSeventySixEntries)
 	{
 		// A ratchet: this is what an out-of-tree backend must fill and it is not allowed to grow. A later capability goes in a new block.
-		EXPECT_EQ(minimal::HeadlessEntryCount(), 77u);
+		EXPECT_EQ(minimal::HeadlessEntryCount(), 76u);
 		EXPECT_LE(minimal::HeadlessEntryCount(), 80u) << "the required set grew past the ratchet";
 
-		EXPECT_EQ(minimal::PresentingEntryCount(), 91u);
+		EXPECT_EQ(minimal::PresentingEntryCount(), 90u);
 	}
 
 	TEST(MinimalBackend, gate_MinimalBackendFixture)
@@ -214,11 +214,7 @@ namespace
 				.texture = backBuffer,
 				.before	 = {},
 				.after =
-					{
-						.stages = rhi::PipelineStage::eColorOutput,
-						.access = rhi::Access::eColorWrite,
-						.layout = rhi::TextureLayout::eColorAttachment,
-					},
+					{ .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				.range = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error), error))
@@ -226,11 +222,7 @@ namespace
 
 			const std::array<rhi::RenderingAttachment, 1> colors{ rhi::RenderingAttachment{
 				.view  = view,
-				.state = {
-					.stages = rhi::PipelineStage::eColorOutput,
-					.access = rhi::Access::eColorWrite,
-					.layout = rhi::TextureLayout::eColorAttachment,
-				},
+				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				.load  = rhi::LoadOp::eClear,
 				.store = rhi::StoreOp::eStore,
 			} };
@@ -241,16 +233,8 @@ namespace
 			const std::array<rhi::TextureBarrier, 1> toPresent{ rhi::TextureBarrier{
 				.texture = backBuffer,
 				.before =
-					{
-						.stages = rhi::PipelineStage::eColorOutput,
-						.access = rhi::Access::eColorWrite,
-						.layout = rhi::TextureLayout::eColorAttachment,
-					},
-				.after = {
-					.stages = rhi::PipelineStage::eNone,
-					.access = rhi::Access::eNone,
-					.layout = rhi::TextureLayout::ePresent,
-				},
+					{ .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.after = { .use = rhi::ResourceUse::ePresent },
 				.range = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error), error));
@@ -308,7 +292,7 @@ namespace
 			rhi::TextureBarrier{
 				.texture = backBuffer,
 				.before	 = {},
-				.after	 = { .layout = rhi::TextureLayout::eColorAttachment },
+				.after	 = { .use = rhi::ResourceUse::eColorTarget },
 			},
 		};
 

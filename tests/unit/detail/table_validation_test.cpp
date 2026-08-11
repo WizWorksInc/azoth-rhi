@@ -127,7 +127,7 @@ namespace
 			rhi::detail::BlockEntries<rhi::InstanceApi>::kNames.size() + rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size() +
 			rhi::detail::BlockEntries<rhi::QueueApi>::kNames.size() + rhi::detail::BlockEntries<rhi::CommandPoolApi>::kNames.size() +
 			rhi::detail::BlockEntries<rhi::DescriptorArenaApi>::kNames.size() + rhi::detail::BlockEntries<rhi::RenderCommandApi>::kNames.size();
-		static_assert(required == 77);
+		static_assert(required == 76);
 
 		constexpr std::size_t declinable =
 			rhi::detail::BlockEntries<rhi::PresentApi>::kNames.size() + rhi::detail::BlockEntries<rhi::SwapchainApi>::kNames.size() +
@@ -143,7 +143,7 @@ namespace
 
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::InstanceApi>::kNames.size(), 4u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size(), 30u);
-		EXPECT_EQ(rhi::detail::BlockEntries<rhi::QueueApi>::kNames.size(), 9u);
+		EXPECT_EQ(rhi::detail::BlockEntries<rhi::QueueApi>::kNames.size(), 8u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::CommandPoolApi>::kNames.size(), 2u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::DescriptorArenaApi>::kNames.size(), 2u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::RenderCommandApi>::kNames.size(), 30u);

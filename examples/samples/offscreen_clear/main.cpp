@@ -135,18 +135,18 @@ int main(int argc, char ** argv)
 
 	const std::array toAttachment{ rhi::TextureBarrier{
 		.texture = target,
-		.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-		.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.before	 = { .use = rhi::ResourceUse::eDiscard },
+		.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 	} };
 	const std::array toCopySource{ rhi::TextureBarrier{
 		.texture = target,
-		.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
-		.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
+		.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+		.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 	} };
 
 	const std::array colors{ rhi::RenderingAttachment{
 		.view		= view,
-		.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		.load		= rhi::LoadOp::eClear,
 		.store		= rhi::StoreOp::eStore,
 		.clearColor = kClear,

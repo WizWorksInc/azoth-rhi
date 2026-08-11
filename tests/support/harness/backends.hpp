@@ -70,6 +70,8 @@ namespace azo::rhi::test
 
 	[[nodiscard]] bool BackendIsRequired(std::string_view shortName);
 
+	[[nodiscard]] bool BackendIsSelected(std::string_view shortName);
+
 	[[nodiscard]] const Backend * FindBackend(GraphicsApiId id) noexcept;
 
 	[[nodiscard]] std::string BackendParamName(const ::testing::TestParamInfo<Backend> & info);
@@ -173,10 +175,11 @@ namespace azo::rhi::test
 
 } // namespace azo::rhi::test
 
+// Every compiled-in backend, not the selected ones, so ctest discovery cannot bake a filtered run's AZOTH_RHI_TEST_BACKENDS into the registry it caches.
 #define AZO_RHI_BACKEND_SUITE(suite)                                                                                                                           \
 	INSTANTIATE_TEST_SUITE_P(Backends,                                                                                                                         \
 		suite,                                                                                                                                                 \
-		::testing::ValuesIn(::azo::rhi::test::SelectedBackends().begin(), ::azo::rhi::test::SelectedBackends().end()),                                         \
+		::testing::ValuesIn(::azo::rhi::test::AvailableBackends().begin(), ::azo::rhi::test::AvailableBackends().end()),                                       \
 		::azo::rhi::test::BackendParamName)
 
 #define AZO_RHI_REQUIRE_CAP(supported, capability)                                                                                                             \

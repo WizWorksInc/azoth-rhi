@@ -202,7 +202,7 @@ namespace
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
 		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
+			.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load  = rhi::LoadOp::eClear,
 			.store = rhi::StoreOp::eStore } };
 		const rhi::BeginRenderingDesc rendering{
@@ -358,7 +358,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, 8, error), error));
-		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::PipelineStage::eAllCommands, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eAllCommands, error), error));
 
 		EXPECT_TRUE(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
@@ -374,7 +374,7 @@ namespace
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
 		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
+			.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load		= rhi::LoadOp::eClear,
 			.store		= rhi::StoreOp::eStore,
 			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };

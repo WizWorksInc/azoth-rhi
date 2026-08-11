@@ -319,8 +319,8 @@ namespace fw::scene
 		const std::array toCopyDst{
 			azo::rhi::TextureBarrier{
 				.texture = texture,
-				.before	 = { .stages = azo::rhi::PipelineStage::eNone, .access = azo::rhi::Access::eNone, .layout = azo::rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = azo::rhi::PipelineStage::eCopy, .access = azo::rhi::Access::eCopyWrite, .layout = azo::rhi::TextureLayout::eCopyDst },
+				.before	 = { .use = azo::rhi::ResourceUse::eDiscard },
+				.after	 = { .use = azo::rhi::ResourceUse::eCopyDst, .stages = azo::rhi::Stage::eCopy },
 				.range	 = whole,
 			},
 		};
@@ -341,10 +341,8 @@ namespace fw::scene
 		const std::array toRead{
 			azo::rhi::TextureBarrier{
 				.texture = texture,
-				.before	 = { .stages = azo::rhi::PipelineStage::eCopy, .access = azo::rhi::Access::eCopyWrite, .layout = azo::rhi::TextureLayout::eCopyDst },
-				.after	 = { .stages = azo::rhi::PipelineStage::eFragmentShader,
-					.access		   = azo::rhi::Access::eShaderRead,
-					.layout		   = azo::rhi::TextureLayout::eShaderReadOnly },
+				.before	 = { .use = azo::rhi::ResourceUse::eCopyDst, .stages = azo::rhi::Stage::eCopy },
+				.after	 = { .use = azo::rhi::ResourceUse::eSampledRead, .stages = azo::rhi::Stage::eFragmentShading },
 				.range	 = whole,
 			},
 		};

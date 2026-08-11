@@ -104,9 +104,9 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::PipelineStage::eAllCommands, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eAllCommands, error), error));
 			EXPECT_TRUE(test::Ok(recording.List().ClearBuffer(scratch, 0, test::samples::kBufferSize, 0u, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 1, rhi::PipelineStage::eAllCommands, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 1, rhi::Stage::eAllCommands, error), error));
 			EXPECT_TRUE(test::Ok(recording.List().ResolveQueryData(pool, 0, 2, results, 0, error), error));
 
 			ASSERT_TRUE(recording.End());
@@ -152,7 +152,7 @@ namespace
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
 		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
+			.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load		= rhi::LoadOp::eClear,
 			.store		= rhi::StoreOp::eStore,
 			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
@@ -229,7 +229,7 @@ namespace
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
 		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
+			.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load		= rhi::LoadOp::eClear,
 			.store		= rhi::StoreOp::eStore,
 			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
@@ -257,7 +257,7 @@ namespace
 		}
 
 		rhi::Error writeError{};
-		const bool written = recording.List().WriteTimestamp(pool, 2, rhi::PipelineStage::eAllCommands, writeError);
+		const bool written = recording.List().WriteTimestamp(pool, 2, rhi::Stage::eAllCommands, writeError);
 
 		if (Caps().supportsTimestampWritesInScope)
 		{
@@ -291,7 +291,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		rhi::Error writeError{};
-		EXPECT_FALSE(recording.List().WriteTimestamp(pool, kPoolQueries, rhi::PipelineStage::eAllCommands, writeError))
+		EXPECT_FALSE(recording.List().WriteTimestamp(pool, kPoolQueries, rhi::Stage::eAllCommands, writeError))
 			<< "a timestamp was written past the end of the pool";
 		EXPECT_TRUE(test::ErrorIsPopulated(writeError));
 
@@ -316,7 +316,7 @@ namespace
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
 		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
+			.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load		= rhi::LoadOp::eClear,
 			.store		= rhi::StoreOp::eStore,
 			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };

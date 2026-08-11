@@ -134,11 +134,11 @@ namespace azo::rhi::utils
 			return binary;
 		}
 
-		constexpr ResourceState kSampled{ .stages = PipelineStage::eComputeShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly };
-		constexpr ResourceState kWritten{ .stages = PipelineStage::eComputeShader, .access = Access::eShaderWrite, .layout = TextureLayout::eGeneral };
+		constexpr ResourceState kSampled{ .use = ResourceUse::eSampledRead, .stages = Stage::eCompute };
+		constexpr ResourceState kWritten{ .use = ResourceUse::eStorageWrite, .stages = Stage::eCompute };
 
 		// Where GenerateMips leaves the texture, stated once here because both paths have to end in the same place.
-		constexpr ResourceState kReadable{ .stages = PipelineStage::eFragmentShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly };
+		constexpr ResourceState kReadable{ .use = ResourceUse::eSampledRead, .stages = Stage::eFragmentShading };
 	} // namespace
 
 	Result<Resampler> Resampler::Create(Device & device, const ResamplerDesc & desc) noexcept
@@ -330,9 +330,9 @@ namespace azo::rhi::utils
 		 */
 		const std::uint32_t last = info.desc.mipLevels - 1;
 		const ResourceState above =
-			hardware ? ResourceState{ .stages = PipelineStage::eCopy, .access = Access::eCopyRead, .layout = TextureLayout::eCopySrc } : kSampled;
+			hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kSampled;
 		const ResourceState lastState =
-			hardware ? ResourceState{ .stages = PipelineStage::eCopy, .access = Access::eCopyWrite, .layout = TextureLayout::eCopyDst } : kWritten;
+			hardware ? ResourceState{ .use = ResourceUse::eCopyDst, .stages = Stage::eCopy } : kWritten;
 
 		const std::array exit{
 			TextureBarrier{
@@ -407,7 +407,7 @@ namespace azo::rhi::utils
 				.type					 = DescriptorType::eTextureUAV,
 				.view					 = destination,
 				.sampler				 = m_sampler,
-				.expectedLayout			 = TextureLayout::eGeneral },
+				.expectedUse			 = ResourceUse::eStorageWrite },
 		};
 		const std::array samplers{ DescriptorWriteSampler{ .set = set, .binding = kSamplerBinding, .sampler = m_sampler } };
 

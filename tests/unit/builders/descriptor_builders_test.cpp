@@ -255,7 +255,7 @@ namespace
 		static_assert(buffer.type == rhi::DescriptorType::eUniformBuffer);
 
 		constexpr rhi::DescriptorWriteTexture texture = rhi::DescriptorWriteTextureBuilder{}.Build();
-		static_assert(texture.expectedLayout == rhi::TextureLayout::eShaderReadOnly);
+		static_assert(texture.expectedUse == rhi::ResourceUse::eSampledRead);
 		static_assert(texture.type == rhi::DescriptorType::eTextureSRV);
 
 		SUCCEED();
@@ -298,13 +298,13 @@ namespace
 		const rhi::DescriptorWriteTexture write = rhi::DescriptorWriteTextureBuilder{}
 													  .View(view)
 													  .Sampler(sampler)
-													  .ExpectedLayout(rhi::TextureLayout::eGeneral)
+													  .ExpectedUse(rhi::ResourceUse::eStorageWrite)
 													  .Type(rhi::DescriptorType::eTextureUAV)
 													  .Build();
 
 		EXPECT_EQ(write.view, view);
 		EXPECT_EQ(write.sampler, sampler);
-		EXPECT_EQ(write.expectedLayout, rhi::TextureLayout::eGeneral);
+		EXPECT_EQ(write.expectedUse, rhi::ResourceUse::eStorageWrite);
 		EXPECT_EQ(write.type, rhi::DescriptorType::eTextureUAV);
 
 		const rhi::DescriptorWriteSampler samplerOnly = rhi::DescriptorWriteSamplerBuilder{}.Binding(2).Sampler(sampler).Build();

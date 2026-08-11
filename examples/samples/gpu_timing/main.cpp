@@ -319,15 +319,15 @@ int main(int argc, char ** argv)
 	const std::array intoShaderWrite{
 		rhi::BufferBarrier{
 			.buffer = accumulator,
-			.before = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone },
-			.after	= { .stages = rhi::PipelineStage::eComputeShader, .access = rhi::Access::eShaderWrite },
+			.before = { .use = rhi::ResourceUse::eDiscard },
+			.after	= { .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute },
 		},
 	};
 	const std::array intoAttachment{
 		rhi::TextureBarrier{
 			.texture = target,
-			.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-			.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.before	 = { .use = rhi::ResourceUse::eDiscard },
+			.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		},
 	};
 
@@ -352,12 +352,12 @@ int main(int argc, char ** argv)
 	 */
 	const bool timeTheDispatch = caps.supportsTimestampWritesInScope;
 
-	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitBegin), rhi::PipelineStage::eAllCommands, error) &&
+	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitBegin), rhi::Stage::eAllCommands, error) &&
 			   list.Barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error);
 
 	if (timeTheDispatch)
 	{
-		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeBegin), rhi::PipelineStage::eAllCommands, error);
+		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeBegin), rhi::Stage::eAllCommands, error);
 	}
 
 	recorded = recorded && list.SetComputePipeline(computePipeline, error) && list.BindDescriptorSet(computeLayout, 0, workSet, {}, error) &&
@@ -366,7 +366,7 @@ int main(int argc, char ** argv)
 
 	if (timeTheDispatch)
 	{
-		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeEnd), rhi::PipelineStage::eComputeShader, error);
+		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeEnd), rhi::Stage::eCompute, error);
 	}
 
 	recorded = recorded && list.Barriers(rhi::BarrierBatch{ .textures = intoAttachment }, error);
@@ -390,7 +390,7 @@ int main(int argc, char ** argv)
 	const std::array colors{
 		rhi::RenderingAttachment{
 			.view  = targetView,
-			.state = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load  = rhi::LoadOp::eClear,
 			.store = rhi::StoreOp::eStore,
 		},
@@ -434,7 +434,7 @@ int main(int argc, char ** argv)
 
 	list.EndRendering(error);
 
-	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitEnd), rhi::PipelineStage::eAllCommands, error) &&
+	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitEnd), rhi::Stage::eAllCommands, error) &&
 			   list.ResolveQueryData(timestamps, 0, kTimestampCount, results, 0, error);
 
 	if (occlusion.IsValid())

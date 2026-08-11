@@ -276,12 +276,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	TEST_P(ExternalTest, TheExternalQueueFamilySentinelIsItsOwnValue)
-	{
-		static_assert(rhi::kExternalQueueFamily != rhi::kIgnoreQueueFamily);
-		EXPECT_NE(rhi::kExternalQueueFamily, rhi::kIgnoreQueueFamily);
-	}
-
 	TEST_P(ExternalTest, CreatesExactlyTheExportableHeapsTheQueryReports)
 	{
 		bool sawRefused = false;

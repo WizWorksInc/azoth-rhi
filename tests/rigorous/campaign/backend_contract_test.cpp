@@ -105,15 +105,15 @@ namespace
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		const std::array toCopy{ rhi::BufferBarrier{ .buffer = target,
-			.before										= { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined, },
-			.after = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eUndefined } } };
+			.before										= { .use = rhi::ResourceUse::eDiscard },
+			.after = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy } } };
 		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 		ASSERT_TRUE(test::Ok(list.CopyBuffer(target, 0, upload, 0, test::samples::kBufferSize, error), error));
 		ASSERT_TRUE(test::Ok(list.End(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{
-			rhi::TimelinePoint{ .timeline = frameTimeline, .value = 1, .waitStages = rhi::PipelineStage::eAllCommands },
+			rhi::TimelinePoint{ .timeline = frameTimeline, .value = 1, .waitStages = rhi::Stage::eAllCommands },
 		};
 
 		const rhi::SubmitDesc submit{
@@ -163,7 +163,7 @@ namespace
 
 			std::array<const rhi::CommandList *, 1> lists{ &list };
 			const std::array signals{
-				rhi::TimelinePoint{ .timeline = timeline, .value = frame, .waitStages = rhi::PipelineStage::eAllCommands },
+				rhi::TimelinePoint{ .timeline = timeline, .value = frame, .waitStages = rhi::Stage::eAllCommands },
 			};
 			ASSERT_TRUE(test::Ok(queue.Submit(
 									 rhi::SubmitDesc{

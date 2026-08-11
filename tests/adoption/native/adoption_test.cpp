@@ -487,16 +487,13 @@ namespace
 		const OwnedImage produced						   = MakeImage(vkDevice, native.Value().physicalDevice, dispatch);
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
-		const std::uint32_t producerFamily = device.GetQueue(rhi::QueueType::eGraphics).GetFamilyIndex() + 1;
-		const rhi::ResourceState arrived{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
+		const rhi::ResourceState arrived{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		rhi::Error error{};
 		const rhi::TextureHandle adopted = device.AdoptTexture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
-			{ .desc = SharedTextureDesc(), .initialState = arrived, .initialQueueFamily = producerFamily },
+			{ .desc				  = SharedTextureDesc(),
+				.initialState	  = arrived,
+				.initialOwnership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
 			error);
 		ASSERT_TRUE(adopted.IsValid()) << error.message;
 
@@ -509,8 +506,8 @@ namespace
 		const std::array acquire{ rhi::TextureBarrier{
 			.texture   = adopted,
 			.before	   = arrived,
-			.after	   = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
-			.ownership = { .src = producerFamily, .dst = device.GetQueue(rhi::QueueType::eGraphics).GetFamilyIndex() },
+			.after	   = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+			.ownership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute },
 		} };
 
 		EXPECT_TRUE(list.Barriers(rhi::BarrierBatch{ .textures = acquire }, error))
@@ -541,11 +538,7 @@ namespace
 		const OwnedImage produced						   = MakeImage(vkDevice, native.Value().physicalDevice, dispatch);
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
-		const rhi::ResourceState arrived{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
+		const rhi::ResourceState arrived{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		rhi::Error error{};
 		const rhi::TextureHandle adopted = device.AdoptTexture<rhi::VulkanApi>(
@@ -560,8 +553,8 @@ namespace
 
 		const std::array wrong{ rhi::TextureBarrier{
 			.texture = adopted,
-			.before	 = { .stages = rhi::PipelineStage::eFragmentShader, .access = rhi::Access::eShaderRead, .layout = rhi::TextureLayout::eShaderReadOnly },
-			.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
+			.before	 = { .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading },
+			.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 		} };
 
 		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error))
@@ -592,12 +585,10 @@ namespace
 		const OwnedImage produced						   = MakeImage(vkDevice, native.Value().physicalDevice, dispatch);
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
-		const std::uint32_t here		   = device.GetQueue(rhi::QueueType::eGraphics).GetFamilyIndex();
-		const std::uint32_t producerFamily = here + 1;
-
 		rhi::Error error{};
-		const rhi::TextureHandle adopted = device.AdoptTexture<rhi::VulkanApi>(
-			rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image }, { .desc = SharedTextureDesc(), .initialQueueFamily = producerFamily }, error);
+		const rhi::TextureHandle adopted = device.AdoptTexture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
+			{ .desc = SharedTextureDesc(), .initialOwnership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
+			error);
 		ASSERT_TRUE(adopted.IsValid()) << error.message;
 
 		rhi::CommandPool pool = device.CreateCommandPool({ .queueType = rhi::QueueType::eGraphics }, error);
@@ -609,12 +600,12 @@ namespace
 		const std::array wrong{ rhi::TextureBarrier{
 			.texture   = adopted,
 			.before	   = {},
-			.after	   = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
-			.ownership = { .src = producerFamily + 1, .dst = here },
+			.after	   = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+			.ownership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCopy },
 		} };
 
 		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error))
-			<< "a barrier released the object from a family it was never declared to be owned by";
+			<< "a barrier acquired the object from a queue it was never declared to be owned by";
 
 		static_cast<void>(list.End(error));
 		EXPECT_TRUE(device.Destroy(adopted, {}, error)) << error.message;

@@ -142,7 +142,7 @@ namespace bench::native
 			.texture	= work.target,
 			.access		= rhi::NativeMutationAccess::eReadWrite,
 			.range		= {},
-			.finalState = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.finalState = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		} };
 		const rhi::NativeMutationDesc mutation{ .textures = touched, .debugName = "bench.native" };
 

@@ -279,13 +279,14 @@ namespace
 		{
 			toCopy.push_back(rhi::BufferBarrier{
 				.buffer = buffer,
-				.before = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone },
-				.after	= { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite },
+				.before = { .use = rhi::ResourceUse::eDiscard },
+				.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			});
 			toRead.push_back(rhi::BufferBarrier{
 				.buffer = buffer,
-				.before = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite },
-				.after	= { .stages = rhi::PipelineStage::eVertexInput, .access = rhi::Flags<rhi::Access>(rhi::Access::eVertexRead) | rhi::Access::eIndexRead },
+				.before = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.after	= { .use = rhi::Flags<rhi::ResourceUse>(rhi::ResourceUse::eVertexBuffer) | rhi::ResourceUse::eIndexBuffer,
+					.stages		= rhi::Stage::eVertexWork },
 			});
 		}
 
@@ -294,8 +295,8 @@ namespace
 			const rhi::TextureSubresourceRange whole{ .mipCount = fw::assets::MipCount(scene.images[i].width, scene.images[i].height) };
 			toCopyDst.push_back(rhi::TextureBarrier{
 				.texture = gpu.textures[i],
-				.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eCopyDst },
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 				.range	 = whole,
 			});
 			// No transition for the textures here. The Resampler states where it leaves them, which is fragment readable, and it has to because the caller cannot see
@@ -806,16 +807,14 @@ int main(int argc, char ** argv)
 		const std::array toAttachment{
 			rhi::TextureBarrier{
 				.texture = backBuffer,
-				.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+				.before	 = { .use = rhi::ResourceUse::eDiscard, .stages = rhi::Stage::eColorOutput },
+				.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			},
 			// Cleared every frame, so what it held before is of no interest and it starts undefined each time.
 			rhi::TextureBarrier{
 				.texture = depth.texture,
-				.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = rhi::PipelineStage::eEarlyFragmentTests,
-					.access		   = rhi::Access::eDepthStencilWrite,
-					.layout		   = rhi::TextureLayout::eDepthStencilAttachment },
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eDepthStencilTarget, .stages = rhi::Stage::eDepthStencil },
 				.range	 = { .aspects = rhi::TextureAspect::eDepth },
 			},
 		};
@@ -823,15 +822,15 @@ int main(int argc, char ** argv)
 		const std::array toPresent{
 			rhi::TextureBarrier{
 				.texture = backBuffer,
-				.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
-				.after	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::ePresent },
+				.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.after	 = { .use = rhi::ResourceUse::ePresent },
 			},
 		};
 
 		const std::array colors{
 			rhi::RenderingAttachment{
 				.view  = acquired.view,
-				.state = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				// The sky covers every pixel before anything else draws, so clearing first would be work thrown away.
 				.load  = rhi::LoadOp::eDontCare,
 				.store = rhi::StoreOp::eStore,
@@ -840,9 +839,7 @@ int main(int argc, char ** argv)
 
 		const rhi::RenderingAttachment depthAttachment{
 			.view			   = depth.view,
-			.state			   = { .stages = rhi::PipelineStage::eEarlyFragmentTests,
-				.access		   = rhi::Access::eDepthStencilWrite,
-				.layout		   = rhi::TextureLayout::eDepthStencilAttachment },
+			.state			   = { .use = rhi::ResourceUse::eDepthStencilTarget, .stages = rhi::Stage::eDepthStencil },
 			.load			   = rhi::LoadOp::eClear,
 			.store			   = rhi::StoreOp::eDontCare,
 			.clearDepthStencil = { .depth = 1.0f },

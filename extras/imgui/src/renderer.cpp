@@ -668,16 +668,16 @@ namespace azo::rhi::imgui
 		const std::array toCopyDst{
 			TextureBarrier{
 				.texture = texture.texture,
-				.before	 = { .stages = PipelineStage::eNone, .access = Access::eNone, .layout = TextureLayout::eUndefined },
-				.after	 = { .stages = PipelineStage::eCopy, .access = Access::eCopyWrite, .layout = TextureLayout::eCopyDst },
+				.before	 = { .use = ResourceUse::eDiscard },
+				.after	 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
 			},
 		};
 
 		const std::array toSample{
 			TextureBarrier{
 				.texture = texture.texture,
-				.before	 = { .stages = PipelineStage::eCopy, .access = Access::eCopyWrite, .layout = TextureLayout::eCopyDst },
-				.after	 = { .stages = PipelineStage::eFragmentShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly },
+				.before	 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
+				.after	 = { .use = ResourceUse::eSampledRead, .stages = Stage::eFragmentShading },
 			},
 		};
 
@@ -759,16 +759,16 @@ namespace azo::rhi::imgui
 		const std::array toCopyDst{
 			TextureBarrier{
 				.texture = found->texture,
-				.before	 = { .stages = PipelineStage::eFragmentShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly },
-				.after	 = { .stages = PipelineStage::eCopy, .access = Access::eCopyWrite, .layout = TextureLayout::eCopyDst },
+				.before	 = { .use = ResourceUse::eSampledRead, .stages = Stage::eFragmentShading },
+				.after	 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
 			},
 		};
 
 		const std::array toSample{
 			TextureBarrier{
 				.texture = found->texture,
-				.before	 = { .stages = PipelineStage::eCopy, .access = Access::eCopyWrite, .layout = TextureLayout::eCopyDst },
-				.after	 = { .stages = PipelineStage::eFragmentShader, .access = Access::eShaderRead, .layout = TextureLayout::eShaderReadOnly },
+				.before	 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
+				.after	 = { .use = ResourceUse::eSampledRead, .stages = Stage::eFragmentShading },
 			},
 		};
 

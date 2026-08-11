@@ -66,21 +66,9 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		constexpr rhi::ResourceState untouched{
-			.stages = rhi::PipelineStage::eNone,
-			.access = rhi::Access::eNone,
-			.layout = rhi::TextureLayout::eUndefined,
-		};
-		constexpr rhi::ResourceState copyDst{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
-		constexpr rhi::ResourceState shaderRead{
-			.stages = rhi::PipelineStage::eFragmentShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		constexpr rhi::ResourceState untouched{ .use = rhi::ResourceUse::eDiscard };
+		constexpr rhi::ResourceState copyDst{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
+		constexpr rhi::ResourceState shaderRead{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 
 		const std::array first{
 			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = copyDst },
