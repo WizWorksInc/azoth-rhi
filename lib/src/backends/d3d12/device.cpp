@@ -359,12 +359,6 @@ namespace azo::rhi::d3d12
 		return static_cast<D3D12Queue *>(impl)->type;
 	}
 
-	std::uint32_t D3D12QueueFamilyIndex([[maybe_unused]] void * impl) noexcept
-	{
-		// D3D12 has no queue-family index. Report the queue kind ordinal for a stable identifier.
-		return static_cast<std::uint32_t>(static_cast<D3D12Queue *>(impl)->type);
-	}
-
 	GraphicsApiId D3D12InstanceApiId([[maybe_unused]] void * impl) noexcept
 	{
 		return D3D12Api::id;
@@ -549,10 +543,11 @@ namespace azo::rhi::d3d12
 
 		const D3D_FEATURE_LEVEL floor = ApiVersionToFloor(desc.apiVersion);
 
-		// Walk adapters in high-performance order and pick the first that creates a device at the floor.
+		// Walk adapters in high-performance order and pick the first that creates a device at the floor and supports enhanced barriers.
 		ComPtr<IDXGIAdapter4> chosenAdapter;
 		ComPtr<ID3D12Device> chosenDevice;
 		DXGI_ADAPTER_DESC3 chosenDesc{};
+		bool sawAdapterWithoutEnhancedBarriers = false;
 		for (UINT i = 0;; ++i)
 		{
 			ComPtr<IDXGIAdapter4> adapter;
@@ -576,17 +571,34 @@ namespace azo::rhi::d3d12
 			}
 
 			ComPtr<ID3D12Device> device;
-			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), floor, IID_PPV_ARGS(&device))))
+			if (FAILED(D3D12CreateDevice(adapter.Get(), floor, IID_PPV_ARGS(&device))))
 			{
-				chosenAdapter = adapter;
-				chosenDevice  = device;
-				chosenDesc	  = adapterDesc;
-				break;
+				continue;
 			}
+
+			// Every barrier this backend records is an enhanced one, so an adapter without them is passed over here. Skipping rather than failing outright is what
+			// lets a discrete GPU behind an older integrated one still be chosen.
+			D3D12_FEATURE_DATA_D3D12_OPTIONS12 options12{};
+			if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12))) ||
+				options12.EnhancedBarriersSupported == FALSE)
+			{
+				sawAdapterWithoutEnhancedBarriers = true;
+				continue;
+			}
+
+			chosenAdapter = adapter;
+			chosenDevice  = device;
+			chosenDesc	  = adapterDesc;
+			break;
 		}
 
 		if (!chosenDevice)
 		{
+			if (sawAdapterWithoutEnhancedBarriers)
+			{
+				Fail(error, ErrorCode::eUnsupportedFeature, "no Direct3D 12 adapter supports enhanced barriers");
+				return nullptr;
+			}
 			Fail(error, ErrorCode::eNativeApiError, "no Direct3D 12 adapter satisfied the requested feature level");
 			return nullptr;
 		}

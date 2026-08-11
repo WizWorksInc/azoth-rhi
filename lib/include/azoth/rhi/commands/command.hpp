@@ -363,8 +363,8 @@ namespace azo::rhi
 		 */
 		bool ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount) noexcept;
 		bool ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error & error) noexcept;
-		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage) noexcept;
-		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error & error) noexcept;
+		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept;
+		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept;
 		bool BeginQuery(QueryPoolHandle pool, std::uint32_t query) noexcept;
 		bool BeginQuery(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept;
 		bool EndQuery(QueryPoolHandle pool, std::uint32_t query) noexcept;

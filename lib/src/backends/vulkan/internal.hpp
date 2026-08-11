@@ -29,6 +29,7 @@
 
 #include "backends/vulkan/swapchain_bundle.hpp"
 #include "support/driver_version.hpp"
+#include "support/state_expansion.hpp"
 
 #include <vk_mem_alloc.h>
 
@@ -1153,7 +1154,7 @@ namespace azo::rhi::vulkan
 	bool VulkanCmdCopyBuffer(
 		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept;
 	bool VulkanCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
-	bool VulkanCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept;
+	bool VulkanCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
 	bool VulkanCmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool VulkanCmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool VulkanCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
@@ -1378,7 +1379,6 @@ namespace azo::rhi::vulkan
 	void * VulkanCreateInstance(const void * instanceDesc, Error * error) noexcept;
 	void * VulkanGetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 	QueueType VulkanQueueType(void * impl) noexcept;
-	std::uint32_t VulkanQueueFamilyIndex(void * impl) noexcept;
 	bool VulkanQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
 	bool VulkanQueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 	bool VulkanQueueWaitIdle(void * impl, Error * error) noexcept;

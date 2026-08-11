@@ -405,11 +405,11 @@ namespace azo::rhi
 		}
 
 		/**
-		 * \brief Records the layout expected when the texture descriptor is consumed.
+		 * \brief Records what the texture is expected to be used as when the descriptor is consumed.
 		 */
-		DescriptorWriteTextureBuilder & ExpectedLayout(TextureLayout layout) noexcept
+		DescriptorWriteTextureBuilder & ExpectedUse(Flags<ResourceUse> use) noexcept
 		{
-			m_desc.expectedLayout = layout;
+			m_desc.expectedUse = use;
 			return *this;
 		}
 

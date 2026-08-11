@@ -34,7 +34,7 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<PipelineStage> stage, Error * error) noexcept
+	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);

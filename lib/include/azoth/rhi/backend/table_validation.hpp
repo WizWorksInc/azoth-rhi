@@ -284,9 +284,8 @@ namespace azo::rhi::detail
 	template <>
 	struct BlockEntries<QueueApi> final
 	{
-		static constexpr std::array<std::string_view, 9> kNames{
+		static constexpr std::array<std::string_view, 8> kNames{
 			"QueueApi::getType is null",
-			"QueueApi::getFamilyIndex is null",
 			"QueueApi::submit is null",
 			"QueueApi::waitIdle is null",
 			"QueueApi::getCompletedValue is null",

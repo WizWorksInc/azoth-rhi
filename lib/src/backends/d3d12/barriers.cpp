@@ -82,6 +82,272 @@ namespace azo::rhi::d3d12
 		return states;
 	}
 
+	[[nodiscard]] D3D12_BARRIER_SYNC DeriveBarrierSync(Flags<ResourceUse> use) noexcept
+	{
+		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
+
+		if (use.Contains(ResourceUse::eIndirectArgs))
+		{
+			sync |= D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
+		}
+		if (use.Contains(ResourceUse::eVertexBuffer) || use.Contains(ResourceUse::eIndexBuffer))
+		{
+			sync |= D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT;
+		}
+		if (use.Contains(ResourceUse::eUniformRead) || use.Contains(ResourceUse::eSampledRead) || use.Contains(ResourceUse::eStorageRead) ||
+			use.Contains(ResourceUse::eStorageWrite))
+		{
+			sync |= D3D12_BARRIER_SYNC_ALL_SHADING;
+		}
+		if (use.Contains(ResourceUse::eColorTarget))
+		{
+			sync |= D3D12_BARRIER_SYNC_RENDER_TARGET;
+		}
+		if (use.Contains(ResourceUse::eDepthStencilTarget) || use.Contains(ResourceUse::eDepthStencilRead))
+		{
+			sync |= D3D12_BARRIER_SYNC_DEPTH_STENCIL;
+		}
+		if (use.Contains(ResourceUse::eCopySrc) || use.Contains(ResourceUse::eCopyDst))
+		{
+			sync |= D3D12_BARRIER_SYNC_COPY;
+		}
+		if (use.Contains(ResourceUse::eResolveSrc) || use.Contains(ResourceUse::eResolveDst))
+		{
+			sync |= D3D12_BARRIER_SYNC_RESOLVE;
+		}
+		if (use.Contains(ResourceUse::eAccelBuildInput) || use.Contains(ResourceUse::eAccelWrite))
+		{
+			sync |= D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
+		}
+		if (use.Contains(ResourceUse::eAccelRead))
+		{
+			sync |= D3D12_BARRIER_SYNC_RAYTRACING | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
+		}
+
+		return sync == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : sync;
+	}
+
+	[[nodiscard]] D3D12_BARRIER_SYNC MapBarrierSync(Flags<Stage> stages, Flags<ResourceUse> use) noexcept
+	{
+		if (stages.Empty())
+		{
+			return DeriveBarrierSync(use);
+		}
+
+		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
+
+		if (stages.Contains(Stage::eIndirectFetch))
+		{
+			sync |= D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
+		}
+		if (stages.Contains(Stage::eVertexWork))
+		{
+			sync |= D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT;
+		}
+		if (stages.Contains(Stage::eFragmentShading))
+		{
+			sync |= D3D12_BARRIER_SYNC_PIXEL_SHADING;
+		}
+		if (stages.Contains(Stage::eDepthStencil))
+		{
+			sync |= D3D12_BARRIER_SYNC_DEPTH_STENCIL;
+		}
+		if (stages.Contains(Stage::eColorOutput))
+		{
+			sync |= D3D12_BARRIER_SYNC_RENDER_TARGET;
+		}
+		if (stages.Contains(Stage::eCompute))
+		{
+			sync |= D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+		}
+		if (stages.Contains(Stage::eCopy))
+		{
+			sync |= D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
+		}
+		if (stages.Contains(Stage::eResolve))
+		{
+			sync |= D3D12_BARRIER_SYNC_RESOLVE;
+		}
+		if (stages.Contains(Stage::eRayTracing))
+		{
+			sync |= D3D12_BARRIER_SYNC_RAYTRACING;
+		}
+		if (stages.Contains(Stage::eAccelBuild))
+		{
+			sync |= D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+					D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
+		}
+		if (stages.Contains(Stage::eAllGraphics))
+		{
+			sync |= D3D12_BARRIER_SYNC_DRAW;
+		}
+		if (stages.Contains(Stage::eAllCommands))
+		{
+			sync |= D3D12_BARRIER_SYNC_ALL;
+		}
+
+		return sync == D3D12_BARRIER_SYNC_NONE ? DeriveBarrierSync(use) : sync;
+	}
+
+	[[nodiscard]] D3D12_BARRIER_ACCESS MapBarrierAccess(Flags<ResourceUse> use) noexcept
+	{
+		if (use.Contains(ResourceUse::eDiscard))
+		{
+			return D3D12_BARRIER_ACCESS_NO_ACCESS;
+		}
+
+		D3D12_BARRIER_ACCESS access = D3D12_BARRIER_ACCESS_COMMON;
+
+		if (use.Contains(ResourceUse::eIndirectArgs))
+		{
+			access |= D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT;
+		}
+		if (use.Contains(ResourceUse::eVertexBuffer))
+		{
+			access |= D3D12_BARRIER_ACCESS_VERTEX_BUFFER;
+		}
+		if (use.Contains(ResourceUse::eIndexBuffer))
+		{
+			access |= D3D12_BARRIER_ACCESS_INDEX_BUFFER;
+		}
+		if (use.Contains(ResourceUse::eUniformRead))
+		{
+			access |= D3D12_BARRIER_ACCESS_CONSTANT_BUFFER;
+		}
+		if (use.Contains(ResourceUse::eSampledRead))
+		{
+			access |= D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+		}
+		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		{
+			access |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+		}
+		if (use.Contains(ResourceUse::eColorTarget))
+		{
+			access |= D3D12_BARRIER_ACCESS_RENDER_TARGET;
+		}
+		if (use.Contains(ResourceUse::eDepthStencilTarget))
+		{
+			access |= D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE;
+		}
+		if (use.Contains(ResourceUse::eDepthStencilRead))
+		{
+			access |= D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ;
+		}
+		if (use.Contains(ResourceUse::eCopySrc))
+		{
+			access |= D3D12_BARRIER_ACCESS_COPY_SOURCE;
+		}
+		if (use.Contains(ResourceUse::eCopyDst))
+		{
+			access |= D3D12_BARRIER_ACCESS_COPY_DEST;
+		}
+		if (use.Contains(ResourceUse::eResolveSrc))
+		{
+			access |= D3D12_BARRIER_ACCESS_RESOLVE_SOURCE;
+		}
+		if (use.Contains(ResourceUse::eResolveDst))
+		{
+			access |= D3D12_BARRIER_ACCESS_RESOLVE_DEST;
+		}
+		// Build inputs are ordinary geometry buffers read as shader resources. The acceleration structure access below is for reading a built structure.
+		if (use.Contains(ResourceUse::eAccelBuildInput))
+		{
+			access |= D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+		}
+		if (use.Contains(ResourceUse::eAccelRead))
+		{
+			access |= D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ;
+		}
+		if (use.Contains(ResourceUse::eAccelWrite))
+		{
+			access |= D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE;
+		}
+
+		return access;
+	}
+
+	[[nodiscard]] D3D12_BARRIER_LAYOUT MapBarrierLayout(Flags<ResourceUse> use, QueueType queue) noexcept
+	{
+		if (use.Contains(ResourceUse::eDiscard))
+		{
+			return D3D12_BARRIER_LAYOUT_UNDEFINED;
+		}
+		if (queue == QueueType::eCopy)
+		{
+			return D3D12_BARRIER_LAYOUT_COMMON;
+		}
+		if (use.Contains(ResourceUse::ePresent))
+		{
+			return D3D12_BARRIER_LAYOUT_PRESENT;
+		}
+		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		{
+			return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
+		}
+		if (use.Contains(ResourceUse::eDepthStencilRead) && use.Contains(ResourceUse::eSampledRead))
+		{
+			return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
+		}
+
+		D3D12_BARRIER_LAYOUT chosen = D3D12_BARRIER_LAYOUT_COMMON;
+		int distinct				= 0;
+		bool write					= false;
+
+		if (use.Contains(ResourceUse::eColorTarget))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_RENDER_TARGET;
+			write  = true;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eDepthStencilTarget))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
+			write  = true;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eDepthStencilRead))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eSampledRead))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eCopySrc))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_COPY_SOURCE;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eCopyDst))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_COPY_DEST;
+			write  = true;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eResolveSrc))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE;
+			++distinct;
+		}
+		if (use.Contains(ResourceUse::eResolveDst))
+		{
+			chosen = D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
+			write  = true;
+			++distinct;
+		}
+
+		if (distinct <= 1)
+		{
+			return chosen;
+		}
+
+		// GENERIC_READ is read only, so a combination naming a write answers COMMON, which is legal against any access. Validation rejects the pairing upstream.
+		return write ? D3D12_BARRIER_LAYOUT_COMMON : D3D12_BARRIER_LAYOUT_GENERIC_READ;
+	}
+
 	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept
 	{
 		switch (type)
@@ -224,8 +490,8 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
-			const D3D12_RESOURCE_STATES before = MapBufferStates(b.before.access);
-			const D3D12_RESOURCE_STATES after  = MapBufferStates(b.after.access);
+			const D3D12_RESOURCE_STATES before = MapBufferStates(ExpandAccess(b.before.use));
+			const D3D12_RESOURCE_STATES after  = MapBufferStates(ExpandAccess(b.after.use));
 			if (before == after)
 			{
 				// A same state transition is a no-op except in UNORDERED_ACCESS, where a UAV barrier still orders the hazard: the legacy state model cannot tell
@@ -255,8 +521,8 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
-			const D3D12_RESOURCE_STATES before = MapTextureStates(t.before.layout);
-			const D3D12_RESOURCE_STATES after  = MapTextureStates(t.after.layout);
+			const D3D12_RESOURCE_STATES before = MapTextureStates(ExpandLayout(t.before.use));
+			const D3D12_RESOURCE_STATES after  = MapTextureStates(ExpandLayout(t.after.use));
 			if (before == after)
 			{
 				// Same as above for layouts: a storage image written then read across passes stays in eGeneral so only the access mask differs. Emit a per-resource UAV

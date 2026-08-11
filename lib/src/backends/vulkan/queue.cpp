@@ -205,11 +205,6 @@ namespace azo::rhi::vulkan
 		return static_cast<VulkanQueue *>(impl)->type;
 	}
 
-	std::uint32_t VulkanQueueFamilyIndex(void * impl) noexcept
-	{
-		return static_cast<VulkanQueue *>(impl)->familyIndex;
-	}
-
 	/*
 	 * Submits recorded command lists to the queue through vkQueueSubmit2 (synchronization2). Timeline points and the swapchain's binary pair lower uniformly to
 	 * semaphore submit infos so a non-empty sync span is carried on the submit, not dropped. An unresolvable timeline, or a swapchain semaphore that was
@@ -246,7 +241,7 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid acquire semaphore");
 			}
 
-			waits.emplace_back(sem, 0, MapStages2(sync.waitStages));
+			waits.emplace_back(sem, 0, MapStages2(ExpandStages(sync.waitStages)));
 		}
 
 		for (const TimelinePoint & tw : desc.waits)
@@ -256,7 +251,7 @@ namespace azo::rhi::vulkan
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid timeline");
 			}
-			waits.emplace_back(sem, tw.value, MapStages2(tw.waitStages));
+			waits.emplace_back(sem, tw.value, MapStages2(ExpandStages(tw.waitStages)));
 		}
 
 		for (const SwapchainSync & sync : desc.swapchains)

@@ -132,7 +132,7 @@ namespace azo::rhi::metal
 	 *
 	 * The barrier argument is false throughout. Apple's guidance is that it trades repeatability for cost.
 	 */
-	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<PipelineStage> stage, Error * error) noexcept
+	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * object			 = static_cast<MetalObject *>(impl);
 		MetalDevice * device	 = object->owner;

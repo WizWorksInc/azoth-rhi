@@ -975,11 +975,6 @@ namespace azo::rhi
 			return static_cast<null::NullObject *>(impl)->queueType;
 		}
 
-		std::uint32_t NullQueueFamilyIndex(void * impl) noexcept
-		{
-			return static_cast<std::uint32_t>(static_cast<null::NullObject *>(impl)->queueType);
-		}
-
 		bool NullQueueSubmit([[maybe_unused]] void * impl, [[maybe_unused]] const SubmitDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.submit");
@@ -1372,7 +1367,6 @@ namespace azo::rhi
 		{
 			static const QueueApi block{
 				.getType		   = &NullQueueType,
-				.getFamilyIndex	   = &NullQueueFamilyIndex,
 				.submit			   = &NullQueueSubmit,
 				.waitIdle		   = &NoopVoid,
 				.getCompletedValue = &NullDefault<std::uint64_t>,

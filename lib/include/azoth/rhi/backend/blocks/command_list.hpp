@@ -151,7 +151,7 @@ namespace azo::rhi
 		InterfaceHeader header{ .byteSize = sizeof(QueryCommandApi), .version = 1 };
 
 		bool (*resetQueryPool)(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept = nullptr;
-		bool (*writeTimestamp)(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept	  = nullptr;
+		bool (*writeTimestamp)(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept			  = nullptr;
 		bool (*beginQuery)(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept									  = nullptr;
 		bool (*endQuery)(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept									  = nullptr;
 		bool (*resolveQueryData)(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,

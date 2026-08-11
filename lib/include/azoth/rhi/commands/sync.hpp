@@ -46,73 +46,131 @@ namespace azo::rhi
 	struct QueueBlocks;
 
 	/**
-	 * \brief Pipeline stage mask used by barriers and submit waits.
+	 * \brief What a resource is being used as.
 	 *
-	 * eAllGraphics and eAllCommands are broad aliases expanded by the backend. Prefer narrower stages once the hazard is known.
+	 * Read uses combine freely. A write use stands alone except where this vocabulary says otherwise, eDepthStencilTarget being read-write by definition.
+	 * Buffers use the subset that means something for a buffer and validation ignores the rest.
 	 */
-	enum class PipelineStage : std::uint64_t // NOLINT(performance-enum-size)
+	enum class ResourceUse : std::uint32_t
+	{
+		eNone = 0,
+
+		/**
+		 * \brief Prior contents are not preserved. Legal only as a before state.
+		 */
+		eDiscard = 1u << 0u,
+
+		/**
+		 * \brief Indirect argument fetch for draw, dispatch, or trace commands.
+		 */
+		eIndirectArgs = 1u << 1u,
+
+		eVertexBuffer = 1u << 2u,
+		eIndexBuffer  = 1u << 3u,
+
+		/**
+		 * \brief Read through a uniform or constant buffer binding.
+		 */
+		eUniformRead = 1u << 4u,
+
+		/**
+		 * \brief Read through a sampled texture binding.
+		 */
+		eSampledRead = 1u << 5u,
+
+		eStorageRead  = 1u << 6u,
+		eStorageWrite = 1u << 7u,
+
+		eColorTarget = 1u << 8u,
+
+		/**
+		 * \brief Depth and stencil attachment with writes enabled, which is read and write by definition.
+		 */
+		eDepthStencilTarget = 1u << 9u,
+
+		/**
+		 * \brief Depth and stencil attachment tested or sampled without writes.
+		 */
+		eDepthStencilRead = 1u << 10u,
+
+		eCopySrc = 1u << 11u,
+		eCopyDst = 1u << 12u,
+
+		eResolveSrc = 1u << 13u,
+		eResolveDst = 1u << 14u,
+
+		eHostRead  = 1u << 15u,
+		eHostWrite = 1u << 16u,
+
+		/**
+		 * \brief Geometry, transform, or instance data read by an acceleration-structure build.
+		 */
+		eAccelBuildInput = 1u << 17u,
+
+		eAccelRead	= 1u << 18u,
+		eAccelWrite = 1u << 19u,
+
+		/**
+		 * \brief Presentable swapchain state. Legal only on a swapchain texture.
+		 */
+		ePresent = 1u << 20u,
+	};
+
+	/**
+	 * \brief Where in the pipeline a use happens.
+	 *
+	 * A distinction survives here only when more than one backend expresses it in its own barrier model. eNone means the backend derives a conservative set
+	 * from the use.
+	 */
+	enum class Stage : std::uint64_t // NOLINT(performance-enum-size)
 	{
 		eNone = 0,
 
 		/**
 		 * \brief Indirect argument fetch for draw, dispatch, or trace commands.
 		 */
-		eDrawIndirect = 1ull << 0u,
+		eIndirectFetch = 1ull << 0u,
 
 		/**
-		 * \brief Vertex and index fetch before shader execution.
+		 * \brief Vertex and index fetch through vertex, tessellation, and geometry shading.
 		 */
-		eVertexInput = 1ull << 1u,
+		eVertexWork = 1ull << 1u,
 
-		eVertexShader				  = 1ull << 2u,
-		eTessellationControlShader	  = 1ull << 3u,
-		eTessellationEvaluationShader = 1ull << 4u,
-		eGeometryShader				  = 1ull << 5u,
-		eFragmentShader				  = 1ull << 6u,
+		eFragmentShading = 1ull << 2u,
 
 		/**
-		 * \brief Depth and stencil tests before fragment shader completion.
+		 * \brief Depth and stencil testing, early and late alike.
 		 */
-		eEarlyFragmentTests = 1ull << 7u,
-
-		/**
-		 * \brief Depth and stencil tests after fragment shader execution.
-		 */
-		eLateFragmentTests = 1ull << 8u,
+		eDepthStencil = 1ull << 3u,
 
 		/**
 		 * \brief Color attachment blending, logic ops, and render-target writes.
 		 */
-		eColorOutput = 1ull << 9u,
+		eColorOutput = 1ull << 4u,
 
-		eComputeShader = 1ull << 10u,
+		eCompute = 1ull << 5u,
 
 		/**
-		 * \brief Copy and transfer commands.
+		 * \brief Copy, clear, and blit commands.
 		 */
-		eCopy = 1ull << 11u,
+		eCopy = 1ull << 6u,
 
 		/**
 		 * \brief Explicit resolve commands.
 		 */
-		eResolve = 1ull << 12u,
-
-		/**
-		 * \brief Explicit clear commands outside attachment load operations.
-		 */
-		eClear = 1ull << 13u,
+		eResolve = 1ull << 7u,
 
 		/**
 		 * \brief Host-side memory access.
 		 */
-		eHost = 1ull << 14u,
+		eHost = 1ull << 8u,
 
-		eRayTracingShader = 1ull << 15u,
+		eRayTracing = 1ull << 9u,
 
 		/**
 		 * \brief Acceleration-structure build, update, copy, or compaction commands.
 		 */
-		eAccelerationStructureBuild = 1ull << 16u,
+		eAccelBuild = 1ull << 10u,
 
 		/**
 		 * \brief Alias for all graphics pipeline stages.
@@ -123,80 +181,6 @@ namespace azo::rhi
 		 * \brief Alias for all queue command stages known to the backend.
 		 */
 		eAllCommands = 1ull << 31u,
-	};
-
-	/**
-	 * \brief Access mask used by barriers.
-	 *
-	 * eMemoryRead and eMemoryWrite are the broad aliases that cover any access. Prefer narrower masks once producer and consumer are known.
-	 */
-	enum class Access : std::uint64_t // NOLINT(performance-enum-size)
-	{
-		eNone = 0,
-
-		/**
-		 * \brief Read access to indirect command arguments.
-		 */
-		eIndirectRead = 1ull << 0u,
-
-		eVertexRead = 1ull << 1u,
-		eIndexRead	= 1ull << 2u,
-
-		/**
-		 * \brief Read access through uniform or constant buffer bindings.
-		 */
-		eConstantRead = 1ull << 3u,
-
-		/**
-		 * \brief Read access from shader resource bindings.
-		 */
-		eShaderRead = 1ull << 4u,
-
-		/**
-		 * \brief Write access from shader storage bindings.
-		 */
-		eShaderWrite = 1ull << 5u,
-
-		eColorRead = 1ull << 6u,
-
-		eColorWrite = 1ull << 7u,
-
-		eDepthStencilRead = 1ull << 8u,
-
-		eDepthStencilWrite = 1ull << 9u,
-
-		eCopyRead  = 1ull << 10u,
-		eCopyWrite = 1ull << 11u,
-
-		/**
-		 * \brief CPU read access to host-visible memory.
-		 */
-		eHostRead = 1ull << 12u,
-
-		/**
-		 * \brief CPU write access to host-visible memory.
-		 */
-		eHostWrite = 1ull << 13u,
-
-		/**
-		 * \brief Broad read access alias for conservative barriers.
-		 */
-		eMemoryRead = 1ull << 14u,
-
-		/**
-		 * \brief Broad write access alias for conservative barriers.
-		 */
-		eMemoryWrite = 1ull << 15u,
-
-		/**
-		 * \brief Read access to acceleration-structure data or build inputs.
-		 */
-		eAccelerationStructureRead = 1ull << 16u,
-
-		/**
-		 * \brief Write access to acceleration-structure data.
-		 */
-		eAccelerationStructureWrite = 1ull << 17u,
 	};
 
 	/**
@@ -226,7 +210,7 @@ namespace azo::rhi
 		std::uint64_t value = 0;
 
 		// Consumed only when the point is used as a submit wait.
-		Flags<PipelineStage> waitStages = PipelineStage::eAllCommands;
+		Flags<Stage> waitStages = Stage::eAllCommands;
 	};
 
 	/**
@@ -279,14 +263,14 @@ namespace azo::rhi
 	 * Binary semaphores are the swapchain edge and nothing else, which lets a submission carry them here. acquired comes from AcquireResult and renderFinished
 	 * is what Present waits on.
 	 *
-	 * waitStages defaults to the color-attachment stage, since that is where the acquire has to land. Either half may be left invalid and is then skipped,
+	 * waitStages defaults to the color output stage, since that is where the acquire has to land. Either half may be left invalid and is then skipped,
 	 * which a frame split across several submissions needs.
 	 */
 	struct SwapchainSync final
 	{
 		BinarySemaphoreHandle acquired{};
 		BinarySemaphoreHandle renderFinished{};
-		Flags<PipelineStage> waitStages = PipelineStage::eColorOutput;
+		Flags<Stage> waitStages = Stage::eColorOutput;
 	};
 
 	/**
@@ -320,52 +304,6 @@ namespace azo::rhi
 	{
 		TimelineProducerDomain producer = TimelineProducerDomain::eHost;
 		QueueType queueType				= QueueType::eGraphics;
-	};
-
-	/**
-	 * \brief Texture subresource layout used by synchronization.
-	 *
-	 * ePresent is a swapchain layout ordered by swapchain calls and binary WSI semaphores.
-	 */
-	enum class TextureLayout : std::uint8_t
-	{
-		/**
-		 * \brief Contents are undefined or previous contents are not preserved.
-		 */
-		eUndefined,
-
-		/**
-		 * \brief General layout for unordered or mixed access.
-		 */
-		eGeneral,
-
-		eColorAttachment,
-		eDepthStencilAttachment,
-
-		eDepthStencilReadOnly,
-
-		/**
-		 * \brief Shader-readable texture layout.
-		 */
-		eShaderReadOnly,
-
-		eCopySrc,
-		eCopyDst,
-
-		/**
-		 * \brief Source layout for an explicit resolve operation.
-		 */
-		eResolveSrc,
-
-		/**
-		 * \brief Destination layout for an explicit resolve operation.
-		 */
-		eResolveDst,
-
-		/**
-		 * \brief Presentable swapchain image layout.
-		 */
-		ePresent,
 	};
 
 	/**
@@ -439,24 +377,42 @@ namespace azo::rhi
 	/**
 	 * \brief Synchronization state for a resource.
 	 *
-	 * layout is ignored for buffers.
+	 * An empty stage set asks the backend for a conservative set derived from the use. An empty use is legal only as a before state, where it means the
+	 * contents are not preserved, and it is an error as an after state.
 	 */
 	struct ResourceState final
 	{
-		Flags<PipelineStage> stages = PipelineStage::eNone;
-		Flags<Access> access		= Access::eNone;
-		TextureLayout layout		= TextureLayout::eUndefined;
+		Flags<ResourceUse> use = ResourceUse::eNone;
+		Flags<Stage> stages	   = Stage::eNone;
 	};
 
 	/**
-	 * \brief Queue family ownership transfer.
+	 * \brief Which half of a queue ownership transfer a barrier records.
 	 *
-	 * kIgnoreQueueFamily at both ends means no ownership transfer.
+	 * A transfer is a pair: the release records on the queue giving the resource up, the acquire on the queue taking it, ordered by a timeline edge the caller
+	 * already needs. The external forms name the far side of a sharing boundary, which is not a queue this device can name.
 	 */
-	struct QueueFamilyTransfer final
+	enum class OwnershipOp : std::uint8_t
 	{
-		std::uint32_t src = kIgnoreQueueFamily;
-		std::uint32_t dst = kIgnoreQueueFamily;
+		eNone,
+
+		eRelease,
+		eAcquire,
+
+		eReleaseToExternal,
+		eAcquireFromExternal,
+	};
+
+	/**
+	 * \brief One half of a queue ownership transfer, or nothing.
+	 *
+	 * counterpart names the queue at the other end and is read only by eRelease and eAcquire. A backend without queue ownership lowers this to nothing, since
+	 * the timeline edge the pair is ordered by already carries the dependency.
+	 */
+	struct QueueOwnership final
+	{
+		OwnershipOp op		  = OwnershipOp::eNone;
+		QueueType counterpart = QueueType::eGraphics;
 	};
 
 	/**
@@ -469,7 +425,7 @@ namespace azo::rhi
 		BufferHandle buffer{};
 		ResourceState before{};
 		ResourceState after{};
-		QueueFamilyTransfer ownership{};
+		QueueOwnership ownership{};
 		std::uint64_t offset = 0;
 		std::uint64_t size	 = std::numeric_limits<std::uint64_t>::max();
 	};
@@ -482,7 +438,7 @@ namespace azo::rhi
 		TextureHandle texture{};
 		ResourceState before{};
 		ResourceState after{};
-		QueueFamilyTransfer ownership{};
+		QueueOwnership ownership{};
 		TextureSubresourceRange range{};
 	};
 
@@ -551,7 +507,6 @@ namespace azo::rhi
 		}
 
 		[[nodiscard]] QueueType GetType() const noexcept;
-		[[nodiscard]] std::uint32_t GetFamilyIndex() const noexcept;
 
 		[[nodiscard]] bool Submit(const SubmitDesc & desc) noexcept;
 		[[nodiscard]] bool Submit(const SubmitDesc & desc, Error & error) noexcept;

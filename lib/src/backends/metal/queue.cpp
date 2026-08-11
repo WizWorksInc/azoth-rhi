@@ -21,11 +21,6 @@ namespace azo::rhi::metal
 		return static_cast<MetalObject *>(impl)->queueType;
 	}
 
-	std::uint32_t MetalQueueFamilyIndex(void * impl) noexcept
-	{
-		return static_cast<std::uint32_t>(static_cast<MetalObject *>(impl)->queueType);
-	}
-
 	bool MetalQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.submit");

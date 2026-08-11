@@ -560,7 +560,6 @@ namespace azo::rhi::validation
 		{
 			static const QueueApi block{
 				.getType		   = &Forward<&QueueApi::getType>::Call,
-				.getFamilyIndex	   = &Forward<&QueueApi::getFamilyIndex>::Call,
 				.submit			   = &ValidatedSubmit,
 				.waitIdle		   = &Forward<&QueueApi::waitIdle>::Call,
 				.getCompletedValue = &Checked<&QueueApi::getCompletedValue>::Call,
@@ -1328,12 +1327,12 @@ namespace azo::rhi::validation
 		/*
 		 * A resource's state, packed into the word the registry keeps for it.
 		 *
-		 * Stages are left out. They say when an access happens, not what state the resource is in and two barriers that agree on the access and the layout describe
-		 * the same state whichever stage each named.
+		 * Stages are left out. They say when a use happens, not what state the resource is in and two barriers that agree on the use describe the same state
+		 * whichever stage each named.
 		 */
 		[[nodiscard]] std::uint32_t PackState(const ResourceState & state) noexcept
 		{
-			return static_cast<std::uint32_t>(state.access.Bits()) | (static_cast<std::uint32_t>(state.layout) << 24u);
+			return state.use.Bits();
 		}
 
 		// One key for a resource within a recording. The generation is in it so a slot reused after a destroy is not the resource that held it before.
@@ -1344,26 +1343,21 @@ namespace azo::rhi::validation
 
 		/*
 		 * Queue ownership is declared by a barrier too. Unlike a resource state it is not per recording: a queue that releases a resource stays released from it
-		 * until another queue acquires it. It lives on the registry record where it outlives any one list. A barrier naming no transfer leaves ownership alone. One
-		 * that does has to name the family that actually holds it, since releasing from a family that never had it produces a resource no queue owns.
+		 * until another queue acquires it. It lives on the registry record where it outlives any one list. A barrier naming no transfer leaves ownership alone. A
+		 * release names where the resource is going and an acquire names where it came from, so the two halves have to agree about who held it in between.
 		 */
 		[[nodiscard]] bool CheckAndTransferOwnership(WrappedCommandList * self, const ResourceType type, const std::uint32_t index,
-			const std::uint32_t generation, const QueueFamilyTransfer & ownership, Error * error) noexcept
+			const std::uint32_t generation, const QueueOwnership & ownership, Error * error) noexcept
 		{
-			if (ownership.src == kIgnoreQueueFamily && ownership.dst == kIgnoreQueueFamily)
+			if (ownership.op == OwnershipOp::eNone)
 			{
 				return true;
 			}
 
-			/*
-			 * A transfer names both ends or neither and the two ends differ. One end named and the other ignored is neither a transfer nor the absence of one. A
-			 * transfer to the family that already holds it asks for a matched release and acquire on one queue. Only Vulkan notices, since the pair goes straight into
-			 * the barrier it builds while the other two do nothing with it. That difference is why this check moved up here.
-			 */
-			if (ownership.src == kIgnoreQueueFamily || ownership.dst == kIgnoreQueueFamily || ownership.src == ownership.dst)
+			const bool namesQueue = ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eAcquire;
+			if (namesQueue && ownership.counterpart == self->queueType)
 			{
-				return self->validator->Fail(
-					error, "a barrier names a queue family ownership transfer that is not one, either half-filled or from a family to itself");
+				return self->validator->Fail(error, "a barrier transfers queue ownership between one queue and itself, which is not a transfer");
 			}
 
 			ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
@@ -1376,12 +1370,29 @@ namespace azo::rhi::validation
 				return true;
 			}
 
-			if (record->owned.load(std::memory_order_relaxed) && record->owner.load(std::memory_order_relaxed) != static_cast<std::uint8_t>(ownership.src))
+			if (record->owned.load(std::memory_order_relaxed))
 			{
-				return self->validator->Fail(error, "a barrier releases a resource from a queue family that does not own it");
+				const std::uint8_t held = record->owner.load(std::memory_order_relaxed);
+				const bool releasing	= ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eReleaseToExternal;
+
+				if (releasing && held != static_cast<std::uint8_t>(self->queueType))
+				{
+					return self->validator->Fail(error, "a barrier releases a resource from a queue that does not own it");
+				}
+				if (ownership.op == OwnershipOp::eAcquire && held != static_cast<std::uint8_t>(ownership.counterpart))
+				{
+					return self->validator->Fail(error, "a barrier acquires a resource from a queue that does not hold it");
+				}
 			}
 
-			record->owner.store(static_cast<std::uint8_t>(ownership.dst), std::memory_order_relaxed);
+			if (ownership.op == OwnershipOp::eReleaseToExternal)
+			{
+				record->owned.store(false, std::memory_order_relaxed);
+				return true;
+			}
+
+			const QueueType holder = ownership.op == OwnershipOp::eRelease ? ownership.counterpart : self->queueType;
+			record->owner.store(static_cast<std::uint8_t>(holder), std::memory_order_relaxed);
 			record->owned.store(true, std::memory_order_relaxed);
 			return true;
 		}
@@ -1393,7 +1404,7 @@ namespace azo::rhi::validation
 		 * adopted for.
 		 */
 		[[nodiscard]] bool CheckAndAdvance(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const ResourceState & before, const ResourceState & after, const QueueFamilyTransfer & ownership, Error * error) noexcept
+			const ResourceState & before, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
 		{
 			const std::uint64_t key = StateKey(type, index, generation);
 			const auto tracked		= self->recordedStates.find(key);
@@ -1418,8 +1429,7 @@ namespace azo::rhi::validation
 						.generation = generation,
 					}))
 				{
-					if (record->accessKnown.exchange(false, std::memory_order_relaxed) &&
-						record->access.load(std::memory_order_relaxed) != static_cast<std::uint32_t>(before.access.Bits()))
+					if (record->useKnown.exchange(false, std::memory_order_relaxed) && record->use.load(std::memory_order_relaxed) != before.use.Bits())
 					{
 						return self->validator->Fail(error, "a barrier claims a before-state the adopted resource did not arrive in");
 					}
@@ -1521,8 +1531,8 @@ namespace azo::rhi::validation
 					.generation = generation,
 				}))
 			{
-				record->access.store(static_cast<std::uint32_t>(finalState.access.Bits()), std::memory_order_relaxed);
-				record->accessKnown.store(true, std::memory_order_relaxed);
+				record->use.store(finalState.use.Bits(), std::memory_order_relaxed);
+				record->useKnown.store(true, std::memory_order_relaxed);
 			}
 		}
 

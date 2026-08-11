@@ -171,7 +171,6 @@ namespace azo::rhi::d3d12
 	{
 		static const QueueApi block{
 			.getType		   = &D3D12QueueType,
-			.getFamilyIndex	   = &D3D12QueueFamilyIndex,
 			.submit			   = &D3D12QueueSubmit,
 			.waitIdle		   = &D3D12QueueWaitIdle,
 			.getCompletedValue = &D3D12QueueGetCompletedValue,

@@ -67,20 +67,20 @@ namespace azo::rhi::validation
 		 * \brief The state the resource arrived in, for a resource that arrived in one.
 		 *
 		 * Only an adopted resource has this: it was made elsewhere and is in whatever state its producer left it in. A created one genuinely starts in no state,
-		 * which is why the flag below exists, not zero standing for both an unset field and the empty access mask.
+		 * which is why the flag below exists, not zero standing for both an unset field and the empty use set.
 		 */
-		std::atomic<std::uint32_t> access{ 0 };
+		std::atomic<std::uint32_t> use{ 0 };
 
 		/**
-		 * \brief True while access still describes the resource, which is until the first barrier moves it.
+		 * \brief True while use still describes the resource, which is until the first barrier moves it.
 		 *
 		 * Consumed, not kept, by the first barrier in any command list that names this resource. After that the recording's own tracking owns the state, and a
 		 * device-wide field would be claiming to track something across command lists that nothing here tracks.
 		 */
-		std::atomic<bool> accessKnown{ false };
+		std::atomic<bool> useKnown{ false };
 
 		/**
-		 * \brief Queue family that last owned the resource.
+		 * \brief Queue type that last owned the resource.
 		 */
 		std::atomic<std::uint8_t> owner{ 0 };
 
@@ -148,8 +148,8 @@ namespace azo::rhi::validation
 				return false;
 			}
 
-			record->access.store(0, std::memory_order_relaxed);
-			record->accessKnown.store(false, std::memory_order_relaxed);
+			record->use.store(0, std::memory_order_relaxed);
+			record->useKnown.store(false, std::memory_order_relaxed);
 			record->owned.store(false, std::memory_order_relaxed);
 			record->detail.store(0, std::memory_order_relaxed);
 			record->origin.store(0, std::memory_order_relaxed);

@@ -294,7 +294,7 @@ namespace azo::rhi
 	/**
 	 * \brief Descriptor write for a texture view and optional sampler.
 	 *
-	 * expectedLayout is the layout the texture is expected to be in when the descriptor is used.
+	 * expectedUse is what the texture is expected to be used as when the descriptor is consumed.
 	 */
 	struct DescriptorWriteTexture final
 	{
@@ -304,7 +304,7 @@ namespace azo::rhi
 		DescriptorType type		 = DescriptorType::eTextureSRV;
 		TextureViewHandle view{};
 		SamplerHandle sampler{};
-		TextureLayout expectedLayout = TextureLayout::eShaderReadOnly;
+		Flags<ResourceUse> expectedUse = ResourceUse::eSampledRead;
 	};
 
 	/**

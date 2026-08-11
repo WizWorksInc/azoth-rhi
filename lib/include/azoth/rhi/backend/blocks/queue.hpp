@@ -30,7 +30,6 @@ namespace azo::rhi
 	/**
 	 * \brief Required backend queue table for submission, idle waits, timeline operations, and debug labels.
 	 *
-	 * \note Queue family indices are backend-native indices. They are exposed for diagnostics and interop, not for choosing an RHI queue type.
 	 */
 	struct QueueApi final
 	{
@@ -38,8 +37,7 @@ namespace azo::rhi
 
 		/// Queue identity.
 
-		QueueType (*getType)(void * impl) noexcept			  = nullptr;
-		std::uint32_t (*getFamilyIndex)(void * impl) noexcept = nullptr;
+		QueueType (*getType)(void * impl) noexcept = nullptr;
 
 		/// Submission.
 

@@ -51,11 +51,16 @@ namespace azo::rhi::metal4
 			out |= MTL::StageDispatch;
 		}
 
-		// Copies, clears and resolves all record on the compute encoder here, but Metal still counts them as the blit stage, so a barrier against a copy names
-		// blit and not dispatch.
-		if (stages.Contains(PipelineStage::eCopy) || stages.Contains(PipelineStage::eClear) || stages.Contains(PipelineStage::eResolve))
+		// Copies and buffer clears record on the compute encoder, which Metal still counts as the blit stage and not as dispatch.
+		if (stages.Contains(PipelineStage::eCopy) || stages.Contains(PipelineStage::eClear))
 		{
 			out |= MTL::StageBlit;
+		}
+
+		// A texture clear is a clear load action and a resolve is a multisample-resolve store action, so both are render pass work rather than blit work.
+		if (stages.Contains(PipelineStage::eClear) || stages.Contains(PipelineStage::eResolve))
+		{
+			out |= MTL::StageFragment;
 		}
 
 		if (stages.Contains(PipelineStage::eAccelerationStructureBuild))
@@ -96,16 +101,16 @@ namespace azo::rhi::metal4
 		 * generation will not wait on a fragment producer, and later encoders are covered above.
 		 */
 		template <typename EncoderT>
-		void RecordBarrier(
-			EncoderT * encoder, const MTL::Stages waitable, const MTL::Stages runnable, const MTL::Stages producer, const MTL::Stages consumer) noexcept
+		void RecordBarrier(EncoderT * encoder, const MTL::Stages waitable, const MTL::Stages runnable, const MTL::Stages producer, const MTL::Stages consumer,
+			const MTL4::VisibilityOptions visibility) noexcept
 		{
-			encoder->barrierAfterStages(producer, consumer, MTL4::VisibilityOptionDevice);
+			encoder->barrierAfterStages(producer, consumer, visibility);
 
 			const MTL::Stages after	 = Intersect(producer, waitable);
 			const MTL::Stages before = Intersect(consumer, runnable);
 			if (static_cast<NS::UInteger>(after) != 0 && static_cast<NS::UInteger>(before) != 0)
 			{
-				encoder->barrierAfterEncoderStages(after, before, MTL4::VisibilityOptionDevice);
+				encoder->barrierAfterEncoderStages(after, before, visibility);
 			}
 		}
 
@@ -123,9 +128,34 @@ namespace azo::rhi::metal4
 				return;
 			}
 
-			encoder->barrierAfterQueueStages(list->pendingProducer, list->pendingConsumer, MTL4::VisibilityOptionDevice);
-			list->pendingProducer = static_cast<MTL::Stages>(0);
-			list->pendingConsumer = static_cast<MTL::Stages>(0);
+			encoder->barrierAfterQueueStages(list->pendingProducer, list->pendingConsumer, list->pendingVisibility);
+			list->pendingProducer	= static_cast<MTL::Stages>(0);
+			list->pendingConsumer	= static_cast<MTL::Stages>(0);
+			list->pendingVisibility = MTL4::VisibilityOptionNone;
+		}
+
+		// Whichever encoder is open takes the barrier, and with none open it is held. Shared so an alias barrier is placed exactly where an ordinary one is.
+		void PlaceBarrier(CmdList * list, const MTL::Stages producer, const MTL::Stages consumer, const MTL4::VisibilityOptions visibility) noexcept
+		{
+			if (list->renderEncoder.get() != nullptr)
+			{
+				RecordBarrier(list->renderEncoder.get(), kRenderWaitableStages, kRenderEncoderStages, producer, consumer, visibility);
+			}
+			else if (list->computeEncoder.get() != nullptr)
+			{
+				RecordBarrier(list->computeEncoder.get(), kComputeWaitableStages, kComputeEncoderStages, producer, consumer, visibility);
+			}
+			else
+			{
+				/*
+				 * Nothing is open, so there is no encoder to record on and opening one to host a barrier is what this used to do. An encoder holding nothing but a
+				 * barrier has no work on either side of it to order, so the barrier is held for the next encoder instead, which is the one it was recorded for.
+				 */
+				list->pendingProducer = static_cast<MTL::Stages>(static_cast<NS::UInteger>(list->pendingProducer) | static_cast<NS::UInteger>(producer));
+				list->pendingConsumer = static_cast<MTL::Stages>(static_cast<NS::UInteger>(list->pendingConsumer) | static_cast<NS::UInteger>(consumer));
+				list->pendingVisibility =
+					static_cast<MTL4::VisibilityOptions>(static_cast<NS::UInteger>(list->pendingVisibility) | static_cast<NS::UInteger>(visibility));
+			}
 		}
 	} // namespace
 
@@ -322,8 +352,9 @@ namespace azo::rhi::metal4
 		list->keepAlive.clear();
 		list->wroteEncoderTimestamps = false;
 		list->debugLabelScopes.clear();
-		list->pendingProducer = static_cast<MTL::Stages>(0);
-		list->pendingConsumer = static_cast<MTL::Stages>(0);
+		list->pendingProducer	= static_cast<MTL::Stages>(0);
+		list->pendingConsumer	= static_cast<MTL::Stages>(0);
+		list->pendingVisibility = MTL4::VisibilityOptionNone;
 
 		/*
 		 * The push constant blocks are kept and rewound, not dropped and remade.
@@ -396,18 +427,18 @@ namespace azo::rhi::metal4
 
 		for (const BufferBarrier & barrier : barriers.buffers)
 		{
-			before |= barrier.before.stages;
-			after |= barrier.after.stages;
+			before |= Expand(barrier.before).stages;
+			after |= Expand(barrier.after).stages;
 		}
 		for (const TextureBarrier & barrier : barriers.textures)
 		{
-			before |= barrier.before.stages;
-			after |= barrier.after.stages;
+			before |= Expand(barrier.before).stages;
+			after |= Expand(barrier.after).stages;
 		}
 		for (const MemoryBarrier & barrier : barriers.memory)
 		{
-			before |= barrier.before.stages;
-			after |= barrier.after.stages;
+			before |= Expand(barrier.before).stages;
+			after |= Expand(barrier.after).stages;
 		}
 
 		if (before.Empty() && after.Empty())
@@ -415,27 +446,36 @@ namespace azo::rhi::metal4
 			return Succeed(error);
 		}
 
-		const MTL::Stages producer = StagesFor(before);
-		const MTL::Stages consumer = StagesFor(after);
+		PlaceBarrier(list, StagesFor(before), StagesFor(after), MTL4::VisibilityOptionDevice);
+		return Succeed(error);
+	}
 
-		if (list->renderEncoder.get() != nullptr)
+	/*
+	 * Aliasing, which this generation covers with a visibility option rather than a fence.
+	 *
+	 * Two resources over the same bytes need the caches flushed to the point aliased virtual addresses agree at, which is what VisibilityOptionResourceAlias
+	 * asks for. Metal 3 has no such option and buys the same ordering by closing the encoder and passing a fence to the next one.
+	 *
+	 * So no encoder closes here. The barrier names every stage on both sides because an AliasBarrier carries resources rather than stages, and either resource
+	 * may have been touched by any kind of work.
+	 */
+	bool Metal4CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
+	{
+		AZO_RHI_PROFILE_ZONE("rhi.metal4.aliasBarriers");
+
+		auto * object  = static_cast<Metal4Object *>(impl);
+		CmdList * list = RecordingListOf(object);
+		if (list == nullptr)
 		{
-			RecordBarrier(list->renderEncoder.get(), kRenderWaitableStages, kRenderEncoderStages, producer, consumer);
+			return Fail(error, ErrorCode::eInvalidState, "command recorded on a list that is not open for recording");
 		}
-		else if (list->computeEncoder.get() != nullptr)
+		if (barriers.empty())
 		{
-			RecordBarrier(list->computeEncoder.get(), kComputeWaitableStages, kComputeEncoderStages, producer, consumer);
-		}
-		else
-		{
-			/*
-			 * Nothing is open, so there is no encoder to record on and opening one to host a barrier is what this used to do. An encoder holding nothing but a
-			 * barrier has no work on either side of it to order, so the barrier is held for the next encoder instead, which is the one it was recorded for.
-			 */
-			list->pendingProducer = static_cast<MTL::Stages>(static_cast<NS::UInteger>(list->pendingProducer) | static_cast<NS::UInteger>(producer));
-			list->pendingConsumer = static_cast<MTL::Stages>(static_cast<NS::UInteger>(list->pendingConsumer) | static_cast<NS::UInteger>(consumer));
+			return Succeed(error);
 		}
 
+		constexpr auto visibility = static_cast<MTL4::VisibilityOptions>(MTL4::VisibilityOptionDevice | MTL4::VisibilityOptionResourceAlias);
+		PlaceBarrier(list, MTL::StageAll, MTL::StageAll, visibility);
 		return Succeed(error);
 	}
 

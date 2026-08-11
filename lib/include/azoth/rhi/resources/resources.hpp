@@ -247,8 +247,7 @@ namespace azo::rhi
 		std::uint32_t arrayLayers = 1;
 		SampleCount samples		  = SampleCount::e1;
 		Flags<TextureUsage> usage;
-		MemoryUsage memory			= MemoryUsage::eGpuOnly;
-		TextureLayout initialLayout = TextureLayout::eUndefined;
+		MemoryUsage memory = MemoryUsage::eGpuOnly;
 
 		/**
 		 * \brief Allows this texture to share heap memory with another placed resource.

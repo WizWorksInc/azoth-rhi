@@ -32,21 +32,6 @@ namespace azo::rhi
 	inline constexpr std::uint32_t kInvalidIndex = std::numeric_limits<std::uint32_t>::max();
 
 	/**
-	 * \brief Queue-family sentinel used when a barrier performs no ownership transfer.
-	 */
-	inline constexpr std::uint32_t kIgnoreQueueFamily = std::numeric_limits<std::uint32_t>::max();
-
-	/**
-	 * \brief Queue-family sentinel naming whatever holds a resource across an external sharing boundary.
-	 *
-	 * Use it as the destination of a barrier before exporting a resource and as the source of one after importing it.
-	 *
-	 * \attention Not optional where the backend has queue family ownership to transfer. On Vulkan a resource handed across without it has undefined contents.
-	 * Direct3D 12 treats this as inert. Record the barrier either way.
-	 */
-	inline constexpr std::uint32_t kExternalQueueFamily = std::numeric_limits<std::uint32_t>::max() - 1;
-
-	/**
 	 * \brief TextureSubresourceRange mip-count sentinel meaning every remaining mip from baseMip.
 	 *
 	 * This is for barriers whose emitter does not know the concrete texture mip count. Backends lower it to the native whole-range form or resolve it

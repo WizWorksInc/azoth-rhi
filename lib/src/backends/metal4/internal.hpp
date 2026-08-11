@@ -30,6 +30,7 @@
 
 #include "backends/metal_common/conversions.hpp"
 #include "backends/registration.hpp"
+#include "support/state_expansion.hpp"
 
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
@@ -166,10 +167,11 @@ namespace azo::rhi::metal4
 		 * A caller records a barrier between the work that produces and the scope that consumes, so at that moment there is often no encoder at all. Opening
 		 * one purely to host it spends an encoder on a command that orders nothing.
 		 *
-		 * Held instead, and recorded on the next encoder that opens. Stages accumulate, so several barriers before one scope collapse into one.
+		 * Held instead, and recorded on the next encoder that opens. Stages and visibility accumulate, so several barriers before one scope collapse into one.
 		 */
-		MTL::Stages pendingProducer = static_cast<MTL::Stages>(0);
-		MTL::Stages pendingConsumer = static_cast<MTL::Stages>(0);
+		MTL::Stages pendingProducer				  = static_cast<MTL::Stages>(0);
+		MTL::Stages pendingConsumer				  = static_cast<MTL::Stages>(0);
+		MTL4::VisibilityOptions pendingVisibility = MTL4::VisibilityOptionNone;
 
 		/**
 		 * \brief The list's own residency set, for the transients it makes while recording.
@@ -699,6 +701,7 @@ namespace azo::rhi::metal4
 	bool Metal4CmdBegin(void * impl, Error * error) noexcept;
 	bool Metal4CmdEnd(void * impl, Error * error) noexcept;
 	bool Metal4CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;
+	bool Metal4CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept;
 	bool Metal4CmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
 	bool Metal4CmdEndDebugLabel(void * impl, Error * error) noexcept;
 
@@ -776,7 +779,7 @@ namespace azo::rhi::metal4
 	QueryPoolHandle Metal4CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
 	bool Metal4CalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
 	bool Metal4CmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
-	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept;
+	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
 	bool Metal4CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool Metal4CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool Metal4CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
@@ -823,6 +826,7 @@ namespace azo::rhi::metal4
 	const CommandPoolApi & CommandPoolBlock() noexcept;
 	const RenderCommandApi & RenderCommandBlock() noexcept;
 	const QueryCommandApi & QueryCommandBlock() noexcept;
+	const AliasingCommandApi & AliasingCommandBlock() noexcept;
 	const IndirectApi & IndirectBlock() noexcept;
 	const NativeEscapeApi & NativeEscapeBlock() noexcept;
 	const DescriptorArenaApi & DescriptorArenaBlock() noexcept;
@@ -842,7 +846,6 @@ namespace azo::rhi::metal4
 	const SwapchainApi & SwapchainBlock() noexcept;
 	void * Metal4CreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
 	QueueType Metal4QueueTypeOf(void * impl) noexcept;
-	std::uint32_t Metal4QueueFamilyIndex(void * impl) noexcept;
 	bool Metal4QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
 	bool Metal4QueueWaitIdle(void * impl, Error * error) noexcept;
 	bool Metal4QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;

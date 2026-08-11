@@ -163,7 +163,6 @@ namespace azo::rhi::vulkan
 	{
 		static const QueueApi block{
 			.getType		   = &VulkanQueueType,
-			.getFamilyIndex	   = &VulkanQueueFamilyIndex,
 			.submit			   = &VulkanQueueSubmit,
 			.waitIdle		   = &VulkanQueueWaitIdle,
 			.getCompletedValue = &VulkanQueueGetCompletedValue,

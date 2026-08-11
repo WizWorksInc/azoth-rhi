@@ -167,7 +167,7 @@ namespace azo::rhi
 		 * \brief Adds or replaces a queue request for one queue type.
 		 *
 		 * \param minCount Minimum queue count for this type. Zero is rejected during Build validation.
-		 * \param requireDedicatedQueue True to reject a shared queue-family fallback for compute or copy queues.
+		 * \param requireDedicatedQueue True to reject a shared-queue fallback for compute or copy queues.
 		 * \attention Only one request per queue type is stored. Calling Queue again for the same type replaces the earlier request.
 		 */
 		DeviceBuilder & Queue(const QueueType type, const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept

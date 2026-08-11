@@ -2477,11 +2477,6 @@ namespace azo::rhi
 		return m_blocks->core->getType(m_impl);
 	}
 
-	std::uint32_t Queue::GetFamilyIndex() const noexcept
-	{
-		return m_blocks->core->getFamilyIndex(m_impl);
-	}
-
 	bool Queue::Submit(const SubmitDesc & desc) noexcept
 	{
 		return m_blocks->core->submit(m_impl, desc, nullptr);
@@ -3102,12 +3097,12 @@ namespace azo::rhi
 										  : Decline<bool>(&error, kNoQueryCommand);
 	}
 
-	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage) noexcept
+	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept
 	{
 		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, nullptr) : Decline<bool>(nullptr, kNoQueryCommand);
 	}
 
-	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error & error) noexcept
+	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, &error) : Decline<bool>(&error, kNoQueryCommand);

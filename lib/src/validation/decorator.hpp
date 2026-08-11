@@ -776,8 +776,8 @@ namespace azo::rhi::validation
 	struct AdoptedSeed final
 	{
 		ResourceState state{};
-		std::uint32_t queueFamily = kIgnoreQueueFamily;
-		bool present			  = false;
+		QueueOwnership ownership{};
+		bool present = false;
 	};
 
 	template <class T>
@@ -788,12 +788,12 @@ namespace azo::rhi::validation
 
 	[[nodiscard]] inline AdoptedSeed PickAdoptedSeed([[maybe_unused]] AdoptedSeed found, const AdoptedBufferDesc & desc) noexcept
 	{
-		return AdoptedSeed{ .state = desc.initialState, .queueFamily = desc.initialQueueFamily, .present = true };
+		return AdoptedSeed{ .state = desc.initialState, .ownership = desc.initialOwnership, .present = true };
 	}
 
 	[[nodiscard]] inline AdoptedSeed PickAdoptedSeed([[maybe_unused]] AdoptedSeed found, const AdoptedTextureDesc & desc) noexcept
 	{
-		return AdoptedSeed{ .state = desc.initialState, .queueFamily = desc.initialQueueFamily, .present = true };
+		return AdoptedSeed{ .state = desc.initialState, .ownership = desc.initialOwnership, .present = true };
 	}
 
 	/*
@@ -845,13 +845,13 @@ namespace azo::rhi::validation
 
 			if (ResourceRecord * record = self->validator->Handles().Lookup(registered))
 			{
-				record->access.store(static_cast<std::uint32_t>(seed.state.access.Bits()), std::memory_order_relaxed);
-				record->accessKnown.store(true, std::memory_order_relaxed);
+				record->use.store(seed.state.use.Bits(), std::memory_order_relaxed);
+				record->useKnown.store(true, std::memory_order_relaxed);
 
-				// An ignored family means nothing owns it in a way a transfer would have to name, which is the same thing a fresh create records.
-				if (seed.queueFamily != kIgnoreQueueFamily)
+				// An eNone op means nothing owns it in a way a transfer would have to name, which is the same thing a fresh create records.
+				if (seed.ownership.op == OwnershipOp::eRelease || seed.ownership.op == OwnershipOp::eAcquire)
 				{
-					record->owner.store(static_cast<std::uint8_t>(seed.queueFamily), std::memory_order_relaxed);
+					record->owner.store(static_cast<std::uint8_t>(seed.ownership.counterpart), std::memory_order_relaxed);
 					record->owned.store(true, std::memory_order_relaxed);
 				}
 			}

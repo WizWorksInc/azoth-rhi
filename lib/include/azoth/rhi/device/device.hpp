@@ -732,7 +732,7 @@ namespace azo::rhi
 		/**
 		 * \brief True when the capability runs on a separate engine from graphics.
 		 *
-		 * Folding onto the graphics family reports false even if a distinct queue index from that family is returned.
+		 * Folding onto the graphics queue reports false even if a distinct queue index from it is returned.
 		 */
 		bool hasDedicatedComputeQueue  = false;
 		bool hasDedicatedTransferQueue = false;
@@ -1513,7 +1513,7 @@ namespace azo::rhi
 		 * Moves memory and synchronization across an API, device or process boundary, unlike the adoption above.
 		 *
 		 * \attention Every entry declines with eUnsupportedFeature where the device cannot share. An object can only be exported to a handle type its
-		 * description declared at creation. A resource crossing needs a queue family ownership transfer naming kExternalQueueFamily. \{
+		 * description declared at creation. A resource crossing needs a queue ownership transfer using the external release and acquire ops. \{
 		 */
 
 		[[nodiscard]] bool ExportBuffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out) noexcept;

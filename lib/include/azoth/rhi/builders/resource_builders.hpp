@@ -196,12 +196,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		TextureBuilder & InitialLayout(TextureLayout layout) noexcept
-		{
-			m_desc.initialLayout = layout;
-			return *this;
-		}
-
 		TextureBuilder & Aliasing(bool enabled = true) noexcept
 		{
 			m_desc.allowAliasing = enabled;

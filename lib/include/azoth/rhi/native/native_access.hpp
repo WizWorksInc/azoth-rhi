@@ -106,19 +106,19 @@ namespace azo::rhi
 		/**
 		 * \brief The state the object arrives in, which is whatever its producer left it in.
 		 *
-		 * The validation registry is seeded from this and from initialQueueFamily below, so the caller's first barrier names a before state that matches what the
+		 * The validation registry is seeded from this and from initialOwnership below, so the caller's first barrier names a before state that matches what the
 		 * object actually arrived in.
 		 */
 		ResourceState initialState{};
 
 		/**
-		 * \brief The queue family that owns the object when it arrives, kIgnoreQueueFamily when no transfer is needed to use it here.
+		 * \brief The queue that owns the object when it arrives, an eNone op when no transfer is needed to use it here.
 		 *
 		 * Beside initialState, not folded into it because a barrier states the two separately. Seeding one and leaving the other cleared makes the first ownership
 		 * transfer against an adopted object as wrong as the first layout transition would be.
 		 */
-		std::uint32_t initialQueueFamily = kIgnoreQueueFamily;
-		CString debugName				 = nullptr;
+		QueueOwnership initialOwnership{};
+		CString debugName = nullptr;
 	};
 
 	/**
@@ -133,13 +133,13 @@ namespace azo::rhi
 		ResourceState initialState{};
 
 		/**
-		 * \brief The queue family that owns the object when it arrives, kIgnoreQueueFamily when no transfer is needed to use it here.
+		 * \brief The queue that owns the object when it arrives, an eNone op when no transfer is needed to use it here.
 		 *
 		 * Beside initialState, not folded into it because a barrier states the two separately. Seeding one and leaving the other cleared makes the first ownership
 		 * transfer against an adopted object as wrong as the first layout transition would be.
 		 */
-		std::uint32_t initialQueueFamily = kIgnoreQueueFamily;
-		CString debugName				 = nullptr;
+		QueueOwnership initialOwnership{};
+		CString debugName = nullptr;
 	};
 
 	/**

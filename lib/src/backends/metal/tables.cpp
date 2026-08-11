@@ -163,7 +163,6 @@ namespace azo::rhi::metal
 	{
 		static const QueueApi block{
 			.getType		   = &MetalQueueTypeOf,
-			.getFamilyIndex	   = &MetalQueueFamilyIndex,
 			.submit			   = &MetalQueueSubmit,
 			.waitIdle		   = &MetalQueueWaitIdle,
 			.getCompletedValue = &MetalQueueGetCompletedValue,

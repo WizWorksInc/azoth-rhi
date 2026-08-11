@@ -285,7 +285,7 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	bool VulkanCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept
+	bool VulkanCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
@@ -299,13 +299,14 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
 
+		const vk::PipelineStageFlags2 stageMask = MapStages2(ExpandStages(stage));
 		if (list->owner->coreVk13)
 		{
-			list->buffer.writeTimestamp2(MapStages2(stage), slot->pool, query, list->owner->dispatch);
+			list->buffer.writeTimestamp2(stageMask, slot->pool, query, list->owner->dispatch);
 		}
 		else
 		{
-			list->buffer.writeTimestamp2KHR(MapStages2(stage), slot->pool, query, list->owner->dispatch);
+			list->buffer.writeTimestamp2KHR(stageMask, slot->pool, query, list->owner->dispatch);
 		}
 		return Succeed(error);
 	}
@@ -455,14 +456,43 @@ namespace azo::rhi::vulkan
 	 * resource creation) and record onto the list's native buffer. Barriers lower to vkCmdPipelineBarrier2 so each barrier carries its own stage and access masks,
 	 * the natural shape of the RHI BarrierBatch.
 	 */
-	/*
-	 * The queue family sentinels are passed through, not mapped, which is only correct because the RHI picked the same values Vulkan uses. That was true of
-	 * kIgnoreQueueFamily before kExternalQueueFamily existed and was never stated, so both are pinned here: a change to either constant fails the build instead of
-	 * silently turning an ownership transfer into a transfer to family 4294967294.
-	 */
-	static_assert(kIgnoreQueueFamily == VK_QUEUE_FAMILY_IGNORED, "kIgnoreQueueFamily is passed to Vulkan unmapped, so it has to be VK_QUEUE_FAMILY_IGNORED");
-	static_assert(
-		kExternalQueueFamily == VK_QUEUE_FAMILY_EXTERNAL, "kExternalQueueFamily is passed to Vulkan unmapped, so it has to be VK_QUEUE_FAMILY_EXTERNAL");
+	namespace
+	{
+		struct OwnershipFamilies final
+		{
+			std::uint32_t src = VK_QUEUE_FAMILY_IGNORED;
+			std::uint32_t dst = VK_QUEUE_FAMILY_IGNORED;
+		};
+
+		/*
+		 * A release names where the resource is going and an acquire where it came from, so each half becomes the family pair from the recording list's own family
+		 * and the counterpart's. Matching families mean there is nothing to transfer, and the indices drop to IGNORED while the barrier keeps its layout transition
+		 * and its memory dependency.
+		 */
+		[[nodiscard]] OwnershipFamilies FamiliesFor(const VulkanCommandList * list, const QueueOwnership & ownership) noexcept
+		{
+			const std::uint32_t here = list->family;
+
+			switch (ownership.op)
+			{
+			case OwnershipOp::eRelease:
+			{
+				const std::uint32_t there = list->owner->FamilyForType(ownership.counterpart);
+				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ here, there };
+			}
+			case OwnershipOp::eAcquire:
+			{
+				const std::uint32_t there = list->owner->FamilyForType(ownership.counterpart);
+				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ there, here };
+			}
+			case OwnershipOp::eReleaseToExternal:	return { here, VK_QUEUE_FAMILY_EXTERNAL };
+			case OwnershipOp::eAcquireFromExternal: return { VK_QUEUE_FAMILY_EXTERNAL, here };
+			case OwnershipOp::eNone:				break;
+			}
+
+			return {};
+		}
+	} // namespace
 
 	bool VulkanCmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
@@ -481,7 +511,10 @@ namespace azo::rhi::vulkan
 		// Each of the three was reserved for exactly what the loops below put in it, so none of the appends can grow.
 		for (const MemoryBarrier & b : barriers.memory)
 		{
-			memoryBarriers.emplace_back(MapStages2(b.before.stages), MapAccess2(b.before.access), MapStages2(b.after.stages), MapAccess2(b.after.access));
+			const ExpandedState before = Expand(b.before);
+			const ExpandedState after  = Expand(b.after);
+
+			memoryBarriers.emplace_back(MapStages2(before.stages), MapAccess2(before.access), MapStages2(after.stages), MapAccess2(after.access));
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
@@ -492,12 +525,16 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
 
-			bufferBarriers.emplace_back(MapStages2(b.before.stages),
-				MapAccess2(b.before.access),
-				MapStages2(b.after.stages),
-				MapAccess2(b.after.access),
-				b.ownership.src,
-				b.ownership.dst,
+			const ExpandedState before		 = Expand(b.before);
+			const ExpandedState after		 = Expand(b.after);
+			const OwnershipFamilies families = FamiliesFor(list, b.ownership);
+
+			bufferBarriers.emplace_back(MapStages2(before.stages),
+				MapAccess2(before.access),
+				MapStages2(after.stages),
+				MapAccess2(after.access),
+				families.src,
+				families.dst,
 				vk::Buffer(slot->buffer),
 				b.offset,
 				b.size);
@@ -511,14 +548,18 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
 
-			imageBarriers.emplace_back(MapStages2(b.before.stages),
-				MapAccess2(b.before.access),
-				MapStages2(b.after.stages),
-				MapAccess2(b.after.access),
-				MapTextureLayout(b.before.layout),
-				MapTextureLayout(b.after.layout),
-				b.ownership.src,
-				b.ownership.dst,
+			const ExpandedState before		 = Expand(b.before);
+			const ExpandedState after		 = Expand(b.after);
+			const OwnershipFamilies families = FamiliesFor(list, b.ownership);
+
+			imageBarriers.emplace_back(MapStages2(before.stages),
+				MapAccess2(before.access),
+				MapStages2(after.stages),
+				MapAccess2(after.access),
+				MapTextureLayout(before.layout),
+				MapTextureLayout(after.layout),
+				families.src,
+				families.dst,
 				image,
 				MapSubresourceRange(b.range));
 		}
@@ -615,7 +656,7 @@ namespace azo::rhi::vulkan
 				.samples = slot->samples,
 				.loadOp	 = MapLoadOp(a.load),
 				.storeOp = MapStoreOp(a.store),
-				.layout	 = MapTextureLayout(a.state.layout) };
+				.layout	 = MapTextureLayout(ExpandLayout(a.state.use)) };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
 		}
@@ -632,7 +673,7 @@ namespace azo::rhi::vulkan
 				.samples								 = slot->samples,
 				.loadOp									 = MapLoadOp(desc.depthStencil->load),
 				.storeOp								 = MapStoreOp(desc.depthStencil->store),
-				.layout									 = MapTextureLayout(desc.depthStencil->state.layout) };
+				.layout									 = MapTextureLayout(ExpandLayout(desc.depthStencil->state.use)) };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 		}
@@ -755,7 +796,7 @@ namespace azo::rhi::vulkan
 
 			vk::RenderingAttachmentInfo info;
 			info.imageView	 = view;
-			info.imageLayout = MapTextureLayout(a.state.layout);
+			info.imageLayout = MapTextureLayout(ExpandLayout(a.state.use));
 			info.loadOp		 = MapLoadOp(a.load);
 			info.storeOp	 = MapStoreOp(a.store);
 			info.clearValue	 = vk::ClearValue(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
@@ -776,7 +817,7 @@ namespace azo::rhi::vulkan
 			const vk::ImageView view = slot->view;
 
 			depthAttachment.imageView	= view;
-			depthAttachment.imageLayout = MapTextureLayout(desc.depthStencil->state.layout);
+			depthAttachment.imageLayout = MapTextureLayout(ExpandLayout(desc.depthStencil->state.use));
 			depthAttachment.loadOp		= MapLoadOp(desc.depthStencil->load);
 			depthAttachment.storeOp		= MapStoreOp(desc.depthStencil->store);
 			depthAttachment.clearValue =

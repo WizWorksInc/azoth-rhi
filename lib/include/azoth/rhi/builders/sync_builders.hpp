@@ -116,7 +116,7 @@ namespace azo::rhi
 		/**
 		 * \brief Sets the pipeline stages blocked by this timeline point when it is used as a submit wait.
 		 */
-		TimelinePointBuilder & WaitStages(Flags<PipelineStage> stages) noexcept
+		TimelinePointBuilder & WaitStages(Flags<Stage> stages) noexcept
 		{
 			m_desc.waitStages = stages;
 			return *this;
@@ -152,7 +152,7 @@ namespace azo::rhi
 		/**
 		 * \brief Sets the pipeline stages blocked by the acquire wait. Defaults to the color-attachment stage.
 		 */
-		SwapchainSyncBuilder & WaitStages(Flags<PipelineStage> stages) noexcept
+		SwapchainSyncBuilder & WaitStages(Flags<Stage> stages) noexcept
 		{
 			m_desc.waitStages = stages;
 			return *this;
@@ -173,21 +173,15 @@ namespace azo::rhi
 	class ResourceStateBuilder final
 	{
 	public:
-		ResourceStateBuilder & Stages(Flags<PipelineStage> stages) noexcept
+		ResourceStateBuilder & Use(Flags<ResourceUse> use) noexcept
+		{
+			m_desc.use = use;
+			return *this;
+		}
+
+		ResourceStateBuilder & Stages(Flags<Stage> stages) noexcept
 		{
 			m_desc.stages = stages;
-			return *this;
-		}
-
-		ResourceStateBuilder & Access(Flags<Access> access) noexcept
-		{
-			m_desc.access = access;
-			return *this;
-		}
-
-		ResourceStateBuilder & Layout(TextureLayout layout) noexcept
-		{
-			m_desc.layout = layout;
 			return *this;
 		}
 

@@ -592,7 +592,7 @@ namespace azo::rhi::metal
 	QueryPoolHandle MetalCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
 	bool MetalCalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
 	bool MetalCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
-	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error * error) noexcept;
+	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
 	bool MetalCmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool MetalCmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool MetalCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
@@ -659,7 +659,6 @@ namespace azo::rhi::metal
 	const SwapchainApi & SwapchainBlock() noexcept;
 	void * MetalCreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
 	QueueType MetalQueueTypeOf(void * impl) noexcept;
-	std::uint32_t MetalQueueFamilyIndex(void * impl) noexcept;
 	bool MetalQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
 	bool MetalQueueWaitIdle(void * impl, Error * error) noexcept;
 	bool MetalQueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;

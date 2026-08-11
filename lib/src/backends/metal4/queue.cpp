@@ -21,11 +21,6 @@ namespace azo::rhi::metal4
 		return static_cast<Metal4Object *>(impl)->queueType;
 	}
 
-	std::uint32_t Metal4QueueFamilyIndex(void * impl) noexcept
-	{
-		return static_cast<std::uint32_t>(static_cast<Metal4Object *>(impl)->queueType);
-	}
-
 	namespace
 	{
 		// One command list's command buffer, or null when it holds none.
@@ -280,9 +275,6 @@ namespace azo::rhi::metal4
 	 *
 	 * A timestamp needs a counter heap, so a list from an adapter carrying no timestamp counters declines the block instead of publishing entries that would
 	 * refuse at the call. DeviceCaps reads supportsTimestampQueries back off exactly this.
-	 *
-	 * AliasingCommandApi is absent, and that is a claim, not an oversight: the ordinary barrier already covers the same hazard through
-	 * VisibilityOptionResourceAlias.
 	 */
 	namespace
 	{
@@ -297,6 +289,7 @@ namespace azo::rhi::metal4
 
 			return QueryPublished<Published<RenderCommandApi, &RenderCommandBlock>,
 				Published<QueryCommandApi, &QueryCommandBlock>,
+				Published<AliasingCommandApi, &AliasingCommandBlock>,
 				Published<IndirectApi, &IndirectBlock>,
 				Published<NativeEscapeApi, &NativeEscapeBlock>>(object, id, minVersion);
 		}

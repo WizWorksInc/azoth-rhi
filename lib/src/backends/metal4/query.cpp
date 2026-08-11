@@ -136,7 +136,7 @@ namespace azo::rhi::metal4
 	 * boundaries, which is every Apple part measured so far, and has no way to close a compute encoder to get around it. Here the encoder takes the sample
 	 * itself, so a dispatch can be bracketed as tightly as a caller wants.
 	 */
-	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, Flags<PipelineStage>, Error * error) noexcept
+	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, Flags<Stage>, Error * error) noexcept
 	{
 		auto * object			  = static_cast<Metal4Object *>(impl);
 		CmdList * list			  = ListOf(object);

@@ -272,7 +272,7 @@ namespace azo::rhi
 	 * Distinct from AdoptionApi above, which adopts a live native object made on this same device and needs no extension. Memory and synchronization ship together
 	 * because importing a handle aliases memory without ordering it.
 	 *
-	 * \note A resource crossing this boundary also needs a queue family ownership transfer, a recorded barrier naming kExternalQueueFamily on the far side.
+	 * \note A resource crossing this boundary also needs a queue ownership transfer, a recorded barrier naming the external release or acquire op.
 	 * Skipping it leaves the contents undefined.
 	 */
 	struct ExternalSharingApi final

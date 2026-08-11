@@ -163,7 +163,6 @@ namespace azo::rhi::metal4
 	{
 		static const QueueApi block{
 			.getType		   = &Metal4QueueTypeOf,
-			.getFamilyIndex	   = &Metal4QueueFamilyIndex,
 			.submit			   = &Metal4QueueSubmit,
 			.waitIdle		   = &Metal4QueueWaitIdle,
 			.getCompletedValue = &Metal4QueueGetCompletedValue,
@@ -252,6 +251,19 @@ namespace azo::rhi::metal4
 			.beginQuery		  = &Metal4CmdBeginQuery,
 			.endQuery		  = &Metal4CmdEndQuery,
 			.resolveQueryData = &Metal4CmdResolveQueryData,
+		};
+
+		return block;
+	}
+
+	/*
+	 * Published, where the other generation buys the same ordering with a fence and an encoder split. Metal 4 has VisibilityOptionResourceAlias, so an alias
+	 * barrier is an ordinary barrier carrying one more visibility bit and no encoder closes for it.
+	 */
+	const AliasingCommandApi & AliasingCommandBlock() noexcept
+	{
+		static const AliasingCommandApi block{
+			.aliasBarriers = &Metal4CmdAliasBarriers,
 		};
 
 		return block;

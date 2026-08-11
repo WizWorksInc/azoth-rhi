@@ -28,6 +28,7 @@
 
 #include "backends/registration.hpp"
 #include "support/driver_version.hpp"
+#include "support/state_expansion.hpp"
 
 #ifndef NOMINMAX
 	#define NOMINMAX
@@ -887,7 +888,6 @@ namespace azo::rhi::d3d12
 	void * D3D12GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 	void D3D12DestroyDevice(void * impl) noexcept;
 	QueueType D3D12QueueType(void * impl) noexcept;
-	std::uint32_t D3D12QueueFamilyIndex([[maybe_unused]] void * impl) noexcept;
 	GraphicsApiId D3D12InstanceApiId([[maybe_unused]] void * impl) noexcept;
 	bool D3D12EnumerateAdapters(void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept;
 	bool D3D12QueryExternalHandleSupport(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept;
@@ -961,6 +961,10 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(D3D12Device * device, QueryPoolHandle handle) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_STATES MapTextureStates(TextureLayout layout) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_STATES MapBufferStates(Flags<Access> access) noexcept;
+	[[nodiscard]] D3D12_BARRIER_SYNC DeriveBarrierSync(Flags<ResourceUse> use) noexcept;
+	[[nodiscard]] D3D12_BARRIER_SYNC MapBarrierSync(Flags<Stage> stages, Flags<ResourceUse> use) noexcept;
+	[[nodiscard]] D3D12_BARRIER_ACCESS MapBarrierAccess(Flags<ResourceUse> use) noexcept;
+	[[nodiscard]] D3D12_BARRIER_LAYOUT MapBarrierLayout(Flags<ResourceUse> use, QueueType queue) noexcept;
 	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept;
 	[[nodiscard]] D3D12_QUERY_HEAP_TYPE MapQueryHeapType(QueryType type) noexcept;
 	[[nodiscard]] UINT SubresourceIndex(const TextureSubresource & sub, std::uint32_t mipLevels) noexcept;
@@ -1016,7 +1020,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
 	bool D3D12CmdResetQueryPool(
 		void * impl, QueryPoolHandle pool, [[maybe_unused]] std::uint32_t firstQuery, [[maybe_unused]] std::uint32_t queryCount, Error * error) noexcept;
-	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<PipelineStage> stage, Error * error) noexcept;
+	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept;
 	bool D3D12CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool D3D12CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool D3D12CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
