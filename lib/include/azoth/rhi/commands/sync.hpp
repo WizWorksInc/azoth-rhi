@@ -184,6 +184,17 @@ namespace azo::rhi
 	};
 
 	/**
+	 * \brief Whether a stage mask names at most one stage, which is all a timestamp can be written at.
+	 *
+	 * Every Stage enumerator is its own bit, so this popcount is exact. The empty mask counts as one answer, not as none.
+	 */
+	[[nodiscard]] constexpr bool IsOneTimestampStage(const Flags<Stage> stage) noexcept
+	{
+		const std::uint64_t bits = stage.Bits();
+		return (bits & (bits - 1u)) == 0u;
+	}
+
+	/**
 	 * \brief Timeline synchronization object used for CPU to GPU progress, frame retirement, and cross-queue dependencies.
 	 */
 	struct TimelineDesc final

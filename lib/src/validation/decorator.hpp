@@ -56,6 +56,10 @@ namespace azo::rhi::validation
 		// any object without walking back up through the one that made it.
 		WrappedDevice * device		= nullptr;
 		DeviceValidator * validator = nullptr;
+
+		// The device's list of what it has to free, threaded through the children themselves so adopting one allocates nothing and takes no lock.
+		WrappedObject * nextChild					   = nullptr;
+		void (*releaseChild)(WrappedObject *) noexcept = nullptr;
 	};
 
 	/*
@@ -161,16 +165,14 @@ namespace azo::rhi::validation
 		// The one validator for this device. The base's pointer names this and every child wrapper's names it too.
 		DeviceValidator ownedValidator{ ValidationMode::eOff };
 
-		// A child and the entry that frees it, since they are held type erased and each kind has its own size.
-		struct Child final
-		{
-			WrappedObject * wrapper					  = nullptr;
-			void (*release)(WrappedObject *) noexcept = nullptr;
-		};
-
-		// Guarded because a create can arrive on any thread and it is the only guard this layer takes. Nothing on a read path touches it.
-		SpinLock childLock;
-		detail::HostVector<Child> children;
+		/*
+		 * Everything this device has to free, newest first, threaded through the children rather than held in a vector beside them.
+		 *
+		 * A create arrives on any thread, so this was a spin lock around a vector push that allocated on growth. Holding a spin across the host allocator is
+		 * what spin_lock.hpp forbids, and under cooperative scheduling a waiter had no yield path, so a host allocator that parked the fiber holding it burnt
+		 * the waiting worker. A child already has somewhere to keep a pointer, so the push allocates nothing, takes no lock and cannot fail.
+		 */
+		std::atomic<WrappedObject *> children{ nullptr };
 
 		// Names the next arena this device vends. Starts at one, since zero is what a kind with no pool carries in its record.
 		std::atomic<std::uint64_t> nextArenaId{ 1 };
@@ -743,6 +745,130 @@ namespace azo::rhi::validation
 	using RecordedCheckedEntry = std::conditional_t<ChecksThread, RecordedChecked<Member>, Checked<Member>>;
 
 	/*
+	 * A transfer or dispatch entry, which a rendering scope cannot contain.
+	 *
+	 * Vulkan forbids all of it inside a render pass instance. Both Metal generations used to end the caller's pass instead, silently, so the same call was
+	 * undefined on one backend and pass-ending on two. The refusal is here as well as at the Metal encoder choke points because with validation off this layer
+	 * is out of the stack entirely.
+	 */
+	template <bool ChecksThread, auto Member>
+	struct OutsideRendering;
+
+	template <bool ChecksThread, class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
+	struct OutsideRendering<ChecksThread, Member>
+	{
+		static R Call(void * impl, Args... args) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+			if (self->validator->ChecksState() && self->rendering) [[unlikely]]
+			{
+				Error * error = nullptr;
+				((error = PickError(error, args)), ...);
+				return self->validator->FailValue<R>(
+					error, "a transfer or dispatch recorded inside a rendering scope, which has to be recorded between passes");
+			}
+
+			return RecordedCheckedEntry<ChecksThread, Member>::Call(impl, args...);
+		}
+	};
+
+	// A marker bit, so a record that never saw a desc, which is what a swapchain back buffer is, reads as unknown usage and not as one declaring none.
+	inline constexpr std::uint64_t kUsageDeclared = 1ull << 63u;
+
+	// Stamped after the record is published, so every reader of it has to arrive through a caller-supplied handle rather than by scanning the table.
+
+	// The usage a create declared, found among its arguments the way the adopted state is, so a clear needing one is refused here and not per backend.
+	template <class T>
+	[[nodiscard]] std::uint64_t PickUsage(const std::uint64_t found, const T &) noexcept
+	{
+		return found;
+	}
+
+	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const BufferDesc & desc) noexcept
+	{
+		return kUsageDeclared | desc.usage.Bits();
+	}
+
+	/*
+	 * What subresources the texture actually has, recorded beside the usage so the tracker can refuse to represent one it does not.
+	 *
+	 * A range is tracked as a half-open box, and a count of "every remaining one" saturates to the largest value the box can hold. Subtracting a real range
+	 * from a saturated one leaves a residual in every axis the cut did not span, each carrying the original state over subresources that do not exist. Those
+	 * outlive the barrier that made them and refuse the next correct call. Resolving the sentinel against these counts is what stops one being made.
+	 */
+	inline constexpr std::uint64_t kExtentsDeclared = 1ull << 62u;
+	inline constexpr unsigned kMipCountShift		= 32u;
+	inline constexpr unsigned kLayerCountShift		= 40u;
+	inline constexpr unsigned kAspectShift			= 56u;
+	inline constexpr std::uint64_t kMipCountMax		= 0xffull;
+	inline constexpr std::uint64_t kLayerCountMax	= 0xffffull;
+
+	// Derived here rather than published, since which aspects a format has is a fact the tracker needs and not a question the API has been asked.
+	[[nodiscard]] inline std::uint64_t AspectsOfFormat(const Format format) noexcept
+	{
+		if (PlaneCountOf(format) > 1)
+		{
+			const std::uint64_t planes = static_cast<std::uint64_t>(TextureAspect::ePlane0) | static_cast<std::uint64_t>(TextureAspect::ePlane1);
+			return PlaneCountOf(format) > 2 ? planes | static_cast<std::uint64_t>(TextureAspect::ePlane2) : planes;
+		}
+
+		if (IsDepthFormat(format))
+		{
+			const std::uint64_t depth = static_cast<std::uint64_t>(TextureAspect::eDepth);
+			const bool stencil		  = format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
+			return stencil ? depth | static_cast<std::uint64_t>(TextureAspect::eStencil) : depth;
+		}
+
+		return static_cast<std::uint64_t>(TextureAspect::eColor);
+	}
+
+	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const TextureDesc & desc) noexcept
+	{
+		static_assert(std::numeric_limits<std::underlying_type_t<TextureUsage>>::digits <= kMipCountShift,
+			"a texture usage bit reaches the mip count, so the two would overwrite each other");
+		static_assert(
+			std::numeric_limits<std::underlying_type_t<TextureAspect>>::digits <= 64u - kAspectShift, "an aspect bit reaches past the top of the word");
+
+		const std::uint64_t usage = kUsageDeclared | desc.usage.Bits();
+
+		// Left undeclared rather than clamped when a count does not fit, a bound smaller than the truth being how a checker starts refusing correct calls.
+		if (desc.mipLevels == 0 || desc.mipLevels > kMipCountMax || desc.arrayLayers == 0 || desc.arrayLayers > kLayerCountMax)
+		{
+			return usage;
+		}
+
+		return usage | kExtentsDeclared | (static_cast<std::uint64_t>(desc.mipLevels) << kMipCountShift) |
+			   (static_cast<std::uint64_t>(desc.arrayLayers) << kLayerCountShift) | (AspectsOfFormat(desc.format) << kAspectShift);
+	}
+
+	/**
+	 * \brief The subresources a create declared, all zero when it declared none.
+	 *
+	 * Zero for a vended swapchain back buffer, which the layer never saw a desc for. Everything reading this treats zero as unknown and leaves the caller's
+	 * range as written, since guessing a bound is what would refuse a correct call.
+	 */
+	struct DeclaredExtents final
+	{
+		std::uint32_t mips	  = 0;
+		std::uint32_t layers  = 0;
+		std::uint32_t aspects = 0;
+	};
+
+	[[nodiscard]] inline DeclaredExtents ExtentsFrom(const std::uint64_t detail) noexcept
+	{
+		if ((detail & kExtentsDeclared) == 0)
+		{
+			return {};
+		}
+
+		return DeclaredExtents{
+			.mips	 = static_cast<std::uint32_t>((detail >> kMipCountShift) & kMipCountMax),
+			.layers	 = static_cast<std::uint32_t>((detail >> kLayerCountShift) & kLayerCountMax),
+			.aspects = static_cast<std::uint32_t>(detail >> kAspectShift),
+		};
+	}
+
+	/*
 	 * A create, with the handle it produced written into the registry so a later use can be checked against it.
 	 *
 	 * Generated off the block's own declaration the same way a pass-through is because writing down the handle is the only thing this adds and every create
@@ -773,11 +899,20 @@ namespace azo::rhi::validation
 				 * A registry that could not grow leaves the handle unrecorded so a later use of it reads as one this device never handed out. The resource is real either
 				 * way and failing the create because the checking could not keep up would be the worse of the two answers.
 				 */
-				static_cast<void>(self->validator->Handles().Record(RegisteredHandle{
+				const RegisteredHandle registered{
 					.type		= Type,
 					.index		= handle.index,
 					.generation = handle.generation,
-				}));
+				};
+				if (self->validator->Handles().Record(registered))
+				{
+					std::uint64_t usage = 0;
+					((usage = PickUsage(usage, args)), ...);
+					if (usage != 0)
+					{
+						self->validator->Handles().Lookup(registered)->detail.store(usage, std::memory_order_relaxed);
+					}
+				}
 			}
 
 			return handle;
