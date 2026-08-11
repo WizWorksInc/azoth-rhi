@@ -139,6 +139,13 @@ namespace azo::rhi
 
 		// Recording lifetime.
 
+		/**
+		 * \brief Opens recording on the calling thread, which owns the list until End.
+		 *
+		 * \attention Ownership is by OS thread and not by fiber. A cooperative host must not yield between Begin and End: a fiber that resumes on another
+		 * worker has every remaining command on this list refused, because validation records the thread that opened the recording and checks each command
+		 * against it. That check is on whenever state checking is, so it does not depend on the device's threading mode.
+		 */
 		[[nodiscard]] bool Begin() noexcept;
 		[[nodiscard]] bool Begin(Error & error) noexcept;
 		[[nodiscard]] bool End() noexcept;

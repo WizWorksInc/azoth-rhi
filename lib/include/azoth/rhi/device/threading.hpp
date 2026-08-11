@@ -39,7 +39,7 @@ namespace azo::rhi
 	 * \brief Calling-side threading policy for one device.
 	 *
 	 * Creates, destroys, and validation use this policy. Command-list recording is not guarded because a command list is owned by one host thread for
-	 * its recording lifetime.
+	 * its recording lifetime, which under eCooperative obliges the host not to yield inside a recording. See that enumerator.
 	 */
 	enum class ThreadingMode : std::uint8_t
 	{
@@ -61,6 +61,10 @@ namespace azo::rhi
 		 * \brief Cooperative scheduling.
 		 *
 		 * The host supplies lock primitives through SyncOps so waits can yield fibers instead of blocking workers.
+		 *
+		 * \attention Command-list recording is exempt from this policy, and the exemption is written in OS threads. A list is owned by the thread that called
+		 * Begin, so a fiber must not yield between Begin and End: resuming on another worker has the rest of that recording refused. The unit of ownership here
+		 * is the worker, not the task.
 		 */
 		eCooperative,
 	};
