@@ -24,10 +24,15 @@
 #include <string_view>
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_VULKAN
+	#include "azoth/rhi/native/vulkan_config.hpp"
 	#include "azoth/rhi/native/vulkan_native.hpp"
 #endif
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL
+	#include "azoth/rhi/native/metal_config.hpp"
+#endif
 
-namespace rhi = azo::rhi;
+namespace rhi  = azo::rhi;
+namespace test = azo::rhi::test;
 
 namespace
 {
@@ -42,6 +47,21 @@ namespace
 		desc.preferredFeatures = kPreferred;
 		return rhi::CreateDevice<Api>(desc);
 	}
+
+#if defined(AZOTH_RHI_TEST_ADOPTION_VULKAN) || defined(AZOTH_RHI_TEST_ADOPTION_METAL)
+
+	template <rhi::GraphicsApiTag Api, class Config>
+	[[nodiscard]] rhi::Result<rhi::UniqueDevice> CreateWith(const rhi::GraphicsApiId key, const Config & config)
+	{
+		const std::array<rhi::DeviceConfigEntry, 1> entries{ rhi::DeviceConfigEntry{ .api = key, .config = &config } };
+
+		rhi::DeviceDesc desc{};
+		desc.validation		= rhi::ValidationMode::eDeveloper;
+		desc.backendConfigs = entries;
+		return rhi::CreateDevice<Api>(desc);
+	}
+
+#endif
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_VULKAN
 
@@ -782,6 +802,217 @@ namespace
 													   : "a tier was reported on a driver without the extension");
 	}
 
+	// Compared against what the device reports, not a literal: this adapter collapses every queue onto family 0, so a literal would pass for the wrong reason.
+	TEST(VulkanAdoption, AQueueExposesItsFamilyIndexThroughTheNativePath)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::VulkanApi>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no Vulkan device on this machine";
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::GetVulkanNativeDevice(device);
+		ASSERT_TRUE(native.HasValue()) << "a Vulkan device did not hand back its native handles";
+
+		const rhi::Result<rhi::native::VulkanQueueView> view = rhi::GetVulkanQueueView(device.GetQueue(rhi::QueueType::eGraphics));
+		ASSERT_TRUE(view.HasValue()) << "a Vulkan graphics queue did not hand back a queue view";
+
+		EXPECT_NE(static_cast<VkQueue>(view.Value().queue), VK_NULL_HANDLE) << "the queue view carries no queue";
+		EXPECT_EQ(view.Value().familyIndex, native.Value().graphicsQueueFamily)
+			<< "the family index on the queue view disagrees with the one the device reports for its graphics queue";
+	}
+
+	// The three usages lower to VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline bits, so a device that enables neither cannot hand back the buffer
+	// its caller described. Vulkan-only because Metal answers the same question by refusing createAccelerationStructure instead, which task #24 settled.
+	TEST(VulkanRayTracingUsage, RefusesABufferOnlyRayTracingCouldUse)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::VulkanApi>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no Vulkan device on this machine";
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+		if (device.GetCaps().supportsRayTracing)
+		{
+			GTEST_SKIP() << "this Vulkan device reports ray tracing, so the refusal under test no longer applies";
+		}
+
+		for (const rhi::BufferUsage usage :
+			{ rhi::BufferUsage::eAccelerationStructureStorage, rhi::BufferUsage::eAccelerationStructureInput, rhi::BufferUsage::eShaderBindingTable })
+		{
+			rhi::BufferDesc desc{};
+			desc.size  = 256;
+			desc.usage = usage;
+
+			rhi::Error error{};
+			EXPECT_FALSE(device.CreateBuffer(desc, error).IsValid()) << "a ray tracing buffer usage was accepted on a device that declines ray tracing";
+			EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature);
+		}
+
+		// The control, so the case cannot pass by refusing every buffer.
+		rhi::BufferDesc ordinary{};
+		ordinary.size  = 256;
+		ordinary.usage = rhi::BufferUsage::eStorage;
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = device.CreateBuffer(ordinary, error);
+		EXPECT_TRUE(buffer.IsValid()) << "an ordinary storage buffer was refused";
+		if (buffer.IsValid())
+		{
+			EXPECT_TRUE(device.Destroy(buffer, {}, error));
+		}
+	}
+
+	// deviceVersion feeds the adapter check alone. The loader check reads the instance version, which is why one field could not answer both.
+	TEST(VulkanConfigBlock, ADeviceVersionTheAdapterCannotMeetIsRefused)
+	{
+		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
+		{
+			GTEST_SKIP() << "no Vulkan device on this machine: " << test::Describe(plain.GetError());
+		}
+
+		rhi::native::VulkanDeviceConfig pastTheAdapter{};
+		pastTheAdapter.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
+
+		const rhi::Result<rhi::UniqueDevice> refused = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, pastTheAdapter);
+		EXPECT_FALSE(refused.HasValue()) << "a device version past what the adapter supports was accepted";
+		if (!refused.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(refused.GetError()));
+		}
+
+		rhi::native::VulkanDeviceConfig belowTheFloor{};
+		belowTheFloor.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 1 };
+
+		const rhi::Result<rhi::UniqueDevice> floored = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, belowTheFloor);
+		EXPECT_FALSE(floored.HasValue()) << "a device version below the 1.2 floor was accepted";
+	}
+
+	// Malformed is a third answer beside present and absent, and neither half of it reaches the adapter, so both are named on a machine with no Vulkan too.
+	TEST(VulkanConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
+	{
+		rhi::native::VulkanDeviceConfig truncated{};
+		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
+
+		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, truncated);
+		EXPECT_FALSE(tooShort.HasValue()) << "a block declaring fewer bytes than the backend reads was accepted";
+		if (!tooShort.HasValue())
+		{
+			EXPECT_EQ(tooShort.GetError().code, rhi::ErrorCode::eInvalidArgument);
+		}
+
+		rhi::native::VulkanDeviceConfig otherVersion{};
+		otherVersion.header.version = 99;
+
+		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, otherVersion);
+		EXPECT_FALSE(wrongVersion.HasValue()) << "a block of a version this backend was not built against was accepted";
+		if (!wrongVersion.HasValue())
+		{
+			EXPECT_EQ(wrongVersion.GetError().code, rhi::ErrorCode::eInvalidArgument);
+		}
+	}
+
+	// A named extension the adapter does not advertise fails creation rather than being dropped, which is the arm no other backend's block has.
+	TEST(VulkanConfigBlock, ADeviceExtensionTheAdapterDoesNotAdvertiseIsRefused)
+	{
+		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
+		{
+			GTEST_SKIP() << "no Vulkan device on this machine: " << test::Describe(plain.GetError());
+		}
+
+		static constexpr std::array<const char * const, 1> kNoSuchExtension{ "VK_AZO_not_an_extension" };
+
+		rhi::native::VulkanDeviceConfig asking{};
+		asking.deviceExtensions = kNoSuchExtension;
+
+		const rhi::Result<rhi::UniqueDevice> refused = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, asking);
+		EXPECT_FALSE(refused.HasValue()) << "an extension no adapter advertises was accepted, so the block's list is being dropped";
+		if (!refused.HasValue())
+		{
+			EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
+		}
+	}
+
 #endif // AZOTH_RHI_TEST_ADOPTION_VULKAN
+
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL
+
+	TEST(MetalConfigBlock, EachGenerationRefusesABlockPinningTheOther)
+	{
+		rhi::native::MetalDeviceConfig pinnedToFour{};
+		pinnedToFour.generation = rhi::ApiVersion{ .major = 4, .minor = 0 };
+
+		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, pinnedToFour);
+		EXPECT_FALSE(three.HasValue()) << "Metal 3 accepted a block pinning it to a generation it is not";
+		if (!three.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(three.GetError()));
+		}
+
+		rhi::native::Metal4DeviceConfig pinnedToThree{};
+		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
+
+		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, pinnedToThree);
+		EXPECT_FALSE(four.HasValue()) << "Metal 4 accepted a block pinning it to a generation it is not";
+		if (!four.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(four.GetError()));
+		}
+	}
+
+	TEST(MetalConfigBlock, EitherGenerationComesUpWithNoBlockAtAll)
+	{
+		rhi::DeviceDesc plain{};
+		plain.validation = rhi::ValidationMode::eDeveloper;
+
+		if (rhi::Result<rhi::UniqueDevice> three = rhi::CreateDevice<rhi::MetalApi>(plain); !three.HasValue())
+		{
+			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(three.GetError());
+		}
+
+		rhi::Result<rhi::UniqueDevice> four = rhi::CreateDevice<rhi::Metal4Api>(plain);
+		EXPECT_TRUE(four.HasValue()) << "a Metal 4 device carrying no configuration block was refused";
+	}
+
+	// The only arm that shows the entry is matched on its api field: the rest all pass on a lookup that keys on nothing and reacts to any block being present.
+	TEST(MetalConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
+	{
+		rhi::native::Metal4DeviceConfig pinnedToThree{};
+		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
+
+		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::Metal4Api::id, pinnedToThree);
+		EXPECT_TRUE(three.HasValue()) << "Metal 3 read a block keyed to Metal 4, so the entry is not matched on its api field";
+	}
+
+	// Malformed is a third answer beside present and absent, which device_config.hpp says is never quietly defaulted, so both halves of malformed are named.
+	TEST(MetalConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
+	{
+		rhi::native::MetalDeviceConfig truncated{};
+		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
+
+		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, truncated);
+		EXPECT_FALSE(tooShort.HasValue()) << "a block declaring fewer bytes than the backend reads was accepted";
+		if (!tooShort.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(tooShort.GetError()));
+		}
+
+		rhi::native::MetalDeviceConfig otherVersion{};
+		otherVersion.header.version = 99;
+
+		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, otherVersion);
+		EXPECT_FALSE(wrongVersion.HasValue()) << "a block of a version this backend was not built against was accepted";
+		if (!wrongVersion.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(wrongVersion.GetError()));
+		}
+	}
+
+#endif // AZOTH_RHI_TEST_ADOPTION_METAL
 
 } // namespace

@@ -112,7 +112,7 @@ namespace
 			Over(texture.Get(), 0, 1, kDiscard, kCopySrc),
 			Over(texture.Get(), 1, kLevels - 1, kDiscard, kCopyDst),
 		};
-		EXPECT_FALSE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error))
 			<< "two ranges of one texture in one batch were refused, which is the state the tracker cannot express";
 
 		static_cast<void>(recording.End());
@@ -136,7 +136,7 @@ namespace
 		const std::array wrong{ Over(texture.Get(), 1, 1, kCopySrc, kSampled) };
 
 		rhi::Error wrongError{};
-		EXPECT_TRUE(recording.List().Barriers(rhi::BarrierBatch{ .textures = wrong }, wrongError))
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .textures = wrong }, wrongError))
 			<< "a range claiming a before-state the whole-texture barrier did not leave it in was accepted";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 
@@ -159,7 +159,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = lower }, error), error));
 
 		const std::array overlapping{ Over(texture.Get(), 1, 2, kCopyDst, kCopySrc) };
-		EXPECT_FALSE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, error), error))
 			<< "an overlapping range whose tracked half agrees was refused";
 
 		static_cast<void>(recording.End());
@@ -182,7 +182,7 @@ namespace
 		const std::array overlapping{ Over(texture.Get(), 1, 2, kCopySrc, kSampled) };
 
 		rhi::Error wrongError{};
-		EXPECT_TRUE(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, wrongError))
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, wrongError))
 			<< "an overlapping range whose tracked half disagrees was accepted, so the untracked half is deciding for both";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 

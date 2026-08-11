@@ -444,4 +444,161 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mip generation reported errors to the native validation layer");
 	}
 
+	// Two chains in one list. The second is refused by a span covering levels the texture does not have, left behind when a concrete range cut an unbounded one.
+	TEST_P(GenerateMipsTest, TakesASecondChainInTheSameRecording)
+	{
+		rhi::Error error{};
+		MipChain chain(Dev());
+		if (!Build(chain, kLevels, error))
+		{
+			GTEST_SKIP() << "this backend did not give up a mipped texture and the buffers to round trip through: " << test::Describe(error);
+		}
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array split{
+			rhi::TextureBarrier{
+				.texture = chain.texture,
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+				.range	 = { .baseMip = 0, .mipCount = 1 },
+			},
+			rhi::TextureBarrier{
+				.texture = chain.texture,
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
+			},
+		};
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error));
+
+		if (!recording.List().GenerateMips(chain.texture, error))
+		{
+			if (error.code == rhi::ErrorCode::eUnsupportedFeature)
+			{
+				GTEST_SKIP() << CurrentBackend().displayName << " has no mip generation: " << test::Describe(error);
+			}
+			FAIL() << "the first generateMips was refused: " << test::Describe(error);
+		}
+
+		// Naming the real level count, which is what leaves the phantom behind. Naming kAllMips here would hide it.
+		const std::array again{
+			rhi::TextureBarrier{
+				.texture = chain.texture,
+				.before	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
+			},
+		};
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = again }, error), error));
+
+		EXPECT_TRUE(test::Ok(recording.List().GenerateMips(chain.texture, error), error))
+			<< "the entry states are the ones the contract asks for, so the second chain has to be taken too";
+
+		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
+	}
+
+	// The sentinel is what a caller reaches for when they do not know the level count, so mixing it with a concrete range has to stay legal.
+	TEST_P(GenerateMipsTest, TakesAChainDeclaredThroughTheWholeRangeSentinel)
+	{
+		rhi::Error error{};
+		MipChain chain(Dev());
+		if (!Build(chain, kLevels, error))
+		{
+			GTEST_SKIP() << "this backend did not give up a mipped texture and the buffers to round trip through: " << test::Describe(error);
+		}
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array whole{ rhi::TextureBarrier{
+			.texture = chain.texture,
+			.before	 = { .use = rhi::ResourceUse::eDiscard },
+			.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+			.range	 = { .mipCount = rhi::kAllMips, .layerCount = rhi::kAllLayers },
+		} };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = whole }, error), error));
+
+		// Named by count, which is what leaves a residual behind when the span it cuts was saturated rather than resolved.
+		const std::array below{ rhi::TextureBarrier{
+			.texture = chain.texture,
+			.before	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+			.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+			.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
+		} };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = below }, error), error));
+
+		if (!recording.List().GenerateMips(chain.texture, error))
+		{
+			if (error.code == rhi::ErrorCode::eUnsupportedFeature)
+			{
+				GTEST_SKIP() << CurrentBackend().displayName << " has no mip generation: " << test::Describe(error);
+			}
+			FAIL() << "the entry states are the ones the contract asks for, reached through the sentinel: " << test::Describe(error);
+		}
+
+		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
+	}
+
+	TEST_P(GenerateMipsTest, IsRefusedWhenLevelZeroIsNotACopySource)
+	{
+		rhi::Error error{};
+		MipChain chain(Dev());
+		if (!Build(chain, kLevels, error))
+		{
+			GTEST_SKIP() << "this backend did not give up a mipped texture and the buffers to round trip through: " << test::Describe(error);
+		}
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array toCopyDst = WholeChainToCopyDst(chain.texture, kLevels);
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
+
+		rhi::Error entryError{};
+		EXPECT_FALSE(recording.List().GenerateMips(chain.texture, entryError)) << "the whole chain was left a copy destination and generateMips took it";
+		EXPECT_TRUE(test::ErrorIsPopulated(entryError));
+		EXPECT_NE(entryError.code, rhi::ErrorCode::eUnsupportedFeature) << "refused for having no mip generation, so the entry state was never reached";
+
+		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
+	}
+
+	TEST_P(GenerateMipsTest, IsRefusedWhenALevelBelowZeroIsNotACopyDestination)
+	{
+		rhi::Error error{};
+		MipChain chain(Dev());
+		if (!Build(chain, kLevels, error))
+		{
+			GTEST_SKIP() << "this backend did not give up a mipped texture and the buffers to round trip through: " << test::Describe(error);
+		}
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		// Level zero right and the levels under it wrong, which is the arm the case above cannot reach.
+		const std::array split{
+			rhi::TextureBarrier{
+				.texture = chain.texture,
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
+				.range	 = { .baseMip = 0, .mipCount = 1 },
+			},
+			rhi::TextureBarrier{
+				.texture = chain.texture,
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading },
+				.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
+			},
+		};
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error));
+
+		rhi::Error entryError{};
+		EXPECT_FALSE(recording.List().GenerateMips(chain.texture, entryError)) << "the levels below zero were left readable and generateMips took it";
+		EXPECT_TRUE(test::ErrorIsPopulated(entryError));
+		EXPECT_NE(entryError.code, rhi::ErrorCode::eUnsupportedFeature) << "refused for having no mip generation, so the entry state was never reached";
+
+		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
+	}
+
 } // namespace

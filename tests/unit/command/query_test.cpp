@@ -303,6 +303,34 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
 	}
 
+	// A mask naming two stages is ambiguous rather than coarse, and only Vulkan used to refuse one, so the Metal, Metal 4 and Null legs carry this case.
+	TEST_P(QueryTest, RefusesAStageMaskNamingMoreThanOneStage)
+	{
+		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
+
+		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
+
+		rhi::Error error{};
+		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
+
+		rhi::Error maskError{};
+		EXPECT_FALSE(recording.List().WriteTimestamp(pool, 0, rhi::Flags<rhi::Stage>(rhi::Stage::eCompute) | rhi::Stage::eCopy, maskError))
+			<< "a timestamp was written at a mask naming two stages";
+		EXPECT_TRUE(test::ErrorIsPopulated(maskError));
+
+		// The same write with one bit, so the refusal above is about the mask and not about the pool or the slot.
+		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eCompute, error), error));
+
+		EXPECT_TRUE(recording.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+	}
+
 	TEST_P(QueryTest, RefusesRenderingWritesNamingAPoolThisDeviceNeverCreated)
 	{
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");

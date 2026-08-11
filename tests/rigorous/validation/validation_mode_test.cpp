@@ -57,6 +57,20 @@ namespace
 		EXPECT_TRUE(test::ErrorIsPopulated(secondError));
 	}
 
+	// Off is the mode that matters here: the decorator is out of the stack, so only the backend's own guard stands between a zero count and the driver.
+	TEST_P(ValidationModeTest, RefusesAZeroCountQueryPoolInEveryMode)
+	{
+		rhi::Error error{};
+		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(0), error);
+		EXPECT_FALSE(pool.IsValid()) << "a query pool that asked for no queries was created";
+		EXPECT_TRUE(test::ErrorIsPopulated(error));
+
+		if (pool.IsValid())
+		{
+			EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		}
+	}
+
 	TEST_P(ValidationModeTest, TracksResourceStateOnlyWhenTheModeSaysItWill)
 	{
 		rhi::Error error{};

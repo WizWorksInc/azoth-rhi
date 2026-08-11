@@ -598,6 +598,62 @@ namespace
 		EXPECT_FALSE(view.IsValid()) << "a view was created over a destroyed texture";
 	}
 
+	// Metal asserts inside validateWithDevice on a range it cannot serve, so on two backends this is the difference between a refusal and an abort.
+	TEST_P(TextureTest, RefusesAViewRangePastTheEndOfTheTexture)
+	{
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+
+		rhi::TextureViewDesc pastLastMip = test::samples::FullTextureView();
+		pastLastMip.range.baseMip		 = 4;
+
+		rhi::Error mipError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, pastLastMip, mipError).IsValid()) << "a view based past the last mip was accepted";
+		EXPECT_EQ(mipError.code, rhi::ErrorCode::eInvalidArgument);
+
+		rhi::TextureViewDesc pastLastLayer = test::samples::FullTextureView();
+		pastLastLayer.range.baseLayer	   = 1;
+
+		rhi::Error layerError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, pastLastLayer, layerError).IsValid()) << "a view based past the last layer was accepted";
+		EXPECT_EQ(layerError.code, rhi::ErrorCode::eInvalidArgument);
+
+		rhi::TextureViewDesc pastTheCount = test::samples::FullTextureView();
+		pastTheCount.range.baseMip		  = 3;
+		pastTheCount.range.mipCount		  = 2;
+
+		rhi::Error countError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, pastTheCount, countError).IsValid()) << "a view taking more mips than remain was accepted";
+		EXPECT_EQ(countError.code, rhi::ErrorCode::eInvalidArgument);
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+	}
+
+	// constants.hpp says both sentinels are for barriers and never for views, and until this case nothing anywhere enforced it.
+	TEST_P(TextureTest, RefusesTheWholeRangeSentinelsInAView)
+	{
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+
+		rhi::TextureViewDesc everyMip = test::samples::FullTextureView();
+		everyMip.range.mipCount		  = rhi::kAllMips;
+
+		rhi::Error mipError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, everyMip, mipError).IsValid()) << "kAllMips was accepted in a texture view";
+		EXPECT_EQ(mipError.code, rhi::ErrorCode::eInvalidArgument);
+
+		rhi::TextureViewDesc everyLayer = test::samples::FullTextureView();
+		everyLayer.range.layerCount		= rhi::kAllLayers;
+
+		rhi::Error layerError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, everyLayer, layerError).IsValid()) << "kAllLayers was accepted in a texture view";
+		EXPECT_EQ(layerError.code, rhi::ErrorCode::eInvalidArgument);
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+	}
+
 	TEST_P(TextureTest, CreatesAndDestroysASampler)
 	{
 		rhi::Error error{};
