@@ -56,6 +56,25 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
+	// Refused and not dropped: their bits come from VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline, which this backend enables nowhere, so the
+	// buffer would come back without the one its usage declares (VUID-VkAccelerationStructureCreateInfoKHR-buffer-03614 for the storage one).
+	bool VulkanRefuseRayTracingUsage(const Flags<BufferUsage> usage, const bool supportsRayTracing, Error * error) noexcept
+	{
+		if (supportsRayTracing)
+		{
+			return true;
+		}
+
+		if (usage.Contains(BufferUsage::eShaderBindingTable) || usage.Contains(BufferUsage::eAccelerationStructureInput) ||
+			usage.Contains(BufferUsage::eAccelerationStructureStorage))
+		{
+			return Fail(
+				error, ErrorCode::eUnsupportedFeature, "a shader binding table or acceleration structure buffer needs ray tracing, which this device declines");
+		}
+
+		return true;
+	}
+
 	// Maps the RHI memory placement hint onto VMA. AUTO plus the host access flags lets VMA pick the memory type from the access pattern and the buffer usage.
 	// outFlags receives the allocation flags.
 	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, bool persistentMap, VmaAllocationCreateFlags & outFlags) noexcept

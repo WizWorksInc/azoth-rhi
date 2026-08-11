@@ -1209,6 +1209,9 @@ namespace azo::rhi::vulkan
 	bool VulkanCmdDispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept;
 	bool VulkanCmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
 	[[nodiscard]] vk::BufferUsageFlags MapBufferUsage(Flags<BufferUsage> usage) noexcept;
+
+	// False with the error set when a buffer usage names ray tracing on a device that declines it, which is every device this backend makes today.
+	[[nodiscard]] bool VulkanRefuseRayTracingUsage(Flags<BufferUsage> usage, bool supportsRayTracing, Error * error) noexcept;
 	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, bool persistentMap, VmaAllocationCreateFlags & outFlags) noexcept;
 	[[nodiscard]] vk::Format MapFormat(Format format) noexcept;
 	[[nodiscard]] vk::ImageUsageFlags MapTextureUsage(Flags<TextureUsage> usage) noexcept;

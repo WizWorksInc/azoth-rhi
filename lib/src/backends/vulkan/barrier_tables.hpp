@@ -263,13 +263,6 @@ namespace azo::rhi::vulkan
 		return MapBarrierAccess(use) ? DeriveBarrierStages(use) : vk::PipelineStageFlags2{};
 	}
 
-	// Every Stage enumerator is its own bit, so this popcount is exact. The empty mask counts as one answer, not as none.
-	[[nodiscard]] constexpr bool IsOneTimestampStage(const Flags<Stage> stage) noexcept
-	{
-		const std::uint64_t bits = stage.Bits();
-		return (bits & (bits - 1u)) == 0u;
-	}
-
 	// VUID-vkCmdWriteTimestamp2-stage-03859 allows one stage, so a semantic stage spanning several collapses to its latest bit.
 	[[nodiscard]] constexpr vk::PipelineStageFlagBits2 TimestampStage(const Flags<Stage> stage) noexcept
 	{

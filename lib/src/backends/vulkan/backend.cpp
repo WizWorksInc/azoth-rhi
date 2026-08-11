@@ -18,6 +18,7 @@
 #include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/hash.hpp"
 #include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/native/vulkan_config.hpp"
 #include "azoth/rhi/native/vulkan_native.hpp"
 
 #include "backends/registration.hpp"
@@ -231,6 +232,19 @@ namespace azo::rhi
 				}
 
 				return false;
+			}
+
+			// The block and DeviceDesc say the same thing here, so the older spelling is translated once rather than switched on twice.
+			[[nodiscard]] native::VulkanRenderingLowering LoweringForMode(const DynamicRenderingMode mode) noexcept
+			{
+				switch (mode)
+				{
+				case DynamicRenderingMode::eDisabled:  return native::VulkanRenderingLowering::eRenderPassObjects;
+				case DynamicRenderingMode::ePreferred: return native::VulkanRenderingLowering::eAutomatic;
+				case DynamicRenderingMode::eRequired:  return native::VulkanRenderingLowering::eDynamicRendering;
+				}
+
+				return native::VulkanRenderingLowering::eAutomatic;
 			}
 		} // namespace
 
@@ -563,6 +577,17 @@ namespace azo::rhi
 				return nullptr;
 			};
 
+			// A block this backend cannot read is a caller mistake, so it fails creation rather than coming up on defaults and dropping the configuration in silence.
+			const auto config = native::FindDeviceConfig<VulkanApi>(desc.backendConfigs);
+			if (config.malformed)
+			{
+				*error = Error{
+					.code	 = ErrorCode::eInvalidArgument,
+					.message = "the Vulkan configuration block declares a size or version this backend cannot read",
+				};
+				return nullptr;
+			}
+
 			const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 			if (enumerated.result != vk::Result::eSuccess)
 			{
@@ -721,7 +746,7 @@ namespace azo::rhi
 
 			// Resolve the requested version ({0, 0} means 1.3) and reject what the adapter lacks or anything below the 1.2 floor, where timeline semaphores and
 			// descriptor indexing are core and synchronization2 comes from VK_KHR_synchronization2.
-			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(desc.apiVersion);
+			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(config.block != nullptr ? config.block->deviceVersion : desc.apiVersion);
 			const std::uint32_t requestedApi = PackVkApiVersion(apiMajor, apiMinor);
 			if (apiMajor < 1 || (apiMajor == 1 && apiMinor < 2))
 			{
@@ -757,15 +782,15 @@ namespace azo::rhi
 					});
 			};
 
-			// Dynamic rendering is core at 1.3 and a KHR extension below. DeviceDesc::dynamicRendering then decides: eDisabled and an ePreferred adapter without it both
-			// fall back to render-pass objects, while eRequired fails outright.
+			// Dynamic rendering is core at 1.3 and a KHR extension below. The lowering then decides: eRenderPassObjects and an eAutomatic adapter without it both
+			// fall back to render-pass objects, while eDynamicRendering fails outright.
 			const bool adapterHasDynamicRendering = core13 || hasExt(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 			bool useDynamicRendering			  = false;
-			switch (desc.dynamicRendering)
+			switch (config.block != nullptr ? config.block->renderingLowering : LoweringForMode(desc.dynamicRendering))
 			{
-			case DynamicRenderingMode::eDisabled:  useDynamicRendering = false; break;
-			case DynamicRenderingMode::ePreferred: useDynamicRendering = adapterHasDynamicRendering; break;
-			case DynamicRenderingMode::eRequired:
+			case native::VulkanRenderingLowering::eRenderPassObjects: useDynamicRendering = false; break;
+			case native::VulkanRenderingLowering::eAutomatic:		  useDynamicRendering = adapterHasDynamicRendering; break;
+			case native::VulkanRenderingLowering::eDynamicRendering:
 				if (!adapterHasDynamicRendering)
 				{
 					*error = Error{
@@ -884,6 +909,37 @@ namespace azo::rhi
 			if (unifiedImageLayouts)
 			{
 				deviceExts.push_back(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
+			}
+
+			// One the adapter does not advertise fails creation, since a caller naming an extension has code behind it that a silent drop would leave broken.
+			if (config.block != nullptr)
+			{
+				for (const char * extra : config.block->deviceExtensions)
+				{
+					if (extra == nullptr)
+					{
+						continue;
+					}
+
+					if (!hasExt(extra))
+					{
+						*error = Error{
+							.code	 = ErrorCode::eUnsupportedFeature,
+							.message = "a device extension named in the Vulkan configuration block is not supported by the adapter",
+						};
+						return nullptr;
+					}
+
+					const bool alreadyEnabled = std::ranges::any_of(deviceExts,
+						[extra](const char * name) noexcept
+						{
+							return std::strcmp(name, extra) == 0;
+						});
+					if (!alreadyEnabled)
+					{
+						deviceExts.push_back(extra);
+					}
+				}
 			}
 
 			// Descriptor indexing is 1.2 core but its features are individually optional so enable only what bindless needs: a runtime-sized, partially-bound,
@@ -1738,6 +1794,10 @@ namespace azo::rhi
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
 			}
+			if (!VulkanRefuseRayTracingUsage(desc.usage, device->caps.supportsRayTracing, error))
+			{
+				return BufferHandle{};
+			}
 
 			/*
 			 * A sparse buffer is a virtual range with no memory behind it, filled a page at a time through bindSparse. Created straight through vkCreateBuffer and not
@@ -2255,6 +2315,10 @@ namespace azo::rhi
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "placed buffer size must be greater than zero");
 			}
+			if (!VulkanRefuseRayTracingUsage(desc.buffer.usage, device->caps.supportsRayTracing, error))
+			{
+				return BufferHandle{};
+			}
 
 			HeapSlot heap{};
 			{
@@ -2548,9 +2612,19 @@ namespace azo::rhi
 
 			// A range past the end of the texture builds a view Vulkan will not have so this is asked whatever the mode.
 			const TextureSubresourceRange & r = desc.range;
-			if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip || r.baseLayer >= texLayers || r.layerCount > texLayers - r.baseLayer)
+			if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view subresource range is outside the source texture");
+				return FailValue<TextureViewHandle>(error,
+					ErrorCode::eInvalidArgument,
+					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+			}
+			if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip)
+			{
+				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+			}
+			if (r.baseLayer >= texLayers || r.layerCount > texLayers - r.baseLayer)
+			{
+				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
 			}
 
 			/*

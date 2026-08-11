@@ -1133,7 +1133,8 @@ namespace azo::rhi::vulkan
 				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth));
 		}
 
-		list->buffer.copyBufferToImage(vk::Buffer(srcSlot->buffer), dstImage, vk::ImageLayout::eTransferDstOptimal, copies, list->owner->dispatch);
+		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		list->buffer.copyBufferToImage(vk::Buffer(srcSlot->buffer), dstImage, dstLayout, copies, list->owner->dispatch);
 		return Succeed(error);
 	}
 
@@ -1164,7 +1165,8 @@ namespace azo::rhi::vulkan
 				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth));
 		}
 
-		list->buffer.copyImageToBuffer(srcImage, vk::ImageLayout::eTransferSrcOptimal, vk::Buffer(dstSlot->buffer), copies, list->owner->dispatch);
+		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
+		list->buffer.copyImageToBuffer(srcImage, srcLayout, vk::Buffer(dstSlot->buffer), copies, list->owner->dispatch);
 		return Succeed(error);
 	}
 
@@ -1194,7 +1196,9 @@ namespace azo::rhi::vulkan
 				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth));
 		}
 
-		list->buffer.copyImage(srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, copies, list->owner->dispatch);
+		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		list->buffer.copyImage(srcImage, srcLayout, dstImage, dstLayout, copies, list->owner->dispatch);
 		return Succeed(error);
 	}
 
@@ -1259,8 +1263,9 @@ namespace azo::rhi::vulkan
 			blits.emplace_back(MapSubresourceLayers(r.srcSubresource), srcBox, MapSubresourceLayers(r.dstSubresource), dstBox);
 		}
 
-		list->buffer.blitImage(
-			srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, blits, vkFilter, list->owner->dispatch);
+		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		list->buffer.blitImage(srcImage, srcLayout, dstImage, dstLayout, blits, vkFilter, list->owner->dispatch);
 		return Succeed(error);
 	}
 
@@ -1291,14 +1296,18 @@ namespace azo::rhi::vulkan
 
 		const vk::Image image	   = vk::Image(slot.image);
 		const std::uint32_t layers = slot.arrayLayers;
-		const auto transition	   = [&](std::uint32_t mip)
+
+		// VUID-VkImageMemoryBarrier2-oldLayout-01197 wants the layout the image is really in, which the collapse moves to GENERAL under both of these.
+		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, device->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, device->unifiedImageLayouts);
+		const auto transition			= [&](std::uint32_t mip)
 		{
 			const vk::ImageMemoryBarrier2 barrier(vk::PipelineStageFlagBits2::eTransfer,
 				vk::AccessFlagBits2::eTransferWrite,
 				vk::PipelineStageFlagBits2::eTransfer,
 				vk::AccessFlagBits2::eTransferRead,
-				vk::ImageLayout::eTransferDstOptimal,
-				vk::ImageLayout::eTransferSrcOptimal,
+				dstLayout,
+				srcLayout,
 				VK_QUEUE_FAMILY_IGNORED,
 				VK_QUEUE_FAMILY_IGNORED,
 				image,
@@ -1324,8 +1333,7 @@ namespace azo::rhi::vulkan
 				srcBox,
 				vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, layers),
 				dstBox);
-			list->buffer.blitImage(
-				image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear, device->dispatch);
+			list->buffer.blitImage(image, srcLayout, image, dstLayout, blit, vk::Filter::eLinear, device->dispatch);
 
 			// The level just written feeds the next blit, and the last time round it is what leaves the whole chain a transfer source.
 			transition(i);
@@ -1375,7 +1383,8 @@ namespace azo::rhi::vulkan
 		}
 
 		const vk::ClearColorValue clear(std::array<float, 4>{ color.r, color.g, color.b, color.a });
-		list->buffer.clearColorImage(image, vk::ImageLayout::eTransferDstOptimal, clear, subranges, list->owner->dispatch);
+		const vk::ImageLayout clearLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		list->buffer.clearColorImage(image, clearLayout, clear, subranges, list->owner->dispatch);
 		return Succeed(error);
 	}
 
@@ -1405,8 +1414,9 @@ namespace azo::rhi::vulkan
 				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth));
 		}
 
-		list->buffer.resolveImage(
-			srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, resolves, list->owner->dispatch);
+		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eResolveSrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eResolveDst, list->owner->unifiedImageLayouts);
+		list->buffer.resolveImage(srcImage, srcLayout, dstImage, dstLayout, resolves, list->owner->dispatch);
 		return Succeed(error);
 	}
 

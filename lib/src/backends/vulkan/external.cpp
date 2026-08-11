@@ -415,6 +415,11 @@ namespace azo::rhi::vulkan
 			return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "a sparse buffer binds its own pages and cannot be built over imported memory");
 		}
 
+		if (!VulkanRefuseRayTracingUsage(desc.desc.usage, device->caps.supportsRayTracing, error))
+		{
+			return BufferHandle{};
+		}
+
 		// The handle type goes on the buffer before it is created, the same way an exportable one carries its declared set.
 		const std::optional<vk::ExternalMemoryHandleTypeFlagBits> bit = MapMemoryHandleType(desc.handle.type);
 		if (!bit)
