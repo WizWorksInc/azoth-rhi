@@ -56,8 +56,7 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	// Refused and not dropped: their bits come from VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline, which this backend enables nowhere, so the
-	// buffer would come back without the one its usage declares (VUID-VkAccelerationStructureCreateInfoKHR-buffer-03614 for the storage one).
+	// Refused and not dropped: the bits come from VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline, which this backend enables nowhere.
 	bool VulkanRefuseRayTracingUsage(const Flags<BufferUsage> usage, const bool supportsRayTracing, Error * error) noexcept
 	{
 		if (supportsRayTracing)

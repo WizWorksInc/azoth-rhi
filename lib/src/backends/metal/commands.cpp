@@ -107,8 +107,7 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
 		}
 
-		// Checked resolves, unlike everywhere else in this backend. With validation off nothing in front of this looks at a handle at all, and the fence below
-		// would be recorded for a resource the device has already taken back.
+		// Checked resolves, unlike elsewhere here: with validation off nothing ahead looks at a handle, and the fence below would name a freed resource.
 		for (const AliasBarrier & barrier : barriers)
 		{
 			if ((barrier.beforeBuffer.IsValid() && device->buffers.Resolve(barrier.beforeBuffer, true) == nullptr) ||
@@ -450,8 +449,7 @@ namespace azo::rhi::metal
 			return Succeed(error);
 		}
 
-		// generateMipmaps renders and filters, so it takes only a format that does both, which rules out compressed, integer and depth alike. Metal's own limit
-		// and not a rule the RHI imposes so it is asked whatever the mode and refused here without recording a blit Metal refuses at commit.
+		// generateMipmaps renders and filters, so it takes only a format that does both. Metal's limit and not the RHI's, so it is asked whatever the mode.
 		auto * const tracked = device->textures.Resolve(texture, kHandleAlreadyChecked);
 		if (tracked != nullptr && (IsCompressedFormat(tracked->format) || IsIntegerFormat(tracked->format) || IsDepthFormat(tracked->format)))
 		{

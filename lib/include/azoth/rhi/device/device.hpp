@@ -315,30 +315,6 @@ namespace azo::rhi
 	};
 
 	/**
-	 * \brief Selects how a device records rendering scopes.
-	 *
-	 * Dynamic rendering begins a scope from its attachments alone. Otherwise the backend lowers the same BeginRenderingDesc onto cached render-pass and
-	 * framebuffer objects. Only Vulkan changes behavior here. Metal and Direct3D 12 are always attachment-driven.
-	 */
-	enum class DynamicRenderingMode : std::uint8_t
-	{
-		/**
-		 * \brief Use dynamic rendering when the adapter supports it, otherwise lower to render-pass objects.
-		 */
-		ePreferred,
-
-		/**
-		 * \brief Always lower rendering scopes to render-pass objects where the backend has that distinction.
-		 */
-		eDisabled,
-
-		/**
-		 * \brief Device creation fails when the adapter cannot provide dynamic rendering.
-		 */
-		eRequired,
-	};
-
-	/**
 	 * \brief Device creation request and per-device policy.
 	 *
 	 * Spans and string pointers are borrowed for the duration of device creation.
@@ -388,11 +364,6 @@ namespace azo::rhi
 		 * that pointer against the GPU is theirs to arrange.
 		 */
 		bool allowDeviceLocalMapping = false;
-
-		/**
-		 * \brief Selects dynamic rendering or render-pass-object lowering for rendering scopes.
-		 */
-		DynamicRenderingMode dynamicRendering = DynamicRenderingMode::ePreferred;
 
 		/**
 		 * \brief Calling-side threading policy for device creates and destroys.
@@ -528,13 +499,6 @@ namespace azo::rhi
 		ApiVersion apiVersion{};
 
 		bool supportsTimelineSync = false;
-
-		/**
-		 * \brief Reflects the active DynamicRenderingMode.
-		 *
-		 * False means the backend lowers rendering scopes onto render-pass objects internally.
-		 */
-		bool supportsDynamicRendering = false;
 
 		/**
 		 * \brief How far this device's descriptor binding model reaches.

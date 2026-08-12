@@ -234,18 +234,6 @@ namespace azo::rhi
 				return false;
 			}
 
-			// The block and DeviceDesc say the same thing here, so the older spelling is translated once rather than switched on twice.
-			[[nodiscard]] native::VulkanRenderingLowering LoweringForMode(const DynamicRenderingMode mode) noexcept
-			{
-				switch (mode)
-				{
-				case DynamicRenderingMode::eDisabled:  return native::VulkanRenderingLowering::eRenderPassObjects;
-				case DynamicRenderingMode::ePreferred: return native::VulkanRenderingLowering::eAutomatic;
-				case DynamicRenderingMode::eRequired:  return native::VulkanRenderingLowering::eDynamicRendering;
-				}
-
-				return native::VulkanRenderingLowering::eAutomatic;
-			}
 		} // namespace
 
 		VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -562,6 +550,22 @@ namespace azo::rhi
 			return hasDomain(vk::TimeDomainEXT::eDevice) && hasDomain(hostDomain);
 		}
 
+		/*
+		 * Whether a queue family can stand behind the RHI's graphics queue, which is not the same question as whether it does graphics.
+		 *
+		 * QueueCanNameStage in commands/sync.hpp says a graphics queue names the whole stage vocabulary, compute and ray tracing included, and Dispatch is recorded
+		 * on graphics lists throughout. The spec only promises graphics and compute together on some family of some physical device, so a family carrying graphics
+		 * without compute is legal and would make that promise false. Asserted rather than tested because no adapter here exposes one.
+		 */
+		[[nodiscard]] constexpr bool CanBackGraphicsQueue(const vk::QueueFlags flags) noexcept
+		{
+			return static_cast<bool>(flags & vk::QueueFlagBits::eGraphics) && static_cast<bool>(flags & vk::QueueFlagBits::eCompute);
+		}
+
+		static_assert(CanBackGraphicsQueue(vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute));
+		static_assert(!CanBackGraphicsQueue(vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer), "a graphics family without compute was accepted");
+		static_assert(!CanBackGraphicsQueue(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer), "a family without graphics was accepted");
+
 		// Picks a physical device, creates the logical device, its queues and the VMA allocator, then fills the capability and adapter records from real queries.
 		// Null with *error set on failure. The instance is borrowed.
 		[[nodiscard]] VulkanDevice * MakeOwnedDevice(VulkanInstance * instance, const DeviceDesc & desc, Error * error)
@@ -577,7 +581,7 @@ namespace azo::rhi
 				return nullptr;
 			};
 
-			// A block this backend cannot read is a caller mistake, so it fails creation rather than coming up on defaults and dropping the configuration in silence.
+			// A block this backend cannot read is a caller mistake, so it fails creation rather than defaulting in silence.
 			const auto config = native::FindDeviceConfig<VulkanApi>(desc.backendConfigs);
 			if (config.malformed)
 			{
@@ -694,11 +698,19 @@ namespace azo::rhi
 			const detail::HostVector<vk::QueueFamilyProperties> qfs =
 				phys.getQueueFamilyProperties<HostAllocatorAdapter<vk::QueueFamilyProperties>>(instance->dispatch);
 			bool foundGraphics			 = false;
+			bool anyGraphicsFamily		 = false;
 			std::uint32_t graphicsFamily = 0;
 			for (std::uint32_t i = 0; i < qfs.size(); ++i)
 			{
 				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				if (static_cast<bool>(qfs[i].queueFlags & vk::QueueFlagBits::eGraphics))
+				const vk::QueueFlags flags = qfs[i].queueFlags;
+				if (!static_cast<bool>(flags & vk::QueueFlagBits::eGraphics))
+				{
+					continue;
+				}
+
+				anyGraphicsFamily = true;
+				if (CanBackGraphicsQueue(flags))
 				{
 					graphicsFamily = i;
 					foundGraphics  = true;
@@ -710,7 +722,8 @@ namespace azo::rhi
 			{
 				*error = Error{
 					.code	 = ErrorCode::eUnsupportedFeature,
-					.message = "no Vulkan graphics queue family",
+					.message = anyGraphicsFamily ? "every Vulkan graphics queue family on this adapter lacks compute, which the RHI's graphics queue promises"
+												 : "no Vulkan graphics queue family",
 				};
 				return nullptr;
 			}
@@ -721,8 +734,8 @@ namespace azo::rhi
 
 			/*
 			 * Pick the most specific family for compute and copy: async compute without graphics, transfer without graphics or compute. Each falls back to the graphics
-			 * family. The spec guarantees a graphics family runs transfer work, but it only guarantees compute on some graphics family and not necessarily on the first
-			 * one this picks.
+			 * family, which is safe in both directions now that the family above carries compute as well: the spec makes transfer implicit on any graphics or compute
+			 * family, and the selection refuses rather than settling for a graphics family without compute.
 			 */
 			std::uint32_t computeFamily = graphicsFamily;
 			std::uint32_t copyFamily	= graphicsFamily;
@@ -782,11 +795,10 @@ namespace azo::rhi
 					});
 			};
 
-			// Dynamic rendering is core at 1.3 and a KHR extension below. The lowering then decides: eRenderPassObjects and an eAutomatic adapter without it both
-			// fall back to render-pass objects, while eDynamicRendering fails outright.
+			// Dynamic rendering is core at 1.3, a KHR extension below. Without it eAutomatic falls back to render-pass objects and eDynamicRendering fails.
 			const bool adapterHasDynamicRendering = core13 || hasExt(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 			bool useDynamicRendering			  = false;
-			switch (config.block != nullptr ? config.block->renderingLowering : LoweringForMode(desc.dynamicRendering))
+			switch (config.block != nullptr ? config.block->renderingLowering : native::VulkanRenderingLowering::eAutomatic)
 			{
 			case native::VulkanRenderingLowering::eRenderPassObjects: useDynamicRendering = false; break;
 			case native::VulkanRenderingLowering::eAutomatic:		  useDynamicRendering = adapterHasDynamicRendering; break;
@@ -911,7 +923,7 @@ namespace azo::rhi
 				deviceExts.push_back(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
 			}
 
-			// One the adapter does not advertise fails creation, since a caller naming an extension has code behind it that a silent drop would leave broken.
+			// One the adapter does not advertise fails creation, a caller naming an extension having code behind it.
 			if (config.block != nullptr)
 			{
 				for (const char * extra : config.block->deviceExtensions)
@@ -1368,7 +1380,6 @@ namespace azo::rhi
 				.major = apiMajor,
 				.minor = apiMinor,
 			};
-			record->caps.supportsDynamicRendering = useDynamicRendering;
 
 			// Read from what the adapter exposes, not assumed from the create call having succeeded. Creation does request this unconditionally, since the sync model
 			// has nothing to fall back on without it, so the two agree today. Reading it keeps them agreeing if that ever changes.
@@ -3991,7 +4002,8 @@ namespace azo::rhi
 	{
 		VulkanCommandListView NativeAccess<VulkanApi>::MakeCommandListView(void * commandListImpl) noexcept
 		{
-			return VulkanCommandListView{ .commandBuffer = static_cast<vulkan::VulkanCommandList *>(commandListImpl)->buffer };
+			const auto * impl = static_cast<vulkan::VulkanCommandList *>(detail::NativeImplOf(commandListImpl, vulkan::RenderCommandBlock()));
+			return VulkanCommandListView{ .commandBuffer = impl != nullptr ? impl->buffer : vk::CommandBuffer{} };
 		}
 	} // namespace native
 

@@ -478,11 +478,11 @@ namespace deccer
 		{
 			const std::array outputs{
 				rhi::DescriptorWriteTexture{
-					.set			= set,
-					.binding		= kOutputBinding,
-					.type			= rhi::DescriptorType::eTextureUAV,
-					.view			= output,
-					.sampler		= setSampler,
+					.set		 = set,
+					.binding	 = kOutputBinding,
+					.type		 = rhi::DescriptorType::eTextureUAV,
+					.view		 = output,
+					.sampler	 = setSampler,
 					.expectedUse = rhi::ResourceUse::eStorageWrite,
 				},
 			};

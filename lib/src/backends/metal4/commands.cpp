@@ -68,16 +68,13 @@ namespace azo::rhi::metal4
 			out |= MTL::StageAccelerationStructure;
 		}
 
-		// Metal names no tracing stage, so tracing is whichever shader traces, and vertex, fragment and compute pipelines each link an intersection function
-		// table. StageAccelerationStructure covers operations on a structure, which is what eAccelBuild names, so a trace never reaches it. Tile goes with
-		// object and mesh, since nothing here builds a pipeline that runs them.
+		// Metal names no tracing stage, so tracing is whichever shader traces. StageAccelerationStructure covers a structure, which is what eAccelBuild names.
 		if (stages.Contains(Stage::eRayTracing))
 		{
 			out |= MTL::StageVertex | MTL::StageFragment | MTL::StageDispatch;
 		}
 
-		// eHost is not a GPU stage, so a barrier naming only it has nothing to order and StageAll cannot be wrong. Zero is not an option either: PlaceBarrier
-		// stores this mask when no encoder is open, and FlushPending reads a zero consumer as nothing pending.
+		// eHost is not a GPU stage, so StageAll cannot be wrong. Zero is not an option, FlushPending reading a zero consumer as nothing pending.
 		return out != 0 ? static_cast<MTL::Stages>(out) : MTL::StageAll;
 	}
 
@@ -134,7 +131,8 @@ namespace azo::rhi::metal4
 			{
 				out |= Stage::eHost;
 			}
-			if (state.use.Contains(ResourceUse::eAccelBuildInput) || state.use.Contains(ResourceUse::eAccelWrite))
+			if (state.use.Contains(ResourceUse::eAccelBuildInput) || state.use.Contains(ResourceUse::eAccelWrite) ||
+				state.use.Contains(ResourceUse::eAccelBuildScratch))
 			{
 				out |= Stage::eAccelBuild;
 			}
@@ -165,6 +163,9 @@ namespace azo::rhi::metal4
 
 		static_assert(StagesFor(Flags<Stage>{}) == MTL::StageAll,
 			"an empty mask has to widen to everything, since PlaceBarrier holds this value and FlushPending reads a zero consumer as nothing pending");
+
+		static_assert(StagesFor(StagesOf(ResourceState{ .use = ResourceUse::eAccelBuildScratch })) == MTL::StageAccelerationStructure,
+			"a build scratch is touched by the build and by nothing else here, so it names the one stage that runs a build and never widens to everything");
 
 		/*
 		 * What each encoder kind runs, and what an intra-pass barrier inside it may wait for.
@@ -312,8 +313,7 @@ namespace azo::rhi::metal4
 			return list->computeEncoder.get();
 		}
 
-		// A rendering scope and a compute scope cannot both be open, and ending the caller's pass to open this one is a different operation from the one asked
-		// for, so it is refused instead. Every transfer and dispatch funnels through here, which is why one check covers them all.
+		// A rendering scope and a compute scope cannot both be open, and ending the caller's pass is a different operation, so it is refused instead.
 		if (list->renderEncoder.get() != nullptr)
 		{
 			return FailValue<MTL4::ComputeCommandEncoder *>(
@@ -574,8 +574,7 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
 		}
 
-		// Checked resolves, unlike everywhere else in this backend. With validation off nothing in front of this looks at a handle at all, and the barrier below
-		// would be placed for a resource the device has already taken back.
+		// Checked resolves, unlike elsewhere here: with validation off nothing ahead looks at a handle, and the barrier below would name a freed resource.
 		Metal4Device * device = object->owner;
 		for (const AliasBarrier & barrier : barriers)
 		{
@@ -1073,8 +1072,7 @@ namespace azo::rhi::metal4
 			return Succeed(error);
 		}
 
-		// generateMipmaps renders and filters, so it takes only a format that does both, which rules out compressed, integer and depth alike. Metal's own limit
-		// and not a rule the RHI imposes, so it is asked whatever the mode and refused here rather than recorded and refused at commit.
+		// generateMipmaps renders and filters, so it takes only a format that does both. Metal's limit and not the RHI's, so it is asked whatever the mode.
 		const Metal4TextureSlot * slot = device->textures.Resolve(texture, kHandleAlreadyChecked);
 		if (slot != nullptr && (IsCompressedFormat(slot->format) || IsIntegerFormat(slot->format) || IsDepthFormat(slot->format)))
 		{

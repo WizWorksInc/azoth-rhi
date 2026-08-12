@@ -105,6 +105,20 @@ namespace azo::rhi
 		};
 	}
 
+	Result<native::D3D12QueueView> GetD3D12QueueView(Queue queue)
+	{
+		const auto * impl = static_cast<d3d12::D3D12Queue *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), d3d12::QueueBlock()));
+		if (impl == nullptr)
+		{
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "GetD3D12QueueView called on a queue that is not a D3D12 one",
+			};
+		}
+
+		return native::D3D12QueueView{ .queue = impl->queue.Get() };
+	}
+
 	ID3D12GraphicsCommandList * GetD3D12CommandList(CommandList commandList)
 	{
 		const auto * impl =
@@ -167,7 +181,8 @@ namespace azo::rhi
 	{
 		D3D12CommandListView NativeAccess<D3D12Api>::MakeCommandListView(void * commandListImpl) noexcept
 		{
-			return D3D12CommandListView{ .commandList = static_cast<d3d12::D3D12CommandList *>(commandListImpl)->list.Get() };
+			const auto * impl = static_cast<d3d12::D3D12CommandList *>(detail::NativeImplOf(commandListImpl, d3d12::RenderCommandBlock()));
+			return D3D12CommandListView{ .commandList = impl != nullptr ? impl->list.Get() : nullptr };
 		}
 	} // namespace native
 

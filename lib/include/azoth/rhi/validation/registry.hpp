@@ -179,6 +179,19 @@ namespace azo::rhi::validation
 		}
 
 		/**
+		 * \brief Puts back a handle whose retire has to be undone, for a destroy the backend refused.
+		 *
+		 * Distinct from Record, which claims a slot for a resource that has just come into existence and therefore clears whatever the slot held. A destroy that
+		 * did not happen changed nothing, so every field stays exactly as it was and only live goes back on.
+		 *
+		 * Returns false when the slot no longer identifies the handle or was never retired, both of which mean there is nothing to put back.
+		 */
+		[[nodiscard]] bool Restore(const RegisteredHandle handle) noexcept
+		{
+			return TableFor(handle.type).Restore(handle.index, handle.generation);
+		}
+
+		/**
 		 * \brief Retires every live handle of type that came from origin.
 		 *
 		 * Pool and arena reset use this for objects reclaimed wholesale. The scan is linear in slots ever used for that resource type.
@@ -251,7 +264,7 @@ namespace azo::rhi::validation
 				slot->record.detail.store(0, std::memory_order_relaxed);
 				slot->record.origin.store(0, std::memory_order_relaxed);
 
-				// Publish live last so a reader that sees it also sees the identity fields and a record carrying nothing of its previous occupant.
+				// Publish live last, so a reader that sees it also sees the identity fields.
 				if (!slot->live.exchange(true, std::memory_order_release))
 				{
 					m_live.fetch_add(1, std::memory_order_relaxed);
@@ -285,6 +298,23 @@ namespace azo::rhi::validation
 				}
 
 				m_live.fetch_sub(1, std::memory_order_relaxed);
+				return true;
+			}
+
+			[[nodiscard]] bool Restore(const std::uint32_t index, const std::uint32_t generation) noexcept
+			{
+				Slot * slot = At(detail::SlotOfIndex(index));
+				if (slot == nullptr || !Identifies(*slot, index, generation))
+				{
+					return false;
+				}
+
+				if (slot->live.exchange(true, std::memory_order_release))
+				{
+					return false;
+				}
+
+				m_live.fetch_add(1, std::memory_order_relaxed);
 				return true;
 			}
 
@@ -444,7 +474,7 @@ namespace azo::rhi::validation
 					}
 				}
 
-				// Raised with a loop rather than a bare store, a plain compare-then-store letting a smaller reach land after a larger one and lower it.
+				// A loop, since compare-then-store lets a smaller reach land after a larger one and lower it.
 				const std::uint32_t reach = BaseOfChunk(chunk) + SizeOfChunk(chunk);
 				std::uint32_t seen		  = m_count.load(std::memory_order_relaxed);
 				while (seen < reach && !m_count.compare_exchange_weak(seen, reach, std::memory_order_release, std::memory_order_relaxed))

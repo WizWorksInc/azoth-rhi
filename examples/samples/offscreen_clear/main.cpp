@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
 	}
 
 	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}, dynamic rendering: {}", dev.GetGraphicsApiName(), Yes(dev.GetCaps().supportsDynamicRendering));
+	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
 
 	rhi::Error error{};
 

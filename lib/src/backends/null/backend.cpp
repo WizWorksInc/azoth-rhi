@@ -168,10 +168,6 @@ namespace azo::rhi
 
 			device->caps.hasDedicatedTransferQueue = false;
 
-			// beginRendering takes the BeginRenderingDesc and records nothing so there are no render-pass objects to lower onto and every DynamicRenderingMode is
-			// satisfiable, eRequired included. Reported the way Metal and Direct3D 12 report it, for the same reason.
-			device->caps.supportsDynamicRendering = true;
-
 			// Nothing here samples so a component mapping costs nothing to accept, and reporting it keeps a case that swizzles from skipping on the one backend that
 			// always runs.
 			device->caps.supportsTextureViewSwizzle = true;
@@ -610,7 +606,7 @@ namespace azo::rhi
 				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "texture view of an invalid or stale texture handle");
 			}
 
-			// Refused here for the reason the zero extent is refused at creation: a range this backend accepts is one nothing catches until a real backend sees it.
+			// Refused for the reason a zero extent is: what this backend accepts, nothing catches until a real backend sees it.
 			const TextureSubresourceRange & r = desc.range;
 			if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 			{
@@ -632,7 +628,7 @@ namespace azo::rhi
 			return MintCreated<TextureViewHandle>(device, error);
 		}
 
-		// Minting one would make this the one backend accepting a desc the other four refuse, which is the disagreement rather than the absence of a driver.
+		// Minting one would make this the only backend accepting a desc the others refuse.
 		QueryPoolHandle NullCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.createQueryPool");

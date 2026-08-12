@@ -100,12 +100,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		DeviceBuilder & DynamicRendering(const DynamicRenderingMode mode) noexcept
-		{
-			m_desc.dynamicRendering = mode;
-			return *this;
-		}
-
 		DeviceBuilder & Threading(const ThreadingMode mode) noexcept
 		{
 			m_desc.threading = mode;

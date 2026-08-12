@@ -37,7 +37,7 @@
 	#define WIN32_LEAN_AND_MEAN
 #endif
 
-// winnt.h arrives with this and defines MemoryBarrier as a store fence macro, so rhi::MemoryBarrier cannot be spelled anywhere below. Deduce that type instead.
+// winnt.h defines MemoryBarrier as a store fence macro, so rhi::MemoryBarrier cannot be spelled below. Deduce it instead.
 #include <d3d12.h>
 // Declares ID3D12Debug and the info queue. Named, not left to reach us through d3d12.h, which is not guaranteed to pull it in.
 #include <D3D12MemAlloc.h>
@@ -96,7 +96,7 @@ namespace azo::rhi::d3d12
 		std::uint64_t size = 0;
 		bool hostVisible   = false;
 
-		// Which heap the memory came from, since upload and readback each admit a fixed barrier access set. An adopted resource keeps the default and is unrestricted.
+		// Which heap the memory came from, upload and readback each admitting a fixed barrier access set. An adopted resource is unrestricted.
 		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT;
 
 		// Who frees the ID3D12Resource. An adopted one is the caller's and destroy retires the slot without touching it.

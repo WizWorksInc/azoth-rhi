@@ -23,6 +23,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <thread>
 #include <type_traits>
@@ -205,10 +206,10 @@ namespace azo::rhi::validation
 	};
 
 	/*
-	 * One span of one resource whose state this recording knows, as a half-open box over aspects, mips and layers.
+	 * One span of one resource whose state this recording knows, as a half-open box over aspects, mips, layers and bytes.
 	 *
-	 * A box rather than one state per resource because a barrier names a range, and GenerateMips needs two states over one texture at once. A buffer is a box
-	 * covering everything, having no subresources to name.
+	 * A box rather than one state per resource because a barrier names a range, and GenerateMips needs two states over one texture at once. A texture names the
+	 * first three axes and a buffer only the last, so each kind leaves the axes it has no meaning for at the full span and one overlap test serves both.
 	 */
 	struct TrackedSubrange final
 	{
@@ -218,6 +219,8 @@ namespace azo::rhi::validation
 		std::uint32_t mipEnd	 = 0;
 		std::uint32_t layerBegin = 0;
 		std::uint32_t layerEnd	 = 0;
+		std::uint64_t byteBegin	 = 0;
+		std::uint64_t byteEnd	 = std::numeric_limits<std::uint64_t>::max();
 		std::uint32_t state		 = 0;
 	};
 
@@ -772,7 +775,7 @@ namespace azo::rhi::validation
 		}
 	};
 
-	// A marker bit, so a record that never saw a desc, which is what a swapchain back buffer is, reads as unknown usage and not as one declaring none.
+	// A marker bit, so a record that never saw a desc reads as unknown usage and not as one declaring none.
 	inline constexpr std::uint64_t kUsageDeclared = 1ull << 63u;
 
 	// Stamped after the record is published, so every reader of it has to arrive through a caller-supplied handle rather than by scanning the table.
@@ -784,9 +787,35 @@ namespace azo::rhi::validation
 		return found;
 	}
 
+	/*
+	 * How big the buffer actually is, so a barrier naming bytes past the end can be refused and the whole-buffer sentinel can resolve to a real length.
+	 *
+	 * On its own bit rather than kExtentsDeclared, which stays texture-only: ExtentsFrom decodes mips, layers and aspects out of these same bits whenever that
+	 * flag is set, and it runs for buffers too, so sharing the marker would have it read a size as a subresource count.
+	 */
+	inline constexpr std::uint64_t kSizeDeclared = 1ull << 63u;
+	inline constexpr unsigned kSizeShift		 = 32u;
+
+	// A buffer larger than this records no size and is therefore not bounds-checked, its barrier ranges being taken as written.
+	inline constexpr std::uint64_t kSizeMax = 0x3fffffffull;
+
 	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const BufferDesc & desc) noexcept
 	{
-		return kUsageDeclared | desc.usage.Bits();
+		const std::uint64_t usage = kUsageDeclared | desc.usage.Bits();
+
+		// Left undeclared rather than clamped when the size does not fit, as a texture count is.
+		if (desc.size == 0 || desc.size > kSizeMax)
+		{
+			return usage;
+		}
+
+		return usage | kSizeDeclared | (desc.size << kSizeShift);
+	}
+
+	// Zero when the layer never saw a desc or the size was too large to record. Zero means unknown, not empty.
+	[[nodiscard]] inline std::uint64_t DeclaredSizeFrom(const std::uint64_t detail) noexcept
+	{
+		return (detail & kSizeDeclared) != 0 ? (detail >> kSizeShift) & kSizeMax : 0;
 	}
 
 	/*
@@ -803,7 +832,7 @@ namespace azo::rhi::validation
 	inline constexpr std::uint64_t kMipCountMax		= 0xffull;
 	inline constexpr std::uint64_t kLayerCountMax	= 0xffffull;
 
-	// Derived here rather than published, since which aspects a format has is a fact the tracker needs and not a question the API has been asked.
+	// Derived here rather than published, which aspects a format has being a fact the tracker needs.
 	[[nodiscard]] inline std::uint64_t AspectsOfFormat(const Format format) noexcept
 	{
 		if (PlaneCountOf(format) > 1)
@@ -831,7 +860,7 @@ namespace azo::rhi::validation
 
 		const std::uint64_t usage = kUsageDeclared | desc.usage.Bits();
 
-		// Left undeclared rather than clamped when a count does not fit, a bound smaller than the truth being how a checker starts refusing correct calls.
+		// Left undeclared rather than clamped when a count does not fit.
 		if (desc.mipLevels == 0 || desc.mipLevels > kMipCountMax || desc.arrayLayers == 0 || desc.arrayLayers > kLayerCountMax)
 		{
 			return usage;
@@ -844,28 +873,30 @@ namespace azo::rhi::validation
 	/**
 	 * \brief The subresources a create declared, all zero when it declared none.
 	 *
-	 * Zero for a vended swapchain back buffer, which the layer never saw a desc for. Everything reading this treats zero as unknown and leaves the caller's
-	 * range as written, since guessing a bound is what would refuse a correct call.
+	 * Zero for a back buffer or a buffer past kSizeMax. Readers treat zero as unknown and leave the caller's range as written.
 	 */
 	struct DeclaredExtents final
 	{
 		std::uint32_t mips	  = 0;
 		std::uint32_t layers  = 0;
 		std::uint32_t aspects = 0;
+		std::uint64_t bytes	  = 0;
 	};
 
+	// The byte length is read on its own, a buffer declaring a size through kSizeDeclared and never the subresource counts kExtentsDeclared covers.
 	[[nodiscard]] inline DeclaredExtents ExtentsFrom(const std::uint64_t detail) noexcept
 	{
+		DeclaredExtents extents{ .bytes = DeclaredSizeFrom(detail) };
+
 		if ((detail & kExtentsDeclared) == 0)
 		{
-			return {};
+			return extents;
 		}
 
-		return DeclaredExtents{
-			.mips	 = static_cast<std::uint32_t>((detail >> kMipCountShift) & kMipCountMax),
-			.layers	 = static_cast<std::uint32_t>((detail >> kLayerCountShift) & kLayerCountMax),
-			.aspects = static_cast<std::uint32_t>(detail >> kAspectShift),
-		};
+		extents.mips	= static_cast<std::uint32_t>((detail >> kMipCountShift) & kMipCountMax);
+		extents.layers	= static_cast<std::uint32_t>((detail >> kLayerCountShift) & kLayerCountMax);
+		extents.aspects = static_cast<std::uint32_t>(detail >> kAspectShift);
+		return extents;
 	}
 
 	/*

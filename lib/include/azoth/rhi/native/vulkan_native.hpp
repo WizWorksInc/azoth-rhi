@@ -197,15 +197,6 @@ namespace azo::rhi::native
 {
 
 	/**
-	 * \brief Borrowed Vulkan objects backing an RHI Vulkan device, for the native access surface.
-	 */
-	struct VulkanDeviceView final
-	{
-		vk::Device device;
-		vk::PhysicalDevice physicalDevice;
-	};
-
-	/**
 	 * \brief Borrowed Vulkan queue backing an RHI queue.
 	 */
 	struct VulkanQueueView final
@@ -223,22 +214,6 @@ namespace azo::rhi::native
 	};
 
 	/**
-	 * \brief Borrowed Vulkan buffer backing an RHI buffer.
-	 */
-	struct VulkanBufferView final
-	{
-		vk::Buffer buffer;
-	};
-
-	/**
-	 * \brief Borrowed Vulkan image backing an RHI texture.
-	 */
-	struct VulkanTextureView final
-	{
-		vk::Image image;
-	};
-
-	/**
 	 * \brief Native access surface for the Vulkan backend, which is what makes CommandList::ModifyNative compile here.
 	 *
 	 * Its absence was not a missing feature so much as a missing declaration: the concept gating ModifyNative is satisfied by this specialization existing, so
@@ -247,11 +222,8 @@ namespace azo::rhi::native
 	template <>
 	struct NativeAccess<VulkanApi> final
 	{
-		using DeviceView	  = VulkanDeviceView;
 		using QueueView		  = VulkanQueueView;
 		using CommandListView = VulkanCommandListView;
-		using BufferView	  = VulkanBufferView;
-		using TextureView	  = VulkanTextureView;
 
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.

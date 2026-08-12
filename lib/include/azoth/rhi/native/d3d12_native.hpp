@@ -153,14 +153,6 @@ namespace azo::rhi::native
 {
 
 	/**
-	 * \brief Borrowed Direct3D 12 objects backing an RHI device, for the native access surface.
-	 */
-	struct D3D12DeviceView final
-	{
-		ID3D12Device * device = nullptr;
-	};
-
-	/**
 	 * \brief Borrowed Direct3D 12 queue backing an RHI queue.
 	 */
 	struct D3D12QueueView final
@@ -177,32 +169,13 @@ namespace azo::rhi::native
 	};
 
 	/**
-	 * \brief Borrowed Direct3D 12 resource backing an RHI buffer.
-	 */
-	struct D3D12BufferView final
-	{
-		ID3D12Resource * resource = nullptr;
-	};
-
-	/**
-	 * \brief Borrowed Direct3D 12 resource backing an RHI texture.
-	 */
-	struct D3D12TextureView final
-	{
-		ID3D12Resource * resource = nullptr;
-	};
-
-	/**
 	 * \brief Native access surface for the Direct3D 12 backend, the other half of the gap the Vulkan specialization closed.
 	 */
 	template <>
 	struct NativeAccess<D3D12Api> final
 	{
-		using DeviceView	  = D3D12DeviceView;
 		using QueueView		  = D3D12QueueView;
 		using CommandListView = D3D12CommandListView;
-		using BufferView	  = D3D12BufferView;
-		using TextureView	  = D3D12TextureView;
 
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
@@ -211,3 +184,18 @@ namespace azo::rhi::native
 	};
 
 } // namespace azo::rhi::native
+
+namespace azo::rhi
+{
+
+	/**
+	 * \brief Returns the ID3D12CommandQueue behind an RHI queue.
+	 *
+	 * The device accessor names one queue of each type. This names the one a given RHI queue stands for, which is the only way to reach a second queue of a
+	 * type. Returns eUnsupportedApi when the queue is not backed by D3D12.
+	 *
+	 * \note Declared after the native block rather than beside its siblings above, the return type being defined there.
+	 */
+	[[nodiscard]] AZO_RHI_API Result<native::D3D12QueueView> GetD3D12QueueView(Queue queue);
+
+} // namespace azo::rhi

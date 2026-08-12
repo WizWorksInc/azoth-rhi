@@ -118,7 +118,7 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The loosening risk. Range tracking is only worth having if a range that disagrees is still caught, and a tracker that forgot to compare would pass this.
+	// The loosening risk: range tracking is only worth having if a range that disagrees is still caught.
 	TEST_P(BarrierRangeTest, StillRefusesARangeThatDisagreesWithWhatTheWholeTextureWasLeftIn)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -185,6 +185,229 @@ namespace
 		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, wrongError))
 			<< "an overlapping range whose tracked half disagrees was accepted, so the untracked half is deciding for both";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
+
+		static_cast<void>(recording.End());
+	}
+
+	[[nodiscard]] rhi::BufferBarrier Bytes(const rhi::BufferHandle buffer, const std::uint64_t offset, const std::uint64_t size,
+		const rhi::ResourceState & before, const rhi::ResourceState & after)
+	{
+		return rhi::BufferBarrier{ .buffer = buffer, .before = before, .after = after, .offset = offset, .size = size };
+	}
+
+	class TrackedBuffer final
+	{
+	public:
+		explicit TrackedBuffer(const rhi::Device device) : m_device(device)
+		{
+			m_buffer = m_device.CreateBuffer(test::samples::StorageBuffer(), m_error);
+		}
+
+		TrackedBuffer(const TrackedBuffer &)			 = delete;
+		TrackedBuffer & operator=(const TrackedBuffer &) = delete;
+		TrackedBuffer(TrackedBuffer &&)					 = delete;
+		TrackedBuffer & operator=(TrackedBuffer &&)		 = delete;
+
+		~TrackedBuffer()
+		{
+			if (m_buffer.IsValid())
+			{
+				rhi::Error ignored{};
+				static_cast<void>(m_device.Destroy(m_buffer, {}, ignored));
+			}
+		}
+
+		[[nodiscard]] rhi::BufferHandle Get() const noexcept
+		{
+			return m_buffer;
+		}
+
+		[[nodiscard]] bool IsValid() const noexcept
+		{
+			return m_buffer.IsValid();
+		}
+
+		[[nodiscard]] rhi::Error GetError() const noexcept
+		{
+			return m_error;
+		}
+
+	private:
+		rhi::Device m_device;
+		rhi::BufferHandle m_buffer{};
+		rhi::Error m_error{};
+	};
+
+	// Two halves of one buffer moved to different states in one batch, which whole-resource tracking read as one range contradicting itself.
+	TEST_P(BarrierRangeTest, TakesTwoDisjointByteRangesOfOneBufferInOneBatch)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		rhi::Error error{};
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array split{
+			Bytes(buffer.Get(), 0, test::samples::kBufferSize / 2, kDiscard, kCopySrc),
+			Bytes(buffer.Get(), test::samples::kBufferSize / 2, test::samples::kBufferSize / 2, kDiscard, kCopyDst),
+		};
+		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = split }, error), error))
+			<< "two disjoint byte ranges of one buffer in one batch were refused";
+
+		static_cast<void>(recording.End());
+	}
+
+	// The loosening risk, the buffer half of it. Byte tracking is only worth having if a range that disagrees is still caught.
+	TEST_P(BarrierRangeTest, RefusesAByteRangeThatDisagreesWithWhatTheWholeBufferWasLeftIn)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		rhi::Error error{};
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array whole{ Bytes(buffer.Get(), 0, test::samples::kBufferSize, kDiscard, kCopyDst) };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = whole }, error), error));
+
+		const std::array wrong{ Bytes(buffer.Get(), 0, test::samples::kBufferSize / 2, kCopySrc, kSampled) };
+
+		rhi::Error wrongError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError))
+			<< "a byte range claiming a before-state the whole-buffer barrier did not leave it in was accepted";
+		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
+
+		static_cast<void>(recording.End());
+	}
+
+	// The overlap arithmetic, which a disjoint case never reaches: half the second range is tracked and disagrees, half was never named.
+	TEST_P(BarrierRangeTest, RefusesAByteRangeOverlappingATrackedOneWhenTheOverlapDisagrees)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		rhi::Error error{};
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array lower{ Bytes(buffer.Get(), 0, 128, kDiscard, kCopyDst) };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = lower }, error), error));
+
+		const std::array overlapping{ Bytes(buffer.Get(), 64, 128, kCopySrc, kSampled) };
+
+		rhi::Error wrongError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = overlapping }, wrongError))
+			<< "an overlapping byte range whose tracked half disagrees was accepted, so the untracked half is deciding for both";
+		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
+
+		static_cast<void>(recording.End());
+	}
+
+	// Representable since the byte axis became real, so without a bound it would be tracked as its own region and accepted in silence. Vulkan refuses it.
+	TEST_P(BarrierRangeTest, RefusesAByteRangeStartingPastTheEndOfTheBuffer)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array outside{ Bytes(buffer.Get(), test::samples::kBufferSize, 16, kDiscard, kCopyDst) };
+
+		rhi::Error outsideError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = outside }, outsideError))
+			<< "a byte range beginning past the end of the buffer was taken";
+		EXPECT_TRUE(test::ErrorIsPopulated(outsideError));
+
+		static_cast<void>(recording.End());
+	}
+
+	// The other way out of bounds: a start inside the buffer and a length that runs off the end, which an offset-only check would miss.
+	TEST_P(BarrierRangeTest, RefusesAByteRangeExtendingPastTheEndOfTheBuffer)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array overrunning{ Bytes(buffer.Get(), test::samples::kBufferSize - 16, 32, kDiscard, kCopyDst) };
+
+		rhi::Error overrunError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = overrunning }, overrunError))
+			<< "a byte range running off the end of the buffer was taken";
+		EXPECT_TRUE(test::ErrorIsPopulated(overrunError));
+
+		static_cast<void>(recording.End());
+	}
+
+	// The boundary the refusal must not eat: ending exactly at the last byte is the largest legal range, and an off-by-one bound would refuse it.
+	TEST_P(BarrierRangeTest, TakesAByteRangeEndingExactlyAtTheEndOfTheBuffer)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		rhi::Error error{};
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array flush{ Bytes(buffer.Get(), test::samples::kBufferSize / 2, test::samples::kBufferSize / 2, kDiscard, kCopyDst) };
+		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = flush }, error), error))
+			<< "a byte range ending exactly at the end of the buffer was refused";
+
+		static_cast<void>(recording.End());
+	}
+
+	// The whole-buffer sentinel is a count of every remaining byte, so it has to survive a bound that now resolves it to a real length.
+	TEST_P(BarrierRangeTest, TakesTheWholeBufferSentinelAtAnOffset)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		rhi::Error error{};
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array remainder{
+			rhi::BufferBarrier{ .buffer = buffer.Get(), .before = kDiscard, .after = kCopyDst, .offset = test::samples::kBufferSize / 2 },
+		};
+		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = remainder }, error), error))
+			<< "the whole-buffer sentinel was refused at an offset inside the buffer";
+
+		static_cast<void>(recording.End());
+	}
+
+	// An empty box overlaps nothing, so tracking it would drop both the check against what came before and the record for what comes after.
+	TEST_P(BarrierRangeTest, RefusesABufferBarrierNamingNoBytes)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const TrackedBuffer buffer(Dev());
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), buffer.GetError()));
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array empty{ Bytes(buffer.Get(), 0, 0, kDiscard, kCopyDst) };
+
+		rhi::Error emptyError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = empty }, emptyError)) << "a buffer barrier over no bytes was taken";
+		EXPECT_TRUE(test::ErrorIsPopulated(emptyError));
 
 		static_cast<void>(recording.End());
 	}

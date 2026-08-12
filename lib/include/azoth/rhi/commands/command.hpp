@@ -77,15 +77,35 @@ namespace azo::rhi
 	};
 
 	/**
+	 * \brief How a caller intends to recycle the command lists a pool hands out.
+	 */
+	enum class ListReuse : std::uint8_t
+	{
+		/**
+		 * \brief Every list is recycled together by resetting the pool, which is the frame-at-a-time pattern.
+		 *
+		 * A list is recorded once and not begun again until CommandPool::Reset has recycled the whole pool.
+		 */
+		eBulkReset,
+
+		/**
+		 * \brief A list is begun again on its own, without the pool being reset first.
+		 *
+		 * Costs a backend something to allow, so it is stated rather than assumed. Returns eUnsupportedFeature at pool creation on a backend that cannot offer it.
+		 */
+		ePerListReset,
+	};
+
+	/**
 	 * \brief Command-pool creation request for one queue type.
 	 *
-	 * transient hints that allocated command lists are short-lived. individualReset requests per-list reset support when the backend exposes it.
+	 * transient hints that allocated command lists are short-lived. reuse states how the caller will recycle lists, which some backends must know up front.
 	 */
 	struct CommandPoolDesc final
 	{
 		QueueType queueType	   = QueueType::eGraphics;
 		bool transient		   = true;
-		bool individualReset   = false;
+		ListReuse reuse		   = ListReuse::eBulkReset;
 		const char * debugName = nullptr;
 	};
 

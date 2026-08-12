@@ -52,15 +52,6 @@ namespace azo::rhi::native
 {
 
 	/**
-	 * \brief Borrowed Metal objects backing an RHI Metal device.
-	 */
-	struct MetalDeviceView final
-	{
-		MTL::Device * device	  = nullptr;
-		MTL::CommandQueue * queue = nullptr;
-	};
-
-	/**
 	 * \brief Borrowed Metal queue backing an RHI queue.
 	 */
 	struct MetalQueueView final
@@ -77,32 +68,13 @@ namespace azo::rhi::native
 	};
 
 	/**
-	 * \brief Borrowed Metal buffer backing an RHI buffer.
-	 */
-	struct MetalBufferView final
-	{
-		MTL::Buffer * buffer = nullptr;
-	};
-
-	/**
-	 * \brief Borrowed Metal texture backing an RHI texture.
-	 */
-	struct MetalTextureView final
-	{
-		MTL::Texture * texture = nullptr;
-	};
-
-	/**
 	 * \brief Native access surface for the Metal 3 backend.
 	 */
 	template <>
 	struct NativeAccess<MetalApi> final
 	{
-		using DeviceView	  = MetalDeviceView;
 		using QueueView		  = MetalQueueView;
 		using CommandListView = MetalCommandListView;
-		using BufferView	  = MetalBufferView;
-		using TextureView	  = MetalTextureView;
 
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
@@ -111,19 +83,9 @@ namespace azo::rhi::native
 	};
 
 	/**
-	 * \brief Borrowed Metal 4 objects backing an RHI Metal 4 device.
-	 *
-	 * The device is an ordinary MTLDevice, which is the whole reason a resource made on one generation is usable from the other. The queue is not:
-	 * MTL4CommandQueue shares no base with MTLCommandQueue.
-	 */
-	struct Metal4DeviceView final
-	{
-		MTL::Device * device	   = nullptr;
-		MTL4::CommandQueue * queue = nullptr;
-	};
-
-	/**
 	 * \brief Borrowed Metal 4 queue backing an RHI queue.
+	 *
+	 * MTL4CommandQueue shares no base with MTLCommandQueue, which is why this is its own type and not the other generation's.
 	 */
 	struct Metal4QueueView final
 	{
@@ -139,19 +101,13 @@ namespace azo::rhi::native
 	};
 
 	/**
-	 * \brief Native access surface for the Metal 4 backend.
-	 *
-	 * Buffers and textures are the same objects the other generation uses, so those two views are reused, not restated. Everything on the command side
-	 * is a Metal 4 type of its own.
+	 * \brief Native access surface for the Metal 4 backend, whose command side is a Metal 4 type of its own throughout.
 	 */
 	template <>
 	struct NativeAccess<Metal4Api> final
 	{
-		using DeviceView	  = Metal4DeviceView;
 		using QueueView		  = Metal4QueueView;
 		using CommandListView = Metal4CommandListView;
-		using BufferView	  = MetalBufferView;
-		using TextureView	  = MetalTextureView;
 
 		/**
 		 * \brief Builds a command-list native view from the backend's concrete command-list object.
@@ -206,6 +162,14 @@ namespace azo::rhi
 	[[nodiscard]] AZO_RHI_API Result<MetalNativeDevice> GetMetalNativeDevice(Device device);
 
 	/**
+	 * \brief Returns the MTLCommandQueue behind an RHI queue.
+	 *
+	 * The device accessor above reports only the graphics queue, so this is the one way to reach the compute and copy ones. Returns eUnsupportedApi when the
+	 * queue is not backed by Metal 3.
+	 */
+	[[nodiscard]] AZO_RHI_API Result<native::MetalQueueView> GetMetalQueueView(Queue queue);
+
+	/**
 	 * \brief Borrowed native objects owned by a Metal 4 backed RHI device.
 	 *
 	 * \attention These pointers are unchecked native access. Keeping one past the device that returned it is undefined.
@@ -222,6 +186,13 @@ namespace azo::rhi
 	 * Returns eUnsupportedApi when device is not backed by Metal 4.
 	 */
 	[[nodiscard]] AZO_RHI_API Result<Metal4NativeDevice> GetMetal4NativeDevice(Device device);
+
+	/**
+	 * \brief Returns the MTL4CommandQueue behind an RHI queue, on the same terms as the Metal 3 accessor.
+	 *
+	 * Returns eUnsupportedApi when the queue is not backed by Metal 4. A Metal 3 queue answers GetMetalQueueView, the two queue objects sharing no base.
+	 */
+	[[nodiscard]] AZO_RHI_API Result<native::Metal4QueueView> GetMetal4QueueView(Queue queue);
 
 	/**
 	 * \brief Returns the native Metal command buffer backing an RHI command list, or null when unavailable.

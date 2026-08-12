@@ -185,7 +185,6 @@ int main(int argc, char ** argv)
 
 	LOG_INFO(fw::Log(), "\ncapabilities");
 	LOG_INFO(fw::Log(), "  timeline sync:        {}", Yes(caps.supportsTimelineSync));
-	LOG_INFO(fw::Log(), "  dynamic rendering:    {}", Yes(caps.supportsDynamicRendering));
 	LOG_INFO(fw::Log(), "  binding tier:         {}", Name(caps.bindingTier));
 	LOG_INFO(fw::Log(), "  update after bind:    {}", Yes(caps.supportsUpdateAfterBind));
 	LOG_INFO(fw::Log(), "  enhanced barriers:    {}", Yes(caps.supportsEnhancedBarriers));

@@ -159,6 +159,12 @@ namespace azo::rhi::d3d12
 		auto * device					   = static_cast<D3D12Device *>(impl);
 		const D3D12_COMMAND_LIST_TYPE type = MapCommandListType(desc.queueType);
 
+		if (desc.reuse == ListReuse::ePerListReset)
+		{
+			return FailValue<void *>(error, ErrorCode::eUnsupportedFeature,
+				"D3D12 command pools recycle every list through one allocator, so a single list cannot be begun again on its own");
+		}
+
 		ComPtr<ID3D12CommandAllocator> allocator;
 		if (FAILED(device->device->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf()))))
 		{

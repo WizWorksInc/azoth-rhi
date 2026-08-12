@@ -357,10 +357,10 @@ int main(int argc, char ** argv)
 
 		const std::array colors{
 			rhi::RenderingAttachment{
-				.view  = acquired.view,
-				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-				.load  = rhi::LoadOp::eClear,
-				.store = rhi::StoreOp::eStore,
+				.view		= acquired.view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
 				.clearColor = rhi::ClearColor{ .r = 0.02f, .g = 0.02f, .b = 0.06f, .a = 1.0f },
 			},
 		};

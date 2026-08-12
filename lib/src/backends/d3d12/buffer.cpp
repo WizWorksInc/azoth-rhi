@@ -36,10 +36,10 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// The state both creation forms require for a buffer in this heap. Enhanced barriers treat every buffer as created common regardless, so it is no hazard.
+	// The state both creation forms require for a buffer in this heap. Enhanced barriers treat every buffer as created common.
 	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept
 	{
-		// The one buffer that is not treated as common. An acceleration structure is created in this state and stays there for life, and the heap is defaulted above.
+		// The one buffer not treated as common: an acceleration structure is created in this state and stays there for life.
 		if (usage.Contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			return D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
@@ -100,7 +100,7 @@ namespace azo::rhi::d3d12
 		bool hostVisible			   = false;
 		const D3D12_HEAP_TYPE heapType = MapHeapType(desc.memory, hostVisible);
 
-		// Refused rather than stripped below: a host-visible acceleration structure buffer would lose the unordered-access flag it must keep, and hold nothing.
+		// Refused rather than stripped, a host-visible acceleration structure buffer being unable to keep the unordered-access flag it needs.
 		if (desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
 			return FailValue<BufferHandle>(error,
@@ -133,7 +133,7 @@ namespace azo::rhi::d3d12
 		}
 
 		// Reserved buffer: a virtual range with no backing store, tiled in later through bindSparse. It owns no D3D12MA allocation and cannot be host-visible until
-		// tiles are mapped so the memory hint is ignored. Created device local like any other, which the state table answers for.
+		// tiles are mapped so the memory hint is ignored, and it is created device local like any other.
 		if (desc.allowSparseBinding)
 		{
 			ComPtr<ID3D12Resource> reserved;

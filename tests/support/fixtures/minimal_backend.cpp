@@ -716,7 +716,6 @@ namespace azo::rhi::test::minimal
 			device->caps.graphicsQueueCount		  = 1;
 			device->caps.computeQueueCount		  = 1;
 			device->caps.copyQueueCount			  = 1;
-			device->caps.supportsDynamicRendering = true;
 			device->adapter.apiId				  = device->caps.apiId;
 			device->adapter.name				  = Presenting ? "Minimal presenting fixture" : "Minimal headless fixture";
 

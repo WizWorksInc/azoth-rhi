@@ -58,7 +58,7 @@ namespace azo::rhi::vulkan
 		vk::ImageLayout chosen = vk::ImageLayout::eUndefined;
 		bool conflict		   = false;
 
-		// Uses are folded by the layout each one wants, not counted, so a pair that wants the same layout keeps it instead of falling to GENERAL.
+		// Uses are folded by the layout each one wants, not counted, so a pair wanting the same layout keeps it.
 		const auto want = [&](const vk::ImageLayout layout)
 		{
 			conflict = conflict || (chosen != vk::ImageLayout::eUndefined && chosen != layout);

@@ -254,6 +254,61 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(named, {}, error), error));
 	}
 
+	/*
+	 * A destroy the backend refuses has to leave the record it already retired exactly as it found it. The swapchain back buffer is the case that reaches this:
+	 * the device lends the handle out and keeps owning it, so the registry retires the slot, the backend says no, and the decorator puts the slot back.
+	 *
+	 * The observable is the arrival state a native scope declared, because that lives on the registry record rather than on one recording.
+	 */
+	TEST_P(NativeAccessTest, ARefusedDestroyKeepsTheArrivalStateTheRecordHeld)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		rhi::Swapchain swapchain = Dev().CreateSwapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
+		if (!swapchain.IsValid())
+		{
+			GTEST_SKIP() << "no swapchain without a surface on this backend: " << test::Describe(error);
+		}
+
+		const rhi::TextureHandle backBuffer = swapchain.GetBackBuffer(0);
+		ASSERT_TRUE(backBuffer.IsValid()) << "the swapchain handed out no back buffer";
+
+		const std::array touched{ rhi::NativeTouchedTexture{ .texture = backBuffer,
+			.access													 = rhi::NativeMutationAccess::eReadWrite,
+			.range													 = test::samples::WholeColorRange(),
+			.finalState												 = ShaderReadState() } };
+
+		{
+			test::Recording moving(Dev());
+			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
+			ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+									 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
+				error));
+			ASSERT_TRUE(moving.End());
+		}
+
+		rhi::Error refused{};
+		ASSERT_FALSE(Dev().Destroy(backBuffer, {}, refused)) << "the backend accepted a destroy of a handle it lends out and still owns";
+		EXPECT_TRUE(test::ErrorIsPopulated(refused));
+
+		test::Recording next(Dev());
+		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
+
+		const std::array stale{ rhi::TextureBarrier{ .texture = backBuffer,
+			.before											 = UntouchedState(),
+			.after											 = CopyDestinationState(),
+			.range											 = test::samples::WholeColorRange() } };
+
+		rhi::Error staleError{};
+		EXPECT_FALSE(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, staleError))
+			<< "the refused destroy dropped the arrival state the native scope had declared";
+		EXPECT_TRUE(test::ErrorIsPopulated(staleError));
+
+		static_cast<void>(next.End());
+	}
+
 	// A read leaves the resource where it was, so the declaration on a read-only touch has nothing to reconcile and the tracking already there has to survive it.
 	TEST_P(NativeAccessTest, AReadOnlyTouchLeavesTheTrackedStateAlone)
 	{

@@ -1250,7 +1250,7 @@ namespace azo::rhi::validation
 			return record != nullptr ? record->detail.load(std::memory_order_relaxed) : 0;
 		}
 
-		// Whether a resource said at creation that it would be used this way. A record carrying no declared usage answers true, having nothing to contradict.
+		// Whether a resource said at creation it would be used this way. No declared usage answers true, having nothing to contradict.
 		template <class Usage>
 		[[nodiscard]] bool DeclaredFor(const std::uint64_t usage, const Usage bit) noexcept
 		{
@@ -1314,8 +1314,8 @@ namespace azo::rhi::validation
 			return self->blocks.render->clearTexture(self->inner, texture, color, ranges, error);
 		}
 
-		// One stage or none, a timestamp marking one point in the pipeline. Here because only Vulkan refused a two-bit mask, and ungated because a mask is an
-		// argument and not tracked state.
+		// One stage or none, a timestamp marking one point in the pipeline. Ungated, a mask being an argument and not tracked state.
+		// The queue rule is VUID-vkCmdWriteTimestamp2-stage-03860, the list already knowing the queue type its pool was created for.
 		bool ValidatedWriteTimestamp(void * impl, const QueryPoolHandle pool, const std::uint32_t query, const Flags<Stage> stage, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
@@ -1333,6 +1333,11 @@ namespace azo::rhi::validation
 			if (!IsOneTimestampStage(stage))
 			{
 				return self->validator->Fail(error, "writeTimestamp takes a single stage and this mask names more than one");
+			}
+
+			if (!QueueCanNameStage(self->queueType, stage))
+			{
+				return self->validator->Fail(error, "writeTimestamp names a stage the queue this list was allocated for cannot reach");
 			}
 
 			return self->blocks.query->writeTimestamp(self->inner, pool, query, stage, error);
@@ -1430,10 +1435,12 @@ namespace azo::rhi::validation
 			{
 				/*
 				 * The backend refused what the registry let through. A swapchain back buffer is that case: the device hands it out and keeps owning it so the backend
-				 * refuses the destroy. Put the handle back or the next frame would be refused for a destroy that never happened. Its tracked state is deliberately not
-				 * restored, since a failed destroy should leave less known about a resource, not more.
+				 * refuses the destroy. Put the handle back or the next frame would be refused for a destroy that never happened.
+				 *
+				 * Restore and not Record, because Record claims a slot for a newly created resource and so clears the record. A refused destroy moved nothing, so
+				 * declared usage, pooled origin and tracked state are all still true of the resource and the rollback has to leave every one of them alone.
 				 */
-				static_cast<void>(self->validator->Handles().Record(registered));
+				static_cast<void>(self->validator->Handles().Restore(registered));
 				return false;
 			}
 
@@ -1464,12 +1471,7 @@ namespace azo::rhi::validation
 			return count > unbounded - begin ? unbounded : begin + count;
 		}
 
-		/*
-		 * The extents a create declared, or nothing for a resource this layer never saw a desc for.
-		 *
-		 * Every span is built through these, so a saturated bound only survives where the real one is genuinely unknown, which is the vended swapchain back
-		 * buffer and nothing else. A bound guessed rather than declared would be worse than an unbounded one: too small, and it refuses correct calls.
-		 */
+		// Unbounded for a back buffer or a buffer past kSizeMax, since neither records extents.
 		[[nodiscard]] DeclaredExtents ExtentsOf(
 			WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
 		{
@@ -1479,6 +1481,17 @@ namespace azo::rhi::validation
 				.generation = generation,
 			});
 			return record != nullptr ? ExtentsFrom(record->detail.load(std::memory_order_relaxed)) : DeclaredExtents{};
+		}
+
+		// Zero when the layer never saw a desc or the size was too large to record. Zero means unknown, not empty.
+		[[nodiscard]] std::uint64_t DeclaredSizeOf(WrappedCommandList * self, const std::uint32_t index, const std::uint32_t generation) noexcept
+		{
+			const ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
+				.type		= ResourceType::eBuffer,
+				.index		= index,
+				.generation = generation,
+			});
+			return record != nullptr ? DeclaredSizeFrom(record->detail.load(std::memory_order_relaxed)) : 0;
 		}
 
 		[[nodiscard]] std::uint32_t BoundOr(const std::uint32_t declared, const std::uint32_t fallback) noexcept
@@ -1495,6 +1508,7 @@ namespace azo::rhi::validation
 				.mipEnd		= BoundOr(extents.mips, unbounded),
 				.layerBegin = 0,
 				.layerEnd	= BoundOr(extents.layers, unbounded),
+				.byteEnd	= extents.bytes != 0 ? extents.bytes : std::numeric_limits<std::uint64_t>::max(),
 			};
 		}
 
@@ -1511,15 +1525,38 @@ namespace azo::rhi::validation
 			};
 		}
 
-		[[nodiscard]] bool Overlaps(const TrackedSubrange & lhs, const TrackedSubrange & rhs) noexcept
+		// Saturating like SpanEnd, size carrying max uint64 as the count of every remaining byte.
+		[[nodiscard]] std::uint64_t ByteSpanEnd(const std::uint64_t begin, const std::uint64_t count) noexcept
 		{
-			return lhs.key == rhs.key && (lhs.aspects & rhs.aspects) != 0u && lhs.mipBegin < rhs.mipEnd && rhs.mipBegin < lhs.mipEnd &&
-				   lhs.layerBegin < rhs.layerEnd && rhs.layerBegin < lhs.layerEnd;
+			constexpr std::uint64_t unbounded = std::numeric_limits<std::uint64_t>::max();
+			return count > unbounded - begin ? unbounded : begin + count;
 		}
 
 		/*
-		 * Appends whatever of one box survives having another cut out of it, at most five pieces: the aspects the cut does not name, the mips below and above it,
-		 * then the layers below and above it within the mips they share.
+		 * A buffer has no aspects, mips or layers, so those axes stay at the full span and only the byte axis narrows.
+		 *
+		 * Clamped to the declared size for the reason #45 clamps a mip range: the whole-buffer sentinel is a count of every remaining byte, and left saturated it
+		 * would leave residues covering bytes the buffer does not have, which outlive the barrier and refuse the next correct call.
+		 */
+		[[nodiscard]] TrackedSubrange BufferSpan(const BufferBarrier & barrier, const std::uint64_t declared) noexcept
+		{
+			constexpr std::uint64_t unbounded = std::numeric_limits<std::uint64_t>::max();
+
+			TrackedSubrange span = WholeResourceSpan();
+			span.byteBegin		 = barrier.offset;
+			span.byteEnd		 = std::min(ByteSpanEnd(barrier.offset, barrier.size), declared != 0 ? declared : unbounded);
+			return span;
+		}
+
+		[[nodiscard]] bool Overlaps(const TrackedSubrange & lhs, const TrackedSubrange & rhs) noexcept
+		{
+			return lhs.key == rhs.key && (lhs.aspects & rhs.aspects) != 0u && lhs.mipBegin < rhs.mipEnd && rhs.mipBegin < lhs.mipEnd &&
+				   lhs.layerBegin < rhs.layerEnd && rhs.layerBegin < lhs.layerEnd && lhs.byteBegin < rhs.byteEnd && rhs.byteBegin < lhs.byteEnd;
+		}
+
+		/*
+		 * Appends whatever of one box survives having another cut out of it, at most seven pieces: the aspects the cut does not name, the mips below and above it,
+		 * the layers below and above it within the mips they share, then the bytes below and above it within the layers they share.
 		 */
 		[[nodiscard]] bool SubtractInto(detail::HostVector<TrackedSubrange> & into, const TrackedSubrange & from, const TrackedSubrange & cut) noexcept
 		{
@@ -1580,22 +1617,54 @@ namespace azo::rhi::validation
 				}
 			}
 
+			TrackedSubrange strip = band;
+			strip.layerBegin	  = std::max(band.layerBegin, cut.layerBegin);
+			strip.layerEnd		  = std::min(band.layerEnd, cut.layerEnd);
+
+			if (strip.byteBegin < cut.byteBegin)
+			{
+				TrackedSubrange piece = strip;
+				piece.byteEnd		  = cut.byteBegin;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			if (strip.byteEnd > cut.byteEnd)
+			{
+				TrackedSubrange piece = strip;
+				piece.byteBegin		  = cut.byteEnd;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
 			return true;
 		}
 
 		/*
-		 * The two rules ResourceState documents and nothing enforced. An empty use as an after-state would leave the resource somewhere no backend can name, and
-		 * eDiscard describes contents that are not preserved coming into a barrier, which is not something a barrier can leave behind.
+		 * The two rules ResourceState documents. An empty use as an after-state would leave the resource somewhere no backend can name, and eDiscard describes
+		 * contents that are not preserved coming into a barrier, which is not something a barrier can leave behind.
+		 *
+		 * A release is excused the first rule, since what the releasing queue leaves the resource in is not something that side can answer.
 		 */
 		[[nodiscard]] bool StateIsUsableAsAfter(
 			WrappedCommandList * self, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
 		{
-			static_cast<void>(ownership);
-
 			if (after.use.Contains(ResourceUse::eDiscard))
 			{
 				return self->validator->Fail(
 					error, "a barrier names eDiscard as its after-state, which describes contents arriving at a barrier and not leaving one");
+			}
+
+			const bool releasing = ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eReleaseToExternal;
+
+			if (after.use.Bits() == 0u && !releasing)
+			{
+				return self->validator->Fail(
+					error, "a barrier names no after-state, so it does not say what the resource is being moved into");
 			}
 
 			return true;
@@ -1866,7 +1935,7 @@ namespace azo::rhi::validation
 
 			if (!Retrack(self, box, PackState(after)))
 			{
-				// Nothing tracked is better than half tracked: the resource is simply absent so the next barrier naming it is taken, not checked.
+				// The resource is left absent, so the next barrier naming it is taken and not checked.
 				Forget(self, box.key);
 			}
 
@@ -1911,11 +1980,37 @@ namespace azo::rhi::validation
 						return false;
 					}
 
+					/*
+					 * Refused for the same reason a texture barrier naming no aspect is: a box covering no byte overlaps nothing, so it would be neither checked
+					 * against what came before nor recorded for what comes after, losing two checks in silence. Vulkan refuses it outright.
+					 */
+					if (barrier.size == 0)
+					{
+						return self->validator->Fail(error, "a buffer barrier names no bytes, so it describes no range to transition");
+					}
+
+					/*
+					 * A range outside the buffer is representable now that the byte axis is real, so it would be tracked as its own region and accepted in
+					 * silence. VUID-VkBufferMemoryBarrier2-offset-01187 and -size-01189 refuse it.
+					 *
+					 * Skipped when the size is unknown, a bound guessed rather than declared being what refuses valid calls.
+					 */
+					const std::uint64_t declared = DeclaredSizeOf(self, barrier.buffer.index, barrier.buffer.generation);
+					if (declared != 0)
+					{
+						const bool wholeBuffer = barrier.size == std::numeric_limits<std::uint64_t>::max();
+
+						if (barrier.offset >= declared || (!wholeBuffer && ByteSpanEnd(barrier.offset, barrier.size) > declared))
+						{
+							return self->validator->Fail(error, "a buffer barrier names bytes past the end of the buffer");
+						}
+					}
+
 					if (!CheckAndAdvance(self,
 							ResourceType::eBuffer,
 							barrier.buffer.index,
 							barrier.buffer.generation,
-							WholeResourceSpan(),
+							BufferSpan(barrier, declared),
 							barrier.before,
 							barrier.after,
 							barrier.ownership,
@@ -1977,8 +2072,7 @@ namespace azo::rhi::validation
 				return false;
 			}
 
-			// Spelled out rather than left to the generic entry, which is what this used to be. A destroyed handle inside the span went unrefused on every
-			// backend and in every mode, and ValidatedBarriers has always done the same call over its own batch.
+			// Spelled out rather than left to the generic entry, which left a destroyed handle inside the span unrefused in every mode.
 			if (!ArgumentIsUsable(*self->validator, barriers))
 			{
 				return self->validator->Fail(error, "an alias barrier names a resource this device has already taken back");
@@ -2008,8 +2102,7 @@ namespace azo::rhi::validation
 			written.key				= StateKey(type, index, generation);
 			written.state			= PackState(finalState);
 
-			// A push that fails leaves nothing tracked for the resource, which is the same answer a barrier gives when the vector cannot grow: the next barrier
-			// naming it is taken and not checked.
+			// A push that fails leaves nothing tracked, so the next barrier naming the resource is taken and not checked.
 			Forget(self, written.key);
 			static_cast<void>(detail::TryPushBack(self->recordedStates, written));
 

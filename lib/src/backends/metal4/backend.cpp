@@ -93,7 +93,7 @@ namespace azo::rhi
 	{
 		Metal4CommandListView NativeAccess<Metal4Api>::MakeCommandListView(void * commandListImpl) noexcept
 		{
-			metal4::CmdList * list = metal4::ListOf(static_cast<metal4::Metal4Object *>(commandListImpl));
+			metal4::CmdList * list = metal4::ListOf(static_cast<metal4::Metal4Object *>(detail::NativeImplOf(commandListImpl, metal4::RenderCommandBlock())));
 			return Metal4CommandListView{ .commandBuffer = list != nullptr ? list->commandBuffer.get() : nullptr };
 		}
 	} // namespace native
@@ -121,6 +121,20 @@ namespace azo::rhi
 			.device = impl->device.get(),
 			.queue	= impl->CommandQueueFor(QueueType::eGraphics),
 		};
+	}
+
+	Result<native::Metal4QueueView> GetMetal4QueueView(Queue queue)
+	{
+		const auto * object = static_cast<metal4::Metal4Object *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), metal4::QueueBlock()));
+		if (object == nullptr)
+		{
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "GetMetal4QueueView called on a queue that is not a Metal 4 one",
+			};
+		}
+
+		return native::Metal4QueueView{ .queue = object->owner->CommandQueueFor(object->queueType) };
 	}
 
 	/*

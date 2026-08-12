@@ -220,7 +220,7 @@ namespace azo::rhi::d3d12
 		resourceDesc.Layout			  = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		resourceDesc.Flags			  = MapBufferResourceFlags(desc.buffer.usage);
 
-		// The same refusal the committed path makes, for the same reason: only the default heap can hold an acceleration structure.
+		// The same refusal the committed path makes: only the default heap can hold an acceleration structure.
 		if (desc.buffer.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
 			return FailValue<BufferHandle>(error,

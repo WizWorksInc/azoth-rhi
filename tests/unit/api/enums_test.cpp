@@ -205,7 +205,8 @@ namespace
 			rhi::ResourceUse::eAccelBuildInput,
 			rhi::ResourceUse::eAccelRead,
 			rhi::ResourceUse::eAccelWrite,
-			rhi::ResourceUse::ePresent };
+			rhi::ResourceUse::ePresent,
+			rhi::ResourceUse::eAccelBuildScratch };
 
 		std::uint32_t seen = 0;
 		for (const rhi::ResourceUse use : uses)

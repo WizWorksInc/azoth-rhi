@@ -22,6 +22,7 @@
 #include <array>
 #include <cstdint>
 #include <string_view>
+#include <utility>
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_VULKAN
 	#include "azoth/rhi/native/vulkan_config.hpp"
@@ -29,6 +30,10 @@
 #endif
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL
 	#include "azoth/rhi/native/metal_config.hpp"
+	#include "azoth/rhi/native/metal_native.hpp"
+#endif
+#ifdef AZOTH_RHI_TEST_ADOPTION_D3D12
+	#include "azoth/rhi/native/d3d12_native.hpp"
 #endif
 
 namespace rhi  = azo::rhi;
@@ -59,6 +64,49 @@ namespace
 		desc.validation		= rhi::ValidationMode::eDeveloper;
 		desc.backendConfigs = entries;
 		return rhi::CreateDevice<Api>(desc);
+	}
+
+#endif
+
+#if defined(AZOTH_RHI_TEST_ADOPTION_VULKAN) || defined(AZOTH_RHI_TEST_ADOPTION_METAL) || defined(AZOTH_RHI_TEST_ADOPTION_D3D12)
+
+	template <rhi::GraphicsApiTag Api, class FromView, class FromAccessor>
+	void ExpectANativeScopeSeesTheBackendsOwnCommandList(FromView fromView, FromAccessor fromAccessor)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<Api>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no device for this backend on this machine: " << test::Describe(created.GetError());
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		rhi::Error error{};
+		rhi::CommandPool pool = device.CreateCommandPool(rhi::CommandPoolDesc{ .queueType = rhi::QueueType::eGraphics }, error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.nativeScope", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+
+		// Without this the comparison below passes on two nulls, which is what a list that never opened would give on both sides.
+		ASSERT_TRUE(static_cast<bool>(fromAccessor(list))) << "the accessor reports no native command list for an open recording";
+
+		bool ran = false;
+		EXPECT_TRUE(test::Ok(list.ModifyNative<Api>(
+								 rhi::NativeMutationDesc{},
+								 [&](const auto & view)
+								 {
+									 ran = true;
+									 EXPECT_EQ(fromView(view), fromAccessor(list))
+										 << "the native scope handed back an object the accessor for the same command list does not agree with, which is what "
+											"casting the facade impl without resolving the validation decorator produces";
+								 },
+								 error),
+			error));
+		EXPECT_TRUE(ran) << "the callback the scope brackets never ran";
+		EXPECT_TRUE(test::Ok(list.End(error), error));
 	}
 
 #endif
@@ -825,8 +873,20 @@ namespace
 			<< "the family index on the queue view disagrees with the one the device reports for its graphics queue";
 	}
 
-	// The three usages lower to VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline bits, so a device that enables neither cannot hand back the buffer
-	// its caller described. Vulkan-only because Metal answers the same question by refusing createAccelerationStructure instead, which task #24 settled.
+	TEST(VulkanAdoption, ANativeScopeRecordsIntoTheCommandBufferTheAccessorReports)
+	{
+		ExpectANativeScopeSeesTheBackendsOwnCommandList<rhi::VulkanApi>(
+			[](const rhi::native::VulkanCommandListView & view)
+			{
+				return view.commandBuffer;
+			},
+			[](rhi::CommandList list)
+			{
+				return rhi::GetVulkanCommandBuffer(list);
+			});
+	}
+
+	// The three usages lower to VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline bits, which no device this backend makes enables.
 	TEST(VulkanRayTracingUsage, RefusesABufferOnlyRayTracingCouldUse)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::VulkanApi>();
@@ -893,7 +953,7 @@ namespace
 		EXPECT_FALSE(floored.HasValue()) << "a device version below the 1.2 floor was accepted";
 	}
 
-	// Malformed is a third answer beside present and absent, and neither half of it reaches the adapter, so both are named on a machine with no Vulkan too.
+	// Malformed is a third answer beside present and absent, and neither half of it reaches the adapter.
 	TEST(VulkanConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::VulkanDeviceConfig truncated{};
@@ -940,30 +1000,7 @@ namespace
 
 #endif // AZOTH_RHI_TEST_ADOPTION_VULKAN
 
-#ifdef AZOTH_RHI_TEST_ADOPTION_METAL
-
-	TEST(MetalConfigBlock, EachGenerationRefusesABlockPinningTheOther)
-	{
-		rhi::native::MetalDeviceConfig pinnedToFour{};
-		pinnedToFour.generation = rhi::ApiVersion{ .major = 4, .minor = 0 };
-
-		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, pinnedToFour);
-		EXPECT_FALSE(three.HasValue()) << "Metal 3 accepted a block pinning it to a generation it is not";
-		if (!three.HasValue())
-		{
-			EXPECT_TRUE(test::ErrorIsPopulated(three.GetError()));
-		}
-
-		rhi::native::Metal4DeviceConfig pinnedToThree{};
-		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
-
-		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, pinnedToThree);
-		EXPECT_FALSE(four.HasValue()) << "Metal 4 accepted a block pinning it to a generation it is not";
-		if (!four.HasValue())
-		{
-			EXPECT_TRUE(test::ErrorIsPopulated(four.GetError()));
-		}
-	}
+#if defined(AZOTH_RHI_TEST_ADOPTION_METAL3) && defined(AZOTH_RHI_TEST_ADOPTION_METAL4)
 
 	TEST(MetalConfigBlock, EitherGenerationComesUpWithNoBlockAtAll)
 	{
@@ -979,7 +1016,24 @@ namespace
 		EXPECT_TRUE(four.HasValue()) << "a Metal 4 device carrying no configuration block was refused";
 	}
 
-	// The only arm that shows the entry is matched on its api field: the rest all pass on a lookup that keys on nothing and reacts to any block being present.
+#endif // AZOTH_RHI_TEST_ADOPTION_METAL3 && AZOTH_RHI_TEST_ADOPTION_METAL4
+
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
+
+	TEST(MetalConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
+	{
+		rhi::native::MetalDeviceConfig pinnedToFour{};
+		pinnedToFour.generation = rhi::ApiVersion{ .major = 4, .minor = 0 };
+
+		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, pinnedToFour);
+		EXPECT_FALSE(three.HasValue()) << "Metal 3 accepted a block pinning it to a generation it is not";
+		if (!three.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(three.GetError()));
+		}
+	}
+
+	// The only arm showing the entry is matched on its api field, the rest passing on any block being present.
 	TEST(MetalConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
 	{
 		rhi::native::Metal4DeviceConfig pinnedToThree{};
@@ -989,7 +1043,7 @@ namespace
 		EXPECT_TRUE(three.HasValue()) << "Metal 3 read a block keyed to Metal 4, so the entry is not matched on its api field";
 	}
 
-	// Malformed is a third answer beside present and absent, which device_config.hpp says is never quietly defaulted, so both halves of malformed are named.
+	// Malformed is a third answer beside present and absent, which device_config.hpp says is never quietly defaulted.
 	TEST(MetalConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::MetalDeviceConfig truncated{};
@@ -1013,6 +1067,199 @@ namespace
 		}
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_METAL
+	// Compared against the queue the device accessor reports, so a producer always answering with the graphics queue fails the compute and copy arms.
+	TEST(MetalAdoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::MetalApi>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(created.GetError());
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		const rhi::Result<rhi::MetalNativeDevice> native = rhi::GetMetalNativeDevice(device);
+		ASSERT_TRUE(native.HasValue()) << "a Metal 3 device did not hand back its native handles";
+
+		for (const rhi::QueueType type : { rhi::QueueType::eGraphics, rhi::QueueType::eCompute, rhi::QueueType::eCopy })
+		{
+			const rhi::Result<rhi::native::MetalQueueView> view = rhi::GetMetalQueueView(device.GetQueue(type));
+			ASSERT_TRUE(view.HasValue()) << "a Metal 3 queue did not hand back a queue view";
+			EXPECT_NE(view.Value().queue, nullptr) << "the queue view carries no command queue";
+
+			if (type == rhi::QueueType::eGraphics)
+			{
+				EXPECT_EQ(view.Value().queue, native.Value().queue) << "the graphics queue view disagrees with the queue the device reports";
+			}
+			else
+			{
+				EXPECT_NE(view.Value().queue, native.Value().queue) << "a queue of another type answered with the graphics queue";
+			}
+		}
+	}
+
+	TEST(MetalAdoption, ANativeScopeRecordsIntoTheCommandBufferTheAccessorReports)
+	{
+		ExpectANativeScopeSeesTheBackendsOwnCommandList<rhi::MetalApi>(
+			[](const rhi::native::MetalCommandListView & view)
+			{
+				return view.commandBuffer;
+			},
+			[](rhi::CommandList list)
+			{
+				return rhi::GetMetalCommandBuffer(list);
+			});
+	}
+
+#endif // AZOTH_RHI_TEST_ADOPTION_METAL3
+
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL4
+
+	TEST(Metal4ConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
+	{
+		rhi::native::Metal4DeviceConfig pinnedToThree{};
+		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
+
+		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, pinnedToThree);
+		EXPECT_FALSE(four.HasValue()) << "Metal 4 accepted a block pinning it to a generation it is not";
+		if (!four.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(four.GetError()));
+		}
+	}
+
+	// The one arm showing this generation matches the entry on its api field, the rest passing on any block being present.
+	TEST(Metal4ConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
+	{
+		rhi::DeviceDesc plain{};
+		plain.validation = rhi::ValidationMode::eDeveloper;
+
+		if (rhi::Result<rhi::UniqueDevice> unconfigured = rhi::CreateDevice<rhi::Metal4Api>(plain); !unconfigured.HasValue())
+		{
+			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(unconfigured.GetError());
+		}
+
+		rhi::native::MetalDeviceConfig pinnedToThree{};
+		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
+
+		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::MetalApi::id, pinnedToThree);
+		EXPECT_TRUE(four.HasValue()) << "Metal 4 read a block keyed to Metal 3, so the entry is not matched on its api field";
+	}
+
+	// Malformed is a third answer beside present and absent, and neither half of it reaches the adapter.
+	TEST(Metal4ConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
+	{
+		rhi::native::Metal4DeviceConfig truncated{};
+		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
+
+		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, truncated);
+		EXPECT_FALSE(tooShort.HasValue()) << "a block declaring fewer bytes than the backend reads was accepted";
+		if (!tooShort.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(tooShort.GetError()));
+		}
+
+		rhi::native::Metal4DeviceConfig otherVersion{};
+		otherVersion.header.version = 99;
+
+		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, otherVersion);
+		EXPECT_FALSE(wrongVersion.HasValue()) << "a block of a version this backend was not built against was accepted";
+		if (!wrongVersion.HasValue())
+		{
+			EXPECT_TRUE(test::ErrorIsPopulated(wrongVersion.GetError()));
+		}
+	}
+
+	// The Metal 4 mirror of the Metal 3 case, against an unrelated queue type: MTL4CommandQueue shares no base with MTLCommandQueue.
+	TEST(Metal4Adoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::Metal4Api>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(created.GetError());
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		const rhi::Result<rhi::Metal4NativeDevice> native = rhi::GetMetal4NativeDevice(device);
+		ASSERT_TRUE(native.HasValue()) << "a Metal 4 device did not hand back its native handles";
+
+		for (const rhi::QueueType type : { rhi::QueueType::eGraphics, rhi::QueueType::eCompute, rhi::QueueType::eCopy })
+		{
+			const rhi::Result<rhi::native::Metal4QueueView> view = rhi::GetMetal4QueueView(device.GetQueue(type));
+			ASSERT_TRUE(view.HasValue()) << "a Metal 4 queue did not hand back a queue view";
+			EXPECT_NE(view.Value().queue, nullptr) << "the queue view carries no command queue";
+
+			if (type == rhi::QueueType::eGraphics)
+			{
+				EXPECT_EQ(view.Value().queue, native.Value().queue) << "the graphics queue view disagrees with the queue the device reports";
+			}
+			else
+			{
+				EXPECT_NE(view.Value().queue, native.Value().queue) << "a queue of another type answered with the graphics queue";
+			}
+		}
+	}
+
+	TEST(Metal4Adoption, ANativeScopeRecordsIntoTheCommandBufferTheAccessorReports)
+	{
+		ExpectANativeScopeSeesTheBackendsOwnCommandList<rhi::Metal4Api>(
+			[](const rhi::native::Metal4CommandListView & view)
+			{
+				return view.commandBuffer;
+			},
+			[](rhi::CommandList list)
+			{
+				return rhi::GetMetal4CommandBuffer(list);
+			});
+	}
+
+#endif // AZOTH_RHI_TEST_ADOPTION_METAL4
+
+#ifdef AZOTH_RHI_TEST_ADOPTION_D3D12
+
+	// Each type has its own ID3D12CommandQueue here, so the device accessor names all three and every arm has something to disagree with.
+	TEST(D3D12Adoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::D3D12Api>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no D3D12 device on this machine: " << test::Describe(created.GetError());
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		const rhi::Result<rhi::D3D12NativeDevice> native = rhi::GetD3D12NativeDevice(device);
+		ASSERT_TRUE(native.HasValue()) << "a D3D12 device did not hand back its native handles";
+
+		const std::array expected{ std::pair{ rhi::QueueType::eGraphics, native.Value().graphicsQueue },
+			std::pair{ rhi::QueueType::eCompute, native.Value().computeQueue }, std::pair{ rhi::QueueType::eCopy, native.Value().copyQueue } };
+
+		for (const auto [type, reported] : expected)
+		{
+			const rhi::Result<rhi::native::D3D12QueueView> view = rhi::GetD3D12QueueView(device.GetQueue(type));
+			ASSERT_TRUE(view.HasValue()) << "a D3D12 queue did not hand back a queue view";
+			EXPECT_NE(view.Value().queue, nullptr) << "the queue view carries no command queue";
+			EXPECT_EQ(view.Value().queue, reported) << "the queue view disagrees with the queue the device reports for this type";
+		}
+	}
+
+	TEST(D3D12Adoption, ANativeScopeRecordsIntoTheCommandListTheAccessorReports)
+	{
+		ExpectANativeScopeSeesTheBackendsOwnCommandList<rhi::D3D12Api>(
+			[](const rhi::native::D3D12CommandListView & view)
+			{
+				return view.commandList;
+			},
+			[](rhi::CommandList list)
+			{
+				return rhi::GetD3D12CommandList(list);
+			});
+	}
+
+#endif // AZOTH_RHI_TEST_ADOPTION_D3D12
 
 } // namespace

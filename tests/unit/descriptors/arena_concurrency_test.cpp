@@ -48,8 +48,7 @@ namespace
 		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
 		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
 
-		// Sized to cross the registry's first chunk, which is 256 slots. Below that the two threads only ever race inside storage one of them already installed,
-		// so the install itself, which is the part with no lock around it, never runs concurrently and the case cannot fail however often it runs.
+		// Sized to cross the registry's first chunk of 256 slots. Below that the install, which is the part with no lock around it, never runs concurrently.
 		constexpr int kPerThread = 200;
 
 		rhi::Error firstError{};

@@ -39,7 +39,7 @@ namespace azo::rhi::vulkan
 			flags |= vk::CommandPoolCreateFlagBits::eTransient;
 		}
 
-		if (desc.individualReset)
+		if (desc.reuse == ListReuse::ePerListReset)
 		{
 			flags |= vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 		}

@@ -80,8 +80,7 @@ namespace
 		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::DeviceDesc &)>(
 			&rhi::CreateDevice));
 
-		// Null is the one specialization every build has. The rest are deliberately unresolved where their backend was not bundled, which device.hpp:1870-1871
-		// states outright, so each is named beside its own backend below.
+		// Null is the one specialization every build has. The rest are unresolved where their backend was not bundled, so each is named beside its own backend below.
 		Reference(&rhi::CreateDevice<rhi::NullApi>);
 
 		Reference(&rhi::AvailableBackends);
@@ -135,26 +134,37 @@ namespace
 		Reference(&rhi::GetVulkanSemaphore);
 		Reference(&rhi::GetVulkanCommandBuffer);
 		Reference(&rhi::GetVulkanCommandPool);
+		Reference(&rhi::GetVulkanQueueView);
 		Reference(&rhi::native::NativeAccess<rhi::VulkanApi>::MakeCommandListView);
 	}
 
 #endif
 
-#ifdef AZOTH_RHI_TEST_ADOPTION_METAL
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
 
-	TEST(ExportSurface, TheMetalNativeEntryPointsResolve)
+	TEST(ExportSurface, TheMetal3NativeEntryPointsResolve)
 	{
 		Reference(&rhi::CreateDevice<rhi::MetalApi>);
-		Reference(&rhi::CreateDevice<rhi::Metal4Api>);
 		Reference(&rhi::GetMetalNativeDevice);
-		Reference(&rhi::GetMetal4NativeDevice);
 		Reference(&rhi::GetMetalCommandBuffer);
 		Reference(&rhi::GetMetalRenderCommandEncoder);
+		Reference(&rhi::GetMetalQueueView);
+		Reference(&rhi::native::NativeAccess<rhi::MetalApi>::MakeCommandListView);
+	}
+
+#endif
+
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL4
+
+	TEST(ExportSurface, TheMetal4NativeEntryPointsResolve)
+	{
+		Reference(&rhi::CreateDevice<rhi::Metal4Api>);
+		Reference(&rhi::GetMetal4NativeDevice);
 		Reference(&rhi::GetMetal4CommandBuffer);
 		Reference(&rhi::GetMetal4RenderCommandEncoder);
 		Reference(&rhi::GetMetal4ComputeCommandEncoder);
 		Reference(&rhi::GetMetal4ArgumentTable);
-		Reference(&rhi::native::NativeAccess<rhi::MetalApi>::MakeCommandListView);
+		Reference(&rhi::GetMetal4QueueView);
 		Reference(&rhi::native::NativeAccess<rhi::Metal4Api>::MakeCommandListView);
 	}
 
@@ -169,6 +179,7 @@ namespace
 		Reference(&rhi::GetD3D12NativeSwapchain);
 		Reference(&rhi::GetD3D12CommandList);
 		Reference(&rhi::GetD3D12CommandAllocator);
+		Reference(&rhi::GetD3D12QueueView);
 		Reference(&rhi::native::NativeAccess<rhi::D3D12Api>::MakeCommandListView);
 	}
 

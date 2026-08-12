@@ -16,8 +16,7 @@
 
 namespace azo::rhi::metal
 {
-	// The compute twin of BeginBlit, and it refuses a rendering scope for the same reason: ending the caller's pass to open a compute encoder is a different
-	// operation from the one asked for. Only the compute-pipeline path can reach that branch, the other two callers looking for an open render encoder first.
+	// The compute twin of BeginBlit, refusing a rendering scope for the same reason: ending the caller's pass is a different operation from the one asked for.
 	bool EnsureComputeEncoder(MetalObject * object, Error * error) noexcept
 	{
 		if (object->list == nullptr || object->list->commandBuffer.get() == nullptr)

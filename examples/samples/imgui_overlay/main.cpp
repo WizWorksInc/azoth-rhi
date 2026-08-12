@@ -96,10 +96,10 @@ namespace
 
 		const std::array colors{
 			rhi::RenderingAttachment{
-				.view  = acquired.view,
-				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-				.load  = rhi::LoadOp::eClear,
-				.store = rhi::StoreOp::eStore,
+				.view		= acquired.view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
 				.clearColor = rhi::ClearColor{ .r = 0.09f, .g = 0.10f, .b = 0.12f, .a = 1.0f },
 			},
 		};

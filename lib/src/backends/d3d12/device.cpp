@@ -116,7 +116,6 @@ namespace azo::rhi::d3d12
 
 		// Core to the API tier so always available: timeline fences, dynamic rendering, placed resources, pipeline caching, timestamps.
 		caps.supportsTimelineSync	  = true;
-		caps.supportsDynamicRendering = true;
 		caps.supportsTimestampQueries = true;
 		// A timestamp is an EndQuery wherever a command can be recorded, this path binding render targets without opening a pass object, so there is no scope for one
 		// to be inside of.
@@ -543,7 +542,7 @@ namespace azo::rhi::d3d12
 	{
 		D3D12BackendOwner & owner = Owner();
 
-		// A block this backend cannot read is a caller mistake, so it fails creation rather than coming up on defaults and dropping the configuration in silence.
+		// A block this backend cannot read is a caller mistake, so it fails creation rather than defaulting in silence.
 		const auto config = native::FindDeviceConfig<D3D12Api>(desc.backendConfigs);
 		if (config.malformed)
 		{
@@ -586,8 +585,7 @@ namespace azo::rhi::d3d12
 				continue;
 			}
 
-			// Every barrier this backend records is an enhanced one, so an adapter without them is passed over here. Skipping rather than failing outright is what
-			// lets a discrete GPU behind an older integrated one still be chosen.
+			// Every barrier this backend records is an enhanced one, so an adapter without them is skipped rather than failed on.
 			D3D12_FEATURE_DATA_D3D12_OPTIONS12 options12{};
 			if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12))) ||
 				options12.EnhancedBarriersSupported == FALSE)

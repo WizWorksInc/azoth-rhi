@@ -39,8 +39,7 @@ namespace azo::rhi::native
 		/**
 		 * \brief Metal generation this device is pinned to. {0, 0} takes the generation this backend is.
 		 *
-		 * Metal 4 is a backend of its own, so pinning it here is refused and never redirected. Both platform owners tell callers to pin a tested baseline, so a
-		 * caller stepping around a driver bug is believed.
+		 * Metal 4 is a backend of its own, so pinning it here is refused and never redirected.
 		 */
 		ApiVersion generation{};
 	};

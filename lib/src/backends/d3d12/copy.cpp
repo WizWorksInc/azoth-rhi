@@ -35,7 +35,7 @@ namespace azo::rhi::d3d12
 
 		ComPtr<D3D12MA::Allocation> allocation;
 		ComPtr<ID3D12Resource> resource;
-		// Created common rather than in a legacy state, so the scratch never needs transitioning out of one before an enhanced barrier may name it.
+		// Created common, so the scratch never needs transitioning before an enhanced barrier may name it.
 		if (FAILED(device->allocator->CreateResource(
 				&allocationDesc, &bufferDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()))))
 		{

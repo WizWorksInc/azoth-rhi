@@ -189,6 +189,11 @@ namespace azo::rhi::vulkan
 			out |= vk::AccessFlagBits2::eAccelerationStructureWriteKHR;
 		}
 
+		if (use.Contains(ResourceUse::eAccelBuildScratch))
+		{
+			out |= vk::AccessFlagBits2::eAccelerationStructureReadKHR | vk::AccessFlagBits2::eAccelerationStructureWriteKHR;
+		}
+
 		return out;
 	}
 
@@ -206,7 +211,7 @@ namespace azo::rhi::vulkan
 			out |= vk::PipelineStageFlagBits2::eVertexInput;
 		}
 
-		// A shader binding names no stage of its own, and guessing one narrower than every stage would drop the hazard wherever the guess was wrong.
+		// A shader binding names no stage of its own, so every stage is named.
 		if (use.Contains(ResourceUse::eUniformRead) || use.Contains(ResourceUse::eSampledRead) || use.Contains(ResourceUse::eStorageRead) ||
 			use.Contains(ResourceUse::eStorageWrite))
 		{
@@ -238,7 +243,7 @@ namespace azo::rhi::vulkan
 			out |= vk::PipelineStageFlagBits2::eHost;
 		}
 
-		if (use.Contains(ResourceUse::eAccelBuildInput) || use.Contains(ResourceUse::eAccelWrite))
+		if (use.Contains(ResourceUse::eAccelBuildInput) || use.Contains(ResourceUse::eAccelWrite) || use.Contains(ResourceUse::eAccelBuildScratch))
 		{
 			out |= vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR;
 		}
@@ -259,7 +264,7 @@ namespace azo::rhi::vulkan
 			return MapStages(stages);
 		}
 
-		// Derive only where there is an access to protect. A use that reaches no access has no hazard, and deriving there costs a full-pipeline barrier.
+		// Derive only where there is an access to protect, a use reaching no access having no hazard.
 		return MapBarrierAccess(use) ? DeriveBarrierStages(use) : vk::PipelineStageFlags2{};
 	}
 
@@ -296,7 +301,7 @@ namespace azo::rhi::vulkan
 			return vk::PipelineStageFlagBits2::eComputeShader;
 		}
 
-		// ALL_TRANSFER is a single bit covering copy, blit and clear, which is what saves eCopy from having to pick one of the three and lose the others.
+		// ALL_TRANSFER is a single bit covering copy, blit and clear, so eCopy need not pick one of the three.
 		if (stage.Contains(Stage::eCopy))
 		{
 			return vk::PipelineStageFlagBits2::eAllTransfer;
@@ -327,7 +332,7 @@ namespace azo::rhi::vulkan
 			return vk::PipelineStageFlagBits2::eAllGraphics;
 		}
 
-		// An unset stage asks for the sample to land after everything, which is the one answer that can never be earlier than what the caller meant.
+		// An unset stage asks for the sample to land after everything.
 		return vk::PipelineStageFlagBits2::eAllCommands;
 	}
 
@@ -354,6 +359,13 @@ namespace azo::rhi::vulkan
 	static_assert(MapBarrierAccess(ResourceUse::eAccelRead) == vk::AccessFlagBits2::eAccelerationStructureReadKHR &&
 					  MapBarrierAccess(ResourceUse::eAccelWrite) == vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
 		"reading and building a structure are the two accesses the structure bits exist for");
+
+	static_assert(MapBarrierAccess(ResourceUse::eAccelBuildScratch) ==
+						  (vk::AccessFlagBits2::eAccelerationStructureReadKHR | vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
+		"the spec names the pair for a scratch, not the write bit alone, so naming half of it leaves the build's own reads of that memory unordered");
+
+	static_assert(MapBarrierStages(Flags<Stage>(), ResourceUse::eAccelBuildScratch) == vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+		"the same sentence names the build stage for a scratch, which is the only stage that touches it");
 
 	static_assert(MapBarrierAccess(Flags<ResourceUse>(ResourceUse::eCopySrc) | ResourceUse::eResolveSrc) == vk::AccessFlagBits2::eTransferRead,
 		"Vulkan has no resolve access of its own, so a resolve reads and writes through the transfer accesses a copy uses");

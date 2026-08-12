@@ -410,6 +410,7 @@ namespace
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		constexpr rhi::ResourceState untouched{};
+		constexpr rhi::ResourceState acquired{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		const std::array released{
 			rhi::BufferBarrier{ .buffer = buffer,
@@ -430,10 +431,11 @@ namespace
 		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a release from a queue that does not own the resource was accepted";
 		EXPECT_EQ(wrongError.code, rhi::ErrorCode::eValidationFailed);
 
+		// The acquire names a real state because it is the half of the pair that says what the resource is being taken into. Only the release may name none.
 		const std::array back{
 			rhi::BufferBarrier{ .buffer = buffer,
 				.before					= untouched,
-				.after					= untouched,
+				.after					= acquired,
 				.ownership				= { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
 		};
 		EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = back }, error), error));
@@ -661,6 +663,7 @@ namespace
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		constexpr rhi::ResourceState untouched{};
+		constexpr rhi::ResourceState settled{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		const std::array toItself{
 			rhi::BufferBarrier{ .buffer = buffer,
@@ -673,8 +676,9 @@ namespace
 		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = toItself }, selfError)) << "a transfer between one queue and itself was accepted";
 		EXPECT_EQ(selfError.code, rhi::ErrorCode::eValidationFailed);
 
+		// Naming no ownership op is the accepted case here, so it names a real after-state: only a release is excused from saying where the resource ends up.
 		const std::array neither{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched },
+			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = settled },
 		};
 		EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = neither }, error), error));
 

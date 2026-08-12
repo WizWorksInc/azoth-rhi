@@ -201,10 +201,14 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-			.load  = rhi::LoadOp::eClear,
-			.store = rhi::StoreOp::eStore } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view  = view,
+				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load  = rhi::LoadOp::eClear,
+				.store = rhi::StoreOp::eStore,
+			},
+		};
 		const rhi::BeginRenderingDesc rendering{
 			.colors		  = colors,
 			.depthStencil = nullptr,
@@ -373,11 +377,15 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-			.load		= rhi::LoadOp::eClear,
-			.store		= rhi::StoreOp::eStore,
-			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view		= view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
+				.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
+			},
+		};
 
 		const rhi::BeginRenderingDesc rendering{
 			.colors		  = colors,

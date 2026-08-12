@@ -191,14 +191,14 @@ namespace azo::rhi::d3d12
 			const D3D12_BARRIER_ACCESS accessBefore = ClampAccessToHeap(MapBarrierAccess(b.before.use, queue), slot->heapType);
 			const D3D12_BARRIER_ACCESS accessAfter	= ClampAccessToHeap(MapBarrierAccess(b.after.use, queue), slot->heapType);
 
-			// Refused rather than clamped: recording this one costs the device, so a caller who names the wrong use has to hear about it instead of losing it.
+			// Refused rather than clamped, since recording one costs the device and a wrong use should be heard about.
 			if (slot->desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) &&
 				(!AccessLegalOnAccelerationStructure(accessBefore) || !AccessLegalOnAccelerationStructure(accessAfter)))
 			{
 				return Fail(error, ErrorCode::eInvalidArgument, "a barrier on an acceleration structure buffer named a use it can never be in");
 			}
 
-			// offset and size are deliberately not read: a buffer barrier covers the whole resource, and the API takes only zero and the whole size.
+			// offset and size are not read: a buffer barrier covers the whole resource, and the API takes only zero and the whole size.
 			buffers.push_back(D3D12_BUFFER_BARRIER{
 				.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
 				.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
@@ -230,7 +230,7 @@ namespace azo::rhi::d3d12
 			D3D12_BARRIER_SUBRESOURCE_RANGE subresources{ .IndexOrFirstMipLevel = kAllSubresources };
 			if (!whole)
 			{
-				// One plane, matching what the legacy path indexed. A partial range over a depth-stencil texture therefore leaves the stencil plane alone.
+				// One plane, as the legacy path indexed. A partial range over a depth-stencil texture leaves the stencil plane alone.
 				subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{
 					.IndexOrFirstMipLevel = range.baseMip,
 					.NumMipLevels		  = range.mipCount,
@@ -339,7 +339,7 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
 			}
 
-			// Both layouts come from the table so the copy queue's answer stays in one place rather than being written out a second time here.
+			// Both layouts come from the table, so the copy queue's answer stays in one place.
 			const D3D12_BARRIER_LAYOUT before = MapBarrierLayout(ResourceUse::eDiscard, queue);
 			textures.push_back(D3D12_TEXTURE_BARRIER{
 				.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
@@ -354,7 +354,7 @@ namespace azo::rhi::d3d12
 			});
 		}
 
-		// One for the batch, not per pair: an alias barrier orders heap memory, which no resource over it names. The full flush is the point here, not a cost.
+		// One for the batch, not per pair: an alias barrier orders heap memory, which no resource over it names.
 		const D3D12_GLOBAL_BARRIER global{
 			.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
 			.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,

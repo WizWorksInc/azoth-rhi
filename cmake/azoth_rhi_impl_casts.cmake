@@ -56,7 +56,10 @@ foreach(_file IN LISTS _files)
 
     file(STRINGS "${_file}" _lines REGEX "static_cast[ \t]*<")
     foreach(_line IN LISTS _lines)
-        if(NOT _line MATCHES "FacadeBuilder::ImplOf")
+        # commandListImpl is the second way a facade's impl reaches a cast: MakeCommandListView is handed one
+        # by ModifyNative rather than calling ImplOf itself, so keying only on the call above left the whole
+        # native view customization point outside the gate, which is where it went wrong once.
+        if(NOT _line MATCHES "FacadeBuilder::ImplOf|commandListImpl")
             continue()
         endif()
 

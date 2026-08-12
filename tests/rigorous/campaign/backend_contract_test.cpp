@@ -104,9 +104,13 @@ namespace
 		ASSERT_TRUE(test::Ok(list.IsValid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
-		const std::array toCopy{ rhi::BufferBarrier{ .buffer = target,
-			.before										= { .use = rhi::ResourceUse::eDiscard },
-			.after = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy } } };
+		const std::array toCopy{
+			rhi::BufferBarrier{
+				.buffer = target,
+				.before = { .use = rhi::ResourceUse::eDiscard },
+				.after  = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+			},
+		};
 		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 		ASSERT_TRUE(test::Ok(list.CopyBuffer(target, 0, upload, 0, test::samples::kBufferSize, error), error));
 		ASSERT_TRUE(test::Ok(list.End(error), error));

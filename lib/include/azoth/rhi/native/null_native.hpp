@@ -31,10 +31,6 @@ namespace azo::rhi::native
 	 * The Null backend exposes native-access types for API uniformity, but none carry a native handle. \{
 	 */
 
-	struct NullDeviceView final
-	{
-	};
-
 	struct NullQueueView final
 	{
 	};
@@ -43,29 +39,19 @@ namespace azo::rhi::native
 	{
 	};
 
-	struct NullBufferView final
-	{
-	};
-
-	struct NullTextureView final
-	{
-	};
-
 	/** \} */
 
 	/**
 	 * \brief Native access surface for the Null backend.
 	 *
-	 * Every view is empty because the backend has no native graphics objects to expose.
+	 * Every view is empty because the backend has no native graphics objects to expose. Nothing produces the queue one, this backend having no queue object to
+	 * hand back, so it is named for uniformity and answered by no accessor.
 	 */
 	template <>
 	struct NativeAccess<NullApi> final
 	{
-		using DeviceView	  = NullDeviceView;
 		using QueueView		  = NullQueueView;
 		using CommandListView = NullCommandListView;
-		using BufferView	  = NullBufferView;
-		using TextureView	  = NullTextureView;
 
 		[[nodiscard]] static NullCommandListView MakeCommandListView([[maybe_unused]] void * commandListImpl) noexcept
 		{

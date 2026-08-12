@@ -213,9 +213,9 @@ namespace
 			const std::array<rhi::TextureBarrier, 1> toAttachment{ rhi::TextureBarrier{
 				.texture = backBuffer,
 				.before	 = {},
-				.after =
+				.after	 =
 					{ .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-				.range = test::samples::WholeColorRange(),
+				.range	 = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error), error))
 				<< "barriering the acquired back buffer was refused";
@@ -232,10 +232,10 @@ namespace
 
 			const std::array<rhi::TextureBarrier, 1> toPresent{ rhi::TextureBarrier{
 				.texture = backBuffer,
-				.before =
+				.before	 =
 					{ .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-				.after = { .use = rhi::ResourceUse::ePresent },
-				.range = test::samples::WholeColorRange(),
+				.after	 = { .use = rhi::ResourceUse::ePresent },
+				.range	 = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error), error));
 

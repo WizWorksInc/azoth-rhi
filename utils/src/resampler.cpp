@@ -348,9 +348,8 @@ namespace azo::rhi::utils
 		 * every level but the last shader readable and the last still a storage write. Handing that difference to the caller would make their barrier depend on the
 		 * device they got.
 		 */
-		const std::uint32_t last = info.desc.mipLevels - 1;
-		const ResourceState above =
-			hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kSampled;
+		const std::uint32_t last	  = info.desc.mipLevels - 1;
+		const ResourceState above	  = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kSampled;
 		const ResourceState lastState = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kWritten;
 
 		const std::array exit{

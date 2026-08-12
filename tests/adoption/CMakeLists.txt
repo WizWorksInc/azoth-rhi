@@ -45,6 +45,15 @@ endif ()
 
 if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_METAL)
+
+    # One define per generation as well, because the two are separate backends with separate entry points, and
+    # a case naming one of them only links where that backend compiled.
+    if (AZOTH_RHI_BACKEND_METAL)
+        target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_METAL3)
+    endif ()
+    if (AZOTH_RHI_BACKEND_METAL4)
+        target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_METAL4)
+    endif ()
 endif ()
 
 if (AZOTH_RHI_BACKEND_D3D12)

@@ -575,7 +575,7 @@ namespace azo::rhi::d3d12
 			texLayers	  = slot->arrayLayers;
 		}
 
-		// A range past the end of the texture builds descriptors that read subresources the resource does not have, which the debug layer alone would catch.
+		// A range past the end builds descriptors that read subresources the resource does not have.
 		const TextureSubresourceRange & r = desc.range;
 		if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 		{

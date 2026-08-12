@@ -103,7 +103,6 @@ namespace azo::rhi::metal
 		// MTLEvent and MTLSharedEvent, which the timeline lowers onto, arrive with Metal 2 and are on every family this builds against. There is no query narrower
 		// than the family probe, so this is the narrowest honest answer and not a literal.
 		caps.supportsTimelineSync	  = apple7 || mac2;
-		caps.supportsDynamicRendering = true; // a render command encoder is always built from its attachments, with nothing else to lower onto
 
 		// Argument buffers are the binding model, and Metal reports which of the two tiers it gives. Tier 2 lifts the array bound and allows indexing into an
 		// unbounded table, which is what a bindless renderer needs, so it is the level the ladder's top means.
@@ -292,7 +291,7 @@ namespace azo::rhi::metal
 			return nullptr;
 		}
 
-		// Settled before anything is built, since a refused pin should cost nothing. DeviceDesc::apiVersion is the older way of asking and goes with D8.
+		// Settled before anything is built, since a refused pin should cost nothing.
 		const auto config = native::FindDeviceConfig<MetalApi>(desc.backendConfigs);
 		if (config.malformed)
 		{
@@ -563,7 +562,7 @@ namespace azo::rhi::metal
 		MetalDevice * device = MakeOwnedDevice(static_cast<MetalInstance *>(impl), desc, refusal);
 		if (device == nullptr)
 		{
-			// A refused pin or an unreadable config block is a different failure from having no adapter, so each says which instead of sharing one message.
+			// A refused pin or an unreadable config block is a different failure from having no adapter, so each says which.
 			return refusal.code != ErrorCode::eOk ? FailValue<void *>(error, refusal.code, refusal.message)
 												  : FailValue<void *>(error, ErrorCode::eNativeApiError, "no Metal device available");
 		}

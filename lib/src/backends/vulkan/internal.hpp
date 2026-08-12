@@ -631,7 +631,7 @@ namespace azo::rhi::vulkan
 		bool coreVk13				  = true;
 
 		// Whether rendering scopes lower onto vkCmdBeginRendering (true) or synthesized render-pass and framebuffer objects (false). Decided at creation from
-		// DeviceDesc::dynamicRendering and adapter support and mirrored in caps.supportsDynamicRendering.
+		// VulkanDeviceConfig::renderingLowering and adapter support.
 		bool dynamicRendering = true;
 
 		// VK_KHR_unified_image_layouts enabled, not merely advertised, which is what LayoutForUse needs before it may collapse the table to GENERAL.
