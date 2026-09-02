@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -52,16 +47,13 @@ namespace
 	constexpr std::uint64_t kNoTimeout		= std::numeric_limits<std::uint64_t>::max();
 	constexpr std::uint32_t kFramesInFlight = 2;
 
-	// How many textures the interface has at once, which sizes the arena. One font atlas, and room for a few of the application's own.
 	constexpr std::uint32_t kMaxTextures = 8;
 
-	// Which backends can present and draw, which is all this needs to know: the shaders ship inside azoth::rhi-imgui already compiled.
 	[[nodiscard]] bool CanDraw(const rhi::GraphicsApiId api)
 	{
 		return api == rhi::VulkanApi::id || api == rhi::D3D12Api::id || rhi::IsMetalFamily(api);
 	}
 
-	// The swapchain no longer matching the window, which arrives as an event on some platforms and as a stale acquire on others, so both are handled.
 	void ResizeToWindow(fw::platform::Sdl3Window & window, rhi::Swapchain & swapchain, rhi::Queue & queue, rhi::Error & error)
 	{
 		const rhi::Extent2D size = window.GetDrawableSize();
@@ -70,11 +62,6 @@ namespace
 		static_cast<void>(swapchain.Resize(size.width, size.height, error));
 	}
 
-	/*
-	 * One frame: the clear, the overlay over it, and the two layout transitions either side.
-	 *
-	 * A back buffer arrives undefined every frame, since its previous contents were presented, and it has to leave in the present layout.
-	 */
 	[[nodiscard]] bool RecordFrame(rhi::CommandList & list, const rhi::Swapchain & swapchain, const rhi::AcquireResult & acquired,
 		rhi::imgui::Renderer & renderer, const ImDrawData & drawData, const std::uint32_t slot, rhi::Error & error)
 	{
@@ -104,10 +91,6 @@ namespace
 			},
 		};
 
-		/*
-		 * The texture requests first, because they record copies and layout transitions and neither is allowed inside a rendering scope. Then the pass, with the
-		 * draws in it. Those two calls are the whole of the renderer's frame.
-		 */
 		return list.Begin(error) && renderer.UpdateTextures(list, drawData, slot, error) &&
 			   list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
 			   list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.GetWidth(), .height = swapchain.GetHeight() }, error) &&
@@ -115,7 +98,7 @@ namespace
 			   list.End(error);
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -157,8 +140,6 @@ int main(int argc, char ** argv)
 		rhi::DeviceBuilder()
 			.DebugName("imgui_overlay")
 			.GraphicsQueue()
-			// Developer validation, because a renderer written against a new API gets its vertex layout, its scissor rectangles or its descriptor bindings wrong long
-			// before it draws nothing at all, and the count at the bottom is what says whether that happened.
 			.Validation(rhi::ValidationMode::eDeveloper)
 			.Build(backends.Registry(), backends.PreferredApis().first(1));
 	if (!device)
@@ -190,22 +171,16 @@ int main(int argc, char ** argv)
 
 	LOG_INFO(fw::Log(), "{} at {}x{}", dev.GetGraphicsApiName(), swapchain.GetWidth(), swapchain.GetHeight());
 
-	// ImGui's context has to exist before the renderer, which reads the font atlas off it.
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
 
-	// InitForOther and not one of the per-API entry points, because the drawing half is ours and this only wants the window.
 	if (!ImGui_ImplSDL3_InitForOther(window.GetHandle()))
 	{
 		LOG_ERROR(fw::Log(), "ImGui's SDL3 backend did not start");
 		return 1;
 	}
 
-	/*
-	 * The arena the renderer allocates its descriptor sets from, one per texture ImGui has live at once. A font atlas and a little room for whatever the
-	 * application puts in the interface with ImGui::Image, which for this one is nothing.
-	 */
 	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
@@ -292,7 +267,6 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		// Whatever the last frame dropped, now that the ring has told us the GPU is past it.
 		static_cast<void>(renderer.Retire(ring.Retire(), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
@@ -308,16 +282,11 @@ int main(int argc, char ** argv)
 		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
 	}
 
-	// Before the renderer, whose resources the GPU may still be reading, and before ImGui's context, which the renderer read its atlas off.
 	static_cast<void>(queue.WaitIdle(error));
 
 	ImGui_ImplSDL3_Shutdown();
 	ImGui::DestroyContext();
 
-	/*
-	 * What actually reached the GPU and not how many frames went by. A renderer that recorded nothing still presents a cleared window, so the vertex count is the
-	 * part that says the geometry made it, and the validation count is the part that says it was well formed.
-	 */
 	const rhi::ValidationMessageCounts validation = dev.GetValidationMessageCounts();
 
 	LOG_INFO(fw::Log(), "presented {} frames, {} vertices and {} indices", ring.FrameIndex(), drawnVertices, drawnIndices);

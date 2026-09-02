@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -60,7 +55,6 @@ namespace
 
 	TEST_P(DeviceCoexistenceTest, TearsDownTwoDevicesThatWereCreatedWithDifferentValidationModes)
 	{
-		// Order matters: created first and destroyed last, so a backend that reconfigures process-wide state on the second device is caught at teardown.
 		std::unique_ptr<test::DeviceHarness> validating = MakeDevice(rhi::ValidationMode::eDeveloper);
 		ASSERT_NE(validating, nullptr);
 
@@ -150,4 +144,4 @@ namespace
 		EXPECT_GT(created.load(), 0) << CurrentBackend().displayName << " refused every concurrent create, so this proved nothing";
 	}
 
-} // namespace
+}

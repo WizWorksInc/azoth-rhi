@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -33,13 +28,6 @@ namespace azo::rhi::metal
 
 		swapchain->currentDrawable = NS::RetainPtr(drawable);
 
-		/*
-		 * Re-point the persistent back-buffer handle at this frame's drawable texture so recording and barriers resolve it. The drawable owns the texture so retain
-		 * it for as long as the slot holds it.
-		 *
-		 * The slots were claimed once when the swapchain was created and are written in place here, not stored afresh, which is what keeps the handle the caller
-		 * holds naming the same slot every frame. Nothing else writes them and acquire belongs to the one thread driving presentation.
-		 */
 		{
 			NS::SharedPtr<MTL::Texture> texture = NS::RetainPtr(drawable->texture());
 
@@ -81,8 +69,6 @@ namespace azo::rhi::metal
 			return PresentResult{ .status = SwapchainStatus::eError };
 		}
 
-		// Present on its own command buffer that waits for the render-finished semaphore the submit signaled so the drawable is shown only after its frame has
-		// rendered. Presentation runs on the graphics queue.
 		MTL::CommandQueue * presentQueue = device->CommandQueueFor(QueueType::eGraphics);
 		if (presentQueue == nullptr)
 		{
@@ -120,7 +106,6 @@ namespace azo::rhi::metal
 	{
 		auto * swapchain = static_cast<MetalSwapchain *>(impl);
 
-		// Creation makes one per image and never fewer than one, so this only keeps the wrap below from dividing by zero on a swapchain that failed part way.
 		if (swapchain->presentSemaphores.empty())
 		{
 			return {};
@@ -137,7 +122,6 @@ namespace azo::rhi::metal
 
 	bool MetalSwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept
 	{
-		// The layer is created with framebufferOnly off so drawable textures can be copied for capture.
 		return true;
 	}
 
@@ -167,8 +151,6 @@ namespace azo::rhi::metal
 
 	namespace
 	{
-		// Metal presentation sync is a single layer property so the modes that describe how frames queue up have no equivalent here. Mailbox and relaxed FIFO both
-		// collapse to plain FIFO and only immediate turns display sync off.
 		[[nodiscard]] PresentMode EffectivePresentMode(PresentMode mode) noexcept
 		{
 			return mode == PresentMode::eImmediate ? PresentMode::eImmediate : PresentMode::eFifo;
@@ -178,7 +160,7 @@ namespace azo::rhi::metal
 		{
 			return static_cast<MetalSwapchain *>(impl)->presentMode;
 		}
-	} // namespace
+	}
 
 	bool MetalSwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept
 	{
@@ -228,7 +210,6 @@ namespace azo::rhi::metal
 		layer->setDevice(device->device.get());
 		layer->setPixelFormat(MetalPixelFormat(desc.preferredFormat));
 		layer->setDrawableSize(CGSize{ static_cast<CGFloat>(desc.width), static_cast<CGFloat>(desc.height) });
-		// Drawables default to framebuffer-only, which blocks frame-capture copies. Allow copying out.
 		layer->setFramebufferOnly(false);
 		const PresentMode presentMode = EffectivePresentMode(desc.presentMode);
 		layer->setDisplaySyncEnabled(presentMode != PresentMode::eImmediate);
@@ -242,8 +223,6 @@ namespace azo::rhi::metal
 		swapchain->width	   = desc.width;
 		swapchain->height	   = desc.height;
 		swapchain->imageCount  = imageCount;
-		// Claimed from the tables that hold them so acquire has a slot to write each frame and a caller holding one of these handles resolves it the same way it
-		// resolves any other texture.
 		swapchain->backBuffer	  = device->textures.Store(MetalTextureSlot{ .format = swapchain->format, .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->backBufferView = device->textureViews.Store(MetalTextureViewSlot{ .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->imageAvailable = MetalCreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr);
@@ -260,4 +239,4 @@ namespace azo::rhi::metal
 		return ReturnValue<void *>(raw, error);
 	}
 
-} // namespace azo::rhi::metal
+}

@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Vulkan's image layout derivation, which this backend owns.
- */
 
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/flags.hpp"
@@ -27,7 +17,6 @@
 namespace azo::rhi::vulkan
 {
 
-	// unifiedLayouts is a parameter and not a device read because no ICD here has the extension, leaving the asserts below as that branch's only coverage.
 	[[nodiscard]] constexpr vk::ImageLayout LayoutForUse(const Flags<ResourceUse> use, const bool unifiedLayouts) noexcept
 	{
 		if (use.Contains(ResourceUse::eDiscard))
@@ -43,13 +32,11 @@ namespace azo::rhi::vulkan
 			return vk::ImageLayout::eGeneral;
 		}
 
-		// A storage binding reads and writes through the same descriptor and is legal in GENERAL alone.
 		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
 		{
 			return vk::ImageLayout::eGeneral;
 		}
 
-		// Sampling a depth texture that is also under test is the one read pair with a layout of its own, so it is answered before the fold below.
 		if (use.Contains(ResourceUse::eDepthStencilRead) && use.Contains(ResourceUse::eSampledRead))
 		{
 			return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
@@ -58,7 +45,6 @@ namespace azo::rhi::vulkan
 		vk::ImageLayout chosen = vk::ImageLayout::eUndefined;
 		bool conflict		   = false;
 
-		// Uses are folded by the layout each one wants, not counted, so a pair wanting the same layout keeps it.
 		const auto want = [&](const vk::ImageLayout layout)
 		{
 			conflict = conflict || (chosen != vk::ImageLayout::eUndefined && chosen != layout);
@@ -98,7 +84,6 @@ namespace azo::rhi::vulkan
 			want(vk::ImageLayout::eTransferDstOptimal);
 		}
 
-		// Two uses wanting different layouts cannot both be served, and GENERAL is the only one that serves either.
 		return conflict ? vk::ImageLayout::eGeneral : chosen;
 	}
 
@@ -141,11 +126,10 @@ namespace azo::rhi::vulkan
 	static_assert(LayoutForUse(Flags<ResourceUse>(ResourceUse::eDiscard) | ResourceUse::eCopyDst, false) == vk::ImageLayout::eUndefined,
 		"discard wins over whatever it is paired with, since a before state that preserves nothing is what lets the driver skip the transition");
 
-	// The rows below are what the attachment and descriptor call sites reach that a barrier alone would not.
 	static_assert(LayoutForUse(Flags<ResourceUse>(ResourceUse::eDepthStencilTarget) | ResourceUse::eDepthStencilRead, false) == vk::ImageLayout::eGeneral,
 		"a depth attachment both tested and written wants two different layouts at once, and only GENERAL serves both halves of that pair");
 
 	static_assert(LayoutForUse(Flags<ResourceUse>(), false) == vk::ImageLayout::eUndefined,
 		"a use naming nothing reaches no layout, which is legal as a barrier before-state and is the caller's error anywhere else");
 
-} // namespace azo::rhi::vulkan
+}

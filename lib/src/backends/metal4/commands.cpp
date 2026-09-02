@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,15 +11,6 @@
 
 namespace azo::rhi::metal4
 {
-	/*
-	 * The RHI's pipeline stages against Metal 4's.
-	 *
-	 * Coarser on this side than on Vulkan's, because Metal names the stages an encoder runs in and not the finer graph a Vulkan barrier can address. Anything
-	 * with no distinct Metal stage folds into the nearest one that contains it, which widens a barrier instead of narrowing it, and a barrier that waits for
-	 * more than it had to is slow where one that waits for less is wrong.
-	 *
-	 * Constexpr so the rows below can be pinned by a compile. Nothing outside this file calls it.
-	 */
 	constexpr MTL::Stages StagesFor(const Flags<Stage> stages) noexcept
 	{
 		if (stages.Contains(Stage::eAllCommands) || stages.Contains(Stage::eAllGraphics))
@@ -34,7 +20,6 @@ namespace azo::rhi::metal4
 
 		NS::UInteger out = 0;
 
-		// Metal names no stage that fetches indirect arguments, and a barrier cannot tell a draw's fetch from a dispatch's, so eIndirectFetch names both.
 		if (stages.Contains(Stage::eVertexWork) || stages.Contains(Stage::eIndirectFetch))
 		{
 			out |= MTL::StageVertex;
@@ -45,19 +30,16 @@ namespace azo::rhi::metal4
 			out |= MTL::StageDispatch;
 		}
 
-		// Depth and stencil testing and colour output happen inside the fragment stage here, having no encoder stage of their own.
 		if (stages.Contains(Stage::eFragmentShading) || stages.Contains(Stage::eDepthStencil) || stages.Contains(Stage::eColorOutput))
 		{
 			out |= MTL::StageFragment;
 		}
 
-		// Copies and buffer clears record on the compute encoder, which Metal still counts as the blit stage and not as dispatch.
 		if (stages.Contains(Stage::eCopy))
 		{
 			out |= MTL::StageBlit;
 		}
 
-		// A texture clear is a clear load action and a resolve is a multisample-resolve store action, so both are render pass work rather than blit work.
 		if (stages.Contains(Stage::eCopy) || stages.Contains(Stage::eResolve))
 		{
 			out |= MTL::StageFragment;
@@ -68,24 +50,16 @@ namespace azo::rhi::metal4
 			out |= MTL::StageAccelerationStructure;
 		}
 
-		// Metal names no tracing stage, so tracing is whichever shader traces. StageAccelerationStructure covers a structure, which is what eAccelBuild names.
 		if (stages.Contains(Stage::eRayTracing))
 		{
 			out |= MTL::StageVertex | MTL::StageFragment | MTL::StageDispatch;
 		}
 
-		// eHost is not a GPU stage, so StageAll cannot be wrong. Zero is not an option, FlushPending reading a zero consumer as nothing pending.
 		return out != 0 ? static_cast<MTL::Stages>(out) : MTL::StageAll;
 	}
 
 	namespace
 	{
-		/*
-		 * The stages a barrier side names, taken from the caller's own set or derived from the use when it left one out.
-		 *
-		 * A use that reaches no memory access derives nothing rather than everything. Present and discard are the whole of that set, and deriving there would
-		 * cost a full-pipeline barrier on the per-frame path for an edge that orders no access on either side.
-		 */
 		[[nodiscard]] constexpr Flags<Stage> StagesOf(const ResourceState & state) noexcept
 		{
 			if (!state.stages.Empty())
@@ -104,7 +78,6 @@ namespace azo::rhi::metal4
 				out |= Stage::eVertexWork;
 			}
 
-			// A shader binding names no stage of its own, so any encoder could be the one that reads it.
 			if (state.use.Contains(ResourceUse::eUniformRead) || state.use.Contains(ResourceUse::eSampledRead) ||
 				state.use.Contains(ResourceUse::eStorageRead) || state.use.Contains(ResourceUse::eStorageWrite))
 			{
@@ -144,12 +117,6 @@ namespace azo::rhi::metal4
 			return out;
 		}
 
-		/*
-		 * The rows above that were shipped wrong once, pinned by a compile so a later edit cannot undo them in silence.
-		 *
-		 * No backend exposes a stage mask, so none of these can be asserted from a test. A constexpr assert is checked wherever this file compiles, which is the
-		 * same instrument the Vulkan layout table and the D3D12 barrier tables are held to.
-		 */
 		static_assert(StagesFor(Stage::eIndirectFetch) == static_cast<MTL::Stages>(MTL::StageVertex | MTL::StageDispatch),
 			"an indirect dispatch fetches its arguments on the dispatch stage, so naming vertex alone leaves the fetch unordered against the write that filled "
 			"the argument buffer");
@@ -167,13 +134,6 @@ namespace azo::rhi::metal4
 		static_assert(StagesFor(StagesOf(ResourceState{ .use = ResourceUse::eAccelBuildScratch })) == MTL::StageAccelerationStructure,
 			"a build scratch is touched by the build and by nothing else here, so it names the one stage that runs a build and never widens to everything");
 
-		/*
-		 * What each encoder kind runs, and what an intra-pass barrier inside it may wait for.
-		 *
-		 * The two differ only on the render encoder: a tile based deferred renderer cannot hold a pass open waiting for its own fragment or tile work, so
-		 * naming fragment there aborts in the validation layer and corrupts the command buffer's resource table without it. Tile, object and mesh stay out of
-		 * the render masks because nothing here builds a pipeline that runs them.
-		 */
 		constexpr MTL::Stages kRenderEncoderStages	 = static_cast<MTL::Stages>(MTL::StageVertex | MTL::StageFragment);
 		constexpr MTL::Stages kRenderWaitableStages	 = MTL::StageVertex;
 		constexpr MTL::Stages kComputeEncoderStages	 = static_cast<MTL::Stages>(MTL::StageDispatch | MTL::StageBlit | MTL::StageAccelerationStructure);
@@ -184,15 +144,6 @@ namespace azo::rhi::metal4
 			return static_cast<MTL::Stages>(static_cast<NS::UInteger>(stages) & static_cast<NS::UInteger>(mask));
 		}
 
-		/*
-		 * A barrier recorded while an encoder is open, the mid-pass placement.
-		 *
-		 * barrierAfterStages is the producer form and carries the whole dependency: everything a later encoder runs waits for what is already recorded. Both
-		 * masks take any stage, so neither side is narrowed.
-		 *
-		 * barrierAfterEncoderStages covers only the rest of this same encoder, and is skipped, not widened, when either side falls outside it. No gap: this
-		 * generation will not wait on a fragment producer, and later encoders are covered above.
-		 */
 		template <typename EncoderT>
 		void RecordBarrier(EncoderT * encoder, const MTL::Stages waitable, const MTL::Stages runnable, const MTL::Stages producer, const MTL::Stages consumer,
 			const MTL4::VisibilityOptions visibility) noexcept
@@ -207,12 +158,6 @@ namespace azo::rhi::metal4
 			}
 		}
 
-		/*
-		 * A barrier recorded with nothing open, replayed onto the encoder it was waiting for.
-		 *
-		 * barrierAfterQueueStages is the consumer form: this encoder waits for the ones before it, which is exactly where the barrier sat. Both of its masks
-		 * take any stage too, so the producer arrives as it was written even though it names work a different kind of encoder ran.
-		 */
 		template <typename EncoderT>
 		void FlushPending(CmdList * list, EncoderT * encoder) noexcept
 		{
@@ -227,7 +172,6 @@ namespace azo::rhi::metal4
 			list->pendingVisibility = MTL4::VisibilityOptionNone;
 		}
 
-		// Whichever encoder is open takes the barrier, and with none open it is held. Shared so an alias barrier is placed exactly where an ordinary one is.
 		void PlaceBarrier(CmdList * list, const MTL::Stages producer, const MTL::Stages consumer, const MTL4::VisibilityOptions visibility) noexcept
 		{
 			if (list->renderEncoder.get() != nullptr)
@@ -240,17 +184,13 @@ namespace azo::rhi::metal4
 			}
 			else
 			{
-				/*
-				 * Nothing is open, so there is no encoder to record on and opening one to host a barrier is what this used to do. An encoder holding nothing but a
-				 * barrier has no work on either side of it to order, so the barrier is held for the next encoder instead, which is the one it was recorded for.
-				 */
 				list->pendingProducer = static_cast<MTL::Stages>(static_cast<NS::UInteger>(list->pendingProducer) | static_cast<NS::UInteger>(producer));
 				list->pendingConsumer = static_cast<MTL::Stages>(static_cast<NS::UInteger>(list->pendingConsumer) | static_cast<NS::UInteger>(consumer));
 				list->pendingVisibility =
 					static_cast<MTL4::VisibilityOptions>(static_cast<NS::UInteger>(list->pendingVisibility) | static_cast<NS::UInteger>(visibility));
 			}
 		}
-	} // namespace
+	}
 
 	void FlushPendingBarrier(CmdList * list, MTL4::RenderCommandEncoder * encoder) noexcept
 	{
@@ -262,17 +202,30 @@ namespace azo::rhi::metal4
 		FlushPending(list, encoder);
 	}
 
-	/*
-	 * Closing whatever is open, and signing off on any timestamps it took.
-	 *
-	 * The fence update belongs here and not where the resolve is recorded, because the encoder that wrote a timestamp has usually closed by then. A frame that
-	 * times a dispatch and then renders has no encoder open at all when it resolves, so a fence taken at that point would order nothing and the resolve would
-	 * read slots the GPU had not written yet.
-	 */
+	void PopEncoderDebugGroups(CmdList * list, MTL4::CommandEncoder * encoder) noexcept
+	{
+		if (encoder == nullptr)
+		{
+			return;
+		}
+
+		for (std::size_t index = list->debugLabelScopes.size(); index-- > 0;)
+		{
+			if (list->debugLabelScopes[index] != list->encoderEpoch)
+			{
+				break;
+			}
+
+			encoder->popDebugGroup();
+			list->debugLabelScopes[index] = kDebugScopeClosed;
+		}
+	}
+
 	void EndActiveEncoders(CmdList * list) noexcept
 	{
 		if (list->renderEncoder.get() != nullptr)
 		{
+			PopEncoderDebugGroups(list, list->renderEncoder.get());
 			if (list->wroteEncoderTimestamps && list->timestampFence.get() != nullptr)
 			{
 				list->renderEncoder->updateFence(list->timestampFence.get(), kRenderEncoderStages);
@@ -283,6 +236,7 @@ namespace azo::rhi::metal4
 		}
 		if (list->computeEncoder.get() != nullptr)
 		{
+			PopEncoderDebugGroups(list, list->computeEncoder.get());
 			if (list->wroteEncoderTimestamps && list->timestampFence.get() != nullptr)
 			{
 				list->computeEncoder->updateFence(list->timestampFence.get(), kComputeEncoderStages);
@@ -293,13 +247,6 @@ namespace azo::rhi::metal4
 		}
 	}
 
-	/*
-	 * The compute encoder, opened once and kept.
-	 *
-	 * Metal 3 opens a blit encoder per copy and closes it again, because a blit encoder is a different object from the compute one and every switch between
-	 * them costs an encoder. Here they are the same encoder, so a run of copies and dispatches records into one and the only thing that closes it is a
-	 * rendering scope or the end of the list.
-	 */
 	MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object, Error * error) noexcept
 	{
 		CmdList * list = RecordingListOf(object);
@@ -313,7 +260,6 @@ namespace azo::rhi::metal4
 			return list->computeEncoder.get();
 		}
 
-		// A rendering scope and a compute scope cannot both be open, and ending the caller's pass is a different operation, so it is refused instead.
 		if (list->renderEncoder.get() != nullptr)
 		{
 			return FailValue<MTL4::ComputeCommandEncoder *>(
@@ -328,20 +274,13 @@ namespace azo::rhi::metal4
 
 		encoder->setArgumentTable(list->argumentTable.get());
 		list->computeEncoder = NS::RetainPtr(encoder);
+		++list->encoderEpoch;
 		FlushPendingBarrier(list, encoder);
 		return encoder;
 	}
 
-	/*
-	 * Push constant bytes into memory a shader can reach.
-	 *
-	 * An argument table binds addresses, and this generation has no inline setBytes, so the bytes need a buffer. Written at a bump offset inside a block and a
-	 * new block added when one fills, so a list pushing constants every draw still allocates only once. The blocks are dropped at the next Begin, by which
-	 * point the caller has waited for the submission that read them.
-	 */
 	MTL::GPUAddress WritePushConstants(Metal4Device * device, CmdList * list, const void * data, const std::uint32_t size) noexcept
 	{
-		// Metal wants a buffer offset aligned, and 256 covers every constant alignment the ABI can ask for.
 		constexpr std::uint64_t kAlignment = 256;
 		constexpr std::uint64_t kBlockSize = 64 * 1024;
 
@@ -355,10 +294,6 @@ namespace azo::rhi::metal4
 				return 0;
 			}
 
-			/*
-			 * A block this list already holds comes first. Begin rewound the cursor, so a recording that needed three blocks last frame walks those same three
-			 * this frame and allocates nothing. Only a recording that outgrows every block it owns adds one.
-			 */
 			const std::size_t next = list->pushConstantBlocks.empty() ? 0 : list->pushConstantBlock + 1;
 			if (next < list->pushConstantBlocks.size())
 			{
@@ -378,7 +313,6 @@ namespace azo::rhi::metal4
 					return 0;
 				}
 
-				// Bound by address like everything else here, so it has to be resident like everything else here.
 				NoteListAllocation(list, owned.get());
 				list->pushConstantBlock = list->pushConstantBlocks.size() - 1;
 			}
@@ -396,13 +330,6 @@ namespace azo::rhi::metal4
 		return address;
 	}
 
-	/*
-	 * Beginning a recording.
-	 *
-	 * Metal 3 makes a fresh command buffer per Begin because a Metal command buffer is single use. Here the command buffer is reused and the allocator behind
-	 * it is reset, which is the same single-use rule expressed as recycling the memory and not the object. Resetting invalidates everything the allocator
-	 * handed out before, which is why an allocator belongs to one list and is never shared.
-	 */
 	bool Metal4CmdBegin(void * impl, Error * error) noexcept
 	{
 		auto * object  = static_cast<Metal4Object *>(impl);
@@ -414,13 +341,6 @@ namespace azo::rhi::metal4
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
-		/*
-		 * A Begin on a list that is already recording closes what it had first.
-		 *
-		 * An allocator holds one open command buffer, and beginning a second against it is refused by Metal, not treated as a restart. The RHI's own lifecycle
-		 * check catches this in the validation modes that run it, so what reaches here is a caller in a mode that does not, and dropping the previous recording
-		 * is what the other generation does by making a fresh command buffer.
-		 */
 		if (list->lifecycle == 1)
 		{
 			EndActiveEncoders(list);
@@ -430,7 +350,6 @@ namespace azo::rhi::metal4
 		list->allocator->reset();
 		list->commandBuffer->beginCommandBuffer(list->allocator.get());
 
-		// What this recording's own transients are held in, declared here so it does not have to be one of the thirty-two a queue will take.
 		if (list->residency.get() != nullptr)
 		{
 			list->commandBuffer->useResidencySet(list->residency.get());
@@ -441,7 +360,6 @@ namespace azo::rhi::metal4
 			list->commandBuffer->setLabel(NS::String::string(list->debugName.c_str(), NS::UTF8StringEncoding));
 		}
 
-		// The previous recording's transients belong to a submission the caller has already waited for.
 		list->keepAlive.clear();
 		list->wroteEncoderTimestamps = false;
 		list->debugLabelScopes.clear();
@@ -449,21 +367,13 @@ namespace azo::rhi::metal4
 		list->pendingConsumer	= static_cast<MTL::Stages>(0);
 		list->pendingVisibility = MTL4::VisibilityOptionNone;
 
-		/*
-		 * The push constant blocks are kept and rewound, not dropped and remade.
-		 *
-		 * A list outlives its recordings once a pool takes them back, so a block rebuilt every Begin would leave the set below holding one dead buffer per
-		 * frame. The caller has waited for the submission that read them, which is what a pool reset promises, so reuse cannot hand back a block the GPU is
-		 * still reading. Rewinding means both the block cursor and the offset inside it, since leaving the cursor on the last block makes every write land
-		 * there and strands the ones before it.
-		 */
 		list->pushConstantBlock	 = 0;
 		list->pushConstantOffset = 0;
 
-		/*
-		 * The residency set is rebuilt from what this recording will actually use. Removing everything and putting the kept blocks back leaves it holding this
-		 * frame's transients and nothing else.
-		 */
+		list->boundIndexBuffer = 0;
+		list->boundPrimitive   = MTL::PrimitiveTypeTriangle;
+		list->boundThreadGroup = MTL::Size{ 1, 1, 1 };
+
 		if (list->residency.get() != nullptr)
 		{
 			list->residency->removeAllAllocations();
@@ -495,15 +405,6 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * Barriers, which on this generation are real.
-	 *
-	 * Metal 3 tracks hazards inside one command buffer itself, so the batch lowers to nothing there. Metal 4 gives that up for explicit control, so a
-	 * BarrierBatch reaches the driver and a caller that under-declares gets a race the other generation covered for.
-	 *
-	 * One barrier for the batch, not one per resource: Metal's barrier is between stage sets and names no resource, so the batch collapses to the union on each
-	 * side.
-	 */
 	bool Metal4CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.barriers");
@@ -543,18 +444,6 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * Aliasing, which this generation covers with a visibility option rather than a fence.
-	 *
-	 * Two resources over the same bytes need the caches flushed to the point aliased virtual addresses agree at, which is what VisibilityOptionResourceAlias
-	 * asks for. Metal 3 has no such option and buys the same ordering by closing the encoder and passing a fence to the next one.
-	 *
-	 * So no encoder closes here. The barrier names every stage on both sides because an AliasBarrier carries resources rather than stages, and either resource
-	 * may have been touched by any kind of work.
-	 *
-	 * A rendering scope is refused, matching the other generation. Placed inside a pass the intra-encoder half drops fragment from the producer side under the
-	 * constraint above, so the rest of that pass would not be ordered against fragment work already in it and the call would be half honoured in silence.
-	 */
 	bool Metal4CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.aliasBarriers");
@@ -574,7 +463,6 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
 		}
 
-		// Checked resolves, unlike elsewhere here: with validation off nothing ahead looks at a handle, and the barrier below would name a freed resource.
 		Metal4Device * device = object->owner;
 		for (const AliasBarrier & barrier : barriers)
 		{
@@ -609,7 +497,6 @@ namespace azo::rhi::metal4
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 		NS::String * label							  = NS::String::string(name != nullptr ? name : "", NS::UTF8StringEncoding);
 
-		// Pushed on whatever is open, and remembered so the pop reaches the same object and not whatever is open by then.
 		MTL4::CommandEncoder * scope = nullptr;
 		if (list->renderEncoder.get() != nullptr)
 		{
@@ -629,7 +516,7 @@ namespace azo::rhi::metal4
 			list->commandBuffer->pushDebugGroup(label);
 		}
 
-		if (!detail::TryPushBack(list->debugLabelScopes, scope))
+		if (!detail::TryPushBack(list->debugLabelScopes, scope != nullptr ? list->encoderEpoch : kDebugScopeCommandBuffer))
 		{
 			return Fail(error, ErrorCode::eOutOfHostMemory, "debug label tracking failed");
 		}
@@ -651,20 +538,21 @@ namespace azo::rhi::metal4
 			return Succeed(error);
 		}
 
-		MTL4::CommandEncoder * scope = list->debugLabelScopes.back();
+		const std::uint64_t opened = list->debugLabelScopes.back();
 		list->debugLabelScopes.pop_back();
 
-		/*
-		 * A label opened inside an encoder that has since closed went with it, so there is nothing to pop. Testing the pointer against what is open now is what
-		 * tells those apart.
-		 */
-		if (scope != nullptr)
+		if (opened == kDebugScopeClosed)
 		{
-			const bool stillOpen = scope == static_cast<MTL4::CommandEncoder *>(list->renderEncoder.get()) ||
-								   scope == static_cast<MTL4::CommandEncoder *>(list->computeEncoder.get());
-			if (stillOpen)
+			return Succeed(error);
+		}
+
+		if (opened != kDebugScopeCommandBuffer)
+		{
+			MTL4::CommandEncoder * live = list->renderEncoder.get() != nullptr ? static_cast<MTL4::CommandEncoder *>(list->renderEncoder.get())
+																			   : static_cast<MTL4::CommandEncoder *>(list->computeEncoder.get());
+			if (live != nullptr && opened == list->encoderEpoch)
 			{
-				scope->popDebugGroup();
+				live->popDebugGroup();
 			}
 
 			return Succeed(error);
@@ -692,7 +580,6 @@ namespace azo::rhi::metal4
 			return false;
 		}
 
-		// The same MTLComputePipelineState the other generation builds. Pipelines did not fork.
 		encoder->setComputePipelineState(tracked->state.get());
 		list->boundThreadGroup = tracked->threadsPerThreadgroup;
 		return Succeed(error);
@@ -707,7 +594,6 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "dispatch without a bound compute pipeline");
 		}
 
-		// Re-set immediately before the dispatch, in case the encoder took a copy of the table when it was first handed one instead of at dispatch time.
 		list->computeEncoder->setArgumentTable(list->argumentTable.get());
 		list->computeEncoder->dispatchThreadgroups(MTL::Size::Make(x, y, z), list->boundThreadGroup);
 		return Succeed(error);
@@ -729,7 +615,6 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "dispatchIndirect names a buffer this device never created");
 		}
 
-		// An address, not a buffer and an offset, which is how this generation takes indirect arguments.
 		list->computeEncoder->dispatchThreadgroups(buffer->gpuAddress() + offset, list->boundThreadGroup);
 		return Succeed(error);
 	}
@@ -787,8 +672,6 @@ namespace azo::rhi::metal4
 
 		for (const BufferTextureCopy & region : regions)
 		{
-			// Block arithmetic and not texel arithmetic, as on the other generation: a row length is in texels and converts through the block grid, and an
-			// image height counts block rows.
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
 			const NS::UInteger bytesPerRow	 = static_cast<NS::UInteger>(detail::TightRowPitch(format, rowTexels));
@@ -899,12 +782,6 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * Filling a buffer, which Metal takes a byte value for and the RHI states as a word.
-	 *
-	 * Four equal bytes lower to a fill, which allocates nothing. Anything else is staged as a word pattern in a shared buffer and copied in, which is what the
-	 * other generation does for every value. Clearing to zero is most of the calls, so keeping the fill for that case saves a staging allocation per clear.
-	 */
 	bool Metal4CmdClearBuffer(
 		void * impl, BufferHandle buffer, const std::uint64_t offset, const std::uint64_t size, const std::uint32_t value, Error * error) noexcept
 	{
@@ -951,12 +828,10 @@ namespace azo::rhi::metal4
 			words[i] = value;
 		}
 
-		// Read by the copy below, so it has to be reachable like anything else the GPU touches here.
 		NoteListAllocation(list, staging.get());
 
 		encoder->copyFromBuffer(staging.get(), 0, destination, offset, wordCount * 4);
 
-		// Held until the next Begin, by which point the caller has waited for the submission that read it.
 		if (!detail::TryPushBack(list->keepAlive, staging))
 		{
 			return Fail(error, ErrorCode::eOutOfHostMemory, "clear staging buffer tracking failed");
@@ -965,12 +840,6 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * Clearing a texture, which is a load action and not a command on either generation.
-	 *
-	 * One rendering scope per subresource, opened with a clear load action and closed with no draw in it, which is what performs the clear. The scope is the
-	 * operation, so the compute encoder has to give way first.
-	 */
 	bool Metal4CmdClearTexture(
 		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
@@ -992,12 +861,6 @@ namespace azo::rhi::metal4
 
 		MTL::Texture * tex = slot->texture.get();
 
-		/*
-		 * Metal clears a color texture by opening a render pass over it, which a texture created without MTLTextureUsageRenderTarget cannot be an attachment
-		 * of. Refused here with a reason instead of left to the validation layer, which traps in a debug build and reads back nothing at all in a release one.
-		 *
-		 * The same refusal Direct3D 12 makes, for the same reason: it clears through a render target view.
-		 */
 		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
@@ -1008,8 +871,6 @@ namespace azo::rhi::metal4
 
 		for (const TextureSubresourceRange & range : ranges)
 		{
-			// The clear value is a color, and a depth or stencil slice needs a different attachment and a different clear value, so a range naming one is
-			// refused, not cleared to something nobody asked for.
 			if (range.aspects.Contains(TextureAspect::eDepth) || range.aspects.Contains(TextureAspect::eStencil))
 			{
 				return Fail(error, ErrorCode::eUnsupportedFeature, "Metal clearTexture clears color aspects only");
@@ -1031,7 +892,6 @@ namespace azo::rhi::metal4
 				{
 					const NS::SharedPtr<MTL4::RenderPassDescriptor> pass = NS::TransferPtr(MTL4::RenderPassDescriptor::alloc()->init());
 
-					// The attachment descriptors did not fork: a Metal 4 render pass holds the same ones.
 					MTL::RenderPassColorAttachmentDescriptor * attachment = pass->colorAttachments()->object(0);
 					attachment->setTexture(tex);
 					attachment->setLevel(mip);
@@ -1046,6 +906,7 @@ namespace azo::rhi::metal4
 						return Fail(error, ErrorCode::eNativeApiError, "Metal 4 clear render command encoder creation failed");
 					}
 
+					FlushPendingBarrier(list, encoder);
 					encoder->endEncoding();
 				}
 			}
@@ -1072,7 +933,6 @@ namespace azo::rhi::metal4
 			return Succeed(error);
 		}
 
-		// generateMipmaps renders and filters, so it takes only a format that does both. Metal's limit and not the RHI's, so it is asked whatever the mode.
 		const Metal4TextureSlot * slot = device->textures.Resolve(texture, kHandleAlreadyChecked);
 		if (slot != nullptr && (IsCompressedFormat(slot->format) || IsIntegerFormat(slot->format) || IsDepthFormat(slot->format)))
 		{
@@ -1090,22 +950,12 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * Refused for the reason the other generation refuses it: Metal has no fixed function scaled blit, on either generation, and resampling belongs to the
-	 * utility target which dispatches a compute shader for it.
-	 */
 	bool Metal4CmdBlit(void * impl, TextureHandle, TextureHandle, std::span<const TextureBlit>, Filter, Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal has no scaled blit, so resampling goes through the utility target's compute path");
 	}
 
-	/*
-	 * Resolving, which Metal performs through a store action and not a copy.
-	 *
-	 * The multisampled source is attached, the single sample destination is named as its resolve target, and ending the scope with no draw in it performs the
-	 * resolve.
-	 */
 	bool Metal4CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveTexture");
@@ -1130,8 +980,6 @@ namespace azo::rhi::metal4
 
 		for (const TextureResolve & region : regions)
 		{
-			// A store-action resolve covers the whole attachment. A region naming a sub-rectangle cannot be honored and resolving everything instead would write
-			// outside what the caller asked for so it is refused, as it is on the other generation.
 			const bool wholeSlice = region.srcOffset.x == 0 && region.srcOffset.y == 0 && region.srcOffset.z == 0 && region.dstOffset.x == 0 &&
 									region.dstOffset.y == 0 && region.dstOffset.z == 0 &&
 									region.extent.width == static_cast<std::uint32_t>(source->width() >> region.srcSubresource.mip) &&
@@ -1159,10 +1007,11 @@ namespace azo::rhi::metal4
 				return Fail(error, ErrorCode::eNativeApiError, "Metal 4 resolve render command encoder creation failed");
 			}
 
+			FlushPendingBarrier(list, encoder);
 			encoder->endEncoding();
 		}
 
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal4
+}

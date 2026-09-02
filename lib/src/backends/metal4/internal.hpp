@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -56,158 +51,65 @@
 namespace azo::rhi::metal4
 {
 	// How an RHI value becomes a Metal value, which is the same answer here and on the Metal 4 backend. NOLINTNEXTLINE(google-build-using-namespace): the
-	// stateless leaf both Metal backends are written against.
 	using namespace azo::rhi::metal_common;
 
 	struct Metal4Device;
 	struct Metal4Object;
 
-	/**
-	 * \brief What one Metal 4 command list is recording into.
-	 *
-	 * Three objects where Metal 3 had one. A command buffer is transient and takes its memory from an allocator, which is reset, not freed, and the bindings a
-	 * shader sees come from an argument table, not from calls on the encoder.
-	 */
 	struct CmdList final
 	{
 		NS::SharedPtr<MTL4::CommandBuffer> commandBuffer;
 
-		/**
-		 * \brief Backing memory for the command buffer, reset at Begin, not reallocated.
-		 *
-		 * One per list and not one per device, because resetting an allocator invalidates every command buffer built from it and a list has no way to know what
-		 * its siblings are still holding.
-		 */
 		NS::SharedPtr<MTL4::CommandAllocator> allocator;
 
-		/**
-		 * \brief Where bindings go, replacing the per-encoder setBuffer and setTexture calls Metal 3 makes.
-		 *
-		 * Made once when the list is allocated and reused, since its contents are overwritten per bind and its size comes from the device's argument table
-		 * limits and not from anything a caller does.
-		 */
 		NS::SharedPtr<MTL4::ArgumentTable> argumentTable;
 
-		std::uint8_t lifecycle = 0; // 0 allocated, 1 recording, 2 ended, 3 submitted
+		std::uint8_t lifecycle = 0;
 
 		NS::SharedPtr<MTL4::RenderCommandEncoder> renderEncoder;
 
-		/**
-		 * \brief The compute encoder, which on this generation also carries every copy, fill and mip generate.
-		 *
-		 * Metal 4 has no blit encoder. Copies moved onto the compute encoder, which means a copy between two dispatches no longer closes the scope they are in,
-		 * and is why a timestamp can sit between them here and cannot on Metal 3.
-		 */
 		NS::SharedPtr<MTL4::ComputeCommandEncoder> computeEncoder;
 
 		MTL::PrimitiveType boundPrimitive = MTL::PrimitiveTypeTriangle;
 		MTL::Size boundThreadGroup{ 1, 1, 1 };
 
-		/**
-		 * \brief The index buffer as a draw takes it here, an address and a length, not a buffer object.
-		 */
 		MTL::GPUAddress boundIndexBuffer = 0;
 		std::uint64_t boundIndexLength	 = 0;
 		MTL::IndexType boundIndexType	 = MTL::IndexTypeUInt32;
 
-		/**
-		 * \brief Push constant storage, because Metal 4 has no inline setBytes.
-		 *
-		 * Metal 3 hands a push constant range straight to the encoder. An argument table binds addresses only, so the bytes need to live in a buffer that
-		 * outlives the submission. Written at a bump offset and grown by adding another block, so a list pushing constants per draw does not allocate per draw.
-		 *
-		 * The cursor is which block the bump offset is inside. Begin rewinds both, so a recording walks the blocks it already owns instead of adding one per
-		 * frame. Without it a list that ever needed two blocks strands the earlier one on every Begin, since the write always lands in the newest.
-		 */
 		detail::HostVector<NS::SharedPtr<MTL::Buffer>> pushConstantBlocks;
 		std::size_t pushConstantBlock	 = 0;
 		std::uint64_t pushConstantOffset = 0;
 
-		// Transient staging buffers, held until the next Begin drops them, as on the other generation.
 		detail::HostVector<NS::SharedPtr<MTL::Buffer>> keepAlive;
 
-		/**
-		 * \brief The scope's end timestamp, left by Metal4CmdBeginRendering for Metal4CmdEndRendering to write.
-		 *
-		 * The end has to be recorded while the encoder is still open, and Metal4CmdEndRendering is the last point that is true. Null whenever the scope asked
-		 * for no end timestamp.
-		 */
 		NS::SharedPtr<MTL4::CounterHeap> pendingEndHeap;
 		std::uint32_t pendingEndQuery = 0;
 
-		/**
-		 * \brief Whether the open rendering scope has drawn anything.
-		 *
-		 * Which stage the scope's end timestamp is taken after. A timestamp names one stage here, not a mask, and a fragment-stage sample in a scope with no
-		 * draw in it never lands: the stage is never reached, and the slot reads back as the sentinel the reset wrote. Vertex is the boundary such a scope does
-		 * reach.
-		 */
 		bool scopeDrew = false;
 
-		/**
-		 * \brief Orders a counter resolve against the encoder writes it reads.
-		 *
-		 * A resolve runs on the blit stage and is not ordered against an encoder's timestamp writes by sitting after them in command order, which is what the
-		 * wait and update fence pair on resolveCounterHeap is for. Made on first use, since a list that never resolves a query never needs one.
-		 */
 		NS::SharedPtr<MTL::Fence> timestampFence;
 
-		/**
-		 * \brief Whether any encoder in this recording wrote a timestamp.
-		 *
-		 * The fence has to be updated where each encoder closes and not only where the resolve is recorded, because by then the encoder that took the
-		 * sample is long gone. This says whether there is anything to order, so a list that never times anything pays for no fences.
-		 */
 		bool wroteEncoderTimestamps = false;
 
-		/**
-		 * \brief A barrier recorded while no encoder was open, held for the next one to carry.
-		 *
-		 * A caller records a barrier between the work that produces and the scope that consumes, so at that moment there is often no encoder at all. Opening
-		 * one purely to host it spends an encoder on a command that orders nothing.
-		 *
-		 * Held instead, and recorded on the next encoder that opens. Stages and visibility accumulate, so several barriers before one scope collapse into one.
-		 */
 		MTL::Stages pendingProducer				  = static_cast<MTL::Stages>(0);
 		MTL::Stages pendingConsumer				  = static_cast<MTL::Stages>(0);
 		MTL4::VisibilityOptions pendingVisibility = MTL4::VisibilityOptionNone;
 
-		/**
-		 * \brief The list's own residency set, for the transients it makes while recording.
-		 *
-		 * Push constant blocks and staging buffers are made mid-recording and read by the GPU, so they have to be resident. They cannot go in the device's
-		 * sets: those are written under the RHI guard for a resource kind, and recording takes no lock. A set per list is written only by the thread recording
-		 * it.
-		 *
-		 * Made under the object guard, and added to every queue there.
-		 */
 		NS::SharedPtr<MTL::ResidencySet> residency;
 
-		// What each open debug label was pushed on, so the matching pop reaches the same object.
-		detail::HostVector<MTL4::CommandEncoder *> debugLabelScopes;
+		std::uint64_t encoderEpoch = 0;
+		detail::HostVector<std::uint64_t> debugLabelScopes;
 
-		// Name the pool was allocated with, reapplied to each Begin's command buffer.
 		detail::HostString debugName;
 	};
 
-	/**
-	 * \brief The lists one command pool has built, and how many of them are currently out.
-	 *
-	 * Metal 3 makes a command buffer per Allocate and lets it go, the object being transient by design. The four objects behind a list here are not: building a
-	 * set of them per frame and never letting go reaches the abort inside Metal's own resource table in a few minutes.
-	 *
-	 * So the pool keeps them, and a reset only rewinds the count.
-	 */
 	struct CmdPool final
 	{
 		detail::HostVector<Metal4Object *> lists;
 		std::size_t handedOut = 0;
 	};
 
-	/*
-	 * A query pool wraps an MTL4CounterHeap over the timestamp counters. queryCount is kept because a heap cannot be asked its capacity back in a form a resolve
-	 * can range check against, and a resolve past the end is undefined, not refused.
-	 */
 	struct Metal4QueryPool final
 	{
 		NS::SharedPtr<MTL4::CounterHeap> heap;
@@ -216,18 +118,12 @@ namespace azo::rhi::metal4
 		std::uint32_t queryCount = 0;
 	};
 
-	/*
-	 * A timeline, which is an MTLSharedEvent whether or not it will be shared. The declaration is recorded, not acted on, this backend having lowered timelines
-	 * onto MTLSharedEvent from the start. It is still enforced at export: a caller that did not ask for an exportable timeline should not get a handle to one by
-	 * accident.
-	 */
 	struct Metal4Timeline final
 	{
 		NS::SharedPtr<MTL::SharedEvent> event;
 		Flags<ExternalHandleType> exportableHandleTypes;
 	};
 
-	// Binary semaphore modeled as a shared event plus a monotonic counter so each signal advances the event to a value a later wait can target.
 	struct Metal4BinarySemaphore final
 	{
 		NS::SharedPtr<MTL::SharedEvent> event;
@@ -235,8 +131,6 @@ namespace azo::rhi::metal4
 		Flags<ExternalHandleType> exportableHandleTypes;
 	};
 
-	// A created graphics pipeline. Metal sets cull, winding, fill, depth bias and the depth-stencil state on the encoder and not the pipeline so they are kept
-	// here for draw time.
 	struct Metal4GraphicsPipeline final
 	{
 		NS::SharedPtr<MTL::RenderPipelineState> state;
@@ -257,8 +151,6 @@ namespace azo::rhi::metal4
 		MTL::Size threadsPerThreadgroup{ 1, 1, 1 };
 	};
 
-	// One descriptor written into a set, resolved to its native object. Bound to a Metal argument-table index equal to its binding number, matching how Slang
-	// assigns (set 0, binding N) to index N.
 	struct Metal4Descriptor final
 	{
 		DescriptorType type			= DescriptorType::eUniformBuffer;
@@ -270,43 +162,26 @@ namespace azo::rhi::metal4
 
 	struct Metal4DescriptorSet final
 	{
-		// Keyed by binding and array index together, an array binding holding one descriptor per element. DescriptorKey packs the two.
 		detail::HostMap<std::uint64_t, Metal4Descriptor> bindings;
 
-		// The arena this set came from and the epoch it was stamped with. A reset bumps the arena's epoch so a set that outlived one no longer matches and binding it
-		// is refused.
 		const Metal4Object * arena = nullptr;
 		std::uint64_t epoch		   = 0;
 
-		// What this set was allocated against, kept because an argument buffer member's position comes from the layout and not from the binding number, and the
-		// writes that fill it arrive one at a time with only a binding number on them.
 		DescriptorSetLayoutHandle layout{};
 
-		/*
-		 * The set as a Metal argument buffer, on a device that has them.
-		 *
-		 * Eight bytes per member in the layout's declaration order, a resource id for a texture or a sampler and a GPU address for a buffer, which is the struct
-		 * slangc lowers a ParameterBlock to. Null below the tier that supports them, where the discrete argument tables are used instead.
-		 */
 		NS::SharedPtr<MTL::Buffer> argumentBuffer;
 	};
 
-	// First word is the dispatch table pointer the facades read. The rest is per-object state shared by queues, command lists, command pools and descriptor
-	// arenas.
 	struct Metal4Object final
 	{
 		const BackendObject * object = nullptr;
 		Metal4Device * owner		 = nullptr;
 		QueueType queueType			 = QueueType::eGraphics;
 
-		// The recording state behind a command list object, null on every other kind of object.
 		CmdList * list = nullptr;
 
-		// What a command pool object hands out and takes back, null on every other kind of object.
 		CmdPool * pool = nullptr;
 
-		// Reset counter of a descriptor arena object, stamped onto every set it hands out. Bumped by an arena reset, read by a bind. Atomic because the bind is a
-		// recording entry and recording takes no lock.
 		std::atomic<std::uint64_t> arenaEpoch{ 0 };
 	};
 
@@ -315,40 +190,22 @@ namespace azo::rhi::metal4
 		const BackendObject * object = nullptr;
 	};
 
-	/*
-	 * A texture and the portability format it was created with, which buffer copy row and image stride math needs.
-	 *
-	 * Kept beside the texture and not in a second table keyed the same way so one resolve answers both and the two cannot fall out of step.
-	 */
 	struct Metal4TextureSlot final
 	{
 		NS::SharedPtr<MTL::Texture> texture;
 		Format format = Format::eUndefined;
 
-		// What a view over this texture is judged against when it narrows nothing of its own.
 		Flags<TextureUsage> usage;
 
-		// Created with PixelFormatView usage, so a view may name a format other than this one.
 		bool mutableFormat = false;
 
-		// True when the texture came from newSharedTexture, not newTexture, which is what MTLTexture needs to hand back a handle at all. Recorded , not
-		// derived, an ordinary texture having no way to say afterwards that it wishes it were shared.
 		bool shared = false;
 
-		// Who owns the MTLTexture, in the same vocabulary the other backends use. Only the swapchain's back buffer is borrowed here, and marking it is what lets
-		// getTextureInfo tell a texture that came from a description apart from one that never did.
 		SlotLifetime lifetime = SlotLifetime::eOwned;
 
-		// What the texture was created with, answered by getTextureInfo. debugName is null: the name is borrowed for the creation call.
 		TextureDesc desc{};
 	};
 
-	/*
-	 * A view over a texture, which on Metal is another MTLTexture.
-	 *
-	 * It carries the same ownership word the texture slot does, so a destroy can tell the swapchain's back buffer view from one the caller made. Without it the
-	 * view the swapchain hands out every frame could be destroyed by the caller, and acquire would go on writing the drawable into whatever took the slot.
-	 */
 	struct Metal4TextureViewSlot final
 	{
 		NS::SharedPtr<MTL::Texture> texture;
@@ -356,58 +213,46 @@ namespace azo::rhi::metal4
 		SlotLifetime lifetime = SlotLifetime::eOwned;
 	};
 
-	// A buffer, in the one table that names it.
 	struct Metal4BufferSlot final
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
 
-		// What the buffer was created with, answered by getBufferInfo. debugName is null: the name is borrowed for the creation call.
 		BufferDesc desc{};
 	};
 
-	// Empty tag for the Metal device's handle registry, which tracks only generation and liveness for stale-handle validation (the native objects live in the side
-	// tables keyed by handle index).
 	struct Metal4SlotTag final
 	{
 	};
 
-	// What a descriptor set layout was declared with. immutableSamplers is cleared on the way in, its span being borrowed for the duration of creation.
 	struct Metal4DescriptorSetLayout final
 	{
 		detail::HostVector<DescriptorBinding> bindings;
 	};
 
-	// The set layouts a pipeline layout was built from, so a pipeline can rebuild the ShaderAbiLayout its shaders are checked against.
 	struct Metal4PipelineLayout final
 	{
 		detail::HostVector<DescriptorSetLayoutHandle> sets;
 
-		// Whether anything will ever be bound at kMetalPushConstantIndex, which is what makes a shader using that buffer for something else detectable.
 		bool hasPushConstants = false;
 	};
 
-	/*
-	 * A presentation swapchain over a CAMetalLayer. The layer is created and owned by the host, which hands it over through SurfaceSource so this only borrows it.
-	 * Each acquire pulls the next drawable and re-points one back-buffer texture handle at the drawable's texture. Present schedules that drawable once the render
-	 * semaphore fires.
-	 */
 	struct Metal4Swapchain final
 	{
 		const BackendObject * object = nullptr;
 		Metal4Device * owner		 = nullptr;
 		CA::MetalLayer * layer		 = nullptr;
 		Format format				 = Format::eBGRA8Srgb;
-		PresentMode presentMode		 = PresentMode::eFifo; // effective mode, only ever immediate or fifo
+		PresentMode presentMode		 = PresentMode::eFifo;
 		std::uint32_t width			 = 1;
 		std::uint32_t height		 = 1;
 		std::uint32_t imageCount	 = 0;
-		std::uint32_t frameCursor	 = 0; // rotates the reported image index across the present semaphores
+		std::uint32_t frameCursor	 = 0;
 
-		NS::SharedPtr<CA::MetalDrawable> currentDrawable; // held between acquire and present
-		TextureHandle backBuffer{};						  // single handle re-pointed at the current drawable
+		NS::SharedPtr<CA::MetalDrawable> currentDrawable;
+		TextureHandle backBuffer{};
 		TextureViewHandle backBufferView{};
-		BinarySemaphoreHandle imageAvailable{};						 // never signaled so the submit wait is a no-op
-		detail::HostVector<BinarySemaphoreHandle> presentSemaphores; // one render-finished semaphore per image
+		BinarySemaphoreHandle imageAvailable{};
+		detail::HostVector<BinarySemaphoreHandle> presentSemaphores;
 	};
 
 	struct Metal4Device final
@@ -415,11 +260,6 @@ namespace azo::rhi::metal4
 		const BackendObject * object = nullptr;
 		NS::SharedPtr<MTL::Device> device;
 
-		/*
-		 * Metal has no queue families. Each QueueType gets its own independent command queues, honoring the DeviceDesc queue requests so compute and copy work can
-		 * run concurrently with graphics. A command list records into a command buffer committed to its pool type's first queue so different types run on different
-		 * command queues while same-type queue indices share execution ordering.
-		 */
 		detail::HostVector<NS::SharedPtr<MTL4::CommandQueue>> graphicsQueues;
 		detail::HostVector<NS::SharedPtr<MTL4::CommandQueue>> computeQueues;
 		detail::HostVector<NS::SharedPtr<MTL4::CommandQueue>> copyQueues;
@@ -436,7 +276,6 @@ namespace azo::rhi::metal4
 			return graphicsQueues;
 		}
 
-		// The command queue a type's command buffers commit to. Index 0 of the type or null when the device has no queue of that type.
 		[[nodiscard]] MTL4::CommandQueue * CommandQueueFor(QueueType type) const noexcept
 		{
 			const detail::HostVector<NS::SharedPtr<MTL4::CommandQueue>> & pool = QueuesForType(type);
@@ -447,37 +286,24 @@ namespace azo::rhi::metal4
 		std::atomic<std::uint64_t> pendingRetire{ 0 };
 		ValidationMode validation = ValidationMode::eReleaseLight;
 
-		// DeviceDesc.enableDebugLabels: bracket command spans as Metal debug groups for Xcode and Instruments.
 		bool debugLabels = true;
 
-		// DeviceDesc.allowDeviceLocalMapping: whether Map may hand back contents() for a private buffer. Refused without it, as the other backends refuse it.
 		bool allowDeviceLocalMapping = false;
 
-		// The instance this device was made from, borrowed or null in the static CreateDevice form that makes no instance. Used only so teardown can retire the
-		// instance alongside its last device.
 		Metal4Instance * instanceWrapper = nullptr;
 
-		// Tags this device's handles so another device rejects them. Returned to the pool at teardown.
 		std::uint32_t deviceTag = 0;
 
 		DeviceCaps caps{};
 		AdapterInfo adapter{};
 
-		// Backing storage AdapterInfo::name points at.
 		detail::HostString adapterName;
 
-		// Backing storage for the OS-derived driver strings (Metal has no driver version of its own).
 		detail::HostString driverVersion;
 		detail::HostString driverInfo;
 
 		detail::TypedObjectPool<Metal4Object> objects{ 64, 0, "rhi.metal4.objects" };
 
-		/*
-		 * One table per kind, the way Vulkan and Direct3D 12 keep theirs. Slot maps, not hash maps because recording resolves handles and is guarded in no threading
-		 * mode. A rehash moves the buckets a concurrent lookup is walking, where a slot map never moves its storage.
-		 *
-		 * Nothing guards them here. Writers are serialized by the guard the RHI takes for that kind.
-		 */
 		SlotMap<BufferTag, Metal4BufferSlot> buffers;
 		SlotMap<TextureTag, Metal4TextureSlot> textures;
 		SlotMap<TextureViewTag, Metal4TextureViewSlot> textureViews;
@@ -490,55 +316,23 @@ namespace azo::rhi::metal4
 		SlotMap<DescriptorSetTag, Metal4DescriptorSet> descriptorSets;
 		SlotMap<QueryPoolTag, Metal4QueryPool> queryPools;
 
-		// The timestamp counter set this adapter exposes, or null where it exposes none. Resolved once because MTLDevice answers it as an array to walk.
 		NS::SharedPtr<MTL::CounterSet> timestampCounterSet;
 
-		/*
-		 * Where this adapter will sample a counter, which decides how a timestamp write is recorded, not whether one can be.
-		 *
-		 * Apple parts answer stage boundary alone, where the sample points are fixed on the pass descriptor before the encoder opens. The discrete parts answer the
-		 * encoder boundaries instead, where a sample is taken by a command mid-encoder. Both paths are built and a write reads these to pick one, since neither is
-		 * available everywhere.
-		 */
 		bool samplesAtStageBoundary	   = false;
 		bool samplesAtDrawBoundary	   = false;
 		bool samplesAtDispatchBoundary = false;
 		bool samplesAtBlitBoundary	   = false;
 
-		/*
-		 * Metal binds by argument-table index and builds no layout object, so these hold no native object either. They hold what the shader binding ABI is resolved
-		 * against, which is the one thing a pipeline needs back from a layout it was built with.
-		 */
 		SlotMap<DescriptorSetLayoutTag, Metal4DescriptorSetLayout> descriptorSetLayouts;
 		SlotMap<PipelineLayoutTag, Metal4PipelineLayout> pipelineLayouts;
 
-		// The kinds this backend tracks for liveness alone, with no native object of their own.
 		detail::ResourceTables<Metal4SlotTag, std::monostate> tracked;
 
 		detail::HostVector<HostUniquePtr<CmdList>> cmdLists;
 		detail::HostVector<HostUniquePtr<CmdPool>> cmdPools;
 
-		/*
-		 * The residency set every queue on this device holds, and the compiler every pipeline is built through.
-		 *
-		 * Both are made on first use, not at device creation: a device that creates no resource and compiles no pipeline pays for neither, and both are
-		 * reached from entries that already report failure.
-		 */
-		/**
-		 * \brief The compiler every pipeline on this device is built through, made once at device creation.
-		 *
-		 * Compiling is the expensive part and a compiler holds what makes that cheaper across calls. Made here and not on first use because the graphics and
-		 * the compute pipeline entries are guarded separately, so a lazily made one would be two threads racing to make the same object.
-		 */
 		NS::SharedPtr<MTL4::Compiler> compiler;
 
-		/**
-		 * \brief Which residency set an allocation belongs in, one per resource kind that fills one.
-		 *
-		 * Four sets and not one, because the RHI takes a lock per ResourceType and a single set would be written by four of them at once, which Metal refuses.
-		 * One set per kind is written only under that kind's guard, so this backend needs no lock of its own and the promise that a backend author writes none
-		 * holds.
-		 */
 		enum class Residency : std::uint8_t
 		{
 			eBuffers,
@@ -548,31 +342,10 @@ namespace azo::rhi::metal4
 			eCount,
 		};
 
-		/**
-		 * \brief Everything this device made, kept reachable by the GPU.
-		 *
-		 * Metal 4 has no per-encoder useResource. A resource an argument buffer points at is reachable only if a residency set the queue holds contains it, and
-		 * one that is not faults instead of reading zeros.
-		 *
-		 * Coarser than tracking what each list touches, and deliberately so: the alternative rebuilds a set per submission, trading a one-time residency cost
-		 * for per-frame bookkeeping.
-		 */
 		std::array<NS::SharedPtr<MTL::ResidencySet>, static_cast<std::size_t>(Residency::eCount)> residencySets;
 
-		/**
-		 * \brief Adds one allocation to its kind's residency set.
-		 *
-		 * \param kind Which set, which is the resource kind whose RHI guard the caller is already holding.
-		 */
 		void NoteAllocation(Residency kind, const MTL::Allocation * allocation) noexcept;
 
-		/*
-		 * What waitIdle blocks on, there being no command buffer to wait for on this generation.
-		 *
-		 * Metal 3 drains by committing an empty command buffer and waiting on it, which a Metal 4 queue has no equivalent of without building one from an
-		 * allocator. Signalling a monotonic event past every value it has held and waiting for that on the host is the same barrier through the primitive this
-		 * generation does have.
-		 */
 		NS::SharedPtr<MTL::SharedEvent> drainEvent;
 		std::atomic<std::uint64_t> drainValue{ 0 };
 
@@ -583,8 +356,6 @@ namespace azo::rhi::metal4
 			objects.Reset();
 		}
 
-		// Held through a HostUniquePtr in the backend's device list and pointed at by every facade built off it so it is never copied or moved. The default
-		// constructor is restored because declaring the four below is what would otherwise take it away and HostNew needs it.
 		Metal4Device()								   = default;
 		Metal4Device(const Metal4Device &)			   = delete;
 		Metal4Device & operator=(const Metal4Device &) = delete;
@@ -592,12 +363,6 @@ namespace azo::rhi::metal4
 		Metal4Device & operator=(Metal4Device &&)	   = delete;
 	};
 
-	/*
-	 * Process lifetime owner for the instances and the devices.
-	 *
-	 * Unguarded. The RHI serializes createInstance, createDevice, destroyDevice and destroyInstance, which are the only entries that reach either list so a
-	 * backend writes no synchronization of its own.
-	 */
 	struct Metal4BackendOwner final
 	{
 		detail::HostVector<HostUniquePtr<Metal4Instance>> instances;
@@ -632,23 +397,11 @@ namespace azo::rhi::metal4
 	[[nodiscard]] MTL::Texture * ResolveTexture(Metal4Device * device, TextureHandle handle) noexcept;
 	[[nodiscard]] Format ResolveTextureFormat(Metal4Device * device, TextureHandle handle) noexcept;
 
-	/**
-	 * \brief The recording state behind a command list object.
-	 *
-	 * Null means the object is not a command list at all, which every caller tests for because a queue and a command pool are the same object type with the
-	 * field left alone.
-	 */
 	[[nodiscard]] inline CmdList * ListOf(Metal4Object * object) noexcept
 	{
 		return object != nullptr ? object->list : nullptr;
 	}
 
-	/**
-	 * \brief The same list, but only while it is open for recording.
-	 *
-	 * The command buffer is made at allocation and only takes an allocator at Begin, so a null test answers a different question. Opening an encoder on one
-	 * that never began reaches that missing allocator inside Metal and faults there, past anything this backend could report.
-	 */
 	[[nodiscard]] inline CmdList * RecordingListOf(Metal4Object * object) noexcept
 	{
 		CmdList * list = ListOf(object);
@@ -660,38 +413,22 @@ namespace azo::rhi::metal4
 		return list;
 	}
 
-	/// Encoder lifetime. There is no blit encoder here, so copies open the compute one.
-
 	void EndActiveEncoders(CmdList * list) noexcept;
 	[[nodiscard]] MTL4::ComputeCommandEncoder * BeginCompute(Metal4Object * object, Error * error) noexcept;
 
-	/**
-	 * \brief Makes one of a list's own transients resident.
-	 *
-	 * Separate from the device's sets because recording takes no RHI lock, so only the list's own set can be written from here without one of this backend's
-	 * own.
-	 */
 	void NoteListAllocation(CmdList * list, const MTL::Allocation * allocation) noexcept;
 
-	/**
-	 * \brief Records a barrier held from before this encoder existed, if there is one.
-	 *
-	 * Called by whatever opens an encoder, since that encoder is the one the held barrier was meant to order.
-	 */
+	inline constexpr std::uint64_t kDebugScopeCommandBuffer = 0;
+	inline constexpr std::uint64_t kDebugScopeClosed		= std::numeric_limits<std::uint64_t>::max();
+
+	void PopEncoderDebugGroups(CmdList * list, MTL4::CommandEncoder * encoder) noexcept;
+
 	void FlushPendingBarrier(CmdList * list, MTL4::RenderCommandEncoder * encoder) noexcept;
 	void FlushPendingBarrier(CmdList * list, MTL4::ComputeCommandEncoder * encoder) noexcept;
 
-	/**
-	 * \brief Writes push constant bytes somewhere an argument table can point at, and answers where.
-	 *
-	 * Metal 3 hands the range straight to the encoder through setBytes. An argument table binds addresses only, so the bytes have to live in a buffer that
-	 * outlives the submission.
-	 */
 	[[nodiscard]] MTL::GPUAddress WritePushConstants(Metal4Device * device, CmdList * list, const void * data, std::uint32_t size) noexcept;
 
 	BinarySemaphoreHandle Metal4CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept;
-
-	/// Command list entries.
 
 	bool Metal4CmdBegin(void * impl, Error * error) noexcept;
 	bool Metal4CmdEnd(void * impl, Error * error) noexcept;
@@ -699,8 +436,6 @@ namespace azo::rhi::metal4
 	bool Metal4CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept;
 	bool Metal4CmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
 	bool Metal4CmdEndDebugLabel(void * impl, Error * error) noexcept;
-
-	/// Compute and copies, which share one encoder on this generation.
 
 	bool Metal4CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
 	bool Metal4CmdDispatch(void * impl, std::uint32_t x, std::uint32_t y, std::uint32_t z, Error * error) noexcept;
@@ -718,22 +453,13 @@ namespace azo::rhi::metal4
 	bool Metal4CmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
 	[[nodiscard]] MTL::Texture * ResolveTextureView(Metal4Device * device, TextureViewHandle handle) noexcept;
 
-	/**
-	 * \brief Whether every shader's binding map agrees with the layout it will be bound through.
-	 */
 	[[nodiscard]] bool BindingMapsAgree(Metal4Device * device, PipelineLayoutHandle layout, std::span<const ShaderBinary> shaders, Error * error) noexcept;
 
-	/**
-	 * \brief Whether every buffer a compiled function asks for is one the layout actually binds.
-	 *
-	 * Read off the pipeline's own reflection, so a shader numbering its sets elsewhere is refused at creation, not dispatched to read zeros.
-	 */
 	[[nodiscard]] bool FunctionBuffersAreBound(Metal4Device * device, PipelineLayoutHandle layout, const NS::Array * bindings, Error * error) noexcept;
 
 	PipelineLayoutHandle Metal4CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
 	GraphicsPipelineHandle Metal4CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
 	ComputePipelineHandle Metal4CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept;
-	/// Rendering.
 
 	bool Metal4CmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept;
 	bool Metal4CmdEndRendering(void * impl, Error * error) noexcept;
@@ -753,14 +479,10 @@ namespace azo::rhi::metal4
 	bool Metal4CmdDrawIndexedIndirect(
 		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
 
-	/// Binding, which goes through an argument table, not through calls on the encoder.
-
 	bool Metal4CmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
 	bool Metal4CmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
 		const void * data, Error * error) noexcept;
-
-	/// Writing a set, which is unchanged: a set is the same argument buffer on both generations.
 
 	bool Metal4UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
 	bool Metal4UpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
@@ -868,22 +590,8 @@ namespace azo::rhi::metal4
 	const ExternalSharingApi & ExternalSharingBlock() noexcept;
 	void PopulateCaps(Metal4Device * device);
 
-	/**
-	 * \brief Whether this adapter reports the Metal 4 family.
-	 *
-	 * One call, supportsFamily against GPUFamilyMetal4, which is the documented predicate. It needs no operating system version test around it: supportsFamily
-	 * long predates Metal 4, so an older OS asked about a family it never heard of answers no instead of trapping.
-	 *
-	 * Verified on an Apple M1 Max, macOS 26.5.2. Metal 4 is not gated on recent hardware.
-	 */
 	[[nodiscard]] bool AdapterHasMetal4(MTL::Device * device) noexcept;
 
-	/**
-	 * \brief Builds a Metal 4 device, or refuses one this adapter or this version pin cannot have.
-	 *
-	 * \param refusal Set to why Metal 4 could not be provided, an adapter without the family, a pinned generation or a config block this backend cannot read,
-	 * and left alone for every other failure, so a caller can tell a refusal from having no adapter at all.
-	 */
 	[[nodiscard]] Metal4Device * MakeOwnedDevice(Metal4Instance * instance, const DeviceDesc & desc, Error & refusal);
 	[[nodiscard]] Metal4Instance * MakeOwnedInstance();
 	void Metal4DestroyDevice(void * impl) noexcept;
@@ -891,25 +599,12 @@ namespace azo::rhi::metal4
 	void * Metal4InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept;
 	void * Metal4CreateInstance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept;
 
-	/*
-	 * A handle for a kind this backend tracks for liveness alone, with no native object behind it.
-	 *
-	 * Every kind is minted from a table, here or from the one holding its native object so one lookup answers both what the handle names and whether it is still
-	 * live. A handle fabricated from a bare counter instead would resolve nowhere and the retire that Destroy runs would fail against a table that had never heard
-	 * of it.
-	 */
 	template <typename HandleT>
 	[[nodiscard]] HandleT MintHandle(Metal4Device * device)
 	{
 		return device->tracked.Store<HandleT>(std::monostate{});
 	}
 
-	/*
-	 * Whether a handle names something this device issued and still holds.
-	 *
-	 * One overload per kind and not one lookup in a shared table because the table that answers is the table that holds the object. Reads take nothing: a slot
-	 * map's storage never moves so these are safe from a recording thread while another is creating.
-	 */
 	[[nodiscard]] inline bool Resolves(Metal4Device * device, BufferHandle handle) noexcept
 	{
 		return device->buffers.Resolve(handle, kHandleAlreadyChecked) != nullptr;
@@ -970,7 +665,6 @@ namespace azo::rhi::metal4
 		return device->pipelineLayouts.Resolve(handle, kHandleAlreadyChecked) != nullptr;
 	}
 
-	// The kinds with nothing native behind them: query pools, pipeline caches and the ray tracing objects this backend does not build.
 	template <typename HandleT>
 	[[nodiscard]] bool Resolves(Metal4Device * device, HandleT handle) noexcept
 	{
@@ -983,8 +677,6 @@ namespace azo::rhi::metal4
 		return Fail(LastError(args...), ErrorCode::eUnsupportedFeature, "Metal 4 RHI backend: operation not implemented yet");
 	}
 
-	// The creation-entry form of Metal4Unimplemented, for a kind this backend has nothing to put behind a handle. An invalid handle is what a failed create
-	// returns, so a caller that ignores the error still cannot pass the result anywhere.
 	template <typename HandleT, typename... Args>
 	HandleT UnimplementedHandle([[maybe_unused]] void * impl, Args... args) noexcept
 	{
@@ -1006,10 +698,6 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	/*
-	 * Metal binds by argument-table index, not through a layout object, so a layout is a handle and nothing else. The one field it cannot quietly ignore is an
-	 * immutable sampler: dropping one leaves the binding with no sampler at all, which is a blank read and not an error.
-	 */
 	inline DescriptorSetLayoutHandle Metal4CreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createDescriptorSetLayout");
@@ -1023,7 +711,6 @@ namespace azo::rhi::metal4
 			}
 		}
 
-		// Refused above, so nothing here carries the borrowed sampler span that would otherwise dangle in a slot outliving this call.
 		Metal4DescriptorSetLayout slot;
 		slot.bindings.assign(desc.bindings.begin(), desc.bindings.end());
 
@@ -1037,4 +724,4 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-} // namespace azo::rhi::metal4
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -403,7 +398,6 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		std::string error;
 		ASSERT_TRUE(session.Open(SLANG_METAL_LIB, "metallib_2_4", error)) << error;
 
-		// A control compiled first, since emitting a metallib needs Metal's compiler downstream of Slang. Failing it means the host cannot answer, not no.
 		constexpr const char * kControl = R"SLANG(
 [[vk::binding(0, 0)]]
 RWTexture2DArray<float4> gOutput;
@@ -536,7 +530,6 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			return out;
 		}
 
-		// Slang renames an entry point to main for SPIR-V and DXIL and keeps it for a Metal library, so the name handed over is the one it emitted.
 		const bool keepsName = target == SLANG_METAL_LIB;
 
 		out.shaders = {
@@ -649,14 +642,6 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		static_cast<void>(device.Destroy(layout, {}, rhiError));
 	}
 
-	/*
-	 * A shader that numbers its sets where this ABI does not put them is refused, not bound one index off and read as zeros.
-	 *
-	 * Slang leaves Metal's buffer 0 free only when a shader declares a push constant, while this ABI reserves it either way so adding a push constant range
-	 * does not move every set. A shader declaring none therefore wants its set one index below where it will be bound.
-	 *
-	 * The refusal is under test, not the numbering.
-	 */
 	TEST(ShaderAbiAgreement, AShaderNumberingItsSetsElsewhereIsRefusedRatherThanBoundWrong)
 	{
 		constexpr const char * kNoPushConstant = R"SLANG(
@@ -675,8 +660,6 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 }
 )SLANG";
 
-		// Metal by name, because it is the only backend where a set's place is a buffer index the RHI and the compiler have to agree on and not a number
-		// carried in the binary. On the other two there is nothing here for them to disagree about.
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "metal", .includeNull = false } };
 		if (backends.PreferredApis().empty())
 		{
@@ -750,4 +733,4 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 		static_cast<void>(device.Destroy(setLayout, {}, rhiError));
 	}
 
-} // namespace
+}

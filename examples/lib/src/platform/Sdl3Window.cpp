@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -27,7 +22,6 @@ namespace fw::platform
 {
 	Sdl3Window::~Sdl3Window()
 	{
-		// After the device is gone, since the RHI destroyed the surface it made from this window along with it.
 		if (m_metalView != nullptr)
 		{
 			SDL_Metal_DestroyView(static_cast<::SDL_MetalView>(m_metalView));
@@ -49,7 +43,6 @@ namespace fw::platform
 			return false;
 		}
 
-		// SDL wants to know which API the window is for before it makes one, so the choice is already settled here.
 		SDL_WindowFlags flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
 		if (desc.resizable)
 		{
@@ -72,7 +65,6 @@ namespace fw::platform
 			return false;
 		}
 
-		// SDL reads the layer off a Metal view, not off the window.
 		if (azo::rhi::IsMetalFamily(api))
 		{
 			m_metalView = SDL_Metal_CreateView(m_window);
@@ -88,7 +80,6 @@ namespace fw::platform
 		SDL_Event event{};
 		while (SDL_PollEvent(&event))
 		{
-			// Offered first, so whatever is listening sees an event even when it is the one that closes the window.
 			if (onEvent)
 			{
 				onEvent(event);
@@ -114,7 +105,6 @@ namespace fw::platform
 				return false;
 			}
 
-			// Both, because the pixel event is the one that fires on a move between displays of different scales, where the window's own size did not change.
 			if (event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
 			{
 				m_resized = true;
@@ -145,7 +135,6 @@ namespace fw::platform
 	{
 		const azo::rhi::Extent2D size = GetDrawableSize();
 
-		// A minimized window reports no area on some platforms, and a projection built from that is full of infinities.
 		return size.height == 0 ? 1.0f : static_cast<float>(size.width) / static_cast<float>(size.height);
 	}
 
@@ -153,8 +142,6 @@ namespace fw::platform
 	{
 		if (auto * loader = azo::rhi::SurfacePayloadOf<azo::rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
 		{
-			// SDL's own loader, which is the one the dispatcher has to be seeded from, since a surface SDL makes and an instance dispatched through anything
-			// else belong to two different Vulkans.
 			loader->getInstanceProcAddr = detail::VulkanInstanceProcAddr();
 			return loader->getInstanceProcAddr != nullptr;
 		}
@@ -179,4 +166,4 @@ namespace fw::platform
 
 		return false;
 	}
-} // namespace fw::platform
+}

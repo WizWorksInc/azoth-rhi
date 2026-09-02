@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -54,8 +49,6 @@ namespace
 	constexpr std::uint32_t kElements	= 32;
 	constexpr std::uint64_t kBufferSize = kElements * sizeof(float);
 
-	// What reflected.slang's Params holds, which is the one thing here that is written on both sides. Reflection reports that a uniform block is bound at some
-	// number, not what a caller is supposed to put in it.
 	struct Params final
 	{
 		float scale = 0.0f;
@@ -64,7 +57,6 @@ namespace
 
 	constexpr Params kParams{ .scale = 2.0f, .bias = 0.5f };
 
-	// One binding as the shader declares it, which is what a DescriptorSetLayoutDesc is built out of.
 	struct Reflected final
 	{
 		std::string name;
@@ -82,7 +74,6 @@ namespace
 		bool metalNames = false;
 	};
 
-	// What each backend takes, the same table the other samples keep. A backend of your own joins this and not the code below.
 	struct Target final
 	{
 		rhi::GraphicsApiId api{};
@@ -106,22 +97,12 @@ namespace
 
 		// NOLINTNEXTLINE(readability-qualified-auto): this is a pointer on libc++ and a class iterator on MSVC, and the check's fix only builds on the first.
 
-		/*
-		 * Both Metal backends take the same binary, so Metal 4 looks its target up under the Metal 3 id instead of duplicating the row. The binding ABI does
-		 * not change with the generation: a metallib compiled once is bound the same way whether an encoder or an argument table does the binding.
-		 */
 		const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
 
 		const auto found = std::ranges::find(targets, target, &Target::api);
 		return found != targets.end() ? &*found : nullptr;
 	}
 
-	/*
-	 * What kind of descriptor one reflected parameter needs.
-	 *
-	 * Slang reports a resource's shape and its access separately, so a structured buffer read from and one written to arrive as the same shape and differ only
-	 * in whether the access is read only. That distinction is the whole of the mapping: everything else is the kind.
-	 */
 	[[nodiscard]] bool DescriptorTypeFor(slang::TypeLayoutReflection * layout, rhi::DescriptorType & out)
 	{
 		switch (layout->getKind())
@@ -221,7 +202,6 @@ namespace
 			return false;
 		}
 
-		// Everything below reads the linked program and not the source, so it sees the numbers the compiler settled on and not the ones the file asked for.
 		slang::ProgramLayout * layout = linked->getLayout(0, diagnostics.writeRef());
 		if (layout == nullptr)
 		{
@@ -251,13 +231,6 @@ namespace
 			slang::VariableLayoutReflection * parameter	  = layout->getParameterByIndex(index);
 			slang::TypeLayoutReflection * parameterLayout = parameter->getTypeLayout();
 
-			/*
-			 * A push constant is a range and not a binding, so its size is what the layout needs and it has no descriptor type at all.
-			 *
-			 * Named by kind as well as by category because the two targets do not agree: compiling for Metal reports a push constant and a ParameterBlock in
-			 * the same constant buffer category, and only the kind tells them apart. A loose ConstantBuffer at global scope is the push constant block under
-			 * this ABI either way.
-			 */
 			if (parameter->getCategory() == slang::ParameterCategory::PushConstantBuffer ||
 				parameterLayout->getKind() == slang::TypeReflection::Kind::ConstantBuffer)
 			{
@@ -265,10 +238,6 @@ namespace
 				continue;
 			}
 
-			/*
-			 * A ParameterBlock is one parameter here and a whole set in the layout, so the bindings are its members, not itself. Their numbers are the
-			 * order they were declared in, which is what a descriptor set layout is written in too.
-			 */
 			if (parameterLayout->getKind() == slang::TypeReflection::Kind::ParameterBlock)
 			{
 				slang::TypeLayoutReflection * contents = parameterLayout->getElementTypeLayout();
@@ -336,7 +305,7 @@ namespace
 		}
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -354,7 +323,6 @@ int main(int argc, char ** argv)
 	if (!device)
 	{
 		fw::ReportError("failed to create a device", device.GetError());
-		// 77 is what ctest reads as a skip: no driver here is not a failure of the sample.
 		return 77;
 	}
 
@@ -385,7 +353,6 @@ int main(int argc, char ** argv)
 
 	rhi::Error error{};
 
-	// The whole point: the layout is the reflection, not a second copy of it.
 	std::vector<rhi::DescriptorBinding> bindings;
 	bindings.reserve(program.bindings.size());
 	for (const Reflected & reflected : program.bindings)
@@ -397,7 +364,6 @@ int main(int argc, char ** argv)
 		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "reflection.set" }, error);
 
 	const std::array setLayouts{ setLayout };
-	// The range the shader reported, so the layout reserves exactly what it asks for and not a size written here.
 	const std::array pushConstants{
 		rhi::PushConstantRange{ .stages = rhi::ShaderStage::eCompute, .offset = 0, .size = program.pushConstantSize },
 	};
@@ -474,7 +440,6 @@ int main(int argc, char ** argv)
 
 	const rhi::DescriptorSetHandle set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "reflection.descriptors" }, error);
 
-	// Written by the number the shader reported and not by a number written here, which is what keeps this from being the second copy again.
 	std::vector<rhi::DescriptorWriteBuffer> writes;
 	writes.reserve(program.bindings.size());
 	for (const Reflected & reflected : program.bindings)
@@ -520,7 +485,6 @@ int main(int argc, char ** argv)
 		},
 	};
 
-	// One group, since the reflected size covers the whole run.
 	const bool recorded =
 		list.Barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error) && list.SetComputePipeline(pipeline, error) &&
 		list.BindDescriptorSet(layout, 0, set, {}, error) && list.PushConstants(layout, rhi::ShaderStage::eCompute, 0, sizeof(kParams), &kParams, error) &&
@@ -554,7 +518,6 @@ int main(int argc, char ** argv)
 	std::memcpy(results.data(), mapped.data, kBufferSize);
 	static_cast<void>(dev.Unmap(readback, error));
 
-	// The arithmetic the shader was told to do, checked so a layout that bound the right count of the wrong things still fails.
 	std::uint32_t wrong = 0;
 	for (std::uint32_t index = 0; index < kElements; ++index)
 	{

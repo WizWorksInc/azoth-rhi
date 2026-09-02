@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -20,7 +15,6 @@
 
 namespace azo::rhi::d3d12
 {
-	// Subresource index selecting every one of them, read as an index only when the range asks for no mip levels.
 	constexpr UINT kAllSubresources = 0xffffffffu;
 
 	[[nodiscard]] TextureViewSlot * ResolveTextureView(D3D12Device * device, TextureViewHandle handle) noexcept
@@ -55,18 +49,11 @@ namespace azo::rhi::d3d12
 		return D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
 	}
 
-	// The D3D12 subresource index for a (mip, layer) pair within a texture of mipLevels mips.
 	[[nodiscard]] UINT SubresourceIndex(const TextureSubresource & sub, std::uint32_t mipLevels) noexcept
 	{
 		return sub.mip + sub.layer * mipLevels;
 	}
 
-	/*
-	 * Finds or creates a command signature per argument type and stride, cached on the list's pool so ExecuteIndirect does not rebuild it.
-	 *
-	 * On the pool and not the device because this is reached from recording, which takes no guard in any threading mode. A pool is recorded into by one thread at
-	 * a time so the cache needs no lock of its own.
-	 */
 	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride) noexcept
 	{
 		D3D12CommandPool * pool = list->pool;
@@ -96,8 +83,6 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		// The cache entry is what holds the signature alive: the local ComPtr releases it on the way out, so a cache that could not grow has no signature to hand
-		// back and not one the caller would record against after it was freed.
 		if (!detail::TryPushBack(pool->commandSignatures,
 				CommandSignatureEntry{
 					.type	   = type,
@@ -155,7 +140,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Every recorded barrier becomes a native one. Naming the same state on both sides is an ordering barrier here, not something to drop.
 	bool D3D12CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
 		auto * list			  = static_cast<D3D12CommandList *>(impl);
@@ -169,7 +153,6 @@ namespace azo::rhi::d3d12
 		buffers.reserve(barriers.buffers.size());
 		textures.reserve(barriers.textures.size());
 
-		// Deduced, not named: winnt.h takes MemoryBarrier for its own macro, so spelling the type here expands to a store fence intrinsic.
 		for (const auto & m : barriers.memory)
 		{
 			globals.push_back(D3D12_GLOBAL_BARRIER{
@@ -191,14 +174,12 @@ namespace azo::rhi::d3d12
 			const D3D12_BARRIER_ACCESS accessBefore = ClampAccessToHeap(MapBarrierAccess(b.before.use, queue), slot->heapType);
 			const D3D12_BARRIER_ACCESS accessAfter	= ClampAccessToHeap(MapBarrierAccess(b.after.use, queue), slot->heapType);
 
-			// Refused rather than clamped, since recording one costs the device and a wrong use should be heard about.
 			if (slot->desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) &&
 				(!AccessLegalOnAccelerationStructure(accessBefore) || !AccessLegalOnAccelerationStructure(accessAfter)))
 			{
 				return Fail(error, ErrorCode::eInvalidArgument, "a barrier on an acceleration structure buffer named a use it can never be in");
 			}
 
-			// offset and size are not read: a buffer barrier covers the whole resource, and the API takes only zero and the whole size.
 			buffers.push_back(D3D12_BUFFER_BARRIER{
 				.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
 				.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
@@ -226,11 +207,9 @@ namespace azo::rhi::d3d12
 
 			const bool whole = detail::CoversWholeTexture(range, slot->mipLevels, slot->arrayLayers);
 
-			// Leaving the mip count at zero reads the first field as a subresource index, and that index means every subresource.
 			D3D12_BARRIER_SUBRESOURCE_RANGE subresources{ .IndexOrFirstMipLevel = kAllSubresources };
 			if (!whole)
 			{
-				// One plane, as the legacy path indexed. A partial range over a depth-stencil texture leaves the stencil plane alone.
 				subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{
 					.IndexOrFirstMipLevel = range.baseMip,
 					.NumMipLevels		  = range.mipCount,
@@ -286,7 +265,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Nothing in the enhanced model answers the legacy aliasing barrier, so the batch is built from the two things that barrier stood for.
 	bool D3D12CmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		auto * list			  = static_cast<D3D12CommandList *>(impl);
@@ -303,7 +281,6 @@ namespace azo::rhi::d3d12
 
 		for (const AliasBarrier & alias : barriers)
 		{
-			// The outgoing half raises no barrier of its own, the global one below having flushed it. Resolved regardless so a stale handle is still refused.
 			if (alias.beforeBuffer.IsValid())
 			{
 				if (ResolveBuffer(device, alias.beforeBuffer) == nullptr)
@@ -319,7 +296,6 @@ namespace azo::rhi::d3d12
 				}
 			}
 
-			// An incoming buffer has no layout and no metadata, so the global barrier is all of it. An absent discard flag is D3D12's asymmetry, not a gap.
 			if (alias.afterBuffer.IsValid())
 			{
 				if (ResolveBuffer(device, alias.afterBuffer) == nullptr)
@@ -339,7 +315,6 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
 			}
 
-			// Both layouts come from the table, so the copy queue's answer stays in one place.
 			const D3D12_BARRIER_LAYOUT before = MapBarrierLayout(ResourceUse::eDiscard, queue);
 			textures.push_back(D3D12_TEXTURE_BARRIER{
 				.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
@@ -354,7 +329,6 @@ namespace azo::rhi::d3d12
 			});
 		}
 
-		// One for the batch, not per pair: an alias barrier orders heap memory, which no resource over it names.
 		const D3D12_GLOBAL_BARRIER global{
 			.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
 			.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
@@ -380,6 +354,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -48,7 +43,6 @@ namespace
 	constexpr std::uint32_t kElements	= 64;
 	constexpr std::uint64_t kBufferSize = kElements * sizeof(float);
 
-	// What each kernel should produce, so a backend that binds the buffer somewhere else fails here without looking like it worked.
 	struct Expectation final
 	{
 		std::uint32_t index = 0;
@@ -63,7 +57,6 @@ namespace
 		const char * shows	  = nullptr;
 		langs::SourceLanguage source{};
 
-		// Dispatch shape. The GLSL kernel walks an 8 by 8 grid, the other two a single row of 64.
 		std::uint32_t groupsX = 1;
 		std::uint32_t groupsY = 1;
 		langs::Threadgroup threadgroup{};
@@ -78,7 +71,6 @@ namespace
 			.shows		  = "an interface with two implementations, specialized where it is written",
 			.source		  = langs::SourceLanguage::eSlang,
 			.threadgroup  = { .x = 64 },
-			// Chain(Scale{3}, Offset{1}, x) is x * 3 + 1, so element 10 is 31.
 			.expected = { .index = 10, .value = 31.0f } },
 		Kernel{ .language = "HLSL",
 			.file		  = "reduce.hlsl",
@@ -86,7 +78,6 @@ namespace
 			.shows		  = "groupshared memory and a barrier, named for two APIs at once",
 			.source		  = langs::SourceLanguage::eHlsl,
 			.threadgroup  = { .x = 64 },
-			// The halving loop leaves the whole group's total in lane zero, and 0 through 63 sum to 2016.
 			.expected = { .index = 0, .value = 2016.0f } },
 		Kernel{ .language = "GLSL",
 			.file		  = "pattern.glsl",
@@ -96,7 +87,6 @@ namespace
 			.groupsX	  = 8,
 			.groupsY	  = 8,
 			.threadgroup  = { .x = 1, .y = 1 },
-			// Cell 27 is x 3 y 3, whose centre sits 0.0884 from the middle of the grid and so 0.2616 inside a disc of radius 0.35.
 			.expected = { .index = 27, .value = -0.2616f } },
 		Kernel{ .language = "MSL",
 			.file		  = "simd.metal",
@@ -104,14 +94,9 @@ namespace
 			.shows		  = "the SIMD group as a named thing, reducing in registers where HLSL walks shared memory",
 			.source		  = langs::SourceLanguage::eMsl,
 			.threadgroup  = { .x = 64 },
-			// The same total the HLSL kernel reaches, by a different road: 0 through 63 sum to 2016.
 			.expected = { .index = 0, .value = 2016.0f } },
 	};
 
-	/*
-	 * Runs one kernel and hands back what landed in the buffer. Everything below the shader is the same for all four: one layout, one dispatch, one readback, with
-	 * only the language the kernel was written in changing.
-	 */
 	[[nodiscard]] bool RunKernel(rhi::Device dev, langs::ShaderCompiler & compiler, const Kernel & kernel, std::span<float> readBack, std::string & why)
 	{
 		const rhi::ShaderBinary binary = compiler.Compile(kernel.file, kernel.entry, kernel.source, kernel.threadgroup, why);
@@ -196,7 +181,6 @@ namespace
 			},
 		};
 
-		// The copy has to see what the dispatch wrote, which is what this barrier is for. Without it the readback races the kernel and reads zeroes.
 		const std::array afterDispatch{
 			rhi::BufferBarrier{
 				.buffer = storage,
@@ -244,7 +228,7 @@ namespace
 		return true;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -261,7 +245,6 @@ int main(int argc, char ** argv)
 	if (!device)
 	{
 		fw::ReportError("failed to create a device", device.GetError());
-		// 77 is what ctest reads as a skip: no driver here is not a failure of the sample.
 		return 77;
 	}
 
@@ -284,8 +267,6 @@ int main(int argc, char ** argv)
 		std::string why;
 		if (!RunKernel(dev, compiler, kernel, values, why))
 		{
-			// A language this build cannot reach is worth saying out loud without hiding, since which front ends and targets a compiler has is the whole subject here.
-			// It is not a failure of the RHI.
 			LOG_INFO(fw::Log(), "{:<5} skipped: {}", kernel.language, why);
 			continue;
 		}

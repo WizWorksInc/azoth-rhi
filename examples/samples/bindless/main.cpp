@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -45,34 +40,20 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-	// What the set is allocated to hold. Every one of them is written and read, which is what makes the readback checkable slot by slot.
 	constexpr std::uint32_t kTextures = 16;
 
-	/*
-	 * What the layout declares, which is deliberately larger than what is allocated.
-	 *
-	 * An unbounded binding still names an upper bound in the layout, and the allocation picks the real length below it. Keeping the two different is the point:
-	 * one layout built once serves however many textures a scene turns out to have.
-	 */
 	constexpr std::uint32_t kMaxTextures = 1024;
 
 	constexpr std::uint64_t kNoTimeout	 = std::numeric_limits<std::uint64_t>::max();
 	constexpr std::uint64_t kOutputBytes = static_cast<std::uint64_t>(kTextures) * 4 * sizeof(float);
 
-	// How many are written before the command list is recorded. The rest go in after it is closed, which is what eUpdateAfterBind is for.
 	constexpr std::uint32_t kWrittenEarly = kTextures / 2;
 
-	// What the shader's push constant holds.
 	struct Params final
 	{
 		std::uint32_t count = kTextures;
 	};
 
-	/*
-	 * The colour slot i is cleared to, which is also what the readback has to contain at i.
-	 *
-	 * Distinct per slot and away from the ends of the range, so a shader that read the wrong texture produces a wrong number, not a plausible one.
-	 */
 	[[nodiscard]] rhi::ClearColor ColorFor(const std::uint32_t slot)
 	{
 		return {
@@ -83,13 +64,12 @@ namespace
 		};
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
 	const char * requested = fw::RequestedBackend(argc, argv);
 
-	// No Null backend: it declares no binding tier worth indexing into and the readback this checks would be empty.
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
 
 	const rhi::Result<rhi::UniqueDevice> device =
@@ -103,10 +83,6 @@ int main(int argc, char ** argv)
 	const rhi::DeviceCaps & caps = dev.GetCaps();
 	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
 
-	/*
-	 * Asked before anything is built, because a device below this tier does not refuse the layout, it refuses the shader that indexes it, and the failure lands
-	 * somewhere much less obvious than here.
-	 */
 	if (caps.bindingTier < rhi::BindingTier::eUnbounded)
 	{
 		LOG_INFO(fw::Log(), "this device's binding tier is below unbounded, so an array without a size cannot be declared here");
@@ -140,10 +116,6 @@ int main(int argc, char ** argv)
 
 	rhi::Error error{};
 
-	/*
-	 * The layout. The sampler and the output buffer are ordinary bindings and the texture array is not, and the array is last because a binding whose length is
-	 * chosen at allocation has to be the trailing one.
-	 */
 	const std::array bindings{
 		rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eSampler, .stages = rhi::ShaderStage::eCompute },
 		rhi::DescriptorBinding{ .binding = 1, .type = rhi::DescriptorType::eStorageBuffer, .stages = rhi::ShaderStage::eCompute },
@@ -176,7 +148,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// One texel each, since what is being checked is which texture a thread reached and not what was in it.
 	std::vector<rhi::TextureHandle> textures(kTextures);
 	std::vector<rhi::TextureViewHandle> views(kTextures);
 	for (std::uint32_t slot = 0; slot < kTextures; ++slot)
@@ -187,7 +158,6 @@ int main(int argc, char ** argv)
 				.format = rhi::Format::eRGBA8UNorm,
 				.width	= 1,
 				.height = 1,
-				// eColorAttachment because these are cleared to tell them apart, and a clear goes through a render target on two of the three backends.
 				.usage	   = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eColorAttachment,
 				.debugName = "bindless.texture",
 			},
@@ -225,9 +195,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * The arena is sized for the array and not for the three bindings, an unbounded binding costing one descriptor per entry it is allocated with.
-	 */
 	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
@@ -237,7 +204,6 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	// The length lands here, below the layout's upper bound, which is what eVariableDescriptorCount is for.
 	const rhi::DescriptorSetHandle set =
 		arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
 	if (!set.IsValid())
@@ -256,7 +222,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// The first half now. The second half is deliberately left until after the command list is closed.
 	std::vector<rhi::DescriptorWriteTexture> earlyWrites;
 	earlyWrites.reserve(kWrittenEarly);
 	for (std::uint32_t slot = 0; slot < kWrittenEarly; ++slot)
@@ -285,7 +250,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Every texture gets its colour and then moves to where a shader can read it.
 	std::vector<rhi::TextureBarrier> toCopyDst;
 	std::vector<rhi::TextureBarrier> toShaderRead;
 	toCopyDst.reserve(kTextures);
@@ -341,10 +305,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * The second half of the array, written now: the set is already bound inside a closed command list and the descriptors it will read are only being filled
-	 * in here. Without eUpdateAfterBind on the binding this is undefined behaviour, not a slower path.
-	 */
 	std::vector<rhi::DescriptorWriteTexture> lateWrites;
 	lateWrites.reserve(kTextures - kWrittenEarly);
 	for (std::uint32_t slot = kWrittenEarly; slot < kTextures; ++slot)
@@ -391,10 +351,6 @@ int main(int argc, char ** argv)
 	std::memcpy(gathered.data(), mapped.data, kOutputBytes);
 	static_cast<void>(dev.Unmap(readback, error));
 
-	/*
-	 * Slot by slot, because the interesting failure is not an empty buffer, it is every thread reading entry zero. That produces a full buffer of one plausible
-	 * colour, which only a per slot check catches.
-	 */
 	int status			= 0;
 	std::uint32_t wrong = 0;
 	for (std::uint32_t slot = 0; slot < kTextures; ++slot)
@@ -402,7 +358,6 @@ int main(int argc, char ** argv)
 		const rhi::ClearColor expected = ColorFor(slot);
 		const std::size_t base		   = static_cast<std::size_t>(slot) * 4;
 
-		// One part in 255, the textures being eight bits a channel.
 		const float tolerance = 1.5f / 255.0f;
 		if (std::abs(gathered.at(base) - expected.r) > tolerance || std::abs(gathered.at(base + 1) - expected.g) > tolerance)
 		{

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -70,7 +65,6 @@ namespace azo::rhi
 			return threading.GetError();
 		}
 
-		// No instance in the static form so the device has none to retire when it goes.
 		Error refusal{};
 		metal::MetalDevice * device = metal::MakeOwnedDevice(nullptr, desc, refusal);
 		if (device == nullptr)
@@ -96,7 +90,7 @@ namespace azo::rhi
 			auto * object = static_cast<metal::MetalObject *>(detail::NativeImplOf(commandListImpl, metal::RenderCommandBlock()));
 			return MetalCommandListView{ .commandBuffer = object != nullptr ? CmdBufferOf(object) : nullptr };
 		}
-	} // namespace native
+	}
 
 	Result<MetalNativeDevice> GetMetalNativeDevice(Device device)
 	{
@@ -149,6 +143,6 @@ namespace azo::rhi
 		return object != nullptr && object->list != nullptr ? object->list->renderEncoder.get() : nullptr;
 	}
 
-} // namespace azo::rhi
+}
 
-#endif // __APPLE__
+#endif

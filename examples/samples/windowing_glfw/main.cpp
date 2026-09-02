@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -45,7 +40,6 @@ namespace
 
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
 
-	// A slow trip around the color wheel so a window that is presenting looks different from one that is stuck.
 	[[nodiscard]] rhi::ClearColor FrameColor(const std::uint64_t frame)
 	{
 		constexpr float kThird = 2.0f * std::numbers::pi_v<float> / 3.0f;
@@ -59,7 +53,6 @@ namespace
 		};
 	}
 
-	// GLFW keeps its diagnostic behind a call without returning it so this is what a failure prints.
 	const char * GlfwError()
 	{
 		const char * description = nullptr;
@@ -68,7 +61,6 @@ namespace
 		return description != nullptr ? description : "no diagnostic";
 	}
 
-	// The GLFW window as an rhi::SurfaceSource. Every native below is a call into native/, which is where the graphics headers are allowed.
 	class Window final : public rhi::SurfaceSource
 	{
 	public:
@@ -80,7 +72,6 @@ namespace
 
 		~Window() override
 		{
-			// After the device is gone, since the RHI destroyed its surface with it.
 			if (m_window != nullptr)
 			{
 				glfwDestroyWindow(m_window);
@@ -88,11 +79,8 @@ namespace
 			glfwTerminate();
 		}
 
-		// The API is already settled here, since the Metal layer is attached on the way out and only Metal wants one.
 		[[nodiscard]] bool Open(const rhi::GraphicsApiId api)
 		{
-			// Before glfwInit, which is the only point GLFW takes a loader. GLFW looks under one name and gives up so it is told which Vulkan the RHI
-			// resolved, not left to search and find a different one or none.
 			glfw_native::InitVulkanLoader(rhi::native::ResolveVulkanLoader());
 
 			if (glfwInit() != GLFW_TRUE)
@@ -107,7 +95,6 @@ namespace
 				return false;
 			}
 
-			// Without this GLFW makes an OpenGL context for the window, which is not what any of these backends present through.
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
 			m_window = glfwCreateWindow(1280, 720, "AzothRHI glfw", nullptr, nullptr);
@@ -130,7 +117,6 @@ namespace
 			return true;
 		}
 
-		// Drains the event queue. False once the user has asked to close the window.
 		[[nodiscard]] bool PumpEvents() const
 		{
 			glfwPollEvents();
@@ -143,7 +129,6 @@ namespace
 			return glfwWindowShouldClose(m_window) != GLFW_TRUE;
 		}
 
-		// The framebuffer size and not the window size, which are not the same number on a scaled display.
 		[[nodiscard]] rhi::Extent2D DrawableSize() const
 		{
 			int width  = 0;
@@ -153,11 +138,6 @@ namespace
 			return rhi::Extent2D{ .width = static_cast<std::uint32_t>(width), .height = static_cast<std::uint32_t>(height) };
 		}
 
-		/*
-		 * The natives the surface interface asks for, one branch per payload this window can answer and every one of them a call into native/ because no
-		 * graphics header is allowed in here. What it cannot answer it declines, which is the What it cannot answer it declines, which is the ordinary case: a
-		 * build for one API is asked about the others.
-		 */
 		[[nodiscard]] bool Provide(const rhi::SurfaceRequest & request) override
 		{
 			if (auto * loader = rhi::SurfacePayloadOf<rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
@@ -192,17 +172,13 @@ namespace
 		void * m_metalLayer	  = nullptr;
 	};
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	const std::uint64_t frameLimit = args.size() > 1 ? std::strtoull(args[1], nullptr, 10) : 0;
 
-	/*
-	 * One API, decided before anything else because the window has to be made for it and a Vulkan device is dispatched through the loader the window library
-	 * brought up. AZOTH_RHI_BACKEND names the one to use on a build that has several and Null is left out since this sample presents.
-	 */
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .includeNull = false } };
 	if (backends.IsEmpty())
 	{
@@ -218,7 +194,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Before the device, since a Vulkan device is dispatched through the loader this seeds.
 	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::MakePresentationBackend(api);
 	if (presentation == nullptr || !presentation->InitInstanceLoader(window))
 	{
@@ -237,7 +212,6 @@ int main(int argc, char ** argv)
 	rhi::Device dev = device.Value().Get();
 	rhi::Error error{};
 
-	// After the device, since a Vulkan surface is made on that device's instance and its teardown transfers to the device so the destruction order stays valid.
 	const rhi::SurfaceHandle surface = presentation->CreateSurface(window, dev);
 	const rhi::Extent2D initial		 = window.DrawableSize();
 
@@ -262,7 +236,6 @@ int main(int argc, char ** argv)
 			break;
 		}
 
-		// Two routes reach the same recreation: the window reporting a new size and the swapchain reporting that it no longer matches its surface.
 		const rhi::Extent2D size = window.DrawableSize();
 		if (size.width == 0 || size.height == 0)
 		{
@@ -271,7 +244,6 @@ int main(int argc, char ** argv)
 
 		if (size.width != swapchain.GetWidth() || size.height != swapchain.GetHeight())
 		{
-			// Resize invalidates acquired back buffers so nothing may still be in flight against them.
 			static_cast<void>(queue.WaitIdle(error));
 			if (!swapchain.Resize(size.width, size.height, error))
 			{
@@ -296,7 +268,6 @@ int main(int argc, char ** argv)
 
 		++frame;
 
-		// Safe because the previous frame was waited on at the bottom of this loop.
 		if (frame > 1 && !pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = frame - 1 }, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to reset the command pool");
@@ -310,7 +281,6 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		// A back buffer arrives undefined every frame, since its previous contents were presented and it has to leave in the present layout.
 		const rhi::TextureHandle backBuffer = acquired.texture;
 		const std::array toAttachment{ rhi::TextureBarrier{
 			.texture = backBuffer,
@@ -330,7 +300,6 @@ int main(int argc, char ** argv)
 			.clearColor = FrameColor(frame),
 		} };
 
-		// Nothing is drawn. The clear is the whole frame, which is all it takes to prove that the window, the surface and the swapchain are wired together.
 		const bool recorded =
 			list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
 			list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.GetWidth(), .height = swapchain.GetHeight() }, error) &&
@@ -340,9 +309,6 @@ int main(int argc, char ** argv)
 			LOG_ERROR(fw::Log(), "failed to record the frame: {}", error.message != nullptr ? error.message : "no diagnostic");
 			return 1;
 		}
-
-		// The acquire semaphore says the image is ready to be written and the swapchain's own per image semaphore says this frame is done writing it.
-		// Presentation waits on the second.
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array present{ rhi::SwapchainSync{ .acquired = acquired.imageAvailable, .renderFinished = acquired.renderFinished } };
@@ -363,7 +329,6 @@ int main(int argc, char ** argv)
 
 		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
 
-		// One frame at a time. See frame_pacing for the version that keeps the CPU ahead of the GPU.
 		if (!queue.Wait(timeline, frame, kNoTimeout, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to wait for the frame");

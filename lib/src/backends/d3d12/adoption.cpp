@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -20,17 +15,11 @@ namespace azo::rhi::d3d12
 {
 	namespace
 	{
-		/*
-		 * What the caller asked for, honored, not assumed.
-		 *
-		 * Both entries used to record an adopted lifetime whatever the description said, which made eRhiOwns a value the surface accepted and ignored.
-		 * A caller picking it has built the object natively and wants to stop thinking about it, and the slot owning it is what delivers that.
-		 */
 		[[nodiscard]] SlotLifetime LifetimeOf(const AdoptedLifetime lifetime) noexcept
 		{
 			return lifetime == AdoptedLifetime::eRhiOwns ? SlotLifetime::eOwned : SlotLifetime::eAdopted;
 		}
-	} // namespace
+	}
 
 	BufferHandle D3D12AdoptBuffer(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
@@ -57,7 +46,6 @@ namespace azo::rhi::d3d12
 			error);
 	}
 
-	// Wraps an externally created ID3D12Resource as an RHI texture, copying geometry and usage from the desc.
 	TextureHandle D3D12AdoptTexture(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.adoptTexture");
@@ -87,7 +75,6 @@ namespace azo::rhi::d3d12
 			error);
 	}
 
-	// Writes the resource backing a buffer into the export payload. The RHI keeps its reference so the caller must not release it.
 	bool D3D12GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != D3D12Api::id)
@@ -106,7 +93,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Writes the ID3D12Resource backing an RHI texture into the export payload, mirroring D3D12GetNativeBuffer.
 	bool D3D12GetNativeTexture(void * impl, GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept
 	{
 		if (api != D3D12Api::id)
@@ -125,11 +111,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	/*
-	 * Direct3D 12 has no view or sampler object to adopt and this refuses by name without inventing one. A view here is a descriptor written into a heap
-	 * and not an object with its own lifetime, where the binding model copies from heaps this device owns. There is nothing a caller could hand over that
-	 * would mean the same thing.
-	 */
 	TextureViewHandle D3D12AdoptTextureView([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
 		[[maybe_unused]] const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
@@ -156,11 +137,6 @@ namespace azo::rhi::d3d12
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no sampler object to hand back");
 	}
 
-	/*
-	 * A timeline is an ID3D12Fence and adopts directly. A binary semaphore does not: this backend models one as a fence plus two counters it advances
-	 * itself, and those counters cannot be recovered from a fence somebody else has been signalling, so adopting one would produce an object whose next
-	 * wait targets a value that means nothing.
-	 */
 	TimelineHandle D3D12AdoptTimeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.adoptTimeline");
@@ -219,12 +195,10 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid binary semaphore handle");
 		}
 
-		// Readable even though the mirror direction is refused: handing back the fence is a read, and the counters that make adoption impossible are this
-		// device's business and not something the caller needs to reconstruct.
 		static_cast<NativeBinarySemaphore<D3D12Api> *>(outNativeImport)->fence = slot->fence.Get();
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

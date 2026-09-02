@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -21,13 +16,8 @@ namespace azo::rhi::vulkan
 	namespace
 	{
 		const BackendObject * CommandListObject() noexcept;
-	} // namespace
+	}
 
-	/*
-	 * Command pool and command list entries. The pool wraps a VkCommandPool on the family selected by desc.queueType. Allocate hands back a command list wrapping
-	 * a primary VkCommandBuffer for that family. Ray tracing is the one part of the recording surface not lowered here and reports eUnsupportedFeature. For
-	 * anything the RHI cannot express, GetVulkanCommandBuffer hands back the VkCommandBuffer between BeginNativeMutation and EndNativeMutation.
-	 */
 	void * VulkanCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createCommandPool");
@@ -78,8 +68,6 @@ namespace azo::rhi::vulkan
 		auto * commandPool	  = static_cast<VulkanCommandPool *>(impl);
 		VulkanDevice * device = commandPool->owner;
 
-		// A buffer this pool allocated before and has since taken back in a reset. It is in the initial state, which is where Begin needs it, so nothing about it
-		// needs remaking.
 		if (commandPool->handedOut < commandPool->lists.size())
 		{
 			VulkanCommandList * recycled = commandPool->lists[commandPool->handedOut];
@@ -90,7 +78,6 @@ namespace azo::rhi::vulkan
 		const auto buffers = device->device.allocateCommandBuffers<HostAllocatorAdapter<vk::CommandBuffer>>(
 			vk::CommandBufferAllocateInfo(commandPool->pool, vk::CommandBufferLevel::ePrimary, 1), device->dispatch);
 
-		// One buffer was asked for, so a success that handed back none would leave front() reading an empty vector.
 		if (buffers.result != vk::Result::eSuccess || buffers.value.empty())
 		{
 			return FailValue<void *>(error, ErrorCode::eNativeApiError, "Vulkan command buffer allocation failed");
@@ -116,8 +103,6 @@ namespace azo::rhi::vulkan
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
 		}
 
-		// The device owns the record from here, so a pool that cannot remember it still has to refuse: handing it out unrecorded would allocate a second buffer for
-		// it on the next frame and neither would ever be recycled.
 		if (!detail::TryPushBack(commandPool->lists, raw))
 		{
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
@@ -127,12 +112,6 @@ namespace azo::rhi::vulkan
 		return ReturnValue(raw, error);
 	}
 
-	/*
-	 * What a command list from this device publishes, which is not the same on every device.
-	 *
-	 * Timestamps and the indirect count entries are driver conditional so a list from a device without them declines the block without publishing entries that
-	 * would refuse at the call. The block is then the only place the answer lives and DeviceCaps reads it back off exactly this.
-	 */
 	namespace
 	{
 		const void * VulkanCommandListQueryInterface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
@@ -162,14 +141,13 @@ namespace azo::rhi::vulkan
 			static constexpr BackendObject object{ .queryInterface = &VulkanCommandListQueryInterface };
 			return &object;
 		}
-	} // namespace
+	}
 
 	bool VulkanCommandPoolReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.commandPool.reset");
 		auto * commandPool = static_cast<VulkanCommandPool *>(impl);
 
-		// safeAfter means the GPU has finished with this pool's command buffers so the framebuffers they referenced (no dynamic rendering) can be destroyed.
 		for (const vk::Framebuffer framebuffer : commandPool->framebuffers)
 		{
 			if (framebuffer)
@@ -184,7 +162,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eNativeApiError, "Vulkan command pool reset failed");
 		}
 
-		// Every buffer is back in the initial state, so the lists standing in front of them are the ones the next frame is handed.
 		commandPool->handedOut = 0;
 
 		return Succeed(error);
@@ -214,14 +191,8 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Dynamic state recording. These take plain values, not resource handles so none of them touch the device registry.
 	bool VulkanCmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
 	{
-		/*
-		 * Vulkan's own NDC runs Y down so eYDown needs nothing done. Presenting eYUp means flipping: move the origin to the bottom edge and negate the height. A
-		 * negative viewport height is core from Vulkan 1.1 and the backend floor is 1.2 so it is always available. Winding is left as authored either way, matching
-		 * what the other two backends do.
-		 */
 		float originY = viewport.y;
 		float height  = viewport.height;
 		if (GetClipSpace() == ClipSpaceConvention::eYUp)
@@ -243,8 +214,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Copies a range between two buffers this device created. Resolves both handles to their VkBuffer through the device's buffer registry (the developer and
-	// capture modes catch a stale handle), then records the copy onto the list's native buffer. This is the device-local upload primitive.
 	bool VulkanCmdCopyBuffer(
 		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
 	{
@@ -262,10 +231,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * Query and timestamp recording. Each resolves its query pool locklessly through the device registry (developer and capture modes catch a stale handle) and
-	 * records onto the list's native buffer. A query pool must be reset before reuse so a caller records resetQueryPool ahead of the writes.
-	 */
 	bool VulkanCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
@@ -275,7 +240,6 @@ namespace azo::rhi::vulkan
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid query pool handle");
 		}
-		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
 		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
@@ -352,8 +316,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Copies query results into a buffer this device created. The eWait flag makes the copy wait for the queries to finish so the readback is valid once the
-	// submission completes. Results are 64-bit, packed one per query at the given destination offset.
 	bool VulkanCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
 		std::uint64_t dstOffset, Error * error) noexcept
 	{
@@ -365,7 +327,6 @@ namespace azo::rhi::vulkan
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid query pool or buffer handle");
 		}
-		// Subtracted and not added, as in resetQueryPool above. Here the wrapped range drives a GPU write into the destination buffer.
 		if (firstQuery > poolSlot->queryCount || queryCount > poolSlot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
@@ -382,11 +343,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * Debug labels bracket a span of commands for GPU debuggers and profilers (RenderDoc, Tracy). They are a no-op success when the device did not enable
-	 * VK_EXT_debug_utils, or when DeviceDesc turned labels off, so a caller records them unconditionally. Unpacks a 0xRRGGBBAA RHI debug-label color into the
-	 * normalized float color Vulkan labels carry.
-	 */
 	[[nodiscard]] std::array<float, 4> UnpackLabelColor(std::uint32_t color) noexcept
 	{
 		return { static_cast<float>((color >> 24) & 0xFFu) / 255.0f,
@@ -415,12 +371,7 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * Native mutation is the escape hatch: between begin and end the caller records raw Vulkan onto the list's native command buffer (reached through
-	 * GetVulkanCommandBuffer). Begin only checks the API matches this backend. The touched-resource lists in the desc are reconciled by the validation layer,
-	 * against tracking only that layer keeps, so they need no action here.
-	 */
-	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc & /*desc*/, Error * error) noexcept
+	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc & , Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		if (api != VulkanApi::id)
@@ -430,7 +381,7 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc & /*desc*/, Error * error) noexcept
+	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc & , Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		return Succeed(error);
@@ -456,11 +407,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * Scene-pass recording commands. They resolve their resource handles locklessly through the device registries (the recording contract rules out concurrent
-	 * resource creation) and record onto the list's native buffer. Barriers lower to vkCmdPipelineBarrier2 so each barrier carries its own stage and access masks,
-	 * the natural shape of the RHI BarrierBatch.
-	 */
 	namespace
 	{
 		struct OwnershipFamilies final
@@ -469,11 +415,6 @@ namespace azo::rhi::vulkan
 			std::uint32_t dst = VK_QUEUE_FAMILY_IGNORED;
 		};
 
-		/*
-		 * A release names where the resource is going and an acquire where it came from, so each half becomes the family pair from the recording list's own family
-		 * and the counterpart's. Matching families mean there is nothing to transfer, and the indices drop to IGNORED while the barrier keeps its layout transition
-		 * and its memory dependency.
-		 */
 		[[nodiscard]] OwnershipFamilies FamiliesFor(const VulkanCommandList * list, const QueueOwnership & ownership) noexcept
 		{
 			const std::uint32_t here = list->family;
@@ -497,7 +438,7 @@ namespace azo::rhi::vulkan
 
 			return {};
 		}
-	} // namespace
+	}
 
 	bool VulkanCmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
@@ -513,7 +454,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan barrier recording allocation failed");
 		}
 
-		// Each of the three was reserved for exactly what the loops below put in it, so none of the appends can grow.
 		for (const MemoryBarrier & b : barriers.memory)
 		{
 			memoryBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
@@ -581,8 +521,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Aliasing transition for placed resources that share heap memory: a conservative global memory barrier orders writes to the 'before' resources ahead of any
-	// use of the 'after' resources. The caller still transitions an after-texture's layout from undefined with a normal barrier.
 	bool VulkanCmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
@@ -591,7 +529,6 @@ namespace azo::rhi::vulkan
 			return Succeed(error);
 		}
 
-		// Checked resolves, not the shared lockless ones that skip the generation: with validation off this refusal is all that stands between a stale handle and the driver.
 		VulkanDevice * device = list->owner;
 		const auto liveBuffer = [device](const BufferHandle handle) noexcept
 		{
@@ -628,11 +565,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * BeginRendering without dynamic rendering: lower the attachments onto a cached VkRenderPass plus a fresh VkFramebuffer over the bound views, then
-	 * vkCmdBeginRenderPass. The framebuffer is handed to the pool, which frees it at reset once the GPU is done. Graphics pipelines were created against a
-	 * compatible pass (matching formats and sample counts), which is all Vulkan requires for the draws.
-	 */
 	bool VulkanCmdBeginRenderPassScope(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
 		VulkanDevice * device = list->owner;
@@ -651,7 +583,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
 		}
 
-		// Both were reserved for every color attachment plus the depth one, so none of the appends below can grow.
 		for (std::size_t i = 0; i < desc.colors.size(); ++i)
 		{
 			const RenderingAttachment & a = desc.colors[i];
@@ -694,7 +625,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eNativeApiError, "Vulkan render pass creation failed");
 		}
 
-		// The framebuffer must cover the render area. The attachment images are at least that large so x + width and y + height stay within them.
 		vk::FramebufferCreateInfo fbInfo;
 		fbInfo.renderPass = renderPass;
 		fbInfo.setAttachments(views);
@@ -708,7 +638,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eNativeApiError, "Vulkan framebuffer creation failed");
 		}
 
-		// The pool frees this at its next reset, so a framebuffer it cannot take on is one nothing would ever free.
 		if (!detail::TryPushBack(list->pool->framebuffers, created.value))
 		{
 			device->device.destroyFramebuffer(created.value, nullptr, device->dispatch);
@@ -726,12 +655,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * The scope's opening timestamp, and the end recorded for VulkanCmdEndRendering to issue.
-	 *
-	 * Ahead of the render-pass instance, not inside it. Vulkan takes a timestamp either way, but outside is where the other two backends put theirs and it keeps
-	 * the write clear of the render-pass restrictions a later query type would meet.
-	 */
 	namespace
 	{
 		bool BeginRenderingTimestamps(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept
@@ -772,7 +695,7 @@ namespace azo::rhi::vulkan
 			}
 			return Succeed(error);
 		}
-	} // namespace
+	}
 
 	bool VulkanCmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
@@ -795,7 +718,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
 		}
 
-		// Reserved for exactly one entry per color attachment, so the append below cannot grow.
 		for (const RenderingAttachment & a : desc.colors)
 		{
 			const vk::ImageView view = ResolveTextureView(device, a.view);
@@ -833,10 +755,6 @@ namespace azo::rhi::vulkan
 			depthAttachment.clearValue =
 				vk::ClearValue(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 
-			/*
-			 * A depth-stencil view also drives the stencil attachment so the render-pass instance matches the pipeline's stencilAttachmentFormat
-			 * (VUID-vkCmdDraw-pStencilAttachment-06182). The RHI treats depth and stencil as one attachment so the stencil aspect shares the view, layout and ops.
-			 */
 			hasStencil = slot->format == vk::Format::eD24UnormS8Uint || slot->format == vk::Format::eD32SfloatS8Uint;
 			if (hasStencil)
 			{
@@ -887,7 +805,6 @@ namespace azo::rhi::vulkan
 			list->buffer.endRenderingKHR(list->owner->dispatch);
 		}
 
-		// The scope's closing timestamp, left by the begin. After the render-pass instance closes, matching where the opening one was written.
 		if (list->pendingEndTimestamp)
 		{
 			const vk::PipelineStageFlags2 stage = vk::PipelineStageFlagBits2::eBottomOfPipe;
@@ -931,10 +848,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * bindVertexBuffers below throws Vulkan-Hpp's LogicError when the buffer and offset counts disagree. One of each is passed, so the counts are equal by
-	 * construction and the throw is unreachable, which the check cannot see through the ArrayProxy that overload builds.
-	 */
 	// NOLINTNEXTLINE(bugprone-exception-escape)
 	bool VulkanCmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept
 	{
@@ -978,13 +891,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * vkCmdDraw*Indirect issues more than one draw only with the multiDrawIndirect feature enabled so a drawCount above one is a spec violation without it. Lower
-	 * it to one single-draw command per entry instead. Each still reads its own args from the buffer so only the recorded command count differs. Check
-	 * caps.supportsMultiDrawIndirect for the quicker form.
-	 *
-	 * Multi-draw also needs a stride of at least one command. Without it the loop replays one command drawCount times so refuse instead.
-	 */
 	namespace
 	{
 		template <typename RecordFn>
@@ -1009,7 +915,7 @@ namespace azo::rhi::vulkan
 			record(offset, drawCount);
 			return Succeed(error);
 		}
-	} // namespace
+	}
 
 	bool VulkanCmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
@@ -1054,8 +960,6 @@ namespace azo::rhi::vulkan
 			});
 	}
 
-	// Count-buffer indirect draws. The GPU reads the draw count from a buffer so culling compute can decide how many draws to issue. Core in Vulkan 1.2, gated on
-	// caps.supportsIndirectCount.
 	bool VulkanCmdDrawIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
 		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
 	{
@@ -1098,14 +1002,11 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Maps a single-subresource selector (one mip, one layer) to the layers form the copy commands take.
 	[[nodiscard]] vk::ImageSubresourceLayers MapSubresourceLayers(const TextureSubresource & sub) noexcept
 	{
 		return { MapAspect(sub.aspects), sub.mip, sub.layer, 1 };
 	}
 
-	// Transfer commands. The RHI is explicit so the caller has already barriered the resources into the transfer layouts (eTransferSrcOptimal /
-	// eTransferDstOptimal). These record the copy and resolve their handles locklessly like the other recording commands.
 	bool VulkanCmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
@@ -1202,11 +1103,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * Optimal-tiling blit support for a format. A blit source needs eBlitSrc (plus eSampledImageFilterLinear when the blit filters linearly), a destination needs
-	 * eBlitDst. Block-compressed and integer formats commonly lack these so a linear blit and generateMips reject them under full validation, not recording a
-	 * command the driver would refuse.
-	 */
 	[[nodiscard]] bool FormatSupportsBlit(const VulkanDevice * device, vk::Format format, bool asSource, bool linearFilter) noexcept
 	{
 		const vk::FormatFeatureFlags features = device->phys.getFormatProperties(format, device->dispatch).optimalTilingFeatures;
@@ -1230,10 +1126,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidHandle, "blit with an invalid texture handle");
 		}
 
-		/*
-		 * ResolveTexture validated both handles above so their slots can be read unvalidated here. What the format can do is Vulkan's own answer, not a rule the RHI
-		 * imposes so it is asked in every mode.
-		 */
 		const bool linear		   = filter == Filter::eLinear;
 		const vk::Format srcFormat = list->owner->textureSlots.Resolve(src, false)->format;
 		const vk::Format dstFormat = list->owner->textureSlots.Resolve(dst, false)->format;
@@ -1269,7 +1161,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Generates the mip chain by halving blits down the levels. What the caller is held to is stated on CommandList::GenerateMips.
 	bool VulkanCmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
@@ -1287,8 +1178,6 @@ namespace azo::rhi::vulkan
 			return Succeed(error);
 		}
 
-		// generateMips blits each level into the next with a linear filter so the format must support being a blit source and destination and filtering linearly.
-		// Block-compressed and integer formats do not.
 		if (!FormatSupportsBlit(device, slot.format, true, true) || !FormatSupportsBlit(device, slot.format, false, false))
 		{
 			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, blit-capable format (not block-compressed or integer)");
@@ -1297,7 +1186,6 @@ namespace azo::rhi::vulkan
 		const vk::Image image	   = vk::Image(slot.image);
 		const std::uint32_t layers = slot.arrayLayers;
 
-		// VUID-VkImageMemoryBarrier2-oldLayout-01197 wants the layout the image is really in, which the collapse moves to GENERAL under both of these.
 		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, device->unifiedImageLayouts);
 		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, device->unifiedImageLayouts);
 		const auto transition			= [&](std::uint32_t mip)
@@ -1317,8 +1205,6 @@ namespace azo::rhi::vulkan
 			device->coreVk13 ? list->buffer.pipelineBarrier2(dep, device->dispatch) : list->buffer.pipelineBarrier2KHR(dep, device->dispatch);
 		};
 
-		// Depth halves alongside width and height so a 3D texture downsamples through its volume. A 2D or array texture has depth 1, leaving the z extent at 1 and
-		// the per-level slice count untouched.
 		std::int32_t mipWidth  = static_cast<std::int32_t>(slot.width);
 		std::int32_t mipHeight = static_cast<std::int32_t>(slot.height);
 		std::int32_t mipDepth  = static_cast<std::int32_t>(slot.depth);
@@ -1335,7 +1221,6 @@ namespace azo::rhi::vulkan
 				dstBox);
 			list->buffer.blitImage(image, srcLayout, image, dstLayout, blit, vk::Filter::eLinear, device->dispatch);
 
-			// The level just written feeds the next blit, and the last time round it is what leaves the whole chain a transfer source.
 			transition(i);
 
 			mipWidth  = nextWidth;
@@ -1420,7 +1305,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Dynamic state. These record the value the matching dynamic-state pipeline reads, no handle to resolve.
 	bool VulkanCmdSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept
 	{
 		const std::array<float, 4> constants{ r, g, b, a };
@@ -1443,8 +1327,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Compute commands. setComputePipeline resolves the pipeline locklessly like the graphics one. Dispatch records directly and dispatchIndirect resolves the
-	// indirect-args buffer.
 	bool VulkanCmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * list					  = static_cast<VulkanCommandList *>(impl);
@@ -1478,4 +1360,4 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::vulkan
+}

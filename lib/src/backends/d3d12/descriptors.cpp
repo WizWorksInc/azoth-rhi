@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -28,13 +23,11 @@ namespace azo::rhi::d3d12
 		return device->descriptorSetSlots.Resolve(handle, kHandleAlreadyChecked);
 	}
 
-	// A binding's offset within its heap class, summing earlier bindings of that class. kInvalidIndex when absent or of the other class.
 	[[nodiscard]] std::uint32_t BindingOffsetInClass(const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, bool wantSampler) noexcept
 	{
 		std::uint32_t offset = 0;
 		for (const DescriptorBinding & b : bindings)
 		{
-			// A combined binding occupies both heaps, so it counts toward whichever class is being asked about and not one of the two.
 			if (!(wantSampler ? UsesSamplerHeap(b.type) : UsesResourceHeap(b.type)))
 			{
 				continue;
@@ -73,7 +66,6 @@ namespace azo::rhi::d3d12
 		return D3D12_SRV_DIMENSION_TEXTURE2D;
 	}
 
-	// Cube UAVs have no dedicated dimension in D3D12. They are addressed as 2D arrays.
 	[[nodiscard]] D3D12_UAV_DIMENSION MapUavDimension(TextureViewType type) noexcept
 	{
 		switch (type)
@@ -99,8 +91,6 @@ namespace azo::rhi::d3d12
 		arena->object = PublishingObject<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
 		arena->owner  = device;
 
-		// Share the device's global heaps, not own per-arena ones so a set's base is a global offset and one draw can bind sets from several arenas out of a single
-		// bound heap. The maxDescriptors hint does not size anything.
 		arena->resourceHeap		 = device->globalResourceHeap;
 		arena->samplerHeap		 = device->globalSamplerHeap;
 		arena->resourceStaging	 = device->globalResourceStaging;
@@ -129,7 +119,6 @@ namespace azo::rhi::d3d12
 			return FailValue<DescriptorSetHandle>(error, ErrorCode::eInvalidHandle, "descriptor set allocation references an invalid layout");
 		}
 
-		// Apply the variable count to the trailing binding so the offsets and totals reflect the real allocation size.
 		detail::HostVector<DescriptorBinding> bindings = layout->bindings;
 		for (DescriptorBinding & binding : bindings)
 		{
@@ -153,8 +142,6 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		// Carve the set's slots from the shared heaps so its base is a global offset the arena indexes directly. Arenas are persistent, not reset per frame so a
-		// monotonic bump matches the real lifetime.
 		if (device->globalResourceNext + resourceCount > device->globalResourceCapacity ||
 			device->globalSamplerNext + samplerCount > device->globalSamplerCapacity)
 		{
@@ -201,13 +188,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	/*
-	 * The descriptor kind follows the set LAYOUT's declared type and not the write's, since the root-signature range type comes from the layout and the descriptor
-	 * has to match it. Reflection separates a read-only StructuredBuffer from a read-write one, while a write may still pass the neutral eStorageBuffer that
-	 * Vulkan and Metal take for both.
-	 *
-	 * Binding a read-only buffer as a UAV is a D3D12-only error. The layout's type is resolved here.
-	 */
 	[[nodiscard]] DescriptorType LayoutBufferType(
 		const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, DescriptorType fallback) noexcept
 	{
@@ -221,7 +201,6 @@ namespace azo::rhi::d3d12
 		return fallback;
 	}
 
-	// Resolves a buffer write to its slot, creates the matching view in staging, then copies it into the shader-visible heap.
 	bool D3D12UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.updateDescriptorsBuffer");
@@ -345,7 +324,6 @@ namespace azo::rhi::d3d12
 			else
 			{
 				D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
-				// A sampled depth texture is typeless so its SRV aliases the depth bits as color, D3D12 rejecting a depth format here.
 				srv.Format					= IsDepthDxgiFormat(view->format) ? DepthSrvFormat(view->format) : view->format;
 				srv.ViewDimension			= MapSrvDimension(view->type);
 				srv.Shader4ComponentMapping = view->shaderComponentMapping;
@@ -385,7 +363,6 @@ namespace azo::rhi::d3d12
 				default:
 					srv.Texture2D.MostDetailedMip = view->range.baseMip;
 					srv.Texture2D.MipLevels		  = view->range.mipCount;
-					// Zero for an ordinary view. A plane view of NV12 or P010 selects its plane here, which is the only place Direct3D 12 names one.
 					srv.Texture2D.PlaneSlice = view->planeSlice;
 					break;
 				}
@@ -395,10 +372,6 @@ namespace azo::rhi::d3d12
 			device->device->CopyDescriptorsSimple(
 				1, CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			/*
-			 * A combined write carries the sampler alongside the view, and its binding owns a slot in the sampler heap as well. Written here, not left to a separate
-			 * sampler write, since one binding number addressing two heaps is what makes the pair combined at all.
-			 */
 			if (write.type == DescriptorType::eCombinedImageSampler)
 			{
 				SamplerSlot * sampler = ResolveSampler(device, write.sampler);
@@ -470,8 +443,6 @@ namespace azo::rhi::d3d12
 		}
 		if (!dynamicOffsets.empty())
 		{
-			// Every buffer binding lowers to a descriptor table, which carries no bind-time offset so a dynamic offset would need a root descriptor.
-			// supportsDynamicBufferOffsets is false so reject a non-empty list, not silently read the wrong data.
 			return Fail(error, ErrorCode::eUnsupportedFeature, "dynamic descriptor offsets are not supported by the D3D12 backend");
 		}
 
@@ -489,8 +460,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eUnsupportedFeature, "bindDescriptorSet set index exceeds the D3D12 backend's bound-set limit");
 		}
 
-		// Record the tables against the set index, not write them now: a root table targets the bound root signature so a set bound before its pipeline (an order
-		// Vulkan allows) waits for the draw or dispatch, where FlushPendingDescriptorSets applies it.
 		const PipelineLayoutSlot::SetParams & params	 = layoutSlot->setParams[setIndex];
 		D3D12CommandList::PendingDescriptorSet & pending = list->pendingSets[setIndex];
 		pending											 = D3D12CommandList::PendingDescriptorSet{};
@@ -510,8 +479,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Flip-model swapchains cannot store an sRGB format so map an sRGB request to its UNORM storage base.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

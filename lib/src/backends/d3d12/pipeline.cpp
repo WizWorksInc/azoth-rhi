@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -32,7 +27,6 @@ namespace azo::rhi::d3d12
 		return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	}
 
-	// The concrete topology a draw binds via IASetPrimitiveTopology (the PSO carries only the broad type).
 	[[nodiscard]] D3D_PRIMITIVE_TOPOLOGY MapPrimitiveTopology(PrimitiveTopology topology) noexcept
 	{
 		switch (topology)
@@ -110,8 +104,6 @@ namespace azo::rhi::d3d12
 		return D3D12_BLEND_ZERO;
 	}
 
-	// D3D12 rejects a color factor in the alpha blend so each maps to its alpha equivalent. Vulkan applies one factor to both and this keeps the two backends
-	// blending identically.
 	[[nodiscard]] D3D12_BLEND ToAlphaBlendFactor(D3D12_BLEND factor) noexcept
 	{
 		switch (factor)
@@ -176,20 +168,12 @@ namespace azo::rhi::d3d12
 		return device->computePipelineSlots.Resolve(handle, kHandleAlreadyChecked);
 	}
 
-	// Resolves the ID3D12PipelineLibrary a pipeline create should consult or null when no cache was given.
 	[[nodiscard]] ID3D12PipelineLibrary * ResolvePipelineLibrary(D3D12Device * device, PipelineCacheHandle handle) noexcept
 	{
 		const PipelineCacheSlot * const slot = device->pipelineCacheSlots.Resolve(handle, true);
 		return slot != nullptr ? slot->library.Get() : nullptr;
 	}
 
-	/*
-	 * Maps location-indexed vertex attributes onto D3D12 input elements.
-	 *
-	 * Direct3D 12 matches an input element to a shader input by semantic name and index, and it fails pipeline creation on a mismatch without ignoring it. The
-	 * name comes from the ABI and the index is the location the caller declared, so nothing here has to look at the binary. A binary whose compiler picked a
-	 * different name passes it in semanticName.
-	 */
 	void BuildInputElements(const VertexInputDesc & vertexInput, const char * semanticName, detail::HostVector<D3D12_INPUT_ELEMENT_DESC> & out)
 	{
 		out.reserve(vertexInput.attributes.size());
@@ -217,8 +201,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// What this backend can consume, checked, not assumed. A D3D12_SHADER_BYTECODE takes a pointer and a length with no container check of its own, so a SPIR-V
-	// blob reaches the driver and fails somewhere further in than the call that was wrong.
 	[[nodiscard]] bool ShaderBytesUsable(const ShaderBinary & shader, Error * error) noexcept
 	{
 		if (shader.format != ShaderBinaryFormat::eDxil)
@@ -226,7 +208,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eUnsupportedFormat, "the Direct3D 12 backend takes DXIL shader binaries");
 		}
 
-		// Nothing here compiles a shader, which is what supportsShaderSource says. Reading source as DXIL would hand the driver text.
 		if (shader.isSource)
 		{
 			return Fail(error, ErrorCode::eUnsupportedFormat, "the Direct3D 12 backend has no shader compiler, so it takes compiled DXIL only");
@@ -240,13 +221,6 @@ namespace azo::rhi::d3d12
 		return true;
 	}
 
-	/*
-	 * Refuses a pipeline whose shaders claim their bindings landed somewhere other than where this root signature puts them. The root signature was built from the
-	 * pipeline layout through NativeBindingFor. A binary carrying a map states where its own compiler put the same bindings.
-	 *
-	 * Nothing here changes what gets bound. It changes the failure: a binary compiled against different registers otherwise reads whatever descriptors sit at the
-	 * registers it uses, which looks like a shading bug.
-	 */
 	[[nodiscard]] bool BindingMapsAgree(
 		D3D12Device * device, const PipelineLayoutSlot & layout, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 	{
@@ -308,10 +282,6 @@ namespace azo::rhi::d3d12
 	GraphicsPipelineHandle D3D12CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createGraphicsPipeline");
-		/*
-		 * A null vertexInput means primitives come from somewhere other than vertex buffers, which is what a mesh pipeline is. No backend here builds one, so it is
-		 * refused by name, not lowered as an empty vertex layout that would draw nothing and report success.
-		 */
 		if (desc.vertexInput == nullptr)
 		{
 			return FailValue<GraphicsPipelineHandle>(
@@ -319,10 +289,6 @@ namespace azo::rhi::d3d12
 		}
 
 		const VertexInputDesc & vertexInput = *desc.vertexInput;
-		/*
-		 * Both of these change what the rasterizer actually covers, so a backend that cannot do them refuses without lowering the pipeline without them. Dropping
-		 * either one silently produces a pipeline that creates, draws, and covers the wrong pixels.
-		 */
 		if (vertexInput.topology == PrimitiveTopology::ePatchList && vertexInput.patchControlPoints == 0)
 		{
 			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "a patch list needs a non-zero patchControlPoints");
@@ -335,8 +301,6 @@ namespace azo::rhi::d3d12
 				error, ErrorCode::eUnsupportedFeature, "conservative rasterization was requested on a device that reports none");
 		}
 
-		// Both counts index arrays of a fixed size. This path used to clamp its loops instead, which honored the first eight attachments and dropped the rest without
-		// a word, so a malformed desc now earns the same refusal here as it does on the other two backends.
 		if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 		{
 			return FailValue<GraphicsPipelineHandle>(
@@ -357,7 +321,6 @@ namespace azo::rhi::d3d12
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
 		psoDesc.pRootSignature = layout->rootSignature.Get();
 
-		// Taken off the vertex stage alone, since the input layout is the only thing that reads it and no other stage has vertex attributes.
 		const char * vertexSemanticName = kVertexSemanticName;
 
 		for (const ShaderBinary & shader : desc.shaders)
@@ -411,7 +374,6 @@ namespace azo::rhi::d3d12
 
 		psoDesc.BlendState.AlphaToCoverageEnable  = desc.renderTarget.alphaToCoverageEnable ? TRUE : FALSE;
 		psoDesc.BlendState.IndependentBlendEnable = TRUE;
-		// Creation refuses a count past these arrays, and both loops stop at eight besides.
 		// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 		for (std::uint32_t i = 0; i < desc.blend.attachmentCount && i < 8; ++i)
 		{
@@ -439,7 +401,6 @@ namespace azo::rhi::d3d12
 			psoDesc.RTVFormats[i] = MapFormat(desc.renderTarget.colorFormats[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 		}
 		// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access) A depth format with no DXGI equivalent maps to UNKNOWN and would silently disable
-		// depth output so reject it. eUndefined means no depth target and legitimately stays UNKNOWN.
 		const DXGI_FORMAT dsvFormat = MapFormat(desc.renderTarget.depthStencilFormat);
 		if (desc.renderTarget.depthStencilFormat != Format::eUndefined && dsvFormat == DXGI_FORMAT_UNKNOWN)
 		{
@@ -453,9 +414,7 @@ namespace azo::rhi::d3d12
 		HRESULT hr						= S_OK;
 		if (library != nullptr)
 		{
-			// Derive the cache name from the pipeline's defining state, since a runtime pointer would never match a deserialized library. Bytecode dominates the
-			// identity and the fixed-function blocks are pointer-free POD so hashing their bytes is stable.
-			std::uint64_t h		= 0xcbf29ce484222325ULL; // FNV-1a 64 offset basis
+			std::uint64_t h		= 0xcbf29ce484222325ULL;
 			const auto mixBytes = [&h](const void * data, std::size_t size) noexcept
 			{
 				const auto * bytes = static_cast<const unsigned char *>(data);
@@ -514,11 +473,6 @@ namespace azo::rhi::d3d12
 
 		const Flags<DynamicState> dynamic = desc.dynamicStates;
 
-		/*
-		 * D3D12 carries a vertex buffer's stride in its view and not the PSO so the per-binding strides are recorded on the slot for setVertexBuffer to read back.
-		 * Without them every buffer gets a zero stride, collapsing all vertices onto the first element into invisible geometry, while a pass with no vertex buffer
-		 * such as the sky looks fine.
-		 */
 		std::array<std::uint32_t, D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT> vertexStrides{};
 		for (const VertexBindingDesc & binding : vertexInput.bindings)
 		{
@@ -548,11 +502,6 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createComputePipeline");
 
-		/*
-		 * Required on every backend, not only the one that reads it. SPIR-V and DXIL carry the size inside the binary so Vulkan and Direct3D 12 never look at this
-		 * field, but refusing it here too is what stops a shader developed against one of them reaching Metal with the size forgotten, where the failure would be a
-		 * dispatch that quietly does a fraction of the work.
-		 */
 		if (!desc.shader.threadgroupSize.IsStated())
 		{
 			return FailValue<ComputePipelineHandle>(error,
@@ -629,7 +578,6 @@ namespace azo::rhi::d3d12
 		HRESULT hr = device1->CreatePipelineLibrary(desc.initialData, desc.initialSize, IID_PPV_ARGS(library.GetAddressOf()));
 		if (FAILED(hr) && desc.initialData != nullptr)
 		{
-			// A stale or mismatched seed blob falls back to an empty library, since the cache is a hint and not a correctness input.
 			hr = device1->CreatePipelineLibrary(nullptr, 0, IID_PPV_ARGS(library.GetAddressOf()));
 		}
 		if (FAILED(hr))
@@ -720,6 +668,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Chunked slot map for backend resource handles.
- */
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/handle.hpp"
@@ -29,47 +19,21 @@
 #include <atomic>
 #include <bit>
 #include <cstddef>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <memory>
 #include <utility>
 
 namespace azo::rhi
 {
-	/**
-	 * \brief Who destroys the native object a slot names.
-	 *
-	 * Three states, each answering destroy and teardown differently, which is why the pair of bools this replaced could be set to a combination that meant
-	 * nothing. A backend switching on this gets a total switch. Shared, not repeated per backend because all three make the same distinctions.
-	 */
 	enum class SlotLifetime : std::uint8_t
 	{
-		/**
-		 * \brief The device made it and destroys it. Every slot the create paths produce, which is why it is the default.
-		 */
 		eOwned,
 
-		/**
-		 * \brief The swapchain owns it. Destroy is refused, because a caller destroying a back buffer has made a mistake, and teardown skips the native
-		 * release.
-		 */
 		eSwapchainBorrowed,
 
-		/**
-		 * \brief The caller owns it. Destroy retires the slot and leaves the object alone, that being the only way to hand the slot back, and teardown
-		 * skips the native release because the caller is about to free it through whatever made it.
-		 */
 		eAdopted,
 	};
 
-	/**
-	 * \brief Stable storage table behind one resource-handle type.
-	 *
-	 * Slots live in fixed chunks that never move until Reset, so Resolve can read slot metadata without taking the writer lock. Retire marks a slot dead and
-	 * increments its generation before recycling the slot index, making stale handles fail validated lookup.
-	 *
-	 * \attention Store, Retire, RetireIf, and Reset are writer-side operations. The caller must serialize them against each other for this table.
-	 */
 	template <class Tag, class Payload>
 	class SlotMap final
 	{
@@ -90,20 +54,12 @@ namespace azo::rhi
 			Reset();
 		}
 
-		/**
-		 * \brief Clears every slot and encodes deviceTag into future handles.
-		 */
 		void Rebind(const std::uint32_t deviceTag) noexcept
 		{
 			Reset();
 			m_deviceTag = deviceTag;
 		}
 
-		/**
-		 * \brief Stores a payload and returns a handle for it.
-		 *
-		 * \note Reuses a retired slot when possible. A returned invalid handle means the slot space is full or a required chunk could not be allocated.
-		 */
 		[[nodiscard]] HandleType Store(Payload payload)
 		{
 			if (!m_free.empty())
@@ -114,7 +70,6 @@ namespace azo::rhi
 				Slot & slot	 = At(slotIndex);
 				slot.payload = std::move(payload);
 
-				// Publish live only after the payload is stored.
 				slot.live.store(true, std::memory_order_release);
 				return HandleType{
 					.index		= detail::ComposeIndex(m_deviceTag, slotIndex),
@@ -133,7 +88,6 @@ namespace azo::rhi
 			slot.payload = std::move(payload);
 			slot.live.store(true, std::memory_order_release);
 
-			// Publish the slot only after the object above has been constructed.
 			m_count.store(slotIndex + 1, std::memory_order_release);
 			return HandleType{
 				.index		= detail::ComposeIndex(m_deviceTag, slotIndex),
@@ -141,34 +95,18 @@ namespace azo::rhi
 			};
 		}
 
-		/**
-		 * \brief Resolves a handle to a mutable payload pointer.
-		 *
-		 * \attention Passing validate false still checks the device tag and slot bounds, but skips live-state and generation checks.
-		 */
 		[[nodiscard]] AZO_RHI_FORCE_INLINE Payload * Resolve(HandleType handle, bool validate) noexcept
 		{
 			Slot * slot = Find(handle, validate);
 			return slot != nullptr ? &slot->payload : nullptr;
 		}
 
-		/**
-		 * \brief Resolves a handle to a const payload pointer.
-		 *
-		 * \attention Passing validate false still checks the device tag and slot bounds, but skips live-state and generation checks.
-		 */
 		[[nodiscard]] AZO_RHI_FORCE_INLINE const Payload * Resolve(HandleType handle, bool validate) const noexcept
 		{
 			const Slot * slot = const_cast<SlotMap *>(this)->Find(handle, validate);
 			return slot != nullptr ? &slot->payload : nullptr;
 		}
 
-		/**
-		 * \brief Retires a handle and makes it fail future validated lookup.
-		 *
-		 * \note The payload is not destroyed immediately. The slot is overwritten by Store when reused or destroyed by Reset.
-		 * \attention If the free list cannot grow, the slot remains retired but is not recycled.
-		 */
 		[[nodiscard]] bool Retire(HandleType handle, bool validate) noexcept
 		{
 			Slot * slot = Find(handle, validate);
@@ -177,11 +115,6 @@ namespace azo::rhi
 				return false;
 			}
 
-			/*
-			 * Exchanged and not stored, so a slot cannot reach the free list twice. Passing validate false skips the live test in Find, which lets an already
-			 * retired handle through, and one index sitting on the free list twice makes the next two Store calls hand out two live handles naming one slot.
-			 * RetireIf guards the same push with the same test.
-			 */
 			if (!slot->live.exchange(false, std::memory_order_acq_rel))
 			{
 				return false;
@@ -193,12 +126,6 @@ namespace azo::rhi
 			return true;
 		}
 
-		/**
-		 * \brief Retires every live slot accepted by predicate.
-		 *
-		 * \note As in Retire, a slot whose index the free list cannot take stays retired but is not recycled.
-		 * \attention This is a writer-side operation. The caller must serialize it against Store, Retire, and Reset for this table.
-		 */
 		template <class Fn>
 		// NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): predicate runs once per live slot, so forwarding it would move from it on the first one.
 		std::size_t RetireIf(Fn && predicate)
@@ -223,11 +150,6 @@ namespace azo::rhi
 			return retired;
 		}
 
-		/**
-		 * \brief Visits every slot currently marked live.
-		 *
-		 * \note The visitor observes payloads that were live when each slot was checked. It does not create a table-wide snapshot.
-		 */
 		template <class Fn>
 		// NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): fn runs once per live slot, so forwarding it would move from it on the first one.
 		void ForEachLive(Fn && fn)
@@ -243,11 +165,6 @@ namespace azo::rhi
 			}
 		}
 
-		/**
-		 * \brief Destroys all constructed slots and releases every chunk.
-		 *
-		 * \attention No concurrent Resolve or ForEachLive call may overlap Reset because chunks are released.
-		 */
 		void Reset() noexcept
 		{
 			const std::uint32_t count = m_count.load(std::memory_order_relaxed);
@@ -270,11 +187,6 @@ namespace azo::rhi
 			m_free.clear();
 		}
 
-		/**
-		 * \brief Counts slots currently marked live.
-		 *
-		 * \note The returned count is diagnostic only when writers may be mutating the table concurrently.
-		 */
 		[[nodiscard]] std::size_t LiveCount() const noexcept
 		{
 			const std::uint32_t count = m_count.load(std::memory_order_acquire);
@@ -295,11 +207,6 @@ namespace azo::rhi
 		static constexpr std::uint32_t kFirstChunkSlots	  = 256;
 		static constexpr std::uint32_t kMaxChunks		  = 17;
 
-		/**
-		 * \brief One stable handle slot.
-		 *
-		 * generation and live are atomic because Resolve may read them without the writer lock.
-		 */
 		struct Slot final
 		{
 			std::atomic<std::uint32_t> generation{ 0 };
@@ -328,11 +235,6 @@ namespace azo::rhi
 			return m_chunks[chunk][slotIndex - BaseOfChunk(chunk)]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 		}
 
-		/**
-		 * \brief Allocates the chunk that owns slotIndex when needed.
-		 *
-		 * \note Chunks stay allocated until Reset so existing slot addresses remain stable.
-		 */
 		[[nodiscard]] bool EnsureChunkFor(const std::uint32_t slotIndex) noexcept
 		{
 			const std::uint32_t chunk = ChunkOfSlot(slotIndex);
@@ -359,11 +261,6 @@ namespace azo::rhi
 			return true;
 		}
 
-		/**
-		 * \brief Finds the slot addressed by a handle.
-		 *
-		 * The device tag is always checked. validate true also checks live state and generation.
-		 */
 		[[nodiscard]] AZO_RHI_FORCE_INLINE Slot * Find(const HandleType handle, const bool validate) noexcept
 		{
 			if (detail::TagOfIndex(handle.index) != m_deviceTag)
@@ -392,4 +289,4 @@ namespace azo::rhi
 		detail::HostVector<std::uint32_t> m_free;
 		std::uint32_t m_deviceTag = 0;
 	};
-} // namespace azo::rhi
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -43,8 +38,6 @@ namespace
 	constexpr std::uint32_t kPoolQueries  = 8;
 	constexpr std::uint64_t kResultStride = sizeof(std::uint64_t);
 
-	// What a backend writes into a slot nothing sampled. Metal resolves MTLCounterErrorValue there, not zero, and a test reading a pair back has to be
-	// able to tell that apart from a plausible time.
 	constexpr std::uint64_t kUnwritten = ~0ull;
 
 	[[nodiscard]] bool SubmitAndWait(rhi::Device device, rhi::CommandList & list, rhi::Error & error)
@@ -311,7 +304,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
 	}
 
-	// A mask naming two stages is ambiguous rather than coarse, and only Vulkan used to refuse one, so the Metal, Metal 4 and Null legs carry this case.
 	TEST_P(QueryTest, RefusesAStageMaskNamingMoreThanOneStage)
 	{
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
@@ -332,7 +324,6 @@ namespace
 			<< "a timestamp was written at a mask naming two stages";
 		EXPECT_TRUE(test::ErrorIsPopulated(maskError));
 
-		// The same write with one bit, so the refusal above is about the mask and not about the pool or the slot.
 		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eCompute, error), error));
 
 		EXPECT_TRUE(recording.End());
@@ -408,4 +399,4 @@ namespace
 		}
 	}
 
-} // namespace
+}

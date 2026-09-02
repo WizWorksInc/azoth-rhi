@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -41,10 +36,6 @@ namespace
 		EXPECT_EQ(MakeDeviceDesc().validation, test::kValidationMode);
 	}
 
-	/*
-	 * Refused in every mode, though not by the same thing. Off, the decorator is not installed and the backend's own slot map answers, which it resolves anyway
-	 * to find the object to free. In the other modes the registry catches it first. What the mode buys is where the answer comes from, not whether there is one.
-	 */
 	TEST_P(ValidationModeTest, RefusesADoubleDestroyInEveryMode)
 	{
 		rhi::Error error{};
@@ -57,7 +48,6 @@ namespace
 		EXPECT_TRUE(test::ErrorIsPopulated(secondError));
 	}
 
-	// Off is the mode that matters here: the decorator is out of the stack, so only the backend's own guard stands between a zero count and the driver.
 	TEST_P(ValidationModeTest, RefusesAZeroCountQueryPoolInEveryMode)
 	{
 		rhi::Error error{};
@@ -110,7 +100,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	// A destroyed handle still reads as valid, which is the only way to reach the resolve: an IsValid check refuses a default-constructed one long before it.
 	TEST_P(ValidationModeTest, RefusesAnAliasBarrierNamingAnUnresolvableHandleInEveryMode)
 	{
 		AZO_RHI_REQUIRE_CAP(Caps().supportsPlacedResources || IsNullBackend(), "placed resources");
@@ -133,8 +122,6 @@ namespace
 
 		ASSERT_TRUE(test::Ok(Dev().Destroy(after, {}, error), error));
 		ASSERT_TRUE(after.IsValid()) << "the handle stopped reading as valid, so nothing below reaches the resolve";
-
-		// Asking a second time to prove it is gone would change what is under test: a refused destroy still clears the record the check below reads.
 
 		{
 			test::Recording recording(Dev());
@@ -210,4 +197,4 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a clean run under " << AZOTH_RHI_TEST_CONFIGURATION_NAME << " still produced errors");
 	}
 
-} // namespace
+}

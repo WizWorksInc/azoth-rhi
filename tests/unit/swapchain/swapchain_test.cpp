@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -72,8 +67,6 @@ namespace
 
 	TEST_P(SwapchainTest, TheDescDefaultsToASrgbTripleBufferedFifoChain)
 	{
-		// These defaults are the portable baseline: FIFO is the one present mode every platform has and an sRGB back buffer is what a caller gets unless they
-		// deliberately ask for a linear one.
 		constexpr rhi::SwapchainDesc desc{};
 
 		static_assert(desc.preferredFormat == rhi::Format::eBGRA8Srgb);
@@ -141,7 +134,6 @@ namespace
 			rhi::Error error{};
 			const rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
 
-			// A backend without surfaces may still model a headless chain so what is checked is that a refusal comes with a reason, not silently producing nothing.
 			if (!swapchain.IsValid())
 			{
 				EXPECT_TRUE(test::ErrorIsPopulated(error));
@@ -168,8 +160,6 @@ namespace
 
 	TEST_P(SwapchainTest, AnUnsupportedRelaxedFifoRequestFallsBackToPlainFifo)
 	{
-		// Relaxed FIFO exists only on Vulkan surfaces that advertise it, so most chains will not get it. What they must not get is mailbox or immediate, which tear
-		// on every frame.
 		rhi::SwapchainDesc desc{};
 		desc.width		 = 64;
 		desc.height		 = 64;
@@ -187,12 +177,6 @@ namespace
 			<< "relaxed FIFO fell back to a tearing mode instead of FIFO";
 	}
 
-	/*
-	 * The swapchain lends its back buffers out and keeps owning them, handing the same handles back on every acquire. A destroy that took one would free the slot
-	 * the swapchain still writes through each frame, and the next resource created would be handed it.
-	 *
-	 * Refused in every mode: the layer that would otherwise catch it relies on the backend to say no.
-	 */
 	TEST_P(SwapchainTest, RefusesToDestroyABorrowedBackBufferOrItsView)
 	{
 		rhi::SwapchainDesc desc{};
@@ -221,10 +205,9 @@ namespace
 			EXPECT_FALSE(Dev().Destroy(view, {}, viewError)) << "image " << index << "'s back buffer view was destroyed out from under the swapchain";
 			EXPECT_EQ(viewError.code, rhi::ErrorCode::eValidationFailed);
 
-			// The refusal has to leave the handles usable, or a caller's mistake would cost them the chain they still hold.
 			EXPECT_EQ(swapchain.GetBackBuffer(index), backBuffer) << "a refused destroy still took the back buffer";
 			EXPECT_EQ(swapchain.GetBackBufferView(index), view) << "a refused destroy still took the back buffer view";
 		}
 	}
 
-} // namespace
+}

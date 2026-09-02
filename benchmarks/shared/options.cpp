@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -50,7 +45,6 @@ namespace bench
 			return true;
 		}
 
-		// Whole numbers only, since that is how every figure here is written on the command line and it keeps this out of the locale's way.
 		[[nodiscard]] bool ParseWholeNumber(const std::string_view text, double & out)
 		{
 			std::size_t parsed = 0;
@@ -84,7 +78,7 @@ namespace bench
 			return false;
 		}
 
-	} // namespace
+	}
 
 	std::string_view ValidationName(const rhi::ValidationMode mode)
 	{
@@ -130,7 +124,6 @@ namespace bench
 		{
 			const std::string_view argument = args[index];
 
-			// The one positional so the benchmarks run the same way the examples do.
 			if (!argument.starts_with("--"))
 			{
 				options.backend = args[index];
@@ -210,13 +203,12 @@ namespace bench
 			return argument.starts_with(flag) && argument.size() > flag.size() && argument[flag.size()] == '=';
 		}
 
-	} // namespace
+	}
 
 	std::size_t FlagValue(const std::span<char * const> args, const std::string_view flag, const std::size_t fallback)
 	{
 		std::size_t found = fallback;
 
-		// The last one wins, which is the rule Google Benchmark itself parses by.
 		for (const char * const argument : args)
 		{
 			const std::string_view text = argument;
@@ -253,4 +245,4 @@ namespace bench
 			});
 	}
 
-} // namespace bench
+}

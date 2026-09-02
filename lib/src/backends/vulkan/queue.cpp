@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,11 +11,6 @@
 
 namespace azo::rhi::vulkan
 {
-	/*
-	 * Queue entries. The device hands out a queue record for the requested type and index, backed by the queue from the family selected for that type at
-	 * device creation (compute and copy fall back to the graphics family when the adapter has no dedicated one). index selects among the queues created
-	 * for the type and must be below the count the device exposes for it.
-	 */
 	void * VulkanGetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept
 	{
 		auto * device							   = static_cast<VulkanDevice *>(impl);
@@ -36,11 +26,6 @@ namespace azo::rhi::vulkan
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan queue allocation failed");
 		}
 
-		/*
-		 * SparseApi is published only where the queue can actually bind, which is the graphics family on an adapter whose features are enabled for it.
-		 * A queue that published the block and refused every call would report sparse support through DeviceCaps, since the tier is derived from block
-		 * presence, and that is exactly the reportable-but-unusable shape the surface exists to avoid.
-		 */
 		const bool bindsSparse = type == QueueType::eGraphics && device->caps.sparseTier > SparseTier::eNone;
 
 		queue->object	   = bindsSparse ? PublishingObject<Published<QueueApi, &QueueBlock>, Published<SparseApi, &SparseBlock>>()
@@ -59,13 +44,6 @@ namespace azo::rhi::vulkan
 		return ReturnValue(raw, error);
 	}
 
-	/*
-	 * Binds heap memory to the virtual pages of sparse resources. One vkQueueBindSparse for the whole batch and not a call per bind, which is what makes
-	 * the ordering right: waits apply before every bind and signals fire after all of them. A caller cannot observe a half-bound resource.
-	 *
-	 * A texture bind goes through imageBinds, not imageOpaqueBinds, since the RHI's SparseTextureBind names a subresource and a texel region, which the
-	 * opaque form cannot express.
-	 */
 	bool VulkanQueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.bindSparse");
@@ -73,8 +51,6 @@ namespace azo::rhi::vulkan
 		auto * queue		  = static_cast<VulkanQueue *>(impl);
 		VulkanDevice * device = queue->owner;
 
-		// One VkSparseMemoryBind per buffer bind, each wrapped in its own VkSparseBufferMemoryBindInfo. Vulkan groups binds by resource and the RHI does not,
-		// so grouping would mean sorting the caller's batch and changing the order their binds apply in.
 		detail::HostVector<vk::SparseMemoryBind> bufferBinds;
 		detail::HostVector<vk::SparseBufferMemoryBindInfo> bufferInfos;
 		detail::HostVector<vk::SparseImageMemoryBind> imageBinds;
@@ -128,7 +104,6 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eValidationFailed, "sparse bind targets a buffer not created with allowSparseBinding");
 			}
 
-			// An invalid heap unbinds the range, which Vulkan spells as a null memory handle and not as a flag.
 			vk::DeviceMemory memory{};
 			if (bind.page.heap.IsValid())
 			{
@@ -169,7 +144,6 @@ namespace azo::rhi::vulkan
 				memory = heap->memory;
 			}
 
-			// The caller's own aspect and not one derived from the format, since a depth-stencil texture has two and only they know which is meant.
 			vk::SparseImageMemoryBind imageBind{};
 			imageBind.subresource  = vk::ImageSubresource{ MapAspect(bind.subresource.aspects), bind.subresource.mip, bind.subresource.layer };
 			imageBind.offset	   = vk::Offset3D{ bind.offset.x, bind.offset.y, bind.offset.z };
@@ -205,19 +179,12 @@ namespace azo::rhi::vulkan
 		return static_cast<VulkanQueue *>(impl)->type;
 	}
 
-	/*
-	 * Submits recorded command lists to the queue through vkQueueSubmit2 (synchronization2). Timeline points and the swapchain's binary pair lower uniformly to
-	 * semaphore submit infos so a non-empty sync span is carried on the submit, not dropped. An unresolvable timeline, or a swapchain semaphore that was
-	 * given but does not resolve, is rejected with eInvalidHandle.
-	 */
 	bool VulkanQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.queue.submit");
 		auto * queue		  = static_cast<VulkanQueue *>(impl);
 		VulkanDevice * device = queue->owner;
 
-		// vkQueueSubmit2 (synchronization2) carries binary and timeline waits and signals uniformly as semaphore submit infos (the value is ignored for a
-		// binary semaphore).
 		detail::HostVector<vk::SemaphoreSubmitInfo> waits;
 		detail::HostVector<vk::SemaphoreSubmitInfo> signals;
 		detail::HostVector<vk::CommandBufferSubmitInfo> commandBuffers;
@@ -227,7 +194,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan submit storage allocation failed");
 		}
 
-		// Each of the three was reserved for exactly what the loops below put in it, so none of the appends can grow.
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
 			if (!sync.acquired.IsValid())
@@ -306,8 +272,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Timeline queue operations. GetCompletedValue reads the current value, Wait blocks the host until the timeline reaches a value (frame pacing uses
-	// this) and Signal raises it from the host.
 	bool VulkanQueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept
 	{
 		if (out == nullptr)
@@ -374,7 +338,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Resolves the abstract queue type to the concrete Vulkan queue family the device selected for it.
 	std::uint32_t QueueFamilyForType(const VulkanDevice * device, QueueType type) noexcept
 	{
 		switch (type)
@@ -386,4 +349,4 @@ namespace azo::rhi::vulkan
 		return device->graphicsFamily;
 	}
 
-} // namespace azo::rhi::vulkan
+}

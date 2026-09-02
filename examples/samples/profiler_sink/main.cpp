@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -45,8 +40,6 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-	// Counts what the RHI reports. Calls arrive from whichever thread is recording so the tally is behind a mutex: a sink that is not thread safe is a data
-	// race waiting for a second thread.
 	class TallyProfiler final : public rhi::Profiler
 	{
 	public:
@@ -74,7 +67,7 @@ namespace
 			Latest(m_counters, name, value);
 		}
 
-		void GpuAllocate(const void * /*address*/, const std::uint64_t size, const rhi::CString pool) override
+		void GpuAllocate(const void * , const std::uint64_t size, const rhi::CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++m_allocations;
@@ -82,7 +75,7 @@ namespace
 			m_pool = pool;
 		}
 
-		void GpuFree(const void * /*address*/, const rhi::CString /*pool*/) override
+		void GpuFree(const void * , const rhi::CString ) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++m_frees;
@@ -134,8 +127,6 @@ namespace
 			std::int64_t value = 0;
 		};
 
-		// One rhi::ZoneLocation exists per call site and every name is a literal so the pointer is a stable key. A tool-backed sink caches its own zone handle
-		// on that same property.
 		static Entry & Find(std::vector<Entry> & entries, const rhi::CString name)
 		{
 			for (Entry & entry : entries)
@@ -170,11 +161,8 @@ namespace
 		rhi::CString m_pool			   = nullptr;
 	};
 
-	// The RHI does not own the sink so it has to outlive every device that might call into it.
 	TallyProfiler g_profiler;
 
-	// Enough work to have something to report: a few resources, a recorded list and a submission. The device lives and dies inside here so its teardown is
-	// instrumented along with everything else.
 	bool RunSomeWork(rhi::BackendSelection & backends)
 	{
 		rhi::DeviceDesc deviceDesc{};
@@ -245,25 +233,20 @@ namespace
 		return true;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
-	// Installed first so device creation is instrumented along with the rest.
 	rhi::SetProfiler(&g_profiler);
 
 	constexpr rhi::BuildInfo build = rhi::GetBuildInfo();
 	if (!build.profilingEnabled)
 	{
-		// With AZOTH_RHI_ENABLE_PROFILING off every instrumentation point compiles to nothing so the sink is installed and simply never called. The empty tally
-		// below is the proof.
 		LOG_INFO(fw::Log(), "note: this build has profiling compiled out, so nothing will call the sink");
 	}
 
 	const char * requested = fw::RequestedBackend(argc, argv);
 
-	// Every backend this build has, registered, with the requested one first. What that set is was settled when the library was compiled so this sample never
-	// has to ask.
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
 	if (requested != nullptr && !backends.HonoredRequest())
 	{

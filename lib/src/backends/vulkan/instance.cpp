@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,7 +11,6 @@
 
 namespace azo::rhi::vulkan
 {
-	// Instance entries.
 	GraphicsApiId VulkanInstanceApiId([[maybe_unused]] void * impl) noexcept
 	{
 		return VulkanApi::id;
@@ -54,8 +48,6 @@ namespace azo::rhi::vulkan
 			const vk::PhysicalDeviceProperties & props			   = chain.get<vk::PhysicalDeviceProperties2>().properties;
 			const vk::PhysicalDeviceDriverProperties & driverProps = chain.get<vk::PhysicalDeviceDriverProperties>();
 
-			// The three grow together and every adapter below is read out of all three by the same index, so one refusal fails the call without leaving the shorter
-			// vector to be indexed with the longer one's count.
 			if (!detail::TryPushBack(instance->adapterNames, props.deviceName.data()) ||
 				!detail::TryPushBack(instance->driverInfos, driverProps.driverInfo.data()) ||
 				!detail::TryPushBack(instance->driverVersions, FormatVulkanDriverVersion(MapDriverId(driverProps.driverID), props.driverVersion)))
@@ -68,7 +60,6 @@ namespace azo::rhi::vulkan
 		for (std::uint32_t i = 0; i < fillCount; ++i)
 		{
 			const auto chain =
-				// The three lists grow together or the call fails, and the count is the smaller of the two.
 				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				physicals[i].getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceIDProperties>(
 					instance->dispatch);
@@ -128,8 +119,6 @@ namespace azo::rhi::vulkan
 		return std::nullopt;
 	}
 
-	// The declared set as Vulkan spells it, for the create infos an exportable object is built with. A type with no memory or semaphore counterpart drops out,
-	// which creation has already refused by the time either of these runs.
 	vk::ExternalMemoryHandleTypeFlags MapMemoryHandleTypes(const Flags<ExternalHandleType> types) noexcept
 	{
 		vk::ExternalMemoryHandleTypeFlags out{};
@@ -160,8 +149,6 @@ namespace azo::rhi::vulkan
 
 	namespace
 	{
-		// The mask back in RHI terms. Only the types the RHI names survive, so a driver reporting one it has no name for drops out without being reported under a
-		// neighbouring name.
 		[[nodiscard]] Flags<ExternalHandleType> MapMemoryHandleMask(const vk::ExternalMemoryHandleTypeFlags mask) noexcept
 		{
 			Flags<ExternalHandleType> out;
@@ -196,15 +183,8 @@ namespace azo::rhi::vulkan
 			out.importable		= static_cast<bool>(props.externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eImportable);
 			out.compatibleTypes = MapMemoryHandleMask(props.compatibleHandleTypes);
 		}
-	} // namespace
+	}
 
-	/*
-	 * What this adapter will share, asked of the driver, not inferred from the extension list and taken from the physical device and not an instance. Buffers and
-	 * semaphores each have their own physical device query.
-	 *
-	 * Textures have neither. Vulkan resolves external image support through the image format query with the external handle type chained in, which is why the
-	 * request carries a format for that kind alone.
-	 */
 	ExternalHandleSupport VulkanExternalSupportOf(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch,
 		const ExternalHandleSupportDesc & desc, const vk::BufferUsageFlags bufferUsage) noexcept
 	{
@@ -212,17 +192,12 @@ namespace azo::rhi::vulkan
 
 		switch (desc.kind)
 		{
-		/*
-		 * A heap answers from the buffer query, which is the narrowest honest answer and not a stand-in. Vulkan has no capability query for a bare allocation. It has
-		 * one for a buffer and one for an image format, where a heap is memory that resources are placed in, not either. The buffer query is the closer of the two.
-		 */
 		case ExternalObjectKind::eHeap:
 		case ExternalObjectKind::eBuffer:
 		{
 			const std::optional<vk::ExternalMemoryHandleTypeFlagBits> handleType = MapMemoryHandleType(desc.handleType);
 			if (!handleType)
 			{
-				// A handle type that carries no memory. Not an error to ask, and the answer is no.
 				break;
 			}
 
@@ -256,7 +231,6 @@ namespace azo::rhi::vulkan
 			vk::ExternalImageFormatProperties externalProperties;
 			properties.pNext = &externalProperties;
 
-			// A format this adapter cannot use externally answers eErrorFormatNotSupported, which is a no and not a failure of the query.
 			if (phys.getImageFormatProperties2(&formatInfo, &properties, dispatch) != vk::Result::eSuccess)
 			{
 				break;
@@ -278,7 +252,6 @@ namespace azo::rhi::vulkan
 			vk::PhysicalDeviceExternalSemaphoreInfo info;
 			info.handleType = *handleType;
 
-			// The axis Vulkan varies, and the reason the two semaphore kinds are separate entries here and not one.
 			vk::SemaphoreTypeCreateInfo semaphoreType;
 			semaphoreType.semaphoreType = desc.kind == ExternalObjectKind::eTimeline ? vk::SemaphoreType::eTimeline : vk::SemaphoreType::eBinary;
 			info.pNext					= &semaphoreType;
@@ -314,19 +287,12 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidArgument, "external handle support asked about an adapter index this instance does not have");
 		}
 
-		// The three lists grow together or the call fails, and the count is the smaller of the two.
 		// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 		*out = VulkanExternalSupportOf(enumerated.value[desc.adapterIndex], instance->dispatch, desc, kExternalQueryBufferUsage);
 		// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 		return Succeed(error);
 	}
 
-	/*
-	 * Refuses an export declaration this adapter cannot honor, at creation, which is the last point Vulkan can still say no.
-	 *
-	 * Every declared type is checked, not any one of them, because a caller naming two has to get both: an object exportable to one of the pair and not the other
-	 * would satisfy neither of the two programs the declaration exists to let it feed.
-	 */
 	bool VulkanRefuseUnexportable(const VulkanDevice * device, const Flags<ExternalHandleType> declared, const ExternalObjectKind kind, const Format format,
 		const vk::BufferUsageFlags bufferUsage, const char * what, Error * error) noexcept
 	{
@@ -374,4 +340,4 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-} // namespace azo::rhi::vulkan
+}

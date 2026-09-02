@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,16 +11,8 @@
 
 namespace azo::rhi::vulkan
 {
-	/*
-	 * Releases a retired object's native handles now or queues them for CollectGarbage when the destroy defers to a valid retire point. The caller has already
-	 * retired the slot so the object is unreachable either way. A default DestroyDesc names no timeline and frees immediately.
-	 *
-	 * The queue this appends to is the one for the kind being destroyed and the RHI holds that kind's guard for the length of this call. The append needs no
-	 * lock. pendingRetire stays device wide.
-	 */
 	bool RetireNative(VulkanDevice * device, ResourceType type, const DestroyDesc & desc, const PendingFree & pending, Error * error) noexcept
 	{
-		// The kind is the index into the per-kind queues, so a value outside the enum is refused, not used to reach past them.
 		const std::size_t kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{
@@ -47,13 +34,10 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	// Releases what the deferred destroys of one kind have queued. The no-timeline form assumes the caller has idled the device so it drains that kind
-	// outright. The timeline form releases only the objects whose retire point that timeline has reached.
 	bool VulkanCollectGarbage(void * impl, ResourceType type, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.collectGarbage");
 		auto * device = static_cast<VulkanDevice *>(impl);
-		// The kind is the index into the per-kind queues, so a value outside the enum is refused, not used to reach past them.
 		const std::size_t kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{
@@ -78,7 +62,6 @@ namespace azo::rhi::vulkan
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.collectGarbage");
 		auto * device = static_cast<VulkanDevice *>(impl);
-		// The kind is the index into the per-kind queues, so a value outside the enum is refused, not used to reach past them.
 		const std::size_t kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{
@@ -103,13 +86,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * The single type erased destroy entry all the typed Device::Destroy overloads route through. Not every ResourceType gets a branch. Ray tracing pipelines
-	 * and acceleration structures reach the eUnsupportedFeature tail because this backend does not create them. Descriptor sets reach it because their arena
-	 * frees them wholesale through vkResetDescriptorPool.
-	 *
-	 * Generation validation matches the Null backend and the native release is immediate or deferred per RetireNative.
-	 */
 	// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 	bool VulkanDestroy(void * impl, ResourceType type, RawHandle handle, const DestroyDesc & desc, Error * error) noexcept
 	{
@@ -128,7 +104,6 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eValidationFailed, "destroy of a stale, foreign, or already destroyed buffer");
 			}
 
-			// An adopted buffer's VkBuffer is the caller's. Retire the slot so the handle stops resolving and leave the object alone.
 			if (slot->lifetime == SlotLifetime::eAdopted)
 			{
 				static_cast<void>(device->bufferSlots.Retire(bufferHandle, true));
@@ -167,12 +142,6 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eValidationFailed, "destroy of a stale, foreign, or already destroyed texture");
 			}
 
-			/*
-			 * What destroy means depends on who owns the image.
-			 *
-			 * A back buffer is the swapchain's and destroying it is a caller mistake. An adopted one is the caller's, so the slot is retired and the VkImage is
-			 * left for whatever library made it. Only an owned one is freed here.
-			 */
 			if (slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 			{
 				return Fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer texture is not allowed");
@@ -475,7 +444,7 @@ namespace azo::rhi::vulkan
 
 		if (type == ResourceType::eBinarySemaphore)
 		{
-			const std::uint32_t index = handle.index & ~kDeviceBinarySemaphoreBit; // strip the device-semaphore tag bit
+			const std::uint32_t index = handle.index & ~kDeviceBinarySemaphoreBit;
 			const BinarySemaphoreHandle slotHandle{
 				.index		= index,
 				.generation = handle.generation,
@@ -508,6 +477,21 @@ namespace azo::rhi::vulkan
 			}
 
 			static_cast<void>(device->binarySemaphoreSlots.Retire(slotHandle, true));
+			return Succeed(error);
+		}
+
+		if (type == ResourceType::eDescriptorSet)
+		{
+			const DescriptorSetHandle slotHandle{
+				.index		= handle.index,
+				.generation = handle.generation,
+			};
+			if (device->descriptorSetSlots.Resolve(slotHandle, true) == nullptr)
+			{
+				return Fail(error, ErrorCode::eValidationFailed, "destroy of a stale, foreign, or already destroyed descriptor set");
+			}
+
+			static_cast<void>(device->descriptorSetSlots.Retire(slotHandle, true));
 			return Succeed(error);
 		}
 
@@ -576,4 +560,4 @@ namespace azo::rhi::vulkan
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: destroy of this resource type not implemented yet");
 	}
 
-} // namespace azo::rhi::vulkan
+}

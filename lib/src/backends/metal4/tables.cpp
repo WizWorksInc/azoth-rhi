@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -149,7 +144,6 @@ namespace azo::rhi::metal4
 		return block;
 	}
 
-	// Declined by a backend that shares nothing, which is how every other optional capability says no. Published here because this one has answers.
 	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept
 	{
 		static const ExternalCapabilityApi block{
@@ -185,20 +179,12 @@ namespace azo::rhi::metal4
 		return block;
 	}
 
-	/*
-	 * Ray tracing and the count-buffer draws are the recording surfaces this backend does not reach. A command list declines each by not publishing its block,
-	 * which turns the matching DeviceCaps flag false.
-	 *
-	 * The count-buffer draws are not simply absent from Metal. They read their draw count on the GPU, which Metal only reaches through an indirect command
-	 * buffer encoded by a shader. That is not built here. Plain drawIndirect and dispatchIndirect are recorded.
-	 */
 	const RenderCommandApi & RenderCommandBlock() noexcept
 	{
 		static const RenderCommandApi block{
 			.begin = &Metal4CmdBegin,
 			.end   = &Metal4CmdEnd,
 
-			// Real here. Metal 3 lowers this to nothing, tracking its own hazards.
 			.barriers = &Metal4CmdBarriers,
 
 			.beginRendering		 = &Metal4CmdBeginRendering,
@@ -218,7 +204,6 @@ namespace azo::rhi::metal4
 			.drawIndexed		 = &Metal4CmdDrawIndexed,
 			.dispatch			 = &Metal4CmdDispatch,
 
-			// Every one of these is on the compute encoder here, this generation having no blit encoder.
 			.copyBuffer			 = &Metal4CmdCopyBuffer,
 			.copyBufferToTexture = &Metal4CmdCopyBufferToTexture,
 			.copyTextureToBuffer = &Metal4CmdCopyTextureToBuffer,
@@ -236,13 +221,6 @@ namespace azo::rhi::metal4
 		return block;
 	}
 
-	/*
-	 * Published whole, with the counting halves refusing by name. beginQuery and endQuery serve occlusion and pipeline statistics, which Metal reaches
-	 * through a visibility result buffer and a different counter set, not through anything a pool created here holds.
-	 *
-	 * Publishing the block is still right, because it is what makes supportsTimestampQueries true and the timestamp entries are real. A block withheld
-	 * until every entry is implemented would deny the caller the half that works.
-	 */
 	const QueryCommandApi & QueryCommandBlock() noexcept
 	{
 		static const QueryCommandApi block{
@@ -256,10 +234,6 @@ namespace azo::rhi::metal4
 		return block;
 	}
 
-	/*
-	 * Published, where the other generation buys the same ordering with a fence and an encoder split. Metal 4 has VisibilityOptionResourceAlias, so an alias
-	 * barrier is an ordinary barrier carrying one more visibility bit and no encoder closes for it.
-	 */
 	const AliasingCommandApi & AliasingCommandBlock() noexcept
 	{
 		static const AliasingCommandApi block{
@@ -300,4 +274,4 @@ namespace azo::rhi::metal4
 		return block;
 	}
 
-} // namespace azo::rhi::metal4
+}

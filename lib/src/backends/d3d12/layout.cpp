@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -23,7 +18,6 @@ namespace azo::rhi::d3d12
 		switch (type)
 		{
 		case DescriptorType::eSampler: return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-		// The resource half of a combined binding. Its sampler half is emitted separately, this returning only the class the texture lives in.
 		case DescriptorType::eCombinedImageSampler:	 return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		case DescriptorType::eUniformBuffer:
 		case DescriptorType::eDynamicUniformBuffer:	 return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -40,10 +34,6 @@ namespace azo::rhi::d3d12
 		return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	}
 
-	/*
-	 * Which of the two shader-visible heaps a binding occupies. Direct3D 12 keeps samplers apart from everything else, and a combined binding is the one type that
-	 * sits in both: it takes a descriptor in each and a range in each table, the pair addressed by one binding number.
-	 */
 	[[nodiscard]] bool UsesSamplerHeap(DescriptorType type) noexcept
 	{
 		return type == DescriptorType::eSampler || type == DescriptorType::eCombinedImageSampler;
@@ -59,8 +49,6 @@ namespace azo::rhi::d3d12
 		return type == DescriptorType::eSampler;
 	}
 
-	// Maps the RHI stage mask onto a D3D12 shader visibility. A single graphics stage maps to its specific visibility. Compute, multiple stages or eAll fall back
-	// to ALL.
 	[[nodiscard]] D3D12_SHADER_VISIBILITY MapShaderVisibility(Flags<ShaderStage> stages) noexcept
 	{
 		if (stages == Flags<ShaderStage>(ShaderStage::eVertex))
@@ -123,11 +111,6 @@ namespace azo::rhi::d3d12
 		return device->descriptorSetLayoutSlots.Resolve(handle, kHandleAlreadyChecked);
 	}
 
-	/*
-	 * Builds an ID3D12RootSignature from the pipeline layout's descriptor sets and push-constant ranges. Each set becomes up to two descriptor tables (one for
-	 * CBV/SRV/UAV, one for samplers, which D3D12 requires in a separate heap). Registers are assigned to match what slangc emits, not from the (set, binding)
-	 * pair, which the block inside explains.
-	 */
 	PipelineLayoutHandle D3D12CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createPipelineLayout");
@@ -153,7 +136,6 @@ namespace azo::rhi::d3d12
 			setLayouts.push_back(setLayout);
 		}
 
-		// Reserved up front so the root parameters can hold stable pointers into these vectors.
 		detail::HostVector<D3D12_DESCRIPTOR_RANGE1> resourceRanges;
 		detail::HostVector<D3D12_DESCRIPTOR_RANGE1> samplerRanges;
 		resourceRanges.reserve(totalResourceRanges);
@@ -163,13 +145,6 @@ namespace azo::rhi::d3d12
 		PipelineLayoutSlot slot;
 		slot.setParams.resize(setLayouts.size());
 
-		/*
-		 * Registers come from NativeBindingFor without being counted here.
-		 *
-		 * They were counted here once, and the published ABI mirrored the counting, which left two implementations of one mapping and nothing stopping them drifting.
-		 * Calling the ABI makes the root signature agree with what a shader author was told by construction instead of by review, which is the only version of that
-		 * guarantee worth having.
-		 */
 		detail::HostVector<DescriptorSetLayoutDesc> abiSets;
 		abiSets.reserve(setLayouts.size());
 		for (const DescriptorSetLayoutSlot * setLayout : setLayouts)
@@ -179,7 +154,6 @@ namespace azo::rhi::d3d12
 
 		const ShaderAbiLayout abiLayout{ .sets = abiSets, .pushConstants = desc.pushConstants };
 
-		// Kept so a pipeline built against this layout can rebuild the same ABI layout and check what its shaders claim about themselves.
 		slot.sets.assign(desc.sets.begin(), desc.sets.end());
 
 		for (std::size_t i = 0; i < setLayouts.size(); ++i)
@@ -209,10 +183,6 @@ namespace azo::rhi::d3d12
 				}
 				if (UsesSamplerHeap(binding.type))
 				{
-					/*
-					 * A combined binding pushed its SRV range above and needs a second range of its own in the sampler table. The ABI hands back both slots from one query for
-					 * exactly this reason, so the s register comes from there and not from a counter kept beside it.
-					 */
 					D3D12_DESCRIPTOR_RANGE1 samplerRange = range;
 					samplerRange.RangeType				 = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
 					samplerRange.Flags					 = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
@@ -253,8 +223,6 @@ namespace azo::rhi::d3d12
 			D3D12_ROOT_PARAMETER1 param{};
 			param.ParameterType	   = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 			param.ShaderVisibility = MapShaderVisibility(desc.pushConstants[i].stages);
-			// A push constant lowers to a cbuffer in kPushConstantRegisterSpace, which no descriptor set uses, so its register cannot move because a set was added or a
-			// binding changed. Descriptor sets start one space above it.
 			param.Constants.ShaderRegister = static_cast<UINT>(i);
 			param.Constants.RegisterSpace  = kPushConstantRegisterSpace;
 			param.Constants.Num32BitValues = (desc.pushConstants[i].size + 3u) / 4u;
@@ -317,7 +285,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Defined in other files of this backend. Declared here because the switch below is the one place a destroy is dispatched from.
 	bool D3D12DestroyGraphicsPipeline(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	bool D3D12DestroyComputePipeline(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	bool D3D12DestroyPipelineCache(D3D12Device * device, RawHandle handle, Error * error) noexcept;
@@ -363,9 +330,6 @@ namespace azo::rhi::d3d12
 		return true;
 	}
 
-	// Classifies an adapter. D3D12 has no direct integrated/discrete flag so a software adapter maps to eCpu and a unified-memory adapter to eIntegrated,
-	// otherwise eDiscrete.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

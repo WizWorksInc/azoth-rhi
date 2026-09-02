@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -56,7 +51,6 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	// Refused and not dropped: the bits come from VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline, which this backend enables nowhere.
 	bool VulkanRefuseRayTracingUsage(const Flags<BufferUsage> usage, const bool supportsRayTracing, Error * error) noexcept
 	{
 		if (supportsRayTracing)
@@ -74,8 +68,6 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	// Maps the RHI memory placement hint onto VMA. AUTO plus the host access flags lets VMA pick the memory type from the access pattern and the buffer usage.
-	// outFlags receives the allocation flags.
 	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, bool persistentMap, VmaAllocationCreateFlags & outFlags) noexcept
 	{
 		outFlags = 0;
@@ -97,7 +89,6 @@ namespace azo::rhi::vulkan
 		return VMA_MEMORY_USAGE_AUTO;
 	}
 
-	// Maps the RHI format onto a Vulkan format. eUndefined (the default) and any unmapped value return eUndefined, which texture creation rejects.
 	[[nodiscard]] vk::Format MapFormat(Format format) noexcept
 	{
 		switch (format)
@@ -139,8 +130,6 @@ namespace azo::rhi::vulkan
 		case Format::eBC7Srgb:		  return vk::Format::eBc7SrgbBlock;
 		case Format::eBC6HUFloat:	  return vk::Format::eBc6HUfloatBlock;
 		case Format::eBC6HSFloat:	  return vk::Format::eBc6HSfloatBlock;
-		// Core since 1.1 through VK_KHR_sampler_ycbcr_conversion, which the backend floor of 1.2 already has. Whether an adapter can actually create one is a
-		// format-feature query and not a version question, which is what supportsMultiPlanarFormats reports.
 		case Format::eG8B8R8Biplanar420UNorm:	 return vk::Format::eG8B8R82Plane420Unorm;
 		case Format::eG8B8R8Triplanar420UNorm:	 return vk::Format::eG8B8R83Plane420Unorm;
 		case Format::eG10B10R10Biplanar420UNorm: return vk::Format::eG10X6B10X6R10X62Plane420Unorm3Pack16;
@@ -244,8 +233,6 @@ namespace azo::rhi::vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	// Reverse of MapPresentMode, used to report the mode the surface actually settled on. Modes the RHI does not name report eFifo, which is also where
-	// SelectPresentMode lands when nothing in the requested chain was advertised.
 	[[nodiscard]] PresentMode MapVkPresentMode(vk::PresentModeKHR mode) noexcept
 	{
 		switch (mode)
@@ -257,7 +244,6 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	// Reverse of MapFormat for a swapchain color format. Only the common swapchain formats are mapped. Anything else reports eUndefined.
 	[[nodiscard]] Format MapVkFormat(vk::Format format) noexcept
 	{
 		switch (format)
@@ -294,7 +280,7 @@ namespace azo::rhi::vulkan
 
 			return vk::ComponentSwizzle::eIdentity;
 		}
-	} // namespace
+	}
 
 	vk::ComponentMapping MapComponentMapping(const ComponentMapping mapping) noexcept
 	{
@@ -305,8 +291,6 @@ namespace azo::rhi::vulkan
 
 	bool QueryPortabilitySubsetFeatures(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, PortabilitySubsetFeatures & out) noexcept
 	{
-		// Straight through the loader and not the Vulkan-Hpp wrapper: this fills a struct the C++ bindings only declare under VK_ENABLE_BETA_EXTENSIONS, so the whole
-		// query stays on the C entry points instead of splitting across the two.
 		auto * const physical  = static_cast<VkPhysicalDevice>(phys);
 		std::uint32_t extCount = 0;
 		if (dispatch.vkEnumerateDeviceExtensionProperties(physical, nullptr, &extCount, nullptr) != VK_SUCCESS || extCount == 0)
@@ -340,8 +324,6 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	// Component mapping on an image view is core Vulkan, so a full implementation always has it. The portability subset is what makes it optional and MoltenVK is
-	// the implementation that can withhold it, reporting through imageViewFormatSwizzle.
 	[[nodiscard]] bool AdapterSupportsViewSwizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
 	{
 		PortabilitySubsetFeatures portabilityFeatures{};
@@ -378,7 +360,7 @@ namespace azo::rhi::vulkan
 		{
 			return location == ChromaLocation::eCositedEven ? vk::ChromaLocation::eCositedEven : vk::ChromaLocation::eMidpoint;
 		}
-	} // namespace
+	}
 
 	vk::SamplerYcbcrConversion AcquireYcbcrConversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc) noexcept
 	{
@@ -415,8 +397,6 @@ namespace azo::rhi::vulkan
 		return created.value;
 	}
 
-	// Multi-planar formats are core from Vulkan 1.1 but an adapter still has to offer the sampling format features for one, so the answer comes from the format
-	// and not the version. NV12 is the format to ask about: an adapter with any multi-planar support has it.
 	[[nodiscard]] bool AdapterSupportsMultiPlanarFormats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
 	{
 		VkFormatProperties props{};
@@ -427,8 +407,6 @@ namespace azo::rhi::vulkan
 			return false;
 		}
 
-		// A plane is only reachable through a view whose format differs from the image's, so an implementation that refuses to reinterpret a view format cannot offer
-		// these however well it samples them. MoltenVK is the one that says so, through imageViewFormatReinterpretation.
 		PortabilitySubsetFeatures portabilityFeatures{};
 		if (!QueryPortabilitySubsetFeatures(phys, dispatch, portabilityFeatures))
 		{
@@ -438,8 +416,6 @@ namespace azo::rhi::vulkan
 		return portabilityFeatures.imageViewFormatReinterpretation == VK_TRUE;
 	}
 
-	// Optional features adapter selection can require or prefer. Each maps to the same physical-device query that fills DeviceCaps so a required feature is one
-	// the created device can actually report.
 	[[nodiscard]] bool AdapterSupportsFeature(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, DeviceFeature feature) noexcept
 	{
 		const vk::PhysicalDeviceFeatures feats = phys.getFeatures(dispatch);
@@ -454,8 +430,6 @@ namespace azo::rhi::vulkan
 		case DeviceFeature::eDrawIndirectFirstInstance: return static_cast<bool>(feats.drawIndirectFirstInstance);
 		case DeviceFeature::eShaderDrawParameters:
 		{
-			// Not a base feature: shaderDrawParameters lives in the Vulkan 1.1 feature struct, which is queried through the features2 chain. Core from 1.2, the backend
-			// floor.
 			const auto chain = phys.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features>(dispatch);
 			return static_cast<bool>(chain.get<vk::PhysicalDeviceVulkan11Features>().shaderDrawParameters);
 		}
@@ -467,10 +441,6 @@ namespace azo::rhi::vulkan
 		case DeviceFeature::eMultiPlanarFormats: return AdapterSupportsMultiPlanarFormats(phys, dispatch);
 		case DeviceFeature::eSamplerYcbcrConversion:
 		{
-			/*
-			 * Both halves, because either alone is useless: the formats have to be samplable and the 1.1 feature bit has to be there, creating a conversion with it off
-			 * being a validation error. The bit is read, not assumed from the formats, since enabling one the adapter does not have fails device creation outright.
-			 */
 			const auto chain = phys.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features>(dispatch);
 			return AdapterSupportsMultiPlanarFormats(phys, dispatch) &&
 				   static_cast<bool>(chain.get<vk::PhysicalDeviceVulkan11Features>().samplerYcbcrConversion);
@@ -490,8 +460,6 @@ namespace azo::rhi::vulkan
 			});
 	}
 
-	// Enables the feature bit a negotiated feature needs, in whichever struct of the create chain holds it: most are base features, shaderDrawParameters is a
-	// Vulkan 1.1 one. Timestamp queries are a queue property and not a device feature so they enable nothing here.
 	void EnableFeatureBit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept
 	{
 		switch (feature)
@@ -507,11 +475,8 @@ namespace azo::rhi::vulkan
 		case DeviceFeature::eSparseBuffers:				features.sparseResidencyBuffer = VK_TRUE; break;
 		case DeviceFeature::eSparseTextures:			features.sparseResidencyImage2D = VK_TRUE; break;
 		case DeviceFeature::eSparseVolumes:				features.sparseResidencyImage3D = VK_TRUE; break;
-		// A 1.1 feature bit and not something core and unconditional: creating a conversion with it off is a validation error.
 		case DeviceFeature::eSamplerYcbcrConversion: features11.samplerYcbcrConversion = VK_TRUE; break;
 
-		// None of these enables anything at creation: timestamp queries are a queue property, view swizzle is core Vulkan the portability subset only reports on, and
-		// multi-planar support is a format feature. Nothing in the create chain to turn on for any of them.
 		case DeviceFeature::eTimestampQueries:
 		case DeviceFeature::eTextureViewSwizzle:
 		case DeviceFeature::eMultiPlanarFormats: break;
@@ -542,10 +507,6 @@ namespace azo::rhi::vulkan
 		return "no Vulkan adapter supports a required device feature";
 	}
 
-	// Graphics pipeline state mappers. Each is a plain one to one lowering of an RHI enum onto its Vulkan counterpart, used by VulkanCreatePipelineLayout and
-	// VulkanCreateGraphicsPipeline.
-
-	// The shader stage mask a push constant range or descriptor binding is visible to.
 	[[nodiscard]] vk::ShaderStageFlags MapShaderStages(Flags<ShaderStage> stages) noexcept
 	{
 		if (stages.Contains(ShaderStage::eAll))
@@ -589,10 +550,45 @@ namespace azo::rhi::vulkan
 			out |= vk::ShaderStageFlagBits::eAllGraphics;
 		}
 
+		if (stages.Contains(ShaderStage::eRayGeneration))
+		{
+			out |= vk::ShaderStageFlagBits::eRaygenKHR;
+		}
+
+		if (stages.Contains(ShaderStage::eAnyHit))
+		{
+			out |= vk::ShaderStageFlagBits::eAnyHitKHR;
+		}
+
+		if (stages.Contains(ShaderStage::eClosestHit))
+		{
+			out |= vk::ShaderStageFlagBits::eClosestHitKHR;
+		}
+
+		if (stages.Contains(ShaderStage::eMiss))
+		{
+			out |= vk::ShaderStageFlagBits::eMissKHR;
+		}
+
+		if (stages.Contains(ShaderStage::eIntersection))
+		{
+			out |= vk::ShaderStageFlagBits::eIntersectionKHR;
+		}
+
+		if (stages.Contains(ShaderStage::eCallable))
+		{
+			out |= vk::ShaderStageFlagBits::eCallableKHR;
+		}
+
+		if (stages.Contains(ShaderStage::eAllRayTracing))
+		{
+			out |= vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR | vk::ShaderStageFlagBits::eClosestHitKHR |
+				   vk::ShaderStageFlagBits::eMissKHR | vk::ShaderStageFlagBits::eIntersectionKHR | vk::ShaderStageFlagBits::eCallableKHR;
+		}
+
 		return out;
 	}
 
-	// The single stage of one shader binary.
 	[[nodiscard]] vk::ShaderStageFlagBits MapShaderStageBit(ShaderStage stage) noexcept
 	{
 		switch (stage)
@@ -767,13 +763,6 @@ namespace azo::rhi::vulkan
 	{
 		detail::HostVector<vk::DynamicState> out;
 
-		/*
-		 * Viewport and scissor go in whether or not the caller asked. GraphicsPipelineDesc carries no viewport and no scissor rectangle and both are command-list
-		 * state on every backend. This one has to be told: the create info below passes viewportCount 1 with a null pViewports, which Vulkan permits only when both
-		 * are declared dynamic.
-		 *
-		 * Once, not twice. Vulkan requires every element of pDynamicStates to be unique and the caller's own flags for these two are ignored, not appended.
-		 */
 		out.push_back(vk::DynamicState::eViewport);
 		out.push_back(vk::DynamicState::eScissor);
 
@@ -795,14 +784,11 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	// True for the depth stencil formats that carry a stencil aspect so dynamic rendering binds the stencil attachment format only when one exists.
 	[[nodiscard]] bool HasStencilAspect(Format format) noexcept
 	{
 		return format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
 	}
 
-	// Command recording mappers: the dimensionality of a texture view, the synchronization2 stage and access masks a barrier lowers to, the image layout, the
-	// aspect mask and the attachment load and store ops a rendering pass uses.
 	[[nodiscard]] vk::ImageViewType MapImageViewType(TextureViewType type) noexcept
 	{
 		switch (type)
@@ -880,8 +866,6 @@ namespace azo::rhi::vulkan
 		return { MapAspect(range.aspects), range.baseMip, range.mipCount, range.baseLayer, range.layerCount };
 	}
 
-	// The aspect a view of this format must name. Depth-stencil formats report the depth aspect, matching the implicit default view a texture gets alongside its
-	// image so the same texture cannot end up with an implicit view and an explicit one that disagree.
 	[[nodiscard]] vk::ImageAspectFlags AspectForViewFormat(vk::Format format) noexcept
 	{
 		switch (format)
@@ -897,12 +881,6 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	/*
-	 * Process lifetime owner of the Vulkan backend objects, plus the loader that backs the dynamic dispatcher when nothing else has initialized it. Function local
-	 * static so it is torn down after main returns: devices first (VMA and logical device), then instances, then the loader last, which keeps the dispatcher's
-	 * function pointers valid through every teardown call.
-	 */
-
 	[[nodiscard]] AdapterType MapAdapterType(vk::PhysicalDeviceType type) noexcept
 	{
 		switch (type)
@@ -915,20 +893,11 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	// Maps a Vulkan driver ID onto the normalized RHI enum. The RHI DriverId values mirror the VkDriverId registry one to one so this is a widening cast: an ID
-	// this build has not named still carries through as its numeric value and formats via the default scheme.
 	[[nodiscard]] DriverId MapDriverId(const vk::DriverId id) noexcept
 	{
 		return static_cast<DriverId>(static_cast<std::uint32_t>(id));
 	}
 
-	/*
-	 * The identity an importer matches on, which is a different question from the PCI pair beside it: two identical adapters in one machine share a vendorID and
-	 * deviceID and do not share these.
-	 *
-	 * deviceLUID is read only where Vulkan says it holds anything. The struct leaves the bytes undefined, not zeroed when deviceLUIDValid is false, so copying
-	 * them across unconditionally would hand a caller whatever was on the stack.
-	 */
 	void FillAdapterIdentity(AdapterInfo & adapter, const vk::PhysicalDeviceIDProperties & id) noexcept
 	{
 		std::ranges::copy(id.deviceUUID, adapter.deviceUUID.begin());
@@ -941,4 +910,4 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-} // namespace azo::rhi::vulkan
+}

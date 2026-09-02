@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -52,7 +47,7 @@ namespace fw::scene
 		eHeightMapTexture,
 		eRoughnessMapTexture,
 		eMetallicMapTexture,
-		eMetallicRoughnessMapTexture, // G Channel is Roughness, B Channel is Metallic.
+		eMetallicRoughnessMapTexture,
 		eOpacityMapTexture,
 		eEmissiveMapTexture,
 		eAmbientOcclusionMapTexture,
@@ -94,7 +89,7 @@ namespace fw::scene
 		int emissiveMap			 = -1;
 		int ambientOcclusionMap	 = -1;
 
-		int flipNormals = 0; // This is a bool as an int.
+		int flipNormals = 0;
 	};
 
 	inline std::vector<std::uint8_t> SerializeMaterial(const Material & material, const std::vector<MaterialComponent> & enabledMaterialComponents)
@@ -167,7 +162,6 @@ namespace fw::scene
 			}
 		}
 
-		// Enforce 16 byte alignment
 		constexpr std::size_t alignment = 16uz;
 		if (const std::size_t remainder = buffer.size() % alignment; remainder != 0uz)
 		{
@@ -178,13 +172,8 @@ namespace fw::scene
 		return buffer;
 	}
 
-	/**
-	 * \brief Bytes one material occupies once serialized, which is the stride of the material storage buffer.
-	 *
-	 * Derived by serializing a default material and not by adding up component sizes, so it cannot drift from what SerializeMaterial writes.
-	 */
 	[[nodiscard]] inline std::size_t MaterialStride(const std::vector<MaterialComponent> & enabledMaterialComponents)
 	{
 		return SerializeMaterial(Material{}, enabledMaterialComponents).size();
 	}
-} // namespace fw::scene
+}

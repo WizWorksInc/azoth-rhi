@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -28,12 +23,6 @@ namespace fw::render
 			return alignment <= 1 ? value : ((value + alignment - 1) & ~(alignment - 1));
 		}
 
-		/*
-		 * The strictest offset alignment the usage asks for.
-		 *
-		 * A slice bound as a uniform and a slice bound as a storage buffer have different rules, so a pool declaring both is cut at whichever is stricter.
-		 * Getting this wrong is not a crash: the binding is refused, or on a lenient driver reads the wrong thing.
-		 */
 		[[nodiscard]] std::uint64_t AlignmentFor(const azo::rhi::Device & device, const azo::rhi::Flags<azo::rhi::BufferUsage> usage) noexcept
 		{
 			const azo::rhi::DeviceCaps & caps = device.GetCaps();
@@ -51,7 +40,7 @@ namespace fw::render
 
 			return std::max<std::uint64_t>(alignment, 1);
 		}
-	} // namespace
+	}
 
 	bool BufferAllocation::WriteBytes(const std::span<const std::uint8_t> bytes) const noexcept
 	{
@@ -96,7 +85,6 @@ namespace fw::render
 			return {};
 		}
 
-		// The blocks in hand first, which is the path every frame after the first takes.
 		for (const std::unique_ptr<Block> & block : m_blocks)
 		{
 			const std::uint64_t start = AlignUp(block->offset, m_alignment);
@@ -113,7 +101,6 @@ namespace fw::render
 			}
 		}
 
-		// A request bigger than a block gets one sized for it without failing, since the alternative is a caller having to know the block size.
 		Block * fresh = CreateBlock(std::max(m_blockBytes, AlignUp(bytes, m_alignment)));
 		if (fresh == nullptr)
 		{
@@ -159,7 +146,6 @@ namespace fw::render
 			azo::rhi::BufferDesc{
 				.size  = bytes,
 				.usage = m_usage,
-				// eCpuToGpu, not eCpuUpload because a pool is written again every frame, not staged once and copied out.
 				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
 				.persistentMap = true,
 				.debugName	   = "fw.render.bufferPool",
@@ -184,8 +170,6 @@ namespace fw::render
 		block->data		= static_cast<std::uint8_t *>(mapped.data);
 		block->coherent = mapped.coherent;
 
-		// Non-coherent memory needs a flush before the GPU reads what was written. The pool does not know when a frame is done writing, so it asks for
-		// memory that does not need one and says so without flushing at a point that would be a guess.
 		if (!block->coherent)
 		{
 			LOG_WARNING(fw::Log(), "buffer pool: this device's upload memory is not coherent, so writes need a flush the pool does not do");
@@ -195,4 +179,4 @@ namespace fw::render
 
 		return m_blocks.back().get();
 	}
-} // namespace fw::render
+}

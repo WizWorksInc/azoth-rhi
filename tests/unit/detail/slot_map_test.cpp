@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -99,8 +94,6 @@ namespace
 
 	TEST(SlotMap, BoundsAreCheckedEvenWithValidationOff)
 	{
-		// validate gates the generation and liveness checks. The index bound is not negotiable because an out-of-range read would be undefined behavior
-		// and not a rejected call.
 		TestMap map;
 		static_cast<void>(map.Store(1));
 
@@ -116,8 +109,6 @@ namespace
 
 	TEST(SlotMap, SkippingValidationResolvesAStaleHandleToTheCurrentOccupant)
 	{
-		// The documented cost of a release build: with validation off the stale check is not performed so a retired handle resolves to whatever now lives
-		// in the slot. Pinning it here means a change to that trade-off is a deliberate edit and not a surprise.
 		TestMap map;
 		const TestHandle first = map.Store(1);
 		ASSERT_TRUE(map.Retire(first, true));
@@ -324,4 +315,4 @@ namespace
 		EXPECT_EQ(map.Resolve(early, true), beforeGrowth) << "a slot moved, which is the whole thing chunked storage rules out";
 	}
 
-} // namespace
+}

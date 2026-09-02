@@ -1,24 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-/**
- * \file
- * \brief Names every public out-of-line function once so a shared link has to resolve it.
- *
- * A shared build reports a missing AZO_RHI_API only on a symbol something references, so a declaration nobody calls stays broken until the first consumer who
- * calls it. What this cannot do is notice a function nobody added to it: a new public entry point earns a line below or it stays exactly as latent as before.
- */
 
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/commands/command.hpp"
@@ -52,7 +39,6 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-	// A volatile store the optimiser has to perform, which is what makes the address a real reference in the object file rather than a folded constant.
 	template <class Fn>
 	void Reference(Fn function) noexcept
 	{
@@ -80,7 +66,6 @@ namespace
 		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::DeviceDesc &)>(
 			&rhi::CreateDevice));
 
-		// Null is the one specialization every build has. The rest are unresolved where their backend was not bundled, so each is named beside its own backend below.
 		Reference(&rhi::CreateDevice<rhi::NullApi>);
 
 		Reference(&rhi::AvailableBackends);
@@ -110,7 +95,6 @@ namespace
 		Reference(&rhi::BackendModule::Unload);
 	}
 
-	// A constructor and a destructor have no address, so the only way to name one is to run it. Both of these do nothing beyond their own bookkeeping.
 	TEST(ExportSurface, TheConstructorsAndDestructorsResolve)
 	{
 		rhi::BackendSelection selection(rhi::BackendPreference{});
@@ -185,4 +169,4 @@ namespace
 
 #endif
 
-} // namespace
+}

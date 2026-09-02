@@ -1,36 +1,22 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
-/**
- * \file
- * \brief Builders for dynamic rendering descriptions.
- */
-
 #include "azoth/rhi/commands/render.hpp"
 
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <span>
 #include <vector>
 
 namespace azo::rhi
 {
-	/**
-	 * \brief Builds rendering-attachment descriptions.
-	 */
 	class RenderingAttachmentBuilder final
 	{
 	public:
@@ -58,9 +44,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets a color clear value and switches the attachment load operation to LoadOp::eClear.
-		 */
 		RenderingAttachmentBuilder & ClearColor(float r, float g, float b, float a) noexcept
 		{
 			m_desc.load		  = LoadOp::eClear;
@@ -73,9 +56,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets a depth-stencil clear value and switches the attachment load operation to LoadOp::eClear.
-		 */
 		RenderingAttachmentBuilder & ClearDepthStencil(float depth, std::uint32_t stencil = 0) noexcept
 		{
 			m_desc.load				 = LoadOp::eClear;
@@ -95,9 +75,6 @@ namespace azo::rhi
 		RenderingAttachment m_desc{};
 	};
 
-	/**
-	 * \brief Builds begin-rendering descriptions backed by owned color-attachment storage.
-	 */
 	class BeginRenderingBuilder final
 	{
 	public:
@@ -126,14 +103,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets the render area in framebuffer coordinates.
-		 *
-		 * \param x Left pixel coordinate of the render area.
-		 * \param y Top pixel coordinate of the render area.
-		 * \param width Render-area width in pixels.
-		 * \param height Render-area height in pixels.
-		 */
 		BeginRenderingBuilder & RenderArea(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) noexcept
 		{
 			m_x		 = x;
@@ -143,12 +112,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets the render area size while leaving its origin unchanged.
-		 *
-		 * \param width Render-area width in pixels.
-		 * \param height Render-area height in pixels.
-		 */
 		BeginRenderingBuilder & Extent(std::uint32_t width, std::uint32_t height) noexcept
 		{
 			m_width	 = width;
@@ -156,20 +119,12 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets the number of view layers rendered by this pass.
-		 */
 		BeginRenderingBuilder & Layers(std::uint32_t layers) noexcept
 		{
 			m_layers = layers;
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a begin-rendering description that borrows this builder's attachment storage.
-		 *
-		 * \attention The returned color span and depthStencil pointer stay valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] BeginRenderingDesc Build() const noexcept
 		{
 			return BeginRenderingDesc{
@@ -193,4 +148,4 @@ namespace azo::rhi
 		std::uint32_t m_height = 0;
 		std::uint32_t m_layers = 1;
 	};
-} // namespace azo::rhi
+}

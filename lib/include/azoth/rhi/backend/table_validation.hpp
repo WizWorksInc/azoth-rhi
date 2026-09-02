@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Backend dispatch-table validation and device block resolution.
- */
 
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/core/result.hpp"
@@ -26,7 +16,6 @@
 #include <array>
 #include <bit>
 #include <cstddef>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <cstring>
 #include <string_view>
@@ -35,18 +24,12 @@ namespace azo::rhi::validation
 {
 	[[nodiscard]] void * WrapDevice(void * deviceImpl, ValidationMode mode) noexcept;
 
-} // namespace azo::rhi::validation
+}
 
 namespace azo::rhi::detail
 {
-	/**
-	 * \brief ABI dispatch entry word used to sweep every block as a flat run of function pointers.
-	 */
 	using AnyDispatchEntry = void (*)();
 
-	/**
-	 * \brief Number of dispatch-entry words occupied by InterfaceHeader before function entries begin.
-	 */
 	inline constexpr std::size_t kBlockHeaderWords = sizeof(InterfaceHeader) / sizeof(AnyDispatchEntry);
 
 	static_assert(sizeof(InterfaceHeader) == sizeof(AnyDispatchEntry),
@@ -513,11 +496,6 @@ namespace azo::rhi::detail
 			"pointers, so the two have to stay the same length.");
 	};
 
-	/**
-	 * \brief Returns how many function entries the backend declared in a block, capped to the entries this build knows how to read.
-	 *
-	 * \note Longer blocks are treated as this build's known length. Shorter blocks are swept only through the bytes they actually declared.
-	 */
 	template <typename Block>
 	[[nodiscard]] std::size_t DeclaredEntryCount(const Block & block) noexcept
 	{
@@ -532,11 +510,6 @@ namespace azo::rhi::detail
 		return declared < known ? declared : known;
 	}
 
-	/**
-	 * \brief Returns the first null dispatch entry, or the declared entry count when all declared entries are present.
-	 *
-	 * The block is copied one dispatch word at a time because a shorter block has fewer bytes than Block and must not be read through the full type.
-	 */
 	template <typename Block>
 	[[nodiscard]] std::size_t FirstMissingEntry(const Block & block) noexcept
 	{
@@ -556,12 +529,6 @@ namespace azo::rhi::detail
 		return count;
 	}
 
-	/**
-	 * \brief Requires every dispatch entry read by this build to be declared and non-null.
-	 *
-	 * The sweep runs on every facade creation instead of caching by block pointer. A backend can free a block and later allocate a different block at the same
-	 * address.
-	 */
 	template <typename Block>
 	[[nodiscard]] bool RequireCompleteBlock(const Block * block, Error * error) noexcept
 	{
@@ -575,8 +542,6 @@ namespace azo::rhi::detail
 
 		if (error != nullptr)
 		{
-			// Short blocks are reported as the first entry they do not reach because that is the first call site that would fail. kNames entries are constexpr
-			// views over string literals. Error::message carries only const char *, so the data pointer is intentional.
 			*error = Error{
 				.code = ErrorCode::eValidationFailed,
 				// NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
@@ -587,11 +552,6 @@ namespace azo::rhi::detail
 		return false;
 	}
 
-	/**
-	 * \brief Resolves and validates the required ABI block for a backend object before it becomes a public facade.
-	 *
-	 * Returns nullptr when the backend object is null, declines the block, publishes a shorter block, or leaves a required entry null.
-	 */
 	template <typename Block>
 	[[nodiscard]] const Block * CheckedBlock(void * impl, Error * error) noexcept
 	{
@@ -605,7 +565,6 @@ namespace azo::rhi::detail
 		{
 			if (error != nullptr)
 			{
-				// kBlockMissing is a constexpr view over a string literal. Error::message carries only const char *, so the data pointer is intentional.
 				*error = Error{
 					.code = ErrorCode::eValidationFailed,
 					// NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
@@ -619,28 +578,12 @@ namespace azo::rhi::detail
 		return RequireCompleteBlock(block, error) ? block : nullptr;
 	}
 
-	/**
-	 * \brief Validates a child object's required block when the cached block pointer lives on the device block set instead of the facade.
-	 */
 	template <typename Block>
 	[[nodiscard]] bool CheckedChild(void * impl, Error * error) noexcept
 	{
 		return CheckedBlock<Block>(impl, error) != nullptr;
 	}
 
-	/**
-	 * \brief Resolves a backend device into a block set that lives as long as the public device facade.
-	 *
-	 * \param deviceImpl Backend device object. This may be replaced with the validation wrapper when validation is enabled.
-	 * \param desc Device creation description whose allocator, validation, threading, sync, and profiler fields affect block-set setup.
-	 * \attention CoreDeviceApi is mandatory. Optional device blocks remain null when the backend declines those capabilities.
-	 */
-	/*
-	 * Why a device could not be created, for a feature the caller said it needed.
-	 *
-	 * Whole sentences and not a name joined onto a prefix, because Error carries a const char * and has nowhere to build a string. The Vulkan backend has
-	 * its own set for the same reason, phrased for adapter selection where this is phrased for the device that was actually made.
-	 */
 	[[nodiscard]] inline const char * MissingRequiredFeatureMessage(const DeviceFeature feature) noexcept
 	{
 		switch (feature)
@@ -672,7 +615,6 @@ namespace azo::rhi::detail
 			return nullptr;
 		}
 
-		// Validation wraps the backend before final block resolution so facades resolve against the wrapper, not the raw backend object.
 		deviceImpl = validation::WrapDevice(deviceImpl, desc.validation);
 
 		HostUniquePtr<BackendBlockSet> blocks = HostNew<BackendBlockSet>(deviceImpl, desc);
@@ -689,13 +631,6 @@ namespace azo::rhi::detail
 			return nullptr;
 		}
 
-		/*
-		 * A required feature the device cannot give is a refusal, not a device that quietly lacks it. Checked here so every backend gets it from one place.
-		 * Vulkan also refuses during adapter selection, where it can pick a different adapter instead. This never fires there.
-		 *
-		 * Direct3D 12 and Metal each drive a single adapter and have nothing to select between. Reading the granted caps matches reading the adapter's for a
-		 * required feature, since granting narrows to what was declared.
-		 */
 		for (const DeviceFeature feature : desc.requiredFeatures)
 		{
 			if (blocks->Caps().Supports(feature))
@@ -730,19 +665,11 @@ namespace azo::rhi::detail
 		return blocks.release();
 	}
 
-	/**
-	 * \brief Releases the resolved device block set when the owning public device facade is destroyed.
-	 */
 	inline void ReleaseDeviceBlocks(BackendBlockSet * blocks) noexcept
 	{
 		HostDeleter{ .size = sizeof(BackendBlockSet), .alignment = alignof(BackendBlockSet) }(blocks);
 	}
 
-	/**
-	 * \brief Rejects cooperative threading unless the host supplied every synchronization callback.
-	 *
-	 * \note Shared by dynamic and static device creation so all entry points enforce the same threading contract.
-	 */
 	[[nodiscard]] inline Result<void> CheckThreading(const DeviceDesc & desc) noexcept
 	{
 		if (desc.threading != ThreadingMode::eCooperative || desc.sync.IsComplete())
@@ -756,9 +683,6 @@ namespace azo::rhi::detail
 		};
 	}
 
-	/**
-	 * \brief Destroys a backend device that was created successfully but cannot be driven through a complete CoreDeviceApi.
-	 */
 	inline void ReleaseUndrivableDevice(void * deviceImpl) noexcept
 	{
 		if (const auto * partial = QueryBlock<CoreDeviceApi>(deviceImpl); partial != nullptr && partial->destroyDevice != nullptr)
@@ -768,4 +692,4 @@ namespace azo::rhi::detail
 		}
 	}
 
-} // namespace azo::rhi::detail
+}

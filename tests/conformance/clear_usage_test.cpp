@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -39,7 +34,6 @@ namespace
 
 	AZO_RHI_BACKEND_SUITE(ClearUsageTest);
 
-	// Direct3D 12 clears a buffer through a UAV and refuses one without eStorage, while Vulkan and both Metals fill without one, so those three carry this.
 	TEST_P(ClearUsageTest, RefusesAClearOfABufferThatDeclaredNoStorageUsage)
 	{
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
@@ -59,7 +53,6 @@ namespace
 				<< "a buffer created without BufferUsage::eStorage was cleared";
 			EXPECT_TRUE(test::ErrorIsPopulated(clearError));
 
-			// The same call against a buffer that did declare it, so the refusal above is about the usage and not about clearing at all.
 			EXPECT_TRUE(test::Ok(recording.List().ClearBuffer(storage, 0, test::samples::kBufferSize, 0u, error), error));
 
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
@@ -69,7 +62,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(readback, {}, error), error));
 	}
 
-	// Direct3D 12 and both Metals clear a texture through a render target and refuse one without eColorAttachment. Vulkan clears without it and carries this.
 	TEST_P(ClearUsageTest, RefusesAClearOfATextureThatDeclaredNoColorAttachmentUsage)
 	{
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
@@ -78,7 +70,6 @@ namespace
 		const rhi::TextureHandle sampled = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
 		ASSERT_TRUE(test::Ok(sampled.IsValid(), error));
 
-		// eCopyDst as well, Vulkan clearing through vkCmdClearColorImage, which wants a transfer destination. A second precondition, and not the one under test.
 		rhi::TextureDesc targetDesc = test::samples::ColorTarget2D();
 		targetDesc.usage |= rhi::TextureUsage::eCopyDst;
 		const rhi::TextureHandle target = Dev().CreateTexture(targetDesc, error);
@@ -96,7 +87,6 @@ namespace
 				<< "a texture created without TextureUsage::eColorAttachment was cleared";
 			EXPECT_TRUE(test::ErrorIsPopulated(clearError));
 
-			// The same call against a texture that did declare it.
 			EXPECT_TRUE(test::Ok(recording.List().ClearTexture(target, color, ranges, error), error));
 
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
@@ -106,4 +96,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(sampled, {}, error), error));
 	}
 
-} // namespace
+}

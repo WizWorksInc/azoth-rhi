@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -31,14 +26,11 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "getTextureInfo names a texture this device did not create");
 		}
 
-		// A back buffer never came from a TextureDesc, so there is nothing here to report that would not be invented. The swapchain owns that description and
-		// answers for it.
 		if (slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 		{
 			return Fail(error, ErrorCode::eUnsupportedFeature, "a swapchain back buffer has no texture description; ask the swapchain instead");
 		}
 
-		// Metal reports what the texture actually cost, which for a placed one is its share of the heap.
 		const std::uint64_t allocated = slot->texture.get() != nullptr ? slot->texture->allocatedSize() : 0;
 
 		*out = TextureInfo{ .desc = slot->desc, .allocationSize = allocated };
@@ -66,7 +58,6 @@ namespace azo::rhi::metal4
 		{
 			allocated = slot->buffer->allocatedSize();
 
-			// Shared and managed are both host reachable and Metal keeps shared coherent, so the split is by storage mode and not by what was asked.
 			access = slot->buffer->storageMode() == MTL::StorageModePrivate ? MemoryAccess::eGpuOnly : MemoryAccess::eCpuVisibleCoherent;
 		}
 
@@ -98,10 +89,10 @@ namespace azo::rhi::metal4
 		support.linearFiltering		   = !depth && !integer;
 		support.storage				   = !depth && !compressed;
 		support.colorAttachment		   = !depth && !compressed;
-		support.blendable			   = !depth && !compressed && !integer;
+		support.blendable			   = IsBlendableFormat(format);
 		support.depthStencilAttachment = depth;
 
 		return support;
 	}
 
-} // namespace azo::rhi::metal4
+}

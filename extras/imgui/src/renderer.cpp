@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -46,10 +41,8 @@ namespace azo::rhi::imgui
 		constexpr std::uint32_t kImageBinding	= 0;
 		constexpr std::uint32_t kSamplerBinding = 1;
 
-		// What a copy's buffer offset is aligned to when a device reports no requirement of its own.
 		constexpr std::uint64_t kFallbackCopyAlignment = 4;
 
-		// What both stages are pushed, matching Transform in every one of the four shader sources.
 		struct Transform final
 		{
 			std::array<float, 2> scale{};
@@ -57,11 +50,8 @@ namespace azo::rhi::imgui
 			std::uint32_t srgbTarget = 0;
 		};
 
-		// Both stages read the block, the vertex one for the projection and the fragment one for srgbTarget, so both have to be named twice over: once by the
-		// layout's range and once by the push itself. Naming one alone leaves the other reading a block nothing bound.
 		constexpr Flags<ShaderStage> kTransformStages = Flags(ShaderStage::eVertex) | ShaderStage::eFragment;
 
-		// Whether writing to this format makes the hardware encode what the shader produced.
 		[[nodiscard]] bool IsSrgb(const Format format) noexcept
 		{
 			switch (format)
@@ -77,12 +67,6 @@ namespace azo::rhi::imgui
 		static_assert(sizeof(ImDrawIdx) == sizeof(std::uint16_t) || sizeof(ImDrawIdx) == sizeof(std::uint32_t),
 			"Dear ImGui's index type has to be one of the two widths a draw can use");
 
-		/*
-		 * A descriptor set carried as ImGui's texture identifier, which is what lets a draw command bind what it names without a lookup.
-		 *
-		 * The index is biased by one because ImGui reserves zero for no texture, and a handle whose index and generation are both zero is otherwise a perfectly good
-		 * one. Every other bit rides along untouched, an identifier being sixty four bits wide and a handle being two words.
-		 */
 		[[nodiscard]] ImTextureID PackSet(const DescriptorSetHandle set) noexcept
 		{
 			return (static_cast<ImTextureID>(set.generation) << 32u) | static_cast<ImTextureID>(set.index + 1u);
@@ -106,7 +90,6 @@ namespace azo::rhi::imgui
 			return (value + alignment - 1) & ~(alignment - 1);
 		}
 
-		// The two stages this backend was compiled for, or a pair of empty binaries when it was not compiled for this one.
 		[[nodiscard]] std::array<ShaderBinary, 2> ShadersFor([[maybe_unused]] const GraphicsApiId api) noexcept
 		{
 			std::array<ShaderBinary, 2> stages{};
@@ -157,7 +140,7 @@ namespace azo::rhi::imgui
 
 			return stages;
 		}
-	} // namespace
+	}
 
 	Result<Renderer> Renderer::Create(Device & device, const RendererDesc & desc) noexcept
 	{
@@ -181,7 +164,6 @@ namespace azo::rhi::imgui
 		renderer.m_arena  = desc.arena;
 		renderer.m_frames.resize(std::max(desc.framesInFlight, 1u));
 
-		// Asked of the device, not assumed. Zero means it has no requirement, which still needs an alignment the arithmetic below can use.
 		const std::uint64_t reported = device.GetCaps().optimalBufferCopyOffsetAlignment;
 		renderer.m_copyAlignment	 = reported != 0 ? reported : kFallbackCopyAlignment;
 		renderer.m_srgbTarget		 = IsSrgb(desc.colorFormat);
@@ -193,11 +175,6 @@ namespace azo::rhi::imgui
 			return error;
 		}
 
-		/*
-		 * Telling ImGui the backend answers texture requests, which is what puts it in charge of its own atlases: it creates one, asks for it to be uploaded, grows
-		 * it when a font gains a glyph and asks for the changed rectangle alone. Without this flag it falls back to expecting a backend to have uploaded the whole
-		 * atlas up front, which is the older contract this does not implement.
-		 */
 		// NOLINTNEXTLINE(hicpp-signed-bitwise): ImGui's flag enums are signed, which is its type system and not anything decided here.
 		ImGui::GetIO().BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
 
@@ -327,7 +304,6 @@ namespace azo::rhi::imgui
 			return false;
 		}
 
-		// Clamped, because a triangle sampling at the edge of a glyph would otherwise pick up whatever wrapped round from the far side of the atlas.
 		m_sampler = m_device.CreateSampler(
 			SamplerDesc{
 				.addressU  = AddressMode::eClampToEdge,
@@ -350,13 +326,11 @@ namespace azo::rhi::imgui
 		m_pipelineLayout =
 			m_device.CreatePipelineLayout(PipelineLayoutDesc{ .sets = sets, .pushConstants = pushConstants, .debugName = desc.debugName }, error);
 
-		// One buffer holding all three attributes interleaved, which is what ImDrawVert is.
 		const std::array vertexBindings{ VertexBindingDesc{ .binding = 0, .stride = sizeof(ImDrawVert) } };
 
 		const std::array vertexAttributes{
 			VertexAttributeDesc{ .location = 0, .binding = 0, .format = Format::eRG32Float, .offset = offsetof(ImDrawVert, pos) },
 			VertexAttributeDesc{ .location = 1, .binding = 0, .format = Format::eRG32Float, .offset = offsetof(ImDrawVert, uv) },
-			// Four bytes, not four floats, unpacked to the range zero to one on the way in, which is what saves ImGui three quarters of its vertex.
 			VertexAttributeDesc{ .location = 2, .binding = 0, .format = Format::eRGBA8UNorm, .offset = offsetof(ImDrawVert, col) },
 		};
 
@@ -369,7 +343,6 @@ namespace azo::rhi::imgui
 			.srcColorBlendFactor = BlendFactor::eSrcAlpha,
 			.dstColorBlendFactor = BlendFactor::eOneMinusSrcAlpha,
 			.colorBlendOp		 = BlendOp::eAdd,
-			// The destination keeps whatever coverage it already had, which is what stops an interface drawn over an opaque target punching holes in it.
 			.srcAlphaBlendFactor = BlendFactor::eOne,
 			.dstAlphaBlendFactor = BlendFactor::eOneMinusSrcAlpha,
 			.alphaBlendOp		 = BlendOp::eAdd,
@@ -384,13 +357,11 @@ namespace azo::rhi::imgui
 				.layout		 = m_pipelineLayout,
 				.shaders	 = stages,
 				.vertexInput = &vertexInput,
-				// ImGui emits both windings depending on how a shape was built, so nothing is culled.
 				.raster		   = { .cullMode = CullMode::eNone },
 				.depthStencil  = { .depthTestEnable = false, .depthWriteEnable = false },
 				.blend		   = blend,
 				.renderTarget  = renderTarget,
 				.pipelineCache = desc.cache,
-				// The scissor changes per draw command, not per pass, which is the whole reason ImGui can clip a window to its own frame.
 				.dynamicStates = Flags<DynamicState>(DynamicState::eViewport) | DynamicState::eScissor,
 				.debugName	   = desc.debugName,
 			},
@@ -428,7 +399,6 @@ namespace azo::rhi::imgui
 			return ImTextureID_Invalid;
 		}
 
-		// Asking twice for the same view hands back the same set, so a caller may do this every frame without allocating one each time.
 		const auto found = std::ranges::find(m_registered, view, &Texture::view);
 		if (found != m_registered.end())
 		{
@@ -456,7 +426,6 @@ namespace azo::rhi::imgui
 			return;
 		}
 
-		// Held, not dropped, because the frames still in flight may name this set.
 		m_pending.push_back(*found);
 		m_registered.erase(found);
 	}
@@ -475,7 +444,6 @@ namespace azo::rhi::imgui
 		bool ok = true;
 		for (const Texture & texture : m_pending)
 		{
-			// Only what this created. A registered view belongs to the caller and only its set was ever ours.
 			if (texture.owned)
 			{
 				ok = m_device.Destroy(texture.view, destroy, error) && ok;
@@ -520,10 +488,6 @@ namespace azo::rhi::imgui
 			return true;
 		}
 
-		/*
-		 * The staging a frame needs is however much its texture requests add up to, which is known before any of it is written. Sized once here, not grown as
-		 * it goes, because growing means a new buffer and the pointers already handed out would be into the old one.
-		 */
 		std::uint64_t required = 0;
 		for (const ImTextureData * data : *drawData.Textures)
 		{
@@ -551,7 +515,6 @@ namespace azo::rhi::imgui
 			static_cast<void>(m_device.Destroy(frame.staging.buffer));
 			frame.staging = Staging{};
 
-			// Room to spare, so an atlas that gains a glyph every few frames does not reallocate every one of them.
 			const std::uint64_t want = required + (required / 2);
 
 			frame.staging.buffer = m_device.CreateBuffer(
@@ -602,15 +565,10 @@ namespace azo::rhi::imgui
 		const auto width  = static_cast<std::uint32_t>(data.Width);
 		const auto height = static_cast<std::uint32_t>(data.Height);
 
-		/*
-		 * RGBA whatever ImGui rasterized, because that is the one layout every backend samples without a swizzle. A single channel atlas is expanded on the way
-		 * through, not sampled as red and fixed up in the shader, which would make the shader depend on how the atlas was built.
-		 */
 		Texture texture{ .owned = true };
 
 		texture.texture = m_device.CreateTexture(
 			TextureDesc{
-				// Unorm, not sRGB: ImGui's colours are already in whatever space the target wants, and decoding the atlas would darken the text.
 				.format	   = Format::eRGBA8UNorm,
 				.width	   = width,
 				.height	   = height,
@@ -652,7 +610,6 @@ namespace azo::rhi::imgui
 		}
 		else
 		{
-			// One channel of coverage, spread white across the three ImGui did not store.
 			const auto * source = static_cast<const std::uint8_t *>(data.GetPixels());
 			for (std::uint64_t texel = 0; texel < static_cast<std::uint64_t>(width) * height; ++texel)
 			{
@@ -707,15 +664,10 @@ namespace azo::rhi::imgui
 		const auto found = std::ranges::find(m_registered, set, &Texture::set);
 		if (found == m_registered.end())
 		{
-			// ImGui asked to update something this never created so there is nothing to write into. Asking for a create instead gets it made before the next update.
 			data.SetStatus(ImTextureStatus_WantCreate);
 			return true;
 		}
 
-		/*
-		 * The bounding box of everything queued, not each rectangle in Updates, which is one copy instead of a dozen for a handful of extra texels. ImGui offers both
-		 * and says either is fine.
-		 */
 		const ImTextureRect & box = data.UpdateRect;
 		if (box.w == 0 || box.h == 0)
 		{
@@ -732,7 +684,6 @@ namespace azo::rhi::imgui
 			return false;
 		}
 
-		// Packed tightly out of the rows the box covers, so the copy needs no source pitch of its own.
 		for (unsigned short row = 0; row < box.h; ++row)
 		{
 			const auto * source	  = static_cast<const std::uint8_t *>(data.GetPixelsAt(box.x, box.y + row));
@@ -798,7 +749,6 @@ namespace azo::rhi::imgui
 
 		if (const auto found = std::ranges::find(m_registered, set, &Texture::set); found != m_registered.end())
 		{
-			// Held, not destroyed here, because the frames still in flight name it. Retire is what lets it go.
 			m_pending.push_back(*found);
 			m_registered.erase(found);
 		}
@@ -815,7 +765,6 @@ namespace azo::rhi::imgui
 			return true;
 		}
 
-		// Grown with room to spare and not to exactly what this frame asked for, so an interface that gains a row does not reallocate every frame.
 		const std::uint64_t wantVertices = std::max(vertexBytes + (vertexBytes / 2), frame.vertexBytes);
 		const std::uint64_t wantIndices	 = std::max(indexBytes + (indexBytes / 2), frame.indexBytes);
 
@@ -884,7 +833,6 @@ namespace azo::rhi::imgui
 			return false;
 		}
 
-		// A minimized window, or an interface with nothing in it. Neither is a failure and neither has anything to record.
 		const int targetWidth  = static_cast<int>(drawData.DisplaySize.x * drawData.FramebufferScale.x);
 		const int targetHeight = static_cast<int>(drawData.DisplaySize.y * drawData.FramebufferScale.y);
 		if (targetWidth <= 0 || targetHeight <= 0 || drawData.TotalVtxCount == 0)
@@ -902,7 +850,6 @@ namespace azo::rhi::imgui
 
 		Frame & frame = m_frames[frameSlot % m_frames.size()];
 
-		// ImGui keeps its geometry in a list per window, so it goes in back to back and each list remembers where its own share started.
 		std::uint64_t vertexOffset = 0;
 		std::uint64_t indexOffset  = 0;
 		for (const ImDrawList * cmdList : drawData.CmdLists)
@@ -919,13 +866,6 @@ namespace azo::rhi::imgui
 			indexOffset += listIndexBytes;
 		}
 
-		/*
-		 * ImGui works in pixels with the origin at the top left, and this turns that into clip space, with the display position folded in so a viewport that
-		 * does not start at zero still lands right.
-		 *
-		 * The Y scale is negative, the part worth stopping on. Nearly every ImGui backend is written against Vulkan's clip space, where Y runs down. This RHI
-		 * presents Y up unless SetClipSpace says otherwise, so the usual transform draws the interface upside down.
-		 */
 		const float scaleX = 2.0f / drawData.DisplaySize.x;
 		const float scaleY = 2.0f / drawData.DisplaySize.y;
 
@@ -942,7 +882,6 @@ namespace azo::rhi::imgui
 						list.SetVertexBuffer(0, frame.vertices, 0, error) &&
 						list.SetIndexBuffer(frame.indices, 0, sizeof(ImDrawIdx) == sizeof(std::uint32_t), error);
 
-		// Bound only when it changes, which for an interface that is all text is once for the whole frame.
 		DescriptorSetHandle bound{};
 
 		std::int32_t vertexBase = 0;
@@ -956,16 +895,11 @@ namespace azo::rhi::imgui
 					break;
 				}
 
-				// A callback is ImGui asking the caller to do something of its own here, which this backend does not run.
 				if (command.UserCallback != nullptr)
 				{
 					continue;
 				}
 
-				/*
-				 * The clip rectangle is in ImGui's own pixels, so it moves into the framebuffer's the same way the projection did, and is then clamped: a window dragged
-				 * past the edge of the display produces a rectangle partly outside it, which every backend refuses.
-				 */
 				const float left   = (command.ClipRect.x - drawData.DisplayPos.x) * drawData.FramebufferScale.x;
 				const float top	   = (command.ClipRect.y - drawData.DisplayPos.y) * drawData.FramebufferScale.y;
 				const float right  = (command.ClipRect.z - drawData.DisplayPos.x) * drawData.FramebufferScale.x;
@@ -981,7 +915,6 @@ namespace azo::rhi::imgui
 					continue;
 				}
 
-				// Whatever texture the command named, which is the atlas for text and the caller's own for an image. No lookup: the identifier is the set.
 				if (const DescriptorSetHandle set = UnpackSet(command.GetTexID()); set.IsValid() && set != bound)
 				{
 					recorded = list.BindDescriptorSet(m_pipelineLayout, kTextureSet, set, {}, error);
@@ -1006,4 +939,4 @@ namespace azo::rhi::imgui
 
 		return recorded;
 	}
-} // namespace azo::rhi::imgui
+}

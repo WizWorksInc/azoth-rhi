@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -45,8 +40,6 @@ namespace azo::rhi::d3d12
 		out->gpuTimestamp = gpu;
 		out->cpuTimestampNanoseconds =
 			frequency.QuadPart != 0 ? static_cast<std::uint64_t>(static_cast<double>(cpu) / static_cast<double>(frequency.QuadPart) * 1.0e9) : 0;
-		// Timestamp frequency differs per engine, the copy queue especially so derive the period from the queue being calibrated and not the cached graphics one.
-		// Falls back to the caps value when this queue reports no frequency.
 		UINT64 gpuFrequency		  = 0;
 		out->gpuPeriodNanoseconds = (SUCCEEDED(queue->queue->GetTimestampFrequency(&gpuFrequency)) && gpuFrequency != 0)
 										? 1.0e9f / static_cast<float>(gpuFrequency)
@@ -63,7 +56,6 @@ namespace azo::rhi::d3d12
 		}
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		// GPU-local and transient heaps sit in the local segment, upload and readback in the non-local system one.
 		const DXGI_MEMORY_SEGMENT_GROUP group =
 			(heap == HeapType::eGpuLocal || heap == HeapType::eTransient) ? DXGI_MEMORY_SEGMENT_GROUP_LOCAL : DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL;
 		DXGI_QUERY_VIDEO_MEMORY_INFO info{};
@@ -141,12 +133,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	/*
-	 * The backend releases native resources immediately on Destroy so no kind has a deferred queue to collect. Resetting the counter is all this does, which is
-	 * what gives a profiler its per-collect destroy count.
-	 *
-	 * That counter spans the device and not one kind so the first kind the sweep reaches resets it and the other fifteen have nothing to do.
-	 */
 	bool D3D12CollectGarbage(void * impl, ResourceType type, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.collectGarbage");
@@ -165,10 +151,6 @@ namespace azo::rhi::d3d12
 		return D3D12CollectGarbage(impl, type, error);
 	}
 
-	// Adoption. An adopted resource is borrowed: the slot AddRefs the caller's resource and destroy leaves it alone so ownership never moves.
+}
 
-	// Wraps an externally created ID3D12Resource as an RHI buffer. The caller keeps ownership of the resource.
-
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

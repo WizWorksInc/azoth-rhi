@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -44,24 +39,18 @@ namespace fw::scene
 			return given.empty() ? std::format("{}node_{}", prefix, ordinal) : std::format("{}{}", prefix, given);
 		}
 
-		/*
-		 * Reads a node's own transform, which glTF gives either as a matrix or as the three components separately.
-		 */
 		void ApplyLocalTransform(const fastgltf::Node & node, SceneObject & object)
 		{
 			std::visit(
 				fastgltf::visitor{
 					[&](const fastgltf::TRS & trs)
 					{
-						// glTF stores a quaternion as x, y, z, w, which is the order SetQuaternion takes.
 						object.SetPosition(glm::vec3{ trs.translation.x(), trs.translation.y(), trs.translation.z() });
 						object.SetQuaternion(glm::vec4{ trs.rotation.x(), trs.rotation.y(), trs.rotation.z(), trs.rotation.w() });
 						object.SetScale(glm::vec3{ trs.scale.x(), trs.scale.y(), trs.scale.z() });
 					},
 					[&](const fastgltf::math::fmat4x4 & source)
 					{
-						// A composed matrix has to be taken apart again, since a scene object holds the parts and not the product. Both store columns, so this copies straight
-						// across.
 						glm::mat4 matrix{};
 						for (int column = 0; column < 4; ++column)
 						{
@@ -74,8 +63,6 @@ namespace fw::scene
 						const glm::vec3 translation{ matrix[3] };
 						glm::vec3 scale{ glm::length(glm::vec3{ matrix[0] }), glm::length(glm::vec3{ matrix[1] }), glm::length(glm::vec3{ matrix[2] }) };
 
-						// A mirrored matrix has a negative determinant, which no combination of positive scales produces. Putting the sign on X is the usual convention and
-						// reproduces the same matrix.
 						if (glm::determinant(glm::mat3{ matrix }) < 0.0f)
 						{
 							scale.x = -scale.x;
@@ -100,11 +87,6 @@ namespace fw::scene
 				node.transform);
 		}
 
-		/*
-		 * Reads one attribute into a vector, going through fastgltf so a packed or normalized source is unpacked the same way.
-		 *
-		 * Empty when the primitive does not carry the attribute, which the caller reads as absent and not as a failure.
-		 */
 		template <typename VecT>
 		void ReadAttribute(const fastgltf::Asset & asset, const fastgltf::Primitive & primitive, const std::string_view name, std::vector<VecT> & out)
 		{
@@ -120,12 +102,6 @@ namespace fw::scene
 			fastgltf::copyFromAccessor<VecT>(asset, accessor, out.data());
 		}
 
-		/*
-		 * Turns one primitive into mesh data the storage can take.
-		 *
-		 * Tangents are left out where the document has none. The storage derives them from the positions, normals and texture coordinates, which is the same thing a
-		 * loader would do and one place, not two.
-		 */
 		[[nodiscard]] MeshData ReadPrimitive(const fastgltf::Asset & asset, const fastgltf::Primitive & primitive, std::string name)
 		{
 			MeshData mesh;
@@ -144,7 +120,6 @@ namespace fw::scene
 			}
 			else
 			{
-				// An unindexed primitive draws its vertices in order, so the same thing said as an index list keeps one path through the storage.
 				mesh.indices.resize(mesh.positions.size());
 				for (std::size_t index = 0; index < mesh.indices.size(); ++index)
 				{
@@ -155,12 +130,6 @@ namespace fw::scene
 			return mesh;
 		}
 
-		/*
-		 * The encoded bytes of a glTF image, whether it lives inside a buffer or in a file beside the document.
-		 */
-		/*
-		 * The part of a buffer one view names, or nothing when the view reaches past the end of it.
-		 */
 		[[nodiscard]] std::span<const std::byte> Slice(const std::span<const std::byte> buffer, const fastgltf::BufferView & view)
 		{
 			if (view.byteOffset > buffer.size() || view.byteLength > buffer.size() - view.byteOffset)
@@ -200,8 +169,6 @@ namespace fw::scene
 						std::visit(
 							fastgltf::visitor{
 								[](auto &) {},
-								// subspan without adding the offset to the pointer, so a view claiming a range past the end of its buffer is caught here instead of reading whatever
-								// follows it.
 								[&](const fastgltf::sources::Array & array)
 								{
 									fromBytes(Slice(std::span(array.bytes.data(), array.bytes.size()), bufferView));
@@ -215,7 +182,6 @@ namespace fw::scene
 					},
 					[&](const fastgltf::sources::URI & uri)
 					{
-						// fastgltf hands the URI back already decoded and relative to the document, so this only has to join the two.
 						bytes = util::ReadFile(documentPath.parent_path() / std::string_view(uri.uri.path()));
 					},
 				},
@@ -224,9 +190,6 @@ namespace fw::scene
 			return bytes;
 		}
 
-		/*
-		 * Loads every image a material points at, once each however many materials share it.
-		 */
 		class TextureTable final
 		{
 		public:
@@ -237,11 +200,6 @@ namespace fw::scene
 			{
 			}
 
-			/*
-			 * view is the texture a material named or null where it named none. A pointer and not an optional because glTF's normal and occlusion kinds carry a scale on
-			 * top of a texture info, and a pointer to the base lets all three arrive here unchanged. srgb marks a texture holding colour , not numbers, which decides
-			 * whether it decodes through the sRGB transfer function.
-			 */
 			[[nodiscard]] TextureId Store(const fastgltf::Asset & asset, const fastgltf::TextureInfo * view, const bool srgb)
 			{
 				if (view == nullptr)
@@ -257,8 +215,6 @@ namespace fw::scene
 
 				const fastgltf::Image & image = asset.images[*imageIndex];
 
-				// Keyed on the image and on how it is being read, because the same file can be a base colour map for one material and a data map for another, and those two
-				// want different formats.
 				const Key key{ .image = *imageIndex, .srgb = srgb };
 				if (const auto cached = m_stored.find(key); cached != m_stored.end())
 				{
@@ -316,9 +272,6 @@ namespace fw::scene
 			std::unordered_map<Key, TextureId, KeyHash> m_stored;
 		};
 
-		/*
-		 * Reads a glTF material into the framework's own, which carries a superset of what glTF describes.
-		 */
 		[[nodiscard]] Material ReadMaterial(const fastgltf::Asset & asset, const fastgltf::Optional<std::size_t> & materialIndex, TextureTable * textures)
 		{
 			Material material;
@@ -341,7 +294,6 @@ namespace fw::scene
 				material.albedoMap	= textures->Store(asset, pbr.baseColorTexture ? &*pbr.baseColorTexture : nullptr, true);
 				material.diffuseMap = material.albedoMap;
 
-				// One texture with roughness in green and metalness in blue, which is how glTF packs the pair.
 				material.metallicRoughnessMap = textures->Store(asset, pbr.metallicRoughnessTexture ? &*pbr.metallicRoughnessTexture : nullptr, false);
 
 				material.normalMap			 = textures->Store(asset, source.normalTexture ? &*source.normalTexture : nullptr, false);
@@ -352,9 +304,6 @@ namespace fw::scene
 			return material;
 		}
 
-		/*
-		 * Parses a document and loads what its buffers point at. Returns the asset or an error with the reason already written to error.
-		 */
 		[[nodiscard]] fastgltf::Expected<fastgltf::Asset> OpenDocument(const std::filesystem::path & resolved, std::string & error)
 		{
 			auto data = fastgltf::GltfDataBuffer::FromPath(resolved);
@@ -364,7 +313,6 @@ namespace fw::scene
 				return { data.error() };
 			}
 
-			// LoadExternalBuffers so a document keeping its buffers beside it arrives with the bytes in hand, which is what the accessor reads above need.
 			fastgltf::Parser parser;
 			auto asset = parser.loadGltf(data.get(), resolved.parent_path(), fastgltf::Options::LoadExternalBuffers);
 			if (asset.error() != fastgltf::Error::None)
@@ -375,10 +323,6 @@ namespace fw::scene
 			return asset;
 		}
 
-		/*
-		 * Puts one node's mesh onto its object, adding a child for every primitive past the first. A primitive is the unit carrying one material, so a mesh with
-		 * several needs one object each. The node's own object takes the first without gaining an extra child. Returns false when the scene ran out of object slots.
-		 */
 		[[nodiscard]] bool AttachPrimitives(Scene & scene, const fastgltf::Asset & asset, const fastgltf::Mesh & source,
 			const std::shared_ptr<SceneObject> & object, TextureTable * textures, const GltfLoadOptions & options, std::uint32_t & meshCount)
 		{
@@ -393,7 +337,6 @@ namespace fw::scene
 					continue;
 				}
 
-				// The name doubles as the storage's cache key, so two nodes pointing at one mesh share its allocation.
 				const MeshData mesh = ReadPrimitive(asset, primitive, std::format("{}{}#{}", options.namePrefix, meshName, which));
 				if (mesh.positions.empty() || mesh.indices.empty())
 				{
@@ -419,7 +362,7 @@ namespace fw::scene
 
 			return true;
 		}
-	} // namespace
+	}
 
 	GltfLoadResult LoadGltf(Scene & scene, const std::filesystem::path & path, const GltfLoadOptions & options)
 	{
@@ -446,7 +389,6 @@ namespace fw::scene
 
 		const fastgltf::Asset & document = opened.get();
 
-		// The document's own scene, not its node array, so a node it deliberately leaves out of the scene stays out of this one too.
 		if (document.scenes.empty())
 		{
 			result.error = std::format("{} has no scene in it", resolved.generic_string());
@@ -460,8 +402,6 @@ namespace fw::scene
 		TextureTable textures(images, resolved, options);
 		TextureTable * textureTable = options.loadTextures && images.IsValid() ? &textures : nullptr;
 
-		// Iterative, not recursive, because a document decides how deep its own tree goes and a deep one should not decide how much stack this needs. Each entry is a
-		// node still to visit and the object its parent turned into.
 		struct Pending final
 		{
 			std::size_t node = 0;
@@ -525,4 +465,4 @@ namespace fw::scene
 
 		return result;
 	}
-} // namespace fw::scene
+}

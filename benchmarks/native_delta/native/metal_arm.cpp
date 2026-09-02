@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -37,17 +32,12 @@ namespace bench::native
 	namespace
 	{
 
-		// What this arm resolved out of the RHI and what it had to make for itself. One device a run so it lives here instead of being threaded through every call.
 		struct Arm final
 		{
 			MTL::Buffer * buffer				= nullptr;
 			MTL::RenderPipelineState * pipeline = nullptr;
 			bool hasPipeline					= false;
 
-			/*
-			 * Whether this device came up on Metal 4. The pipeline has to be compiled through MTL4Compiler or it will not read an argument table, bindings go
-			 * into that table instead of onto the encoder and a barrier stops being free.
-			 */
 			bool four					= false;
 			MTL4::Compiler * compiler	= nullptr;
 			MTL::Buffer * pushConstants = nullptr;
@@ -55,12 +45,6 @@ namespace bench::native
 
 		Arm g_arm;
 
-		/*
-		 * A pipeline state of the native arm's own, built from the same source the RHI pipeline was, because a pipeline is not on the native readback surface.
-		 *
-		 * Which object a bind names does not change what recording the bind costs so the arms stay comparable. Everything else the native arm needs is the RHI's
-		 * own, read back through the native surface.
-		 */
 		[[nodiscard]] MTL::RenderPipelineState * BuildMetalPipeline(MTL::Device * device)
 		{
 			const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -91,12 +75,6 @@ namespace bench::native
 			return device->newRenderPipelineState(descriptor.get(), &pipelineError);
 		}
 
-		/*
-		 * The same pipeline through the Metal 4 compiler.
-		 *
-		 * Required, since a pipeline built the classic way does not read an argument table. A Metal 4 arm using one would bind nothing and record a draw that
-		 * reads whatever was already there, which would time as native work that is not doing the same job as the RHI arm beside it.
-		 */
 		[[nodiscard]] MTL::RenderPipelineState * BuildMetal4Pipeline(MTL::Device * device, MTL4::Compiler *& outCompiler)
 		{
 			const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -141,8 +119,6 @@ namespace bench::native
 
 		[[nodiscard]] bool PrepareArm(rhi::Device device, const Workload & work)
 		{
-			// Which backend this device came from. The two are separate APIs with a tag each, and the adoption payload has to be asked for under the one the
-			// device answers to or the call is refused.
 			g_arm.four = device.GetGraphicsApiId() == rhi::Metal4Api::id;
 
 			rhi::Error error{};
@@ -178,17 +154,12 @@ namespace bench::native
 				return false;
 			}
 
-			// The device that made the buffer, which is the same one the RHI is on and is one fewer accessor than asking for it separately.
 			if (work.pipeline.IsValid())
 			{
 				g_arm.pipeline	  = g_arm.four ? BuildMetal4Pipeline(g_arm.buffer->device(), g_arm.compiler) : BuildMetalPipeline(g_arm.buffer->device());
 				g_arm.hasPipeline = g_arm.pipeline != nullptr;
 			}
 
-			/*
-			 * Somewhere for the Metal 4 arm's push constants to live. This generation has no inline setBytes so the RHI writes the bytes into a buffer and binds
-			 * its address. The native arm has to pay the same write or it would be timing a strictly smaller job.
-			 */
 			if (g_arm.four)
 			{
 				g_arm.pushConstants = g_arm.buffer->device()->newBuffer(kPushConstantBytes, MTL::ResourceStorageModeShared);
@@ -220,12 +191,6 @@ namespace bench::native
 			}
 		}
 
-		/*
-		 * What the Metal backend records for the same shape.
-		 *
-		 * A barrier records nothing. Metal orders the commands of one command buffer itself so there is no native call for the batch to lower to, which makes the
-		 * RHI's barrier pure abstraction on this backend. This loop reports that as a zero instead of hiding it behind a stand-in call.
-		 */
 		[[nodiscard]] std::uint64_t RecordThree(const Kind kind, MTL::RenderCommandEncoder * encoder, const Workload & work, const std::size_t commands)
 		{
 			const MTL::Viewport viewport{
@@ -278,7 +243,6 @@ namespace bench::native
 				}
 				break;
 
-			// The four calls MetalSetGraphicsPipeline records for a pipeline with neither a depth-stencil state nor a depth bias, which is what this one is.
 			case Kind::eSetGraphicsPipeline:
 				for (std::size_t index = 0; index < commands; ++index)
 				{
@@ -311,13 +275,6 @@ namespace bench::native
 			return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 		}
 
-		/*
-		 * What the Metal 4 backend records for the same shape.
-		 *
-		 * Three differences from the other generation, each one the RHI arm is also paying. Bindings go into an argument table with no useResource, residency
-		 * being the queue's business here. Push constants are a memcpy plus an address, this generation having no inline setBytes. And a barrier is no longer
-		 * nothing, Metal 4 giving up the hazard tracking that made the other arm's barrier a zero.
-		 */
 		[[nodiscard]] std::uint64_t RecordFour(
 			const Kind kind, MTL4::RenderCommandEncoder * encoder, MTL4::ArgumentTable * table, const Workload & work, const std::size_t commands)
 		{
@@ -411,7 +368,7 @@ namespace bench::native
 			return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 		}
 
-	} // namespace
+	}
 
 	bool PrepareMetal(rhi::Device device, const Workload & work)
 	{
@@ -435,18 +392,12 @@ namespace bench::native
 
 	bool MetalRecordsNothing(const Kind kind)
 	{
-		// Metal before its fourth generation orders the commands of one command buffer itself so a barrier has no native call to lower to and the RHI's barrier is
-		// pure abstraction. The fourth gives that up and records two calls for one, see RecordFour.
 		return !g_arm.four && kind == Kind::eBarrier;
 	}
 
 	bool RecordMetal(const Kind kind, rhi::CommandList & list, const rhi::NativeMutationDesc & mutation, const Workload & work, const std::size_t commands,
 		std::uint64_t & elapsed)
 	{
-		/*
-		 * The Metal 4 arm first, because on that generation the Metal 3 accessor answers null by construction: it resolves against the other generation's
-		 * command block and an MTL4 encoder is not an MTL one.
-		 */
 #ifdef AZOTH_RHI_BENCH_METAL4
 		if (g_arm.four)
 		{
@@ -476,15 +427,12 @@ namespace bench::native
 #endif
 
 #ifndef AZOTH_RHI_BENCH_METAL3
-		// This build has no Metal 3 backend, so nothing can have come up on it and the entry points below are not linkable. Reached only if a device appeared
-		// from somewhere this build does not have.
 		static_cast<void>(mutation);
 		static_cast<void>(work);
 		static_cast<void>(commands);
 		std::println("this build has no Metal 3 backend, so there is no native arm for it");
 		return false;
 #else
-		// The encoder, a Metal render command being recorded onto whichever encoder the rendering scope opened.
 		MTL::RenderCommandEncoder * encoder = rhi::GetMetalRenderCommandEncoder(list);
 		if (encoder == nullptr && NeedsRenderingScope(kind))
 		{
@@ -509,4 +457,4 @@ namespace bench::native
 #endif
 	}
 
-} // namespace bench::native
+}

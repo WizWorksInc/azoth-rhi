@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -53,7 +48,6 @@ namespace
 
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
 
-	// The backend that came up and what Slang has to emit for it.
 	struct Backend final
 	{
 		rhi::GraphicsApiId api{};
@@ -61,10 +55,6 @@ namespace
 		const char * profile				 = "";
 		rhi::ShaderBinaryFormat binaryFormat = rhi::ShaderBinaryFormat::eBackendNative;
 
-		/*
-		 * Whether Slang keeps the entry point's name for this target or renames it. It renames to main for SPIR-V and DXIL, where the container carries one
-		 * entry point. It keeps the name for a Metal library. The RHI selects by name everywhere and needs the name the compiler emitted.
-		 */
 		bool keepsEntryPointName = false;
 	};
 
@@ -77,7 +67,6 @@ namespace
 			return {};
 		}
 
-		// The module goes in beside the entry point, which on its own does not carry the file's constants.
 		const std::array<slang::IComponentType *, 2> parts{ &module, entryPoint.get() };
 
 		Slang::ComPtr<slang::IBlob> diagnostics;
@@ -97,9 +86,6 @@ namespace
 		return code;
 	}
 
-	/*
-	 * What each backend wants its shaders in. A backend of your own joins this table and not the registration path.
-	 */
 	[[nodiscard]] const Backend * TargetFor(const rhi::GraphicsApiId api)
 	{
 		static const std::array targets{
@@ -114,17 +100,13 @@ namespace
 
 		// NOLINTNEXTLINE(readability-qualified-auto): libc++ makes this array iterator a raw pointer and MSVC does not, so auto * here builds on one and not the other.
 
-		/*
-		 * Both Metal backends take the same binary, so Metal 4 looks its target up under the Metal 3 id instead of duplicating the row. The binding ABI does
-		 * not change with the generation: a metallib compiled once is bound the same way whether an encoder or an argument table does the binding.
-		 */
 		const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
 
 		const auto found = std::ranges::find(targets, target, &Backend::api);
 		return found != targets.end() ? &*found : nullptr;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -164,7 +146,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Slang lowers SV_VertexID through BaseVertex so even a shader that only reads the vertex id rests on draw parameters being available.
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
 													  .DebugName("hello_triangle")
 													  .GraphicsQueue()
@@ -249,15 +230,12 @@ int main(int argc, char ** argv)
 
 	LOG_INFO(fw::Log(), "shaders: {} and {} bytes of {}", vertex->getBufferSize(), fragment->getBufferSize(), chosen.profile);
 
-	// Slang names the SPIR-V entry point main whatever the source called it, Metal looks its function up by stage and D3D12 takes bytecode with no name so one
-	// spelling covers all three.
 	const std::array shaders{
 		rhi::ShaderBinary{
 			.stage	= rhi::ShaderStage::eVertex,
 			.format = chosen.binaryFormat,
 			.data	= vertex->getBufferPointer(),
 			.size	= vertex->getBufferSize(),
-			// Named, not left at the default, because a backend selecting by name has no other way to know which function to bind.
 			.entryPoint = chosen.keepsEntryPointName ? "vertexMain" : "main",
 		},
 		rhi::ShaderBinary{
@@ -270,25 +248,18 @@ int main(int argc, char ** argv)
 	};
 
 	rhi::GraphicsPipelineDesc pipelineDesc{};
-	// Nothing is bound so the layout is empty.
 	pipelineDesc.layout			 = dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "triangle.layout" }, error);
 	pipelineDesc.shaders		 = shaders;
 	pipelineDesc.raster.cullMode = rhi::CullMode::eNone;
 
-	// The three positions come from the vertex id, so the vertex input is present and empty, not absent.
 	rhi::VertexInputDesc vertexInput{};
 	pipelineDesc.vertexInput = &vertexInput;
 
 	pipelineDesc.renderTarget.colorFormats.at(0) = swapchain.GetFormat();
 	pipelineDesc.renderTarget.colorFormatCount	 = 1;
 
-	/*
-	 * Only the first attachmentCount blend entries are active and that count defaults to none. Metal infers the attachment from the format and draws either way
-	 * so leaving this out looks right there and writes nothing at all through Vulkan.
-	 */
 	pipelineDesc.blend.attachmentCount = 1;
 
-	// Dynamic so a resized window does not need the pipeline built again.
 	pipelineDesc.dynamicStates = rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
 	pipelineDesc.debugName	   = "triangle.pipeline";
 
@@ -323,7 +294,6 @@ int main(int argc, char ** argv)
 
 		++frame;
 
-		// Safe because the previous frame was waited on at the bottom of this loop.
 		if (frame > 1 && !pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = frame - 1 }, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to reset the command pool");
@@ -337,7 +307,6 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		// A back buffer arrives undefined every frame, since its previous contents were presented and it has to leave in the present layout.
 		const rhi::TextureHandle backBuffer = acquired.texture;
 		const std::array toAttachment{
 			rhi::TextureBarrier{
@@ -380,9 +349,6 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		// The acquire semaphore says the image is ready to be written and the swapchain's own per image semaphore says this frame is done writing it.
-		// Presentation waits on the second.
-
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array present{ rhi::SwapchainSync{ .acquired = acquired.imageAvailable, .renderFinished = acquired.renderFinished } };
 		const std::array retire{ rhi::TimelinePoint{ .timeline = timeline, .value = frame } };
@@ -402,7 +368,6 @@ int main(int argc, char ** argv)
 
 		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
 
-		// One frame at a time. See frame_pacing for the version that keeps the CPU ahead of the GPU.
 		if (!queue.Wait(timeline, frame, kNoTimeout, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to wait for the frame");

@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Builder for device creation descriptions.
- */
 
 #include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/core/result.hpp"
@@ -27,7 +17,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <span>
 #include <string>
@@ -35,12 +24,6 @@
 
 namespace azo::rhi
 {
-	/**
-	 * \brief Builds DeviceDesc values and creates devices from them.
-	 *
-	 * By default, the builder requests one graphics queue. Adding explicit queues suppresses that default unless DefaultGraphicsQueue is enabled again after
-	 * ClearQueues leaves no explicit requests.
-	 */
 	class DeviceBuilder final
 	{
 	public:
@@ -106,11 +89,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Selects cooperative threading and stores the host synchronization callbacks.
-		 *
-		 * \attention ops.context must remain valid for any device created from this builder because SyncOps is copied but the context pointer is not owned.
-		 */
 		DeviceBuilder & Cooperative(const SyncOps & ops) noexcept
 		{
 			m_desc.threading = ThreadingMode::eCooperative;
@@ -136,20 +114,12 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Enables or disables the implicit graphics queue request.
-		 *
-		 * \note The implicit request is emitted only when there are no explicit queue requests.
-		 */
 		DeviceBuilder & DefaultGraphicsQueue(const bool enabled = true) noexcept
 		{
 			m_useDefaultGraphicsQueue = enabled;
 			return *this;
 		}
 
-		/**
-		 * \brief Removes all explicit queue requests while preserving the implicit graphics queue setting.
-		 */
 		DeviceBuilder & ClearQueues() noexcept
 		{
 			m_queueCount	  = 0;
@@ -157,13 +127,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Adds or replaces a queue request for one queue type.
-		 *
-		 * \param minCount Minimum queue count for this type. Zero is rejected during Build validation.
-		 * \param requireDedicatedQueue True to reject a shared-queue fallback for compute or copy queues.
-		 * \attention Only one request per queue type is stored. Calling Queue again for the same type replaces the earlier request.
-		 */
 		DeviceBuilder & Queue(const QueueType type, const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
 		{
 			const QueueRequest request{
@@ -217,35 +180,18 @@ namespace azo::rhi
 			return CopyQueue(minCount, true);
 		}
 
-		/**
-		 * \brief Adds a required feature request.
-		 *
-		 * Required features must be supported by the selected adapter and are enabled on the created device.
-		 * \attention Additional distinct required features beyond kMaxFeatureRequests are ignored.
-		 */
 		DeviceBuilder & RequireFeature(const DeviceFeature feature) noexcept
 		{
 			AddFeature(m_requiredFeatures, m_requiredFeatureCount, feature);
 			return *this;
 		}
 
-		/**
-		 * \brief Adds a preferred feature request.
-		 *
-		 * Preferred features bias adapter selection and are enabled only when supported.
-		 * \attention Additional distinct preferred features beyond kMaxFeatureRequests are ignored.
-		 */
 		DeviceBuilder & PreferFeature(const DeviceFeature feature) noexcept
 		{
 			AddFeature(m_preferredFeatures, m_preferredFeatureCount, feature);
 			return *this;
 		}
 
-		/**
-		 * \brief Creates a device through a compile-time-selected graphics API.
-		 *
-		 * \attention The DeviceDesc spans and debugName pointer assembled here are valid only during the CreateDevice call.
-		 */
 		template <GraphicsApiTag Api>
 		[[nodiscard]] Result<UniqueDevice> Build() const
 		{
@@ -267,12 +213,6 @@ namespace azo::rhi
 			return CreateDevice<Api>(desc);
 		}
 
-		/**
-		 * \brief Creates a device from a registry and ordered API preference list.
-		 *
-		 * \param preferredApis Ordered graphics API ids. The list must not be empty.
-		 * \attention The DeviceDesc spans and debugName pointer assembled here are valid only during the CreateDevice call.
-		 */
 		[[nodiscard]] Result<UniqueDevice> Build(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis) const
 		{
 			if (preferredApis.empty())
@@ -304,11 +244,6 @@ namespace azo::rhi
 	private:
 		static constexpr std::size_t kInvalidQueueIndex = static_cast<std::size_t>(-1);
 
-		/**
-		 * \brief Adds a distinct feature request while preserving insertion order.
-		 *
-		 * \note Extra requests past kMaxFeatureRequests are ignored.
-		 */
 		static void AddFeature(std::array<DeviceFeature, kMaxFeatureRequests> & features, std::size_t & count, const DeviceFeature feature) noexcept
 		{
 			for (std::size_t index = 0; index < count; ++index)
@@ -328,11 +263,6 @@ namespace azo::rhi
 			}
 		}
 
-		/**
-		 * \brief Writes explicit queues, or one implicit graphics queue when no explicit queues exist.
-		 *
-		 * \param outQueues Fixed output storage that receives at most kMaxQueueRequests entries.
-		 */
 		[[nodiscard]] std::size_t MakeQueueRequests(std::array<QueueRequest, kMaxQueueRequests> & outQueues) const noexcept
 		{
 			for (std::size_t index = 0; index < m_queueCount; ++index)
@@ -356,11 +286,6 @@ namespace azo::rhi
 			return m_queueCount;
 		}
 
-		/**
-		 * \brief Validates the completed queue portion of the device request.
-		 *
-		 * \param queues Resolved queue requests after applying the implicit graphics queue rule.
-		 */
 		[[nodiscard]] Result<void> Validate(const std::span<const QueueRequest> queues) const noexcept
 		{
 			if (m_queueOverflowed)
@@ -437,4 +362,4 @@ namespace azo::rhi
 		std::size_t m_preferredFeatureCount = 0;
 		std::string m_debugName;
 	};
-} // namespace azo::rhi
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -35,14 +30,12 @@ namespace azo::rhi::utils
 {
 	namespace
 	{
-		// The shader's [numthreads], which the dispatch below has to agree with and Metal has to be told separately.
 		constexpr std::uint32_t kGroupSize = 8;
 
 		constexpr std::uint32_t kSourceBinding		= 0;
 		constexpr std::uint32_t kSamplerBinding		= 1;
 		constexpr std::uint32_t kDestinationBinding = 2;
 
-		// Matches Constants in resample.slang.
 		struct Constants final
 		{
 			std::uint32_t dstWidth	 = 0;
@@ -51,7 +44,6 @@ namespace azo::rhi::utils
 			std::uint32_t encodeSrgb = 0;
 		};
 
-		// The RHI's own failure helper is internal to it, so the utility carries the two lines itself without reaching past the public surface.
 		bool Fail(Error & error, const ErrorCode code, const char * message) noexcept
 		{
 			error = Error{ .code = code, .message = message };
@@ -68,12 +60,6 @@ namespace azo::rhi::utils
 			return std::max(1u, base >> mip);
 		}
 
-		/*
-		 * The non-sRGB format carrying the same bits.
-		 *
-		 * No API allows an sRGB format as a storage image, so writing one through compute means binding a view in its linear twin and doing the encode in the shader.
-		 * eUndefined means there is no twin, which is what refuses a format this cannot write without writing it wrong.
-		 */
 		[[nodiscard]] Format StorageTwinOf(const Format format) noexcept
 		{
 			switch (format)
@@ -89,14 +75,11 @@ namespace azo::rhi::utils
 			return StorageTwinOf(format) != Format::eUndefined;
 		}
 
-		// The compiled shader for the backend that came up. A container this build did not compile is refused, not guessed at.
 		[[nodiscard]] ShaderBinary ShaderFor(const GraphicsApiId api) noexcept
 		{
 			ShaderBinary binary{};
 			binary.stage = ShaderStage::eCompute;
 
-			// Required on every backend, not only the one that reads it: SPIR-V and DXIL carry the size inside the binary and never look here, and a metallib does not,
-			// so the RHI takes it from the caller uniformly instead of parsing two containers to find it.
 			binary.threadgroupSize = { kGroupSize, kGroupSize, 1 };
 
 #ifdef AZOTH_RHI_UTILS_HAVE_SPIRV
@@ -122,7 +105,6 @@ namespace azo::rhi::utils
 #ifdef AZOTH_RHI_UTILS_HAVE_METALLIB
 			if (IsMetalFamily(api))
 			{
-				// Metal keeps the name Slang emitted, unlike the other two which Slang renames to main.
 				binary.format	  = ShaderBinaryFormat::eBackendNative;
 				binary.data		  = shaders::kResample_metallib;
 				binary.size		  = shaders::kResample_metallibSize;
@@ -137,9 +119,8 @@ namespace azo::rhi::utils
 		constexpr ResourceState kSampled{ .use = ResourceUse::eSampledRead, .stages = Stage::eCompute };
 		constexpr ResourceState kWritten{ .use = ResourceUse::eStorageWrite, .stages = Stage::eCompute };
 
-		// Where GenerateMips leaves the texture, stated once here because both paths have to end in the same place.
 		constexpr ResourceState kReadable{ .use = ResourceUse::eSampledRead, .stages = Stage::eFragmentShading };
-	} // namespace
+	}
 
 	Result<Resampler> Resampler::Create(Device & device, const ResamplerDesc & desc) noexcept
 	{
@@ -184,7 +165,6 @@ namespace azo::rhi::utils
 			return error;
 		}
 
-		// Linear and clamped, which is what makes the sample a box filter for the halving case and keeps an edge texel from wrapping.
 		resampler.m_sampler = device.CreateSampler(
 			SamplerDesc{
 				.magFilter = Filter::eLinear,
@@ -262,7 +242,6 @@ namespace azo::rhi::utils
 
 	bool Resampler::Retire(const RetirePoint safeAfter, Error & error) noexcept
 	{
-		// An unset retire point means destroy now, which is what destruction wants and what a caller that already waited wants.
 		const DestroyDesc destroyDesc =
 			safeAfter.timeline.IsValid() ? DestroyDesc{ .policy = DestroyPolicy::eDeferUntilSafe, .safeAfter = safeAfter } : DestroyDesc{};
 
@@ -292,7 +271,6 @@ namespace azo::rhi::utils
 
 		if (info.desc.mipLevels <= 1)
 		{
-			// Nothing below the top to fill, but the exit state is promised whatever the level count, so the one level still moves to where a caller was told to look.
 			const std::array only{
 				TextureBarrier{ .texture = texture,
 					.before				 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
@@ -303,16 +281,9 @@ namespace azo::rhi::utils
 			return list.Barriers(BarrierBatch{ .textures = only }, error);
 		}
 
-		/*
-		 * The hardware path where the device has one and this format can take part.
-		 *
-		 * Both halves matter: supportsScaledBlit says the backend has a fixed function scaled blit at all, and the per format pair says this particular format can be
-		 * its source and destination. Vulkan answers yes to both for an ordinary colour format and the driver's own filter runs.
-		 */
 		const FormatSupport support = m_device.GetFormatSupport(info.desc.format);
 		const bool hardware			= m_device.GetCaps().supportsScaledBlit && support.blitSrc && support.blitDst;
 
-		// Mip zero arrives a copy destination and the two paths read it from different states, which a caller cannot see to choose between, so the move belongs here.
 		const std::array entry{
 			TextureBarrier{ .texture = texture,
 				.before				 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
@@ -343,11 +314,6 @@ namespace azo::rhi::utils
 			}
 		}
 
-		/*
-		 * One exit state whichever path ran, because a caller cannot see which did. A blit chain leaves every level a transfer source, while a compute chain ends with
-		 * every level but the last shader readable and the last still a storage write. Handing that difference to the caller would make their barrier depend on the
-		 * device they got.
-		 */
 		const std::uint32_t last	  = info.desc.mipLevels - 1;
 		const ResourceState above	  = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kSampled;
 		const ResourceState lastState = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kWritten;
@@ -383,7 +349,6 @@ namespace azo::rhi::utils
 			return Fail(error, ErrorCode::eInvalidArgument, "the compute resample path needs TextureUsage::eSampled on the texture it reads");
 		}
 
-		// The level above, read through a sampler, and this level written through a storage view. Both are array views so one shader serves every shape.
 		const TextureViewHandle source = m_device.CreateTextureView(texture,
 			TextureViewDesc{
 				.type	   = TextureViewType::eTex2DArray,
@@ -435,17 +400,12 @@ namespace azo::rhi::utils
 			return false;
 		}
 
-		/*
-		 * The level being read has to be readable and the one being written writable, and they are subresources of one texture, so the two barriers name different
-		 * ranges of it. The level above was written by the previous iteration, which is what makes this a chain and not a batch.
-		 */
 		const std::array toSampled{
 			TextureBarrier{ .texture = texture,
 				.before				 = dstMip == 1 ? kSampled : kWritten,
 				.after				 = kSampled,
 				.range				 = { .baseMip = dstMip - 1, .mipCount = 1, .layerCount = layers } },
 		};
-		// This level arrives a copy destination like every other, so the dispatch is ordered after that upload write rather than against nothing.
 		const std::array toWritten{
 			TextureBarrier{ .texture = texture,
 				.before				 = { .use = ResourceUse::eCopyDst, .stages = Stage::eCopy },
@@ -488,10 +448,8 @@ namespace azo::rhi::utils
 			return list.Blit(dst, src, regions, filter, error);
 		}
 
-		// The compute path resamples whole levels, not arbitrary offset rectangles, which is what generateMips needs and what this utility was extracted to restore.
-		// A region blit through compute is its own piece of work and is refused, not approximated.
 		return Fail(error,
 			ErrorCode::eUnsupportedFeature,
 			"this device has no hardware scaled blit for these formats, and the compute path resamples whole levels, not regions");
 	}
-} // namespace azo::rhi::utils
+}

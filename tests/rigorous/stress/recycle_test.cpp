@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -129,13 +124,6 @@ namespace
 		}
 	}
 
-	/*
-	 * The same loop, counted. A pool takes its lists back at Reset and hands the same ones out again, so once the first pass has built what the loop needs,
-	 * every pass after it holds exactly that much.
-	 *
-	 * Counted from the host allocator and not from anything a layer reports about itself, since this is the shape a leak hides in: an allocate that answers
-	 * with a new object every time still passes every check above.
-	 */
 	TEST_P(RecycleTest, HoldsHostMemoryFlatAcrossAFrameLoop)
 	{
 		const std::uint32_t frames = test::ScaledIterations(200);
@@ -159,7 +147,6 @@ namespace
 		test::CountingHostAllocator allocator;
 		const test::ScopedHostAllocator scope(&allocator);
 
-		// Blocks this allocator handed out, so storage the device took before it was installed is not counted and cannot make the second pass read low.
 		runFrames(frames);
 		const std::size_t settled = allocator.LiveBlocks();
 
@@ -293,4 +280,4 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "the recycle run produced native validation errors");
 	}
 
-} // namespace
+}

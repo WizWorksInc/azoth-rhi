@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -43,7 +38,6 @@ namespace fw::scene
 			};
 		}
 
-		// Reads one integer of the given width out of bytes that carry no alignment guarantee.
 		template <typename T>
 		[[nodiscard]] std::uint32_t ReadUnaligned(const std::uint8_t * bytes) noexcept
 		{
@@ -51,7 +45,7 @@ namespace fw::scene
 			std::memcpy(&value, bytes, sizeof(T));
 			return static_cast<std::uint32_t>(value);
 		}
-	} // namespace
+	}
 
 	MeshPrimitive MeshData::View() const
 	{
@@ -64,7 +58,6 @@ namespace fw::scene
 		primitive.attributes[AttributeType::eTangent]  = DescribeArray(tangents, ComponentType::eFloat, DataType::eVec4);
 		primitive.indices							   = DescribeArray(indices, ComponentType::eUnsignedInt, DataType::eScalar);
 
-		// An array left empty describes nothing, and the storage treats a missing attribute differently from one that is present and zero length.
 		std::erase_if(primitive.attributes,
 			[](const auto & entry)
 			{
@@ -121,7 +114,6 @@ namespace fw::scene
 		const std::size_t stride	  = accessor.bufferView.byteStride != 0 ? accessor.bufferView.byteStride : elementSize;
 		const std::size_t offset	  = accessor.bufferView.byteOffset + accessor.byteOffset + (index * stride);
 
-		// byteLength covers the view, not the accessor, so this catches an accessor that claims more elements than the bytes behind it hold.
 		if (accessor.bufferView.byteLength != 0 && offset + elementSize > accessor.bufferView.byteLength)
 		{
 			return nullptr;
@@ -150,4 +142,4 @@ namespace fw::scene
 
 		return 0;
 	}
-} // namespace fw::scene
+}

@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Vulkan's stage and access lowering, which this backend owns.
- */
 
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/flags.hpp"
@@ -29,14 +19,13 @@ namespace azo::rhi::vulkan
 
 	[[nodiscard]] constexpr vk::PipelineStageFlags2 MapStages(const Flags<Stage> stages) noexcept
 	{
-		vk::PipelineStageFlags2 out{}; // an empty stage set maps to an empty mask, which synchronization2 accepts
+		vk::PipelineStageFlags2 out{};
 
 		if (stages.Contains(Stage::eIndirectFetch))
 		{
 			out |= vk::PipelineStageFlagBits2::eDrawIndirect;
 		}
 
-		// Vulkan splits vertex work five ways and the semantic vocabulary keeps one bit, so the whole front end comes back together here.
 		if (stages.Contains(Stage::eVertexWork))
 		{
 			out |= vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::eVertexShader |
@@ -64,7 +53,6 @@ namespace azo::rhi::vulkan
 			out |= vk::PipelineStageFlagBits2::eComputeShader;
 		}
 
-		// sync.hpp documents eCopy as covering clear and blit, and none of the three Vulkan bits implies the others.
 		if (stages.Contains(Stage::eCopy))
 		{
 			out |= vk::PipelineStageFlagBits2::eCopy | vk::PipelineStageFlagBits2::eBlit | vk::PipelineStageFlagBits2::eClear;
@@ -142,7 +130,6 @@ namespace azo::rhi::vulkan
 			out |= vk::AccessFlagBits2::eColorAttachmentWrite;
 		}
 
-		// A depth attachment is read-write by definition, which is why the vocabulary gives read-only depth a use of its own.
 		if (use.Contains(ResourceUse::eDepthStencilTarget))
 		{
 			out |= vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
@@ -173,7 +160,6 @@ namespace azo::rhi::vulkan
 			out |= vk::AccessFlagBits2::eHostWrite;
 		}
 
-		// Build inputs are geometry the build shader reads, not structures it traverses, so they take the shader read bit and not the structure one.
 		if (use.Contains(ResourceUse::eAccelBuildInput))
 		{
 			out |= vk::AccessFlagBits2::eShaderRead;
@@ -211,7 +197,6 @@ namespace azo::rhi::vulkan
 			out |= vk::PipelineStageFlagBits2::eVertexInput;
 		}
 
-		// A shader binding names no stage of its own, so every stage is named.
 		if (use.Contains(ResourceUse::eUniformRead) || use.Contains(ResourceUse::eSampledRead) || use.Contains(ResourceUse::eStorageRead) ||
 			use.Contains(ResourceUse::eStorageWrite))
 		{
@@ -248,7 +233,6 @@ namespace azo::rhi::vulkan
 			out |= vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR;
 		}
 
-		// A structure is read by the build that consumes it as a source and by every shader that traces against it.
 		if (use.Contains(ResourceUse::eAccelRead))
 		{
 			out |= vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR | vk::PipelineStageFlagBits2::eRayTracingShaderKHR;
@@ -264,11 +248,9 @@ namespace azo::rhi::vulkan
 			return MapStages(stages);
 		}
 
-		// Derive only where there is an access to protect, a use reaching no access having no hazard.
 		return MapBarrierAccess(use) ? DeriveBarrierStages(use) : vk::PipelineStageFlags2{};
 	}
 
-	// VUID-vkCmdWriteTimestamp2-stage-03859 allows one stage, so a semantic stage spanning several collapses to its latest bit.
 	[[nodiscard]] constexpr vk::PipelineStageFlagBits2 TimestampStage(const Flags<Stage> stage) noexcept
 	{
 		if (stage.Contains(Stage::eIndirectFetch))
@@ -301,7 +283,6 @@ namespace azo::rhi::vulkan
 			return vk::PipelineStageFlagBits2::eComputeShader;
 		}
 
-		// ALL_TRANSFER is a single bit covering copy, blit and clear, so eCopy need not pick one of the three.
 		if (stage.Contains(Stage::eCopy))
 		{
 			return vk::PipelineStageFlagBits2::eAllTransfer;
@@ -332,7 +313,6 @@ namespace azo::rhi::vulkan
 			return vk::PipelineStageFlagBits2::eAllGraphics;
 		}
 
-		// An unset stage asks for the sample to land after everything.
 		return vk::PipelineStageFlagBits2::eAllCommands;
 	}
 
@@ -398,4 +378,4 @@ namespace azo::rhi::vulkan
 	static_assert(TimestampStage(Flags<Stage>()) == vk::PipelineStageFlagBits2::eAllCommands,
 		"an unset stage means after everything, since an empty mask is not a pipeline stage and cannot be written as one");
 
-} // namespace azo::rhi::vulkan
+}

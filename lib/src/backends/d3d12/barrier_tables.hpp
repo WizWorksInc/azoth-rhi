@@ -1,32 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Lowering from the semantic barrier vocabulary onto D3D12 enhanced barriers, pinned by the assert table at the end.
- *
- * Constexpr so the rows are checked by a compile. No GPU can answer whether a row is right, but a compiler can answer whether it still says what it was
- * written to say, and this backend has no machine that can run it. Sources for every row:
- *
- * Enhanced barriers: https://microsoft.github.io/DirectX-Specs/d3d/D3D12EnhancedBarriers.html
- * Access enum: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_barrier_access
- * Raytracing build inputs: https://microsoft.github.io/DirectX-Specs/d3d/Raytracing2.html
- *
- * Compound assignment on these enums is not constexpr in the Windows SDK, which is why every accumulation below is written as a binary or.
- */
 
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/enums.hpp"
@@ -44,7 +25,6 @@
 namespace azo::rhi::d3d12
 {
 
-	// Restricts a sync scope to what the recording queue can name, never remapping it to another.
 	[[nodiscard]] constexpr D3D12_BARRIER_SYNC ClampSyncToQueue(const D3D12_BARRIER_SYNC sync, const QueueType queue) noexcept
 	{
 		D3D12_BARRIER_SYNC clamped = sync;
@@ -63,7 +43,6 @@ namespace azo::rhi::d3d12
 		return clamped == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : clamped;
 	}
 
-	// The access counterpart. COMMON is the zero value, so an emptied mask needs no fallback.
 	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS ClampAccessToQueue(const D3D12_BARRIER_ACCESS access, const QueueType queue) noexcept
 	{
 		switch (queue)
@@ -78,10 +57,8 @@ namespace azo::rhi::d3d12
 		return access;
 	}
 
-	// The heap counterpart. Resolve is outside both sets, the spec gating it on sampler feedback.
 	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS ClampAccessToHeap(const D3D12_BARRIER_ACCESS access, const D3D12_HEAP_TYPE heap) noexcept
 	{
-		// A deactivated resource names no access at all, which is not one of the accesses a heap restricts.
 		if (access == D3D12_BARRIER_ACCESS_NO_ACCESS)
 		{
 			return access;
@@ -96,7 +73,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// An acceleration structure buffer never leaves the state it was created in, so naming anything else removes the command list.
 	[[nodiscard]] constexpr bool AccessLegalOnAccelerationStructure(const D3D12_BARRIER_ACCESS access) noexcept
 	{
 		constexpr D3D12_BARRIER_ACCESS allowed =
@@ -104,7 +80,6 @@ namespace azo::rhi::d3d12
 		return access == D3D12_BARRIER_ACCESS_NO_ACCESS || (access & allowed) == access;
 	}
 
-	// The layout counterpart, which bites only on compute. Copy is answered ahead of the rows and graphics may name all of them.
 	[[nodiscard]] constexpr D3D12_BARRIER_LAYOUT ClampLayoutToQueue(const D3D12_BARRIER_LAYOUT layout, const QueueType queue) noexcept
 	{
 		if (queue != QueueType::eCompute)
@@ -149,7 +124,6 @@ namespace azo::rhi::d3d12
 		{
 			sync = sync | D3D12_BARRIER_SYNC_DEPTH_STENCIL;
 		}
-		// The same bits as the Stage counterparts below, so the two axes cannot disagree.
 		if (use.Contains(ResourceUse::eCopySrc) || use.Contains(ResourceUse::eCopyDst))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
@@ -172,7 +146,6 @@ namespace azo::rhi::d3d12
 			sync = sync | D3D12_BARRIER_SYNC_ALL;
 		}
 
-		// A discard reaches no bit and lands here. NONE is tighter but claims nothing touched the resource earlier in the submission.
 		return sync == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : sync;
 	}
 
@@ -245,7 +218,6 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS MapBarrierAccess(const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
-		// Ahead of the clamp, which masks NO_ACCESS away. Every queue can express it.
 		if (use.Contains(ResourceUse::eDiscard))
 		{
 			return D3D12_BARRIER_ACCESS_NO_ACCESS;
@@ -305,7 +277,6 @@ namespace azo::rhi::d3d12
 		{
 			access = access | D3D12_BARRIER_ACCESS_RESOLVE_DEST;
 		}
-		// Build inputs are geometry buffers read as shader resources. The access below is for reading a built structure.
 		if (use.Contains(ResourceUse::eAccelBuildInput))
 		{
 			access = access | D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
@@ -328,7 +299,6 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] constexpr D3D12_BARRIER_LAYOUT MapBarrierLayout(const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
-		// Ahead of the discard row: a copy queue has no layout transitions, both ends answering the common layout.
 		if (queue == QueueType::eCopy)
 		{
 			return D3D12_BARRIER_LAYOUT_COMMON;
@@ -404,36 +374,30 @@ namespace azo::rhi::d3d12
 			return ClampLayoutToQueue(chosen, queue);
 		}
 
-		// GENERIC_READ is read only, so a combination naming a write answers COMMON. Validation rejects the pairing upstream.
 		return ClampLayoutToQueue(write ? D3D12_BARRIER_LAYOUT_COMMON : D3D12_BARRIER_LAYOUT_GENERIC_READ, queue);
 	}
 
-	// The discard flag rides an undefined before-layout alone, the spec attaching no range condition to it.
 	[[nodiscard]] constexpr D3D12_TEXTURE_BARRIER_FLAGS TextureBarrierFlags(const D3D12_BARRIER_LAYOUT before) noexcept
 	{
 		return before == D3D12_BARRIER_LAYOUT_UNDEFINED ? D3D12_TEXTURE_BARRIER_FLAG_DISCARD : D3D12_TEXTURE_BARRIER_FLAG_NONE;
 	}
 
-	// A clamp answers a subset of what went in, or the universal scope once the mask has emptied.
 	[[nodiscard]] constexpr bool SyncClampRestricts(const D3D12_BARRIER_SYNC sync, const QueueType queue) noexcept
 	{
 		const D3D12_BARRIER_SYNC clamped = ClampSyncToQueue(sync, queue);
 		return (clamped & sync) == clamped || clamped == D3D12_BARRIER_SYNC_ALL;
 	}
 
-	// The access clamp has no fallback, so the subset property holds unconditionally.
 	[[nodiscard]] constexpr bool AccessClampRestricts(const D3D12_BARRIER_ACCESS access, const QueueType queue) noexcept
 	{
 		return (ClampAccessToQueue(access, queue) & access) == ClampAccessToQueue(access, queue);
 	}
 
-	// The same property against a different axis, the deactivation access passing through as itself.
 	[[nodiscard]] constexpr bool HeapClampRestricts(const D3D12_BARRIER_ACCESS access, const D3D12_HEAP_TYPE heap) noexcept
 	{
 		return (ClampAccessToHeap(access, heap) & access) == ClampAccessToHeap(access, heap);
 	}
 
-	// Layouts are not a bitmask, so restricting answers the input or the one layout legal against anything.
 	[[nodiscard]] constexpr bool LayoutClampRestricts(const D3D12_BARRIER_LAYOUT layout, const QueueType queue) noexcept
 	{
 		const D3D12_BARRIER_LAYOUT clamped = ClampLayoutToQueue(layout, queue);
@@ -544,4 +508,4 @@ namespace azo::rhi::d3d12
 					  LayoutClampRestricts(D3D12_BARRIER_LAYOUT_SHADER_RESOURCE, QueueType::eCompute),
 		"a clamp restricts and never substitutes, which is what lets a derived state be trusted on a queue that tracks nothing");
 
-} // namespace azo::rhi::d3d12
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -36,7 +31,6 @@
 	#include <wrl/client.h>
 
 	#if defined(AZOTH_RHI_ENABLE_PIX)
-		// d3d12.h above defines __d3d12_h__, which unlocks pix3.h's command-list and queue event overloads.
 		#include <pix3.h>
 	#endif
 
@@ -184,8 +178,8 @@ namespace azo::rhi
 			const auto * impl = static_cast<d3d12::D3D12CommandList *>(detail::NativeImplOf(commandListImpl, d3d12::RenderCommandBlock()));
 			return D3D12CommandListView{ .commandList = impl != nullptr ? impl->list.Get() : nullptr };
 		}
-	} // namespace native
+	}
 
-} // namespace azo::rhi
+}
 
-#endif // _WIN32
+#endif

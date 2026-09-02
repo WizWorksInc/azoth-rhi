@@ -143,6 +143,19 @@ jobs:
               -DAZOTH_RHI_TESTS_FETCH_TRACY=ON
               -DAZOTH_RHI_BACKEND_VULKAN=OFF
               -DAZOTH_RHI_INSTALL=OFF
+          # The same sink again as a shared library. Neither job above reaches this: the shared job builds no sink and the job above builds static, so a class
+          # in a sink header that never got AZO_RHI_API links fine in both and fails only here, on the vtable a consumer constructing it needs.
+          - name: tracy-linux-gcc14-shared
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+            require_backends: "null"
+            sink_report: "TRACY: linking"
+            configure_flags: >-
+              -DAZOTH_RHI_TESTS_FETCH_TRACY=ON
+              -DAZOTH_RHI_BACKEND_VULKAN=OFF
+              -DAZOTH_RHI_INSTALL=OFF
+              -DBUILD_SHARED_LIBS=ON
           # Install is off for the same reason it is off above. AzothRHI links its sink PUBLIC, so the exported target names it, and a fetched stand-in is a
           # build tree artifact that was never installed. The consumer check then fails to link winpix.lib, which says nothing about the sink this job tests.
           - name: pix-windows-msvc

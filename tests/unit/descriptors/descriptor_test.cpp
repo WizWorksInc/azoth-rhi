@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -144,6 +139,56 @@ namespace
 		ASSERT_TRUE(test::Ok(second.IsValid(), error));
 
 		EXPECT_NE(first, second) << "two sets from the same arena share a handle";
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+	}
+
+	TEST_P(DescriptorTest, TakesBackADescriptorSetTheSameWayEveryBackendDoes)
+	{
+		const test::samples::UniformLayout layout;
+
+		rhi::Error error{};
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+
+		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+
+		const rhi::DescriptorSetHandle set =
+			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.destroyedSet" }, error);
+		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(set, {}, error), error)) << "this backend declines to take back a descriptor set the others do";
+
+		rhi::Error twiceError{};
+		EXPECT_FALSE(Dev().Destroy(set, {}, twiceError)) << "the set was not retired, so destroying it twice was accepted";
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+	}
+
+	TEST_P(DescriptorTest, RefusesAnAccelerationStructureWriteToABindingDeclaredAsSomethingElse)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		const test::samples::UniformLayout layout;
+
+		rhi::Error error{};
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+
+		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+
+		const rhi::DescriptorSetHandle set =
+			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.accelWrite" }, error);
+		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+
+		const std::array writes{ rhi::DescriptorWriteAccelerationStructure{ .set = set, .binding = 0, .arrayIndex = 0 } };
+
+		rhi::Error writeError{};
+		EXPECT_FALSE(Dev().UpdateDescriptors(std::span<const rhi::DescriptorWriteAccelerationStructure>{ writes }, writeError))
+			<< "an acceleration structure was written to a binding the layout declared as a uniform buffer";
+		EXPECT_TRUE(test::ErrorIsPopulated(writeError));
 
 		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
 	}
@@ -361,8 +406,6 @@ namespace
 
 	TEST_P(DescriptorTest, WritesACombinedImageSamplerThroughOneBinding)
 	{
-		// One binding addressing a texture and its sampler together. Vulkan has a descriptor type for it. Direct3D 12 keeps samplers in a separate heap, so
-		// one write must fill a slot in both.
 		const std::array<rhi::DescriptorBinding, 1> bindings{ rhi::DescriptorBinding{
 			.binding = 0,
 			.type	 = rhi::DescriptorType::eCombinedImageSampler,
@@ -432,4 +475,4 @@ namespace
 		EXPECT_FALSE(arena.IsValid());
 	}
 
-} // namespace
+}

@@ -1,25 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-/*
- * rhi::raii, the second of the two owning tiers: the device vends owners, and failure arrives as a value.
- *
- * raii::Device::CreateBuffer hands back a Result<raii::Buffer>, either an owner or the reason there is not one, so a setup creating a dozen things is a dozen
- * lines that cannot get the test wrong.
- *
- * A command pool, an arena and a swapchain come back as plain views, the device owning those. So this sample has no Destroy call and no teardown path.
- */
 
 #include "azoth/rhi/builders/resource_builders.hpp"
 #include "azoth/rhi/commands/command.hpp"
@@ -63,13 +49,6 @@ namespace
 		return pixels;
 	}
 
-	/*
-	 * Everything the upload needs, as owners, in the order they have to die in.
-	 *
-	 * Members are destroyed bottom to top, so the device being first means it is destroyed last. That ordering is the one rule this tier asks for and the one
-	 * the compiler will not catch: an owner holds a device view and not a reference to something counted, so a device that went first would leave each of these
-	 * destroying through a device that is gone.
-	 */
 	struct Resources final
 	{
 		rhi::raii::Device device;
@@ -82,24 +61,16 @@ namespace
 		rhi::raii::Timeline timeline;
 	};
 
-	/*
-	 * Creating the lot, with every failure arriving the same way.
-	 *
-	 * Each step is an assignment out of a Result and a test of that Result. No step names a handle, tests one for validity, or has anything to undo: a return
-	 * between any two lines below destroys exactly what was built before it, in reverse.
-	 */
 	[[nodiscard]] rhi::Result<Resources> Build(const char * requested)
 	{
 		Resources resources;
 
-		// The owning selection, which vends an owning device. The flat BackendSelection is still underneath and reachable through Get.
 		rhi::raii::Selection selection{ rhi::BackendPreference{ .requested = requested } };
 
 		static constexpr std::array kQueues{ rhi::QueueRequest{ .type = rhi::QueueType::eGraphics } };
 
 		rhi::Result<rhi::raii::Device> device = selection.CreateDevice(rhi::DeviceDesc{
 			.queues = kQueues,
-			// No swapchain wanted, which is what makes this runnable on a machine with no display.
 			.requireSwapchain = false,
 			.debugName		  = "raii_handles",
 		});
@@ -147,7 +118,6 @@ namespace
 
 		resources.texture = std::move(texture.Value());
 
-		// A view names the texture it looks at, which is why the texture is declared above it and destroyed after it.
 		rhi::Result<rhi::raii::TextureView> view =
 			resources.device.CreateTextureView(resources.texture.Get(), rhi::TextureViewDesc{ .debugName = "raii.view" });
 		if (!view)
@@ -176,12 +146,6 @@ namespace
 		return resources;
 	}
 
-	/*
-	 * The work: pattern into the upload buffer, upload into the texture, texture back into the readback buffer.
-	 *
-	 * The pool and the queue below come back as views, not owners, which is the tier being honest. A command pool is reclaimed by the device and a queue was never
-	 * created in the first place, so neither has a Destroy to wrap.
-	 */
 	enum class RoundTripOutcome : std::uint8_t
 	{
 		eDone,
@@ -203,8 +167,6 @@ namespace
 			return RoundTripOutcome::eFailed;
 		}
 
-		// Host visible memory is the one thing here a backend can genuinely not have, and the Null one does not. Owning the resources is what this sample is about
-		// and that part happened either way, so this reports it without failing over it.
 		const rhi::MappedMemory mapped = dev.Map(resources.upload.Get(), rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
@@ -290,7 +252,7 @@ namespace
 
 		return RoundTripOutcome::eDone;
 	}
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -327,10 +289,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * There is no teardown below this line. Returning destroys Resources, whose members go in reverse order: the timeline, the sampler, the view, the texture, the
-	 * two buffers and the device last of all.
-	 */
 	LOG_INFO(fw::Log(), "returning, which destroys everything in reverse declaration order");
 
 	return 0;

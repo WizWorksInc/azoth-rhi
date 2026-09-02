@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Page-backed object pool for backend objects whose addresses must stay stable until reset.
- */
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
 
@@ -28,21 +18,10 @@
 
 namespace azo::rhi::detail
 {
-	/**
-	 * \brief Constructs T objects into raw pages and destroys every live object during Reset.
-	 *
-	 * Existing pages never move, so returned object pointers stay stable until Reset or destruction. maxPages of zero leaves the page count uncapped.
-	 * \warning T destructors must not throw because Reset is noexcept and the pool destructor calls Reset.
-	 */
 	template <class T>
 	class TypedObjectPool final
 	{
 	public:
-		/**
-		 * \brief Creates a pool with fixed-size pages.
-		 *
-		 * \note blocksPerPage is clamped to one so every pool has a valid allocation granularity.
-		 */
 		explicit TypedObjectPool(std::size_t blocksPerPage, std::size_t maxPages = 0, const char * debugName = nullptr) noexcept
 			: m_blocksPerPage(blocksPerPage != 0 ? blocksPerPage : 1),
 			  m_maxPages(maxPages),
@@ -58,11 +37,6 @@ namespace azo::rhi::detail
 		TypedObjectPool(const TypedObjectPool &)			 = delete;
 		TypedObjectPool & operator=(const TypedObjectPool &) = delete;
 
-		/**
-		 * \brief Moves page ownership and live-object count from another pool.
-		 *
-		 * \note The moved-from pool is left with no live objects so its destructor does not destroy objects owned by this pool.
-		 */
 		TypedObjectPool(TypedObjectPool && other) noexcept
 			: m_pages(std::move(other.m_pages)),
 			  m_count(other.m_count),
@@ -73,11 +47,6 @@ namespace azo::rhi::detail
 			other.m_count = 0;
 		}
 
-		/**
-		 * \brief Destroys this pool's current objects before taking another pool's pages.
-		 *
-		 * \note The moved-from pool is left with no live objects so its destructor does not destroy objects owned by this pool.
-		 */
 		TypedObjectPool & operator=(TypedObjectPool && other) noexcept
 		{
 			if (this != &other)
@@ -95,12 +64,6 @@ namespace azo::rhi::detail
 			return *this;
 		}
 
-		/**
-		 * \brief Constructs an object in the next free slot.
-		 *
-		 * \note The returned pointer stays stable until Reset or pool destruction.
-		 * \attention Returns nullptr when the page limit is reached, host allocation fails, or page tracking fails.
-		 */
 		template <class... Args>
 		[[nodiscard]] T * New(Args &&... args)
 		{
@@ -119,11 +82,6 @@ namespace azo::rhi::detail
 					return nullptr;
 				}
 
-				/*
-				 * Nothing to free by hand on the failure path. The temporary owns the page, and push_back gives the strong guarantee, so a growth that throws
-				 * leaves the temporary still holding the memory and ~Page releases it at the end of this condition. Freeing it here as well is a second free of
-				 * the same pointer.
-				 */
 				if (!TryPushBack(m_pages, Page{ static_cast<std::byte *>(memory), bytes }))
 				{
 					return nullptr;
@@ -136,9 +94,6 @@ namespace azo::rhi::detail
 			return object;
 		}
 
-		/**
-		 * \brief Destroys live objects in reverse construction order and releases every page.
-		 */
 		void Reset() noexcept
 		{
 			for (std::size_t i = m_count; i > 0; --i)
@@ -165,9 +120,6 @@ namespace azo::rhi::detail
 	private:
 		static constexpr std::align_val_t kAlign{ alignof(T) > alignof(void *) ? alignof(T) : alignof(void *) };
 
-		/**
-		 * \brief Owns one raw page allocated with the pool's object alignment.
-		 */
 		struct Page final
 		{
 			std::byte * memory = nullptr;
@@ -220,4 +172,4 @@ namespace azo::rhi::detail
 		std::size_t m_maxPages		= 0;
 		const char * m_debugName	= nullptr;
 	};
-} // namespace azo::rhi::detail
+}

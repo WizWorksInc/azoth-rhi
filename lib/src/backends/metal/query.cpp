@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -21,13 +16,6 @@ namespace azo::rhi::metal
 		return device->queryPools.Resolve(handle, kHandleAlreadyChecked);
 	}
 
-	/*
-	 * A pool is an MTLCounterSampleBuffer over the adapter's timestamp counter set. Private storage because every read goes through resolveCounters on a blit
-	 * encoder into a buffer the caller already owns. Shared storage would only give the sample buffer a host copy no one reads.
-	 *
-	 * Occlusion and pipeline statistics are refused, not approximated. Metal counts visible samples through a visibility result buffer named on the render pass
-	 * descriptor, which is a different object reached a different way.
-	 */
 	QueryPoolHandle MetalCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.createQueryPool");
@@ -73,12 +61,6 @@ namespace azo::rhi::metal
 			error);
 	}
 
-	/*
-	 * MTLDevice samples both clocks in one call, which is the calibrated pair this returns.
-	 *
-	 * The period is one because a Metal GPU timestamp is already nanoseconds, matching what DeviceCaps reports, so a caller subtracting two resolved timestamps
-	 * has nanoseconds without scaling.
-	 */
 	bool MetalCalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
 	{
 		auto * device = static_cast<MetalDevice *>(impl);
@@ -103,12 +85,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	/*
-	 * Metal has no reset. A sample buffer slot is written by whatever samples into it and carries MTLCounterErrorValue until something does, so there is no
-	 * stale-result window for a reset to close and nothing for this to lower to.
-	 *
-	 * The handle is still resolved, because succeeding on a pool this device never created would hide the caller's mistake until the resolve.
-	 */
 	bool MetalCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * object			 = static_cast<MetalObject *>(impl);
@@ -117,7 +93,6 @@ namespace azo::rhi::metal
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
 		}
-		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
 		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
@@ -125,17 +100,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	/*
-	 * A timestamp lands one of two ways, decided by the adapter and not by choice. Where the adapter samples at an encoder boundary the open encoder takes the
-	 * sample itself. Where it samples at a stage boundary the sample points are fixed when an encoder opens. A write outside any scope then gets an encoder of its
-	 * own and a write inside one is refused.
-	 *
-	 * The barrier argument is false throughout. Apple's guidance is that it trades repeatability for cost.
-	 *
-	 * The stage is dropped, since sampleCountersInBuffer names a buffer, an index and a barrier flag but never a stage. The sample lands where the call sits,
-	 * which is at or after every stage a mask could name, so it is coarser than the caller asked for and never earlier. BeginRenderingDesc::timestamps is the
-	 * only stage-granular path this generation has, and the other one carries the stage into its render encoder.
-	 */
 	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * object			 = static_cast<MetalObject *>(impl);
@@ -181,11 +145,9 @@ namespace azo::rhi::metal
 			return Succeed(error);
 		}
 
-		// Nothing is open, so the sample gets an encoder of its own. A blit encoder is the cheapest one that carries a sample point either way.
 		const NS::SharedPtr<NS::AutoreleasePool> autoreleasePool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 		if (device->samplesAtStageBoundary)
 		{
-			// The encoder needs a command in it or Metal drops it and the sample with it. MetalCmdList::timestampFence says why this is the one.
 			if (rec->timestampFence.get() == nullptr)
 			{
 				rec->timestampFence = NS::TransferPtr(device->device->newFence());
@@ -230,8 +192,6 @@ namespace azo::rhi::metal
 		return Fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples counters at no point a timestamp write can reach");
 	}
 
-	// Occlusion counting is a visibility result buffer named on the render pass descriptor and not anything this pool holds, so the pool a caller brought here
-	// cannot receive it. Refused by name, not silently counting nothing.
 	bool MetalCmdBeginQuery([[maybe_unused]] void * impl, [[maybe_unused]] QueryPoolHandle pool, [[maybe_unused]] std::uint32_t query, Error * error) noexcept
 	{
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and beginQuery serves the counting kinds");
@@ -242,13 +202,6 @@ namespace azo::rhi::metal
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and endQuery serves the counting kinds");
 	}
 
-	/*
-	 * resolveCounters writes one MTLCounterResultTimestamp per sample, which is the same uint64 per query Direct3D 12 resolves and the same the RHI documents, so
-	 * the destination layout needs no translation.
-	 *
-	 * A sample never taken resolves to MTLCounterErrorValue, not zero. That is left as it is: a caller subtracting a pair can tell the sentinel from a plausible
-	 * time, where zeroing it would produce a difference that looks like an answer.
-	 */
 	bool MetalCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
 		std::uint64_t dstOffset, Error * error) noexcept
 	{
@@ -260,7 +213,6 @@ namespace azo::rhi::metal
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
 		}
-		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
 		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
@@ -281,4 +233,4 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal
+}

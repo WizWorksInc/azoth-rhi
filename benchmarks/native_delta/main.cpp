@@ -1,26 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-/*
- * What the abstraction costs to record a command, against the same command recorded straight onto the same native recorder, in the same list, on the same
- * device.
- *
- * Both arms share everything but the call, so the difference between the two numbers is the RHI's dispatch and translation. This is a CPU recording
- * measurement: no GPU, no submission, no frame time.
- *
- * One benchmark is one shape, run a pass at a time with both arms in it. See shared/pass_plan.hpp and native/arms.hpp.
- */
 
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/render.hpp"
@@ -63,39 +48,18 @@ using bench::Workload;
 namespace
 {
 
-	/*
-	 * How long a pass may wait on the GPU before the run gives up on the machine.
-	 *
-	 * The recorded work still has to run and a driver that has stopped making progress leaves the wait spinning with nothing to report. An unbounded wait would
-	 * just look hung and the timeout is here so it gets reported instead.
-	 */
 	constexpr std::uint64_t kPassTimeoutNanoseconds = 30'000'000'000;
 
-	// What the arms are called in the report. The RHI arm is the reported time so the native one and the difference over it ride beside it as counters.
 	constexpr const char * kNativeCounter	  = "native_ns";
 	constexpr const char * kDeltaCounter	  = "delta_ns";
 	constexpr const char * kDeltaShareCounter = "delta_pct";
 
-	/*
-	 * The most commands one pass may record per arm. A pass therefore records twice this.
-	 *
-	 * Below the recording benchmark's own ceiling because both arms land in one command list and a driver's recorded command storage is real memory. Also because
-	 * eight shapes at two arms each is sixteen timed loops a repetition. What a pass actually records is at most this and usually less, the machine being measured
-	 * for what it can afford.
-	 */
 	constexpr std::size_t kCommandCeiling = 2'000'000;
 
-	// Enough recording in a repetition to average a scheduler over, where the run budget can afford it.
 	constexpr double kPreferredMinTimeSeconds = 0.1;
 
 	constexpr double kMaxSpreadPercent = 4.0;
 
-	/*
-	 * One timed RHI pass over one command shape, in nanoseconds.
-	 *
-	 * The shape is chosen outside the loop so the loop body is the one call a real recording loop would have. The accepted count leaves through the caller's sink
-	 * because every entry reports a bool and discarding all of them would let a compiler drop the calls it can see through.
-	 */
 	[[nodiscard]] std::uint64_t RecordRhi(const Kind kind, rhi::CommandList & list, const Workload & work, const std::size_t commands, std::uint64_t & sink)
 	{
 		std::uint64_t accepted = 0;
@@ -169,21 +133,14 @@ namespace
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
-	/*
-	 * Defaults put in front of what the caller wrote, each still a flag the command line overrides.
-	 *
-	 * Per-repetition rows are left out of the console report, since eight shapes at thirteen rows each is a wall, and --benchmark_out keeps them either way.
-	 * The warm-up is this benchmark's own because what needs warming is the clock the core runs at, which eight shapes do not each pay for.
-	 */
 	std::array<std::string, 2> flagDefaults{ "--benchmark_repetitions=9", "--benchmark_display_aggregates_only=true" };
 
 	std::vector<char *> args = bench::WithFlagDefaults(argc, argv, flagDefaults);
 
-	// Read before Initialize, which takes the flags it recognises back out of the line as it parses them.
 	const std::size_t repetitions = bench::FlagValue(args, "--benchmark_repetitions", 1);
 	const bool ownMinTime		  = !bench::NamesFlag(args, "--benchmark_min_time");
 
@@ -194,7 +151,6 @@ int main(int argc, char ** argv)
 	options.commandCeiling	 = kCommandCeiling;
 	options.maxSpreadPercent = kMaxSpreadPercent;
 
-	// What ships. Turning it up measures what validation costs, which is a different question.
 	options.validation = rhi::ValidationMode::eOff;
 	if (!bench::ParseOptions(argCount, args.data(), options))
 	{
@@ -246,7 +202,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// A set with one binding, since a set with none records no useResource on Metal and would compare the binding call against a stand-in for it.
 	const rhi::BufferDesc scratchDesc{
 		.size	   = kScratchBufferBytes,
 		.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eIndex,
@@ -305,13 +260,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * A pipeline, built when the device compiles shading language source, since the draws are only a legal recording with one bound. A draw with nothing bound
-	 * faults inside the driver instead of costing less, so the shapes that need one report as not compared where there is none.
-	 *
-	 * Metal source because that is the one form a device here accepts. A shader toolchain behind the benchmark would make what it measures depend on the host's
-	 * compiler.
-	 */
 	const rhi::DeviceCaps & caps = dev.GetCaps();
 	if (caps.supportsShaderSource && caps.shaderBinaryFormat == rhi::ShaderBinaryFormat::eBackendNative)
 	{
@@ -360,7 +308,6 @@ int main(int argc, char ** argv)
 		return 0;
 	}
 
-	// The before state is undefined every pass, since each pass clears the target anyway and a benchmark target has no contents worth keeping.
 	const std::array toAttachment{ rhi::TextureBarrier{
 		.texture = work.target,
 		.before	 = { .use = rhi::ResourceUse::eDiscard },
@@ -392,13 +339,6 @@ int main(int argc, char ** argv)
 	std::uint64_t sink		= 0;
 	std::uint64_t submitted = 0;
 
-	/*
-	 * One pass: a fresh list out of a reset pool, opened, both arms timed into it, closed, submitted and waited on. Only the two recording loops are timed, so
-	 * the submit is in neither number.
-	 *
-	 * The submit is here because a driver holds a bounded set of command buffers, and recording without ever submitting exhausts it: Metal blocks forever after
-	 * sixty-four passes.
-	 */
 	const auto onePass = [&](const Kind kind,
 							 const std::size_t commands,
 							 std::uint64_t & wallNanoseconds,
@@ -407,7 +347,6 @@ int main(int argc, char ** argv)
 	{
 		const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 
-		// Nothing is in flight past the point the last pass waited for so the pool is free to reset.
 		if (!pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = submitted }, error))
 		{
 			bench::ReportError("failed to reset the command pool", error);
@@ -433,12 +372,6 @@ int main(int argc, char ** argv)
 			return false;
 		}
 
-		/*
-		 * Untimed setup for the two draw shapes, recorded once a pass instead of once a command.
-		 *
-		 * It is what makes the draws legal in both arms at once. Both record onto the encoder this bind leaves the pipeline on so the native arm needs no bind of
-		 * its own to be a draw the driver will take.
-		 */
 		if ((kind == Kind::eDraw || kind == Kind::eDrawIndexed) &&
 			(!list.SetGraphicsPipeline(work.pipeline, error) || !list.SetIndexBuffer(work.scratch, 0, false, error)))
 		{
@@ -485,7 +418,6 @@ int main(int argc, char ** argv)
 		return true;
 	};
 
-	// One shape's pass, wrapped in the signature the planner and the warm-up ask for.
 	const auto probeShape = [&](const Kind kind)
 	{
 		return [&, kind](const std::size_t commands, std::uint64_t & wallNanoseconds, std::uint64_t & timedNanoseconds)
@@ -495,18 +427,11 @@ int main(int argc, char ** argv)
 		};
 	};
 
-	/*
-	 * Warming up once for the whole run, timed by the wall clock instead of counted in passes.
-	 *
-	 * What needs warming is the clock the core is running at. A laptop that starts at its low-power frequency needs time to ramp and the shapes that follow keep
-	 * that time spent.
-	 */
 	if (!bench::WarmUp(options.warmupMilliseconds, options, probeShape(Kind::eSetViewport)))
 	{
 		return 1;
 	}
 
-	// The run budget is shared between the shapes that are actually compared so the ones this backend cannot reach do not each hold a share of it.
 	std::size_t comparable = 0;
 	for (const Kind kind : bench::kKinds)
 	{
@@ -519,8 +444,6 @@ int main(int argc, char ** argv)
 	{
 		const std::string name = std::string("native_delta/") + std::string(bench::KindName(kind));
 
-		// A shape whose native call needs an object the RHI resolved out of a handle and does not publish is reported as skipped, with the reason standing where
-		// the figures would have been. Leaving it out of the report entirely would read as if it had never been asked for.
 		if (const std::string_view gap = bench::native::Gap(kind); !gap.empty())
 		{
 			benchmark::RegisterBenchmark(name,
@@ -544,14 +467,12 @@ int main(int argc, char ** argv)
 		auto * registered = benchmark::RegisterBenchmark(name,
 			[&, kind, commandsAPass](benchmark::State & state)
 			{
-				// A benchmark that ran after another one failed would report against a device that is already answering errors.
 				if (passFailed)
 				{
 					state.SkipWithError("an earlier pass failed, see the diagnostic above");
 					return;
 				}
 
-				// How big a pass turned out to be here, which differs per shape because what a pass costs does.
 				state.SetLabel(std::to_string(commandsAPass) + " commands an arm a pass");
 
 				const std::uint64_t acceptedBefore = sink;
@@ -574,7 +495,6 @@ int main(int argc, char ** argv)
 					rhiTotal += rhiNanoseconds;
 					nativeTotal += nativeNanoseconds;
 
-					// The RHI arm is the reported time so the native arm beside it has to be a counter.
 					state.SetIterationTime(static_cast<double>(rhiNanoseconds) / bench::kNanosecondsASecond);
 				}
 
@@ -592,11 +512,6 @@ int main(int argc, char ** argv)
 				state.counters[kNativeCounter] = benchmark::Counter(nativeNs);
 				state.counters[kDeltaCounter]  = benchmark::Counter(rhiNs - nativeNs);
 
-				/*
-				 * The share is against the native arm because that is the claim under test: a caller who dropped the RHI would pay the native number so the delta
-				 * over it is what the abstraction costs them. Where the native arm records nothing the ratio has no denominator and is left out. It is left out
-				 * for the same shape every repetition so the aggregates still line up.
-				 */
 				if (!bench::native::RecordsNothing(kind))
 				{
 					state.counters[kDeltaShareCounter] = benchmark::Counter((rhiNs - nativeNs) / nativeNs * 100.0);
@@ -605,7 +520,6 @@ int main(int argc, char ** argv)
 
 		registered->UseManualTime()->Unit(benchmark::kNanosecond);
 
-		// A minimum time named on the command line is one Google Benchmark cannot see past a benchmark that names its own so the plan gives way to it.
 		if (ownMinTime)
 		{
 			registered->MinTime(plan.minTimeSeconds);
@@ -622,7 +536,6 @@ int main(int argc, char ** argv)
 
 	bench::native::Release();
 
-	// Every pass waited for its own submission so nothing is in flight to defer around.
 	constexpr rhi::DestroyDesc idle{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle };
 	if (work.pipeline.IsValid())
 	{

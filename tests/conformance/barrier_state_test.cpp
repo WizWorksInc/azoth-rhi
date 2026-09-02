@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -48,7 +43,6 @@ namespace
 		return device.CreateBuffer(test::samples::StorageBuffer(), error);
 	}
 
-	// The rule ResourceState documents: an empty use says nothing about where the resource ends up, so it cannot be what a barrier leaves behind.
 	TEST_P(BarrierStateTest, RefusesAnEmptyAfterStateOnAPlainBarrier)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -74,10 +68,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	/*
-	 * The one exemption, and the reason the rule takes the ownership op rather than the state alone. What the releasing queue leaves the resource in is not
-	 * something that side can answer, so the release names none and the acquire names what the resource is being taken into.
-	 */
 	TEST_P(BarrierStateTest, AcceptsAnEmptyAfterStateOnAReleaseBarrier)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -104,7 +94,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	// The other half of the pair, which the exemption must not reach: an acquire is exactly the barrier that says what the resource is being taken into.
 	TEST_P(BarrierStateTest, RefusesAnEmptyAfterStateOnAnAcquireBarrier)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -139,7 +128,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	// The sibling rule from the same paragraph, which had no runtime coverage: eDiscard describes contents arriving at a barrier, not contents leaving one.
 	TEST_P(BarrierStateTest, RefusesDiscardAsAnAfterState)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -165,7 +153,6 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	// The rule only governs the after-state, so the same empty state has to stay legal where the header says it is legal.
 	TEST_P(BarrierStateTest, StillTakesAnEmptyBeforeState)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -188,4 +175,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-} // namespace
+}

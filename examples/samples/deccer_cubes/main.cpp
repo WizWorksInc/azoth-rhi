@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -75,12 +70,10 @@ namespace
 	constexpr float kNearPlane	 = 0.05f;
 	constexpr float kFarPlane	 = 200.0f;
 
-	// What the build stages under assets/ beside the executable, taken as the scene when no other one is named on the command line.
 	constexpr auto kSceneFile = "deccer_cubes/SM_Deccer_Cubes_Textured_Complex.gltf";
 
 	constexpr auto kDepthFormat = rhi::Format::eD32Float;
 
-	// What a copy's buffer offset is aligned to when a device reports no requirement of its own. The real number comes from its caps.
 	constexpr std::uint64_t kFallbackCopyAlignment = 4;
 
 	[[nodiscard]] std::uint64_t CopyAlignmentOf(const rhi::Device & dev)
@@ -92,7 +85,6 @@ namespace
 	constexpr std::uint32_t kFrameSet	 = 0;
 	constexpr std::uint32_t kMaterialSet = 1;
 
-	// Zero because a ParameterBlock numbers its members from zero. It was 1 while the shader declared bindings by hand.
 	constexpr std::uint32_t kFrameBinding	   = 0;
 	constexpr std::uint32_t kBaseColorBinding  = 0;
 	constexpr std::uint32_t kIrradianceBinding = 1;
@@ -104,7 +96,6 @@ namespace
 		return ((value + alignment) - 1) & ~(alignment - 1);
 	}
 
-	// What the scene turned into once it was on the device.
 	struct GpuScene final
 	{
 		rhi::BufferHandle vertices{};
@@ -113,8 +104,6 @@ namespace
 		std::vector<rhi::TextureViewHandle> views;
 	};
 
-	// Everything the file holds, in one staging buffer and one submission: the geometry into device memory and each image into mip zero of its texture, whose
-	// remaining levels are then blitted out of it.
 	[[nodiscard]] bool Upload(
 		rhi::Device dev, rhi::Queue & queue, const rhi::TimelineHandle timeline, const std::uint64_t signalValue, const deccer::Scene & scene, GpuScene & gpu)
 	{
@@ -192,17 +181,12 @@ namespace
 
 			const rhi::TextureHandle texture = dev.CreateTexture(
 				rhi::TextureDesc{
-					// sRGB so a sample decodes on the way in, which is what leaves the shading arithmetic in linear light.
 					.format	   = rhi::Format::eRGBA8Srgb,
 					.width	   = image.width,
 					.height	   = image.height,
 					.mipLevels = mips,
-					// eCopySrc as well as eCopyDst because the hardware path reads each level back to blit the next one out of it, and eStorage because the compute path the
-					// Resampler falls back to writes each level through a storage view instead.
 					.usage = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eCopySrc |
 							 rhi::TextureUsage::eStorage,
-					// No API allows an sRGB storage image, so the compute path writes through a view in the linear twin and encodes itself. Declaring this is what makes that
-					// view legal.
 					.allowFormatViews = true,
 					.debugName		  = "deccer.texture",
 				},
@@ -233,12 +217,6 @@ namespace
 			return false;
 		}
 
-		/*
-		 * One descriptor set per level the compute path writes, which is every level below the top of every texture.
-		 *
-		 * Sized even where the hardware path will run and use none: which path the Resampler takes is its decision and depends on the device, so a caller that sized
-		 * this from the answer would be making the branch it just delegated.
-		 */
 		std::uint32_t resampleSets = 0;
 		for (const deccer::Image & image : scene.images)
 		{
@@ -299,8 +277,6 @@ namespace
 				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 				.range	 = whole,
 			});
-			// No transition for the textures here. The Resampler states where it leaves them, which is fragment readable, and it has to because the caller cannot see
-			// whether it took the hardware path or the compute one.
 		}
 
 		bool recorded = list.Barriers(rhi::BarrierBatch{ .buffers = toCopy, .textures = toCopyDst }, error) &&
@@ -339,7 +315,6 @@ namespace
 		return true;
 	}
 
-	// The camera, which changes only when the window does.
 	[[nodiscard]] bool WriteFrame(
 		rhi::Device dev, const rhi::BufferHandle buffer, const fw::scene::PerspectiveCamera & camera, const std::uint32_t specularMips)
 	{
@@ -347,11 +322,9 @@ namespace
 
 		std::array<float, 36> block{};
 
-		// The shader reads a row major matrix and glm stores columns, so it goes in transposed.
 		const glm::mat4 viewProjection = glm::transpose(camera.GetViewProjection());
 		std::memcpy(block.data(), glm::value_ptr(viewProjection), sizeof(viewProjection));
 
-		// The camera's own basis, sent along so the sky can turn a screen corner into a direction without inverting anything.
 		const auto place = [&block](const std::size_t at, const glm::vec3 & value)
 		{
 			std::memcpy(block.data() + at, glm::value_ptr(value), sizeof(value));
@@ -383,12 +356,11 @@ namespace
 		return true;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
-	// The build stages the scene under assets/ beside the executable, so the sample runs from any directory without a path compiled into it.
 	const std::string bundled	   = fw::util::AssetPath(kSceneFile).string();
 	const char * gltfPath		   = args.size() > 1 ? args[1] : bundled.c_str();
 	const std::uint64_t frameLimit = args.size() > 2 ? std::strtoull(args[2], nullptr, 10) : 0;
@@ -435,8 +407,6 @@ int main(int argc, char ** argv)
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device =
-		// The sky's vertex shader builds its corners from SV_VertexID, which Slang lowers against the base vertex and so emits the DrawParameters capability for. A
-		// device that did not enable the matching feature would be running a shader declaring a capability it does not have.
 		rhi::DeviceBuilder()
 			.DebugName("deccer_cubes")
 			.GraphicsQueue()
@@ -479,7 +449,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Two submissions before a frame is drawn, in order: the lighting, then the geometry and its textures.
 	deccer::Environment environment;
 	if (!deccer::BuildEnvironment(dev, queue, timeline, 1, compiler, environment, shaderError))
 	{
@@ -493,13 +462,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * The frame loop's own pools and timeline, separate from the setup timeline above because the two order different things. That one sequenced the environment
-	 * build against the upload and this one counts frames.
-	 *
-	 * Two frames in flight, so recording the next one overlaps executing this one. Everything the loop writes per frame is indexed by SlotIndex, which here is
-	 * only the depth targets below.
-	 */
 	rhi::FrameRing ring = rhi::FrameRing::Create(dev, queue, rhi::FrameRingDesc{ .framesInFlight = 2, .debugName = "deccer.frame" }, error);
 	if (!ring.IsValid())
 	{
@@ -516,7 +478,6 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	// One sampler covers everything: the cube lookups do not care what happens outside a face and the base colours want repeating.
 	const rhi::SamplerHandle sampler = dev.CreateSampler(rhi::SamplerDesc{ .debugName = "deccer.sampler" }, error);
 	if (!frameBuffer.IsValid() || !sampler.IsValid())
 	{
@@ -565,7 +526,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// One set per texture in the file. The two environment cubes are the same in every one of them, since the lighting does not vary by material.
 	std::vector<rhi::DescriptorSetHandle> materialSets(gpu.views.size());
 	for (std::size_t i = 0; i < gpu.views.size(); ++i)
 	{
@@ -617,11 +577,7 @@ int main(int argc, char ** argv)
 		rhi::VertexAttributeDesc{ .location = 2, .binding = 0, .format = rhi::Format::eRG32Float, .offset = offsetof(deccer::Vertex, uv) },
 	};
 
-	// The model matrix, the three normal rows, the two material factors and the padding that carries the struct to its alignment, which is what changes from one
-	// cube to the next. Matches DrawConstants in the shader exactly, since a shorter push is a block the shader reads past the end of.
 	constexpr std::uint32_t kPushConstantBytes = sizeof(float) * 32;
-	// Both stages, because the fragment shader reads metallic and roughness out of the same block the vertex shader takes its matrices from. Declaring only the
-	// vertex stage leaves the fragment stage reading a range the layout never granted it, which is undefined, not empty.
 	constexpr rhi::Flags<rhi::ShaderStage> kPushConstantStages = rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment;
 
 	const std::array pushConstants{ rhi::PushConstantRange{ .stages = kPushConstantStages, .size = kPushConstantBytes } };
@@ -637,7 +593,6 @@ int main(int argc, char ** argv)
 	vertexInput.attributes	 = vertexAttributes;
 	pipelineDesc.vertexInput = &vertexInput;
 
-	// Every material in the file is double sided and the bars are thin enough that it shows.
 	pipelineDesc.raster.cullMode = rhi::CullMode::eNone;
 
 	pipelineDesc.depthStencil.depthTestEnable  = true;
@@ -651,15 +606,9 @@ int main(int argc, char ** argv)
 	pipelineDesc.dynamicStates					 = rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
 	pipelineDesc.debugName						 = "deccer.pipeline";
 
-	/*
-	 * The sky shares the layout, so it needs no descriptors of its own, and differs only in what it does not do: no vertex buffer, since the three vertices come
-	 * from the vertex id, and no depth state at all, since it is drawn first and everything else is meant to land on top of it.
-	 */
 	rhi::GraphicsPipelineDesc skyDesc = pipelineDesc;
 	skyDesc.shaders					  = skyShaders;
 
-	// Still a vertex pipeline, just one with nothing bound: the vertex shader builds its three positions from the vertex id. A null vertexInput would mean no
-	// vertex stage at all, which is a different thing and one no backend here builds.
 	rhi::VertexInputDesc skyInput{};
 	skyDesc.vertexInput					  = &skyInput;
 	skyDesc.depthStencil.depthTestEnable  = false;
@@ -674,13 +623,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * One depth target per frame in flight, sized with the swapchain and rebuilt with it when the window changes.
-	 *
-	 * Per slot and not one shared: the loop clears depth at the top of every frame, so a single target would be cleared by the next frame while the previous one
-	 * was still reading it. That reads as flicker or as geometry punched through, and no validation layer calls it because both frames declare the barriers they
-	 * actually perform.
-	 */
 	struct DepthTarget final
 	{
 		rhi::TextureHandle texture{};
@@ -691,7 +633,6 @@ int main(int argc, char ** argv)
 	std::uint32_t depthWidth  = 0;
 	std::uint32_t depthHeight = 0;
 
-	// The camera the frame block is built from. Fixed where it stands, so only the aspect ratio moves, and only when the window does.
 	fw::scene::PerspectiveCamera camera;
 	camera.SetFieldOfView(kFieldOfView);
 	camera.SetNearPlane(kNearPlane);
@@ -750,8 +691,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Writes a .gputrace when AZOTH_METAL_CAPTURE names one, and does nothing otherwise. Here and not inside the loop, so the capture covers the first
-	// frames, which is where a bad one usually is.
 	fw::MetalCapture capture(dev);
 
 	while (window.PumpEvents())
@@ -792,7 +731,6 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		// Waits for the frame this slot last carried, recycles its pool and hands back the list to record into.
 		rhi::CommandList list = ring.Begin(error);
 		if (!list.IsValid() || !list.Begin(error))
 		{
@@ -800,7 +738,6 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		// This frame's own depth target, which is what lets the next one start recording before this one has finished with it.
 		const DepthTarget & depth = depths.at(ring.SlotIndex());
 
 		const rhi::TextureHandle backBuffer = acquired.texture;
@@ -810,7 +747,6 @@ int main(int argc, char ** argv)
 				.before	 = { .use = rhi::ResourceUse::eDiscard, .stages = rhi::Stage::eColorOutput },
 				.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			},
-			// Cleared every frame, so what it held before is of no interest and it starts undefined each time.
 			rhi::TextureBarrier{
 				.texture = depth.texture,
 				.before	 = { .use = rhi::ResourceUse::eDiscard },
@@ -831,7 +767,6 @@ int main(int argc, char ** argv)
 			rhi::RenderingAttachment{
 				.view  = acquired.view,
 				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
-				// The sky covers every pixel before anything else draws, so clearing first would be work thrown away.
 				.load  = rhi::LoadOp::eDontCare,
 				.store = rhi::StoreOp::eStore,
 			},
@@ -848,7 +783,6 @@ int main(int argc, char ** argv)
 		const rhi::Viewport viewport{ .width = static_cast<float>(swapchain.GetWidth()), .height = static_cast<float>(swapchain.GetHeight()) };
 		const rhi::Rect2D scissor{ .width = swapchain.GetWidth(), .height = swapchain.GetHeight() };
 
-		// The frame set is the same all the way through, so it is bound once and only the material set moves between draws.
 		bool recorded = list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
 						list.BeginRendering(
 							rhi::BeginRenderingDesc{
@@ -872,7 +806,6 @@ int main(int argc, char ** argv)
 			}
 
 			std::array<float, 32> constants{};
-			// The loader hands the model back column major, and the shader reads rows.
 			const glm::mat4 model = glm::transpose(glm::make_mat4(draw.model.data()));
 			std::memcpy(constants.data(), glm::value_ptr(model), sizeof(model));
 			std::ranges::copy(draw.normalRows, constants.begin() + 16);
@@ -894,7 +827,6 @@ int main(int argc, char ** argv)
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array retire{ ring.Signal() };
 
-		// Both ends of the presentation edge came back from the acquire, so nothing here looks either of them up by index.
 		const std::array present{ rhi::SwapchainSync{ .acquired = acquired.imageAvailable, .renderFinished = acquired.renderFinished } };
 
 		const rhi::SubmitDesc submit{
@@ -913,7 +845,6 @@ int main(int argc, char ** argv)
 		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
 		capture.FramePresented();
 
-		// The wait that used to sit here belongs to the ring now, which takes it at the top of the next frame instead.
 	}
 
 	static_cast<void>(queue.WaitIdle(error));

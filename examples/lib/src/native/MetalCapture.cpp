@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -43,12 +38,6 @@ namespace fw
 			return value != nullptr && *value != '\0' ? value : nullptr;
 		}
 
-		/*
-		 * The MTLDevice behind an RHI device, whichever Metal backend it came from.
-		 *
-		 * The two backends answer different accessors and neither answers for the other, so asking both and taking whichever replies is how a caller stays out
-		 * of the business of knowing which it got.
-		 */
 		[[nodiscard]] MTL::Device * MetalDeviceOf([[maybe_unused]] rhi::Device device) noexcept
 		{
 	#ifdef AZOTH_RHI_EXAMPLES_HAVE_METAL3
@@ -66,7 +55,7 @@ namespace fw
 
 			return nullptr;
 		}
-	} // namespace
+	}
 
 	MetalCapture::MetalCapture(rhi::Device device)
 	{
@@ -83,10 +72,6 @@ namespace fw
 			return;
 		}
 
-		/*
-		 * Metal refuses to capture at all unless the process started with this set, and it cannot be set from inside the process because the check happens
-		 * before main. Saying so is the whole value of testing it: the alternative is startCapture failing with an error nobody reads.
-		 */
 		if (EnvOrNull("MTL_CAPTURE_ENABLED") == nullptr)
 		{
 			LOG_ERROR(Log(), "AZOTH_METAL_CAPTURE needs MTL_CAPTURE_ENABLED=1 in the environment, which Metal reads before main");
@@ -168,4 +153,4 @@ namespace fw
 		Stop();
 	}
 
-} // namespace fw
+}

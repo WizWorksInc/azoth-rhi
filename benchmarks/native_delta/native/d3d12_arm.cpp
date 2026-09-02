@@ -1,18 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// The Direct3D 12 arm: what the Direct3D 12 backend records for the same shape. Under native/ because that is the one place a graphics header is allowed.
 
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/native/d3d12_native.hpp"
@@ -36,7 +29,6 @@ namespace bench::native
 	namespace
 	{
 
-		// What this arm resolved out of the RHI. One device a run so it lives here instead of being threaded through every call.
 		struct Arm final
 		{
 			ID3D12Resource * resource = nullptr;
@@ -58,7 +50,6 @@ namespace bench::native
 			return g_arm.resource != nullptr;
 		}
 
-		// What the Direct3D 12 backend records for the same shape. Push constants and descriptor sets are absent by design, see D3D12Gap.
 		[[nodiscard]] std::uint64_t RecordShape(const Kind kind, ID3D12GraphicsCommandList * commandList, const Workload & work, const std::size_t commands)
 		{
 			const D3D12_VIEWPORT viewport{
@@ -119,7 +110,6 @@ namespace bench::native
 				}
 				break;
 
-			// All three left to D3D12Gap, two for the root parameter index and one for the pipeline this benchmark has no binary to build.
 			case Kind::ePushConstants:
 			case Kind::eBindDescriptorSet:
 			case Kind::eSetGraphicsPipeline: break;
@@ -129,7 +119,7 @@ namespace bench::native
 			return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 		}
 
-	} // namespace
+	}
 
 	bool PrepareD3D12(rhi::Device device, const Workload & work)
 	{
@@ -170,4 +160,4 @@ namespace bench::native
 		return recorded;
 	}
 
-} // namespace bench::native
+}

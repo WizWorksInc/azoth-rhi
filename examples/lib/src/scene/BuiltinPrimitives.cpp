@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -28,20 +23,9 @@ namespace fw::scene
 	{
 		constexpr float kPi = std::numbers::pi_v<float>;
 
-		// Every builtin is generated at unit size and centred on the origin, so an object scales its mesh through its transform and not by asking for the mesh again
-		// at another size. That is also what lets one cached allocation serve every object using that shape.
 		constexpr float kUnitSize = 1.0f;
 
-		// A cap on how finely a builtin subdivides. Past this the vertex count runs into the tens of thousands for a shape nothing is looking at that closely, and
-		// the request is almost always a units mix-up and not a real ask.
 		constexpr std::uint32_t kMaxSubdivision = 250;
-
-		/*
-		 * Faces wind counter clockwise seen from outside, which is what azo::rhi::FrontFace::eCounterClockwise expects.
-		 *
-		 * Every ring closes by repeating its first vertex at a second UV, so a seam does not sample backwards across the whole texture, and every cap carries its own
-		 * ring so the rim can hold two different normals.
-		 */
 
 		[[nodiscard]] std::uint32_t Sectors(const std::uint32_t requested) noexcept
 		{
@@ -68,9 +52,6 @@ namespace fw::scene
 			indices.push_back(index);
 		}
 
-		/*
-		 * Two triangles over one quad, given its corners already in counter clockwise order.
-		 */
 		void PushQuad(std::vector<std::uint32_t> & indices, const std::uint32_t a, const std::uint32_t b, const std::uint32_t c, const std::uint32_t d)
 		{
 			PushIndex(indices, a);
@@ -82,9 +63,6 @@ namespace fw::scene
 			PushIndex(indices, d);
 		}
 
-		/*
-		 * The side of a shape of revolution, whose rings run top to bottom with sectorCount + 1 vertices each.
-		 */
 		void PushSideGrid(std::vector<std::uint32_t> & indices, const std::uint32_t stackCount, const std::uint32_t sectorCount)
 		{
 			for (std::uint32_t stack = 0; stack < stackCount; ++stack)
@@ -98,10 +76,6 @@ namespace fw::scene
 			}
 		}
 
-		/*
-		 * A fan over one closed ring around a centre the caller has already emitted. facingUp is true for a cap whose normal is +Y. A cap facing down needs the
-		 * opposite order, since the ring is generated counter clockwise about +Y either way.
-		 */
 		void PushCapFan(std::vector<std::uint32_t> & indices, const std::uint32_t center, const std::uint32_t ringStart, const std::uint32_t sectorCount,
 			const bool facingUp)
 		{
@@ -113,12 +87,6 @@ namespace fw::scene
 			}
 		}
 
-		/*
-		 * Emits a centre vertex and a ring beneath it, and returns the index of the centre.
-		 *
-		 * The disc UV maps the ring onto the unit circle inscribed in the texture, so u follows +X and v follows +Z. That fixes the tangent basis for the whole cap:
-		 * the tangent is +X and the handedness is whichever sign turns cross(normal, tangent) into +Z.
-		 */
 		[[nodiscard]] std::uint32_t PushCapVertices(MeshData & mesh, const float y, const float normalY, const float radius, const std::uint32_t sectorCount)
 		{
 			const float handedness = normalY > 0.0f ? -1.0f : 1.0f;
@@ -159,8 +127,6 @@ namespace fw::scene
 
 		[[nodiscard]] MeshData CreateCube()
 		{
-			// One face is an origin corner and the two unit axes spanning it, wound so cross(uAxis, vAxis) is the outward normal. Building the quads from that and not
-			// from six written out corner lists keeps every face's winding and tangent basis agreeing by construction.
 			struct Face final
 			{
 				glm::vec3 origin;
@@ -171,12 +137,12 @@ namespace fw::scene
 			constexpr float h = kUnitSize * 0.5f;
 
 			constexpr std::array<Face, 6> faces{
-				Face{ .origin = { -h, -h, h }, .uAxis = { 1, 0, 0 }, .vAxis = { 0, 1, 0 } },  // Front (+Z)
-				Face{ .origin = { h, -h, -h }, .uAxis = { -1, 0, 0 }, .vAxis = { 0, 1, 0 } }, // Back (-Z)
-				Face{ .origin = { -h, -h, -h }, .uAxis = { 0, 0, 1 }, .vAxis = { 0, 1, 0 } }, // Left (-X)
-				Face{ .origin = { h, -h, h }, .uAxis = { 0, 0, -1 }, .vAxis = { 0, 1, 0 } },  // Right (+X)
-				Face{ .origin = { -h, h, h }, .uAxis = { 1, 0, 0 }, .vAxis = { 0, 0, -1 } },  // Top (+Y)
-				Face{ .origin = { -h, -h, -h }, .uAxis = { 1, 0, 0 }, .vAxis = { 0, 0, 1 } }, // Bottom (-Y)
+				Face{ .origin = { -h, -h, h }, .uAxis = { 1, 0, 0 }, .vAxis = { 0, 1, 0 } },
+				Face{ .origin = { h, -h, -h }, .uAxis = { -1, 0, 0 }, .vAxis = { 0, 1, 0 } },
+				Face{ .origin = { -h, -h, -h }, .uAxis = { 0, 0, 1 }, .vAxis = { 0, 1, 0 } },
+				Face{ .origin = { h, -h, h }, .uAxis = { 0, 0, -1 }, .vAxis = { 0, 1, 0 } },
+				Face{ .origin = { -h, h, h }, .uAxis = { 1, 0, 0 }, .vAxis = { 0, 0, -1 } },
+				Face{ .origin = { -h, -h, -h }, .uAxis = { 1, 0, 0 }, .vAxis = { 0, 0, 1 } },
 			};
 
 			MeshData mesh;
@@ -198,7 +164,6 @@ namespace fw::scene
 				mesh.uvs.insert(mesh.uvs.end(), { glm::vec2{ 0, 0 }, glm::vec2{ 1, 0 }, glm::vec2{ 1, 1 }, glm::vec2{ 0, 1 } });
 				mesh.normals.insert(mesh.normals.end(), 4, normal);
 
-				// cross(normal, uAxis) is vAxis for an orthonormal frame built this way, so every face is right handed.
 				mesh.tangents.insert(mesh.tangents.end(), 4, glm::vec4{ uAxis, 1.0f });
 
 				PushQuad(mesh.indices, corner, corner + 1, corner + 2, corner + 3);
@@ -237,8 +202,6 @@ namespace fw::scene
 					mesh.uvs.emplace_back(Fraction(sector, sectorCount), v);
 					mesh.normals.emplace_back(ring * cosA, y, ring * sinA);
 
-					// The two pole rings collapse to a point, where the surface derivative vanishes. Taking the tangent from the sector angle alone keeps it defined there and
-					// agrees with the derivative everywhere else.
 					mesh.tangents.emplace_back(-sinA, 0.0f, cosA, 1.0f);
 				}
 			}
@@ -255,14 +218,11 @@ namespace fw::scene
 			constexpr float apexY  = kUnitSize * 0.5f;
 			constexpr float baseY  = -kUnitSize * 0.5f;
 
-			// The radius falls by radius over a height of kUnitSize, so the side has one slope everywhere and the normal's vertical part is that slope carried through
-			// the same normalization as the radial part.
 			constexpr float slope = radius / kUnitSize;
 
 			MeshData mesh;
 			mesh.name = GetBuiltinMeshName(BuiltinMeshType::eCone);
 
-			// Generated apex first so the rings run downwards, the same direction the sphere and the cylinder run, which is what lets all three share one side grid.
 			for (std::uint32_t stack = 0; stack <= stackCount; ++stack)
 			{
 				const float v = Fraction(stack, stackCount);
@@ -328,7 +288,6 @@ namespace fw::scene
 			return mesh;
 		}
 
-		// Shared by both planes, which differ only in whether a cell becomes two triangles or one four point patch.
 		[[nodiscard]] MeshData CreatePlaneGrid(const BuiltinMeshType type, const std::uint32_t stackCount, const std::uint32_t sectorCount)
 		{
 			constexpr float half = kUnitSize * 0.5f;
@@ -353,7 +312,6 @@ namespace fw::scene
 				}
 			}
 
-			// The plane faces +Y and its v follows +Z, so cross(normal, tangent) comes out at -Z and the handedness has to flip it back.
 			mesh.normals.assign(vertexCount, glm::vec3{ 0.0f, 1.0f, 0.0f });
 			mesh.tangents.assign(vertexCount, glm::vec4{ 1.0f, 0.0f, 0.0f, -1.0f });
 
@@ -369,7 +327,6 @@ namespace fw::scene
 
 					if (patches)
 					{
-						// Four control points, in the same counter clockwise order the triangles below are wound in.
 						PushIndex(mesh.indices, nearRow);
 						PushIndex(mesh.indices, farRow);
 						PushIndex(mesh.indices, farRow + 1);
@@ -384,7 +341,7 @@ namespace fw::scene
 
 			return mesh;
 		}
-	} // namespace
+	}
 
 	std::string_view GetBuiltinMeshName(const BuiltinMeshType builtinMeshType) noexcept
 	{
@@ -420,4 +377,4 @@ namespace fw::scene
 
 		return {};
 	}
-} // namespace fw::scene
+}

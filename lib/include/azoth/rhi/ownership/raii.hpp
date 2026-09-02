@@ -1,23 +1,13 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
-
-/**
- * \file
- * \brief Second-tier RAII wrappers over the flat RHI device and selection APIs.
- */
 
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
@@ -28,21 +18,12 @@
 #include "azoth/rhi/resources/descriptors.hpp"
 
 #include <concepts>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <span>
 #include <utility>
 
 namespace azo::rhi::raii
 {
-
-	/**
-	 * \name Device-destroyed resource owners
-	 *
-	 * These objects are destroyed one at a time by Device::Destroy. Unique<T> owns the handle and the Device view needed to release it.
-	 *
-	 * \attention Declare a raii::Device before the resources it vends. Members destroy in reverse order, and these owners hold only a Device view. \{
-	 */
 
 	using Buffer				= Unique<BufferHandle>;
 	using Texture				= Unique<TextureHandle>;
@@ -60,39 +41,14 @@ namespace azo::rhi::raii
 	using Timeline				= Unique<TimelineHandle>;
 	using BinarySemaphore		= Unique<BinarySemaphoreHandle>;
 
-	/** \} */
-
-	/**
-	 * \name Borrowed pool-reclaimed views
-	 *
-	 * Descriptor sets and command lists are reclaimed wholesale by the arena or pool that produced them. \{
-	 */
-
 	using CommandList	= rhi::CommandList;
 	using DescriptorSet = DescriptorSetHandle;
-
-	/** \} */
-
-	/**
-	 * \name Device-owned views
-	 *
-	 * These objects do not have individual destroy calls. They are owned by the device and exposed here as views. \{
-	 */
 
 	using Queue			  = rhi::Queue;
 	using CommandPool	  = rhi::CommandPool;
 	using DescriptorArena = rhi::DescriptorArena;
 	using Swapchain		  = rhi::Swapchain;
 
-	/** \} */
-
-	/**
-	 * \brief Owning RAII device that vends second-tier resource owners.
-	 *
-	 * Creation returns Result instead of throwing. The flat Device view remains available through Get for APIs not wrapped by this tier.
-	 *
-	 * \attention Child owners store a Device view, not a UniqueDevice. They must be destroyed before this object.
-	 */
 	class Device final
 	{
 	public:
@@ -112,9 +68,6 @@ namespace azo::rhi::raii
 			return m_owner.IsValid();
 		}
 
-		/**
-		 * \brief Returns the flat non-owning device view.
-		 */
 		[[nodiscard]] rhi::Device Get() const noexcept
 		{
 			return m_owner.Get();
@@ -205,32 +158,22 @@ namespace azo::rhi::raii
 			return Own<BinarySemaphore>(m_owner.Get().CreateBinarySemaphoreWithResult(desc));
 		}
 
-		/**
-		 * \brief Creates a command pool view owned by this device.
-		 */
 		[[nodiscard]] Result<CommandPool> CreateCommandPool(const CommandPoolDesc & desc) noexcept
 		{
 			return m_owner.Get().CreateCommandPoolWithResult(desc);
 		}
 
-		/**
-		 * \brief Creates a descriptor arena view owned by this device.
-		 */
 		[[nodiscard]] Result<DescriptorArena> CreateDescriptorArena(const DescriptorArenaDesc & desc) noexcept
 		{
 			return m_owner.Get().CreateDescriptorArenaWithResult(desc);
 		}
 
-		/**
-		 * \brief Creates a swapchain view owned by this device.
-		 */
 		[[nodiscard]] Result<Swapchain> CreateSwapchain(const SwapchainDesc & desc) noexcept
 		{
 			return m_owner.Get().CreateSwapchainWithResult(desc);
 		}
 
 	private:
-		// Converts a created handle into the matching owner and preserves the flat API's error result.
 		template <class OwnerT, class HandleT>
 		[[nodiscard]] Result<OwnerT> Own(const Result<HandleT> & made) noexcept
 		{
@@ -245,12 +188,6 @@ namespace azo::rhi::raii
 		UniqueDevice m_owner;
 	};
 
-	/**
-	 * \brief Owning RAII instance wrapper.
-	 *
-	 * Instances do not vend devices in this tier. Device creation belongs to Selection or the flat API because backend choice and device creation are one
-	 * decision.
-	 */
 	class Instance final
 	{
 	public:
@@ -289,11 +226,6 @@ namespace azo::rhi::raii
 		UniqueInstance m_owner;
 	};
 
-	/**
-	 * \brief Owns backend selection state and vends owning instance and device wrappers.
-	 *
-	 * There is no RAII adapter type because AdapterInfo is plain reported data, not an owned handle.
-	 */
 	class Selection final
 	{
 	public:
@@ -308,9 +240,6 @@ namespace azo::rhi::raii
 
 		~Selection() = default;
 
-		/**
-		 * \brief Returns the underlying backend selection for registration and order queries.
-		 */
 		[[nodiscard]] BackendSelection & Get() noexcept
 		{
 			return m_backends;
@@ -350,9 +279,6 @@ namespace azo::rhi::raii
 	namespace detail
 	{
 
-		/**
-		 * \brief True for second-tier types that own a device-destroyed handle.
-		 */
 		template <class T>
 		inline constexpr bool kOwns = false;
 
@@ -362,14 +288,11 @@ namespace azo::rhi::raii
 		template <class T>
 		inline constexpr bool kBorrows = !kOwns<T>;
 
-		/**
-		 * \brief True when a handle kind is destroyed individually by rhi::Device.
-		 */
 		template <class HandleT>
 		concept DeviceDestroyable = requires(rhi::Device device, HandleT handle) {
 			{ device.Destroy(handle, DestroyDesc{}) } -> std::same_as<bool>;
 		};
 
-	} // namespace detail
+	}
 
-} // namespace azo::rhi::raii
+}

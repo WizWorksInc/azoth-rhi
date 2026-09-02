@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -40,14 +35,12 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-	// The backend name this sample takes as its first argument or null when it was not given one.
-
 	const char * Yes(const bool value)
 	{
 		return value ? "yes" : "no";
 	}
 
-} // namespace
+}
 
 namespace
 {
@@ -57,14 +50,13 @@ namespace
 	constexpr std::uint64_t kScratchBytes = 4096;
 	constexpr std::uint64_t kNoTimeout	  = std::numeric_limits<std::uint64_t>::max();
 
-	// One slot of the ring: the pool a frame records from and the timeline value that retires it.
 	struct FrameSlot final
 	{
 		rhi::CommandPool pool;
 		std::uint64_t submitted = 0;
 	};
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -94,7 +86,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// One timeline for the whole loop. Frame N signals value N so a completed value of N means every resource frame N touched is free again.
 	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "example.frameTimeline" }, error);
 	if (!timeline.IsValid())
 	{
@@ -115,7 +106,6 @@ int main(int argc, char ** argv)
 
 	const rhi::BufferDesc scratchDesc{
 		.size = kScratchBytes,
-		// eStorage as well as eCopyDst: clearing a buffer is a UAV clear on Direct3D 12, so the buffer has to be able to carry one.
 		.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eCopyDst) | rhi::BufferUsage::eStorage,
 		.memory	   = rhi::MemoryUsage::eGpuOnly,
 		.debugName = "example.frameScratch",
@@ -125,8 +115,6 @@ int main(int argc, char ** argv)
 	{
 		FrameSlot & slot = slots[(frame - 1) % kFramesInFlight];
 
-		// The wait that bounds the loop. With two slots, frame 3 cannot start until frame 1 is done. This keeps the CPU from running arbitrarily far ahead of
-		// the GPU.
 		if (slot.submitted != 0 && !queue.Wait(timeline, slot.submitted, kNoTimeout, error))
 		{
 			fw::ReportError("failed to wait for a frame to retire", error);
@@ -136,7 +124,6 @@ int main(int argc, char ** argv)
 		std::uint64_t completed = 0;
 		static_cast<void>(queue.GetCompletedValue(timeline, completed, error));
 
-		// The reset goes after that wait, since a pool cannot be reset while the GPU is still executing lists allocated from it.
 		if (slot.submitted != 0 && !slot.pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = slot.submitted }, error))
 		{
 			fw::ReportError("failed to reset a frame command pool", error);
@@ -181,7 +168,6 @@ int main(int argc, char ** argv)
 
 		slot.submitted = frame;
 
-		// The per-frame resource goes away against the value this frame signaled, not now, since the GPU has not touched it yet.
 		const rhi::DestroyDesc retired{
 			.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 			.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = frame },

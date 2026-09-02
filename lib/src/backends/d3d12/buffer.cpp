@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -23,7 +18,6 @@ namespace azo::rhi::d3d12
 		return device->bufferSlots.Resolve(handle, kHandleAlreadyChecked);
 	}
 
-	// Maps a MemoryUsage onto a D3D12 heap type, reporting whether the result is CPU-mappable.
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapType(MemoryUsage memory, bool & hostVisible) noexcept
 	{
 		switch (memory)
@@ -36,10 +30,8 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// The state both creation forms require for a buffer in this heap. Enhanced barriers treat every buffer as created common.
 	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept
 	{
-		// The one buffer not treated as common: an acceleration structure is created in this state and stays there for life.
 		if (usage.Contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			return D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
@@ -56,7 +48,6 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept
 	{
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-		// An acceleration structure buffer carries the flag whether or not the caller asked for storage: builds write it through unordered access underneath.
 		if (usage.Contains(BufferUsage::eStorage) || usage.Contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -64,7 +55,6 @@ namespace azo::rhi::d3d12
 		return flags;
 	}
 
-	// Clamps a map request to the buffer. The whole-buffer sentinel resolves to the bytes left after offset, any other overrun fails.
 	[[nodiscard]] bool BoundBufferRange(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept
 	{
 		if (offset > bufferSize)
@@ -100,7 +90,6 @@ namespace azo::rhi::d3d12
 		bool hostVisible			   = false;
 		const D3D12_HEAP_TYPE heapType = MapHeapType(desc.memory, hostVisible);
 
-		// Refused rather than stripped, a host-visible acceleration structure buffer being unable to keep the unordered-access flag it needs.
 		if (desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
 			return FailValue<BufferHandle>(error,
@@ -118,22 +107,16 @@ namespace azo::rhi::d3d12
 		resourceDesc.SampleDesc.Count = 1;
 		resourceDesc.Layout			  = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		resourceDesc.Flags			  = MapBufferResourceFlags(desc.usage);
-		// D3D12 rejects ALLOW_UNORDERED_ACCESS on a host-visible heap (debug-layer error #638). A host-visible storage buffer is CPU-written and shader-read so it
-		// needs no UAV: drop the flag, not fail the create.
 		if (hostVisible)
 		{
 			resourceDesc.Flags &= ~D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		}
 
-		// D3D12 rounds a CBV's SizeInBytes up to 256 so a smaller allocation leaves the view reading past the end of the resource (debug-layer error #649, hit by 96
-		// and 128-byte uniform buffers). Pad to the same multiple so the rounded CBV always fits.
 		if (desc.usage.Contains(BufferUsage::eUniform))
 		{
 			resourceDesc.Width = (desc.size + 255) & ~static_cast<std::uint64_t>(255);
 		}
 
-		// Reserved buffer: a virtual range with no backing store, tiled in later through bindSparse. It owns no D3D12MA allocation and cannot be host-visible until
-		// tiles are mapped so the memory hint is ignored, and it is created device local like any other.
 		if (desc.allowSparseBinding)
 		{
 			ComPtr<ID3D12Resource> reserved;
@@ -158,13 +141,6 @@ namespace azo::rhi::d3d12
 		D3D12MA::ALLOCATION_DESC allocationDesc{};
 		allocationDesc.HeapType = heapType;
 
-		/*
-		 * An exportable buffer is a committed resource in a shared heap.
-		 *
-		 * Committed, not placed because CreateSharedHandle names a resource only when that resource owns its whole heap. A placed one is shared through its heap's
-		 * handle instead, which is what the heap declaration exists for, and it is also why the flag alone would not do: D3D12MA is free to satisfy extra heap flags
-		 * with a separate heap and a placed resource in it.
-		 */
 		if (!desc.exportableHandleTypes.Empty())
 		{
 			if (heapType != D3D12_HEAP_TYPE_DEFAULT)
@@ -224,13 +200,11 @@ namespace azo::rhi::d3d12
 		}
 
 		void * mapped = nullptr;
-		// A null read range tells D3D12 the CPU may access the whole resource. The RHI enforces the bounds.
 		if (FAILED(slot->resource->Map(0, nullptr, &mapped)))
 		{
 			return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "ID3D12Resource::Map failed");
 		}
 
-		// D3D12 UPLOAD and READBACK heaps present a coherent mapping so flush and invalidate are no-ops.
 		return ReturnValue(
 			MappedMemory{
 				.data	  = static_cast<std::uint8_t *>(mapped) + desc.offset,
@@ -295,7 +269,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Releases a buffer and frees its slot. Without timeline retire tracking, the caller must not destroy an in-use buffer.
 	bool D3D12DestroyBuffer(D3D12Device * device, RawHandle handle, Error * error) noexcept
 	{
 		const BufferHandle slotHandle{
@@ -309,8 +282,6 @@ namespace azo::rhi::d3d12
 		}
 		if (slot->lifetime == SlotLifetime::eAdopted)
 		{
-			// The caller owns the resource so leave it alone. The slot is still retired so the handle stops resolving and the reference the slot held goes when the slot
-			// is reused.
 			static_cast<void>(device->bufferSlots.Retire(slotHandle, true));
 			return Succeed(error);
 		}
@@ -321,8 +292,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Maps an RHI format onto DXGI. eUndefined and anything unmapped return DXGI_FORMAT_UNKNOWN, which texture creation rejects.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

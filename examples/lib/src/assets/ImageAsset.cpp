@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,8 +11,6 @@
 
 #include "FW/utility/AssetPath.hpp"
 
-// STB_IMAGE_STATIC keeps every stb symbol internal to this translation unit, so the framework archive exports none of them and a sample carrying its own copy
-// (deccer_cubes does) has nothing to collide with.
 #define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -47,7 +40,7 @@ namespace fw::assets
 			const char * reason = stbi_failure_reason();
 			return reason != nullptr ? reason : "no diagnostic";
 		}
-	} // namespace
+	}
 
 	ImageAsset DecodeImage(const std::span<const std::uint8_t> encoded, const bool wantFloat, std::string & error)
 	{
@@ -61,7 +54,6 @@ namespace fw::assets
 		int height	 = 0;
 		int channels = 0;
 
-		// Both entry points are asked for four channels, so what comes back is always tightly packed RGBA and the pitch is the width times the element.
 		const std::unique_ptr<void, PixelDeleter> pixels(
 			wantFloat ? static_cast<void *>(stbi_loadf_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kChannels))
 					  : static_cast<void *>(stbi_load_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kChannels)));
@@ -118,7 +110,6 @@ namespace fw::assets
 	{
 		const std::uint32_t longest = std::max(width, height);
 
-		// A chain halves the longest side until it reaches one, so its length is the position of that side's highest set bit plus one.
 		return longest == 0 ? 1 : static_cast<std::uint32_t>(std::bit_width(longest));
 	}
-} // namespace fw::assets
+}

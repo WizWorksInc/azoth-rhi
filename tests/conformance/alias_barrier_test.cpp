@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -57,7 +52,6 @@ namespace
 		}
 	};
 
-	// Two placed buffers over the same heap bytes. The shared offset is what makes them an aliased pair and not two buffers that happen to share a heap.
 	[[nodiscard]] AliasedPair PlaceOverlapping(rhi::Device device, rhi::Error & error)
 	{
 		const rhi::BufferDesc desc = test::samples::StorageBuffer();
@@ -129,7 +123,6 @@ namespace
 		} };
 	}
 
-	// Metal names a TBDR constraint and Vulkan two separate rules, so the uniform answer is the decorator's and the case belongs here, not beside a backend.
 	TEST_P(AliasBarrierTest, IsRefusedInsideARenderingScope)
 	{
 		rhi::Error error{};
@@ -162,10 +155,8 @@ namespace
 				GTEST_SKIP() << "this backend refused a rendering scope: " << test::Describe(error);
 			}
 
-			// A real pair where the backend gave one up, so the refusal is the scope and not an unresolvable handle taking the same exit.
 			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = pair.before, .afterBuffer = pair.after } };
 
-			// The code is not asserted: whichever layer answers first decides it, eValidationFailed from the decorator and eInvalidState from either Metal.
 			rhi::Error scopeError{};
 			EXPECT_FALSE(recording.List().AliasBarriers(barriers, scopeError)) << "an alias barrier was accepted inside a rendering scope";
 			EXPECT_TRUE(test::ErrorIsPopulated(scopeError));
@@ -249,7 +240,6 @@ namespace
 		DestroyPair(Dev(), pair);
 	}
 
-	// Both buffers are the same heap bytes, so a surviving before pattern is what an unordered pair looks like. A pass is weak: the copies may serialize anyway.
 	TEST_P(AliasBarrierTest, TheAfterResourceCarriesItsOwnWriteAndNotThePrecedingOne)
 	{
 		AZO_RHI_REQUIRE_CAP(Caps().supportsPlacedResources || IsNullBackend(), "placed resources");
@@ -292,7 +282,6 @@ namespace
 			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = pair.before, .afterBuffer = pair.after } };
 			ASSERT_TRUE(test::Ok(recording.List().AliasBarriers(barriers, error), error));
 
-			// The alias barrier orders memory and nothing else, so the after buffer still begins its own lifetime from discard.
 			const std::array afterToCopyDst = ToCopyDst(pair.after);
 			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = afterToCopyDst }, error), error));
 			ASSERT_TRUE(test::Ok(recording.List().CopyBuffer(pair.after, 0, afterSource, 0, test::samples::kBufferSize, error), error));
@@ -337,4 +326,4 @@ namespace
 		DestroyPair(Dev(), pair);
 	}
 
-} // namespace
+}

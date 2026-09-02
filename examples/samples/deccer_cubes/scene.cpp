@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -51,8 +46,6 @@ namespace deccer
 			}
 		};
 
-		// The inverse transpose of the model's upper 3x3, as the three rows the shader dots a normal against. The adjugate over the determinant which is the inverse
-		// transpose without a separate transpose step.
 		[[nodiscard]] std::array<float, 12> NormalRows(const std::array<float, 16> & model)
 		{
 			const float a00 = model.at(0);
@@ -99,8 +92,6 @@ namespace deccer
 				return {};
 			}
 
-			// Asked of the stream, not inferred from the count, so neither end of file nor a read error is followed by another read. Looping on a non-zero count instead
-			// reads once more from a stream already spent, and hands back a truncated file as though it were whole.
 			std::vector<std::uint8_t> bytes;
 			std::array<std::uint8_t, 4096> chunk{};
 			while (std::feof(file.get()) == 0 && std::ferror(file.get()) == 0)
@@ -117,7 +108,6 @@ namespace deccer
 			return bytes;
 		}
 
-		// A glTF image is either a slice of a buffer or a file beside the document. Both end up as RGBA8 here.
 		[[nodiscard]] bool DecodeImage(
 			const fastgltf::Asset & asset, const fastgltf::Image & image, const std::filesystem::path & directory, Image & out, std::string & error)
 		{
@@ -126,10 +116,6 @@ namespace deccer
 			std::vector<std::uint8_t> owned;
 			std::span<const std::uint8_t> encoded;
 
-			/*
-			 * The parser was asked to load external buffers, so a URI that named a file has already become bytes and only the two in-memory forms are left. A URI
-			 * arriving here is one the parser was told to leave alone, which this reads itself.
-			 */
 			std::visit(
 				fastgltf::visitor{
 					[](auto &) {},
@@ -198,7 +184,6 @@ namespace deccer
 			return true;
 		}
 
-		// The image a material samples for base colour, or nothing when it names none.
 		[[nodiscard]] fastgltf::Optional<std::size_t> BaseColorImage(const fastgltf::Asset & asset, fastgltf::Optional<std::size_t> materialIndex)
 		{
 			if (!materialIndex.has_value())
@@ -247,7 +232,6 @@ namespace deccer
 				.roughness	  = material.pbrData.roughnessFactor,
 			};
 
-			// Grown once and then filled per attribute, since each accessor is walked on its own and they are three views of the same vertices.
 			const std::size_t base = scene.vertices.size();
 			scene.vertices.resize(base + positions.count);
 
@@ -284,7 +268,7 @@ namespace deccer
 			return true;
 		}
 
-	} // namespace
+	}
 
 	bool Load(const char * path, Scene & scene, std::string & error)
 	{
@@ -297,8 +281,6 @@ namespace deccer
 			return false;
 		}
 
-		// LoadExternalBuffers so a document keeping its buffers beside it arrives with the bytes already in hand, which is what lets the accessor walks below read
-		// straight through without a second pass over the URIs.
 		fastgltf::Parser parser;
 		auto loaded = parser.loadGltf(data.get(), document.parent_path(), fastgltf::Options::LoadExternalBuffers);
 		if (loaded.error() != fastgltf::Error::None)
@@ -314,7 +296,6 @@ namespace deccer
 			return false;
 		}
 
-		// One image per glTF image, however many materials point at it.
 		std::vector<std::size_t> seen;
 		const auto imageIndex = [&](const std::size_t image) -> std::uint32_t
 		{
@@ -330,8 +311,6 @@ namespace deccer
 			return static_cast<std::uint32_t>(seen.size() - 1);
 		};
 
-		// The default scene and not the node array, so a node the document leaves out of it stays out of the picture. fastgltf walks the parent chain and hands back
-		// a world matrix, which is the part of this asset an engine is meant to get wrong.
 		const std::size_t root = asset.defaultScene.value_or(0);
 
 		bool ok = true;
@@ -396,4 +375,4 @@ namespace deccer
 		return true;
 	}
 
-} // namespace deccer
+}

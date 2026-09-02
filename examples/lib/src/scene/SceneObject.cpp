@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -98,7 +93,6 @@ namespace fw::scene
 		childObject->m_parent = shared_from_this();
 		m_children.push_back(childObject);
 
-		// The child's world matrix is now this object's times its own, and its transform has to reach the GPU again saying so.
 		childObject->MarkWorldDirty();
 		childObject->UpdateTransformGpu();
 	}
@@ -141,4 +135,4 @@ namespace fw::scene
 			child->UpdateTransformGpu();
 		}
 	}
-} // namespace fw::scene
+}

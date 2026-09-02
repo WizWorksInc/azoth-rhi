@@ -1,25 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-/*
- * The floor under every other number in this suite: what a recorded command costs when the backend behind it does nothing.
- *
- * The device is Null, so the RHI arm times the facade and the block table alone. Beside it is one indirect call through a table of the same signatures. The
- * reported time is the RHI arm, indirect_ns is the floor and delta_ns is what the RHI adds.
- *
- * Eight shapes, one a pass, once a validation mode. See shared/shapes.hpp.
- */
 
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/render.hpp"
@@ -64,40 +50,22 @@ using bench::Workload;
 namespace
 {
 
-	// Null submits nothing to a GPU so a pass that reaches this has stopped making progress somewhere the wait cannot report on its own.
 	constexpr std::uint64_t kPassTimeoutNanoseconds = 30'000'000'000;
 
-	// What the arms are called in the report. The RHI arm is the reported time so the floor and the difference over it ride beside it as counters.
 	constexpr const char * kIndirectCounter	  = "indirect_ns";
 	constexpr const char * kDeltaCounter	  = "delta_ns";
 	constexpr const char * kDeltaShareCounter = "delta_pct";
 
-	/*
-	 * The most commands one pass may record per arm. A pass therefore records twice this.
-	 *
-	 * Higher than the native delta's ceiling because Null keeps none of what it is handed and a pass therefore costs time and no memory. Not as high as the
-	 * recording benchmark's because developer validation tracks what it was told and a pass under that mode is the one that has something to hold.
-	 */
 	constexpr std::size_t kCommandCeiling = 4'000'000;
 
-	// Enough recording in a repetition to average a scheduler over, where the run budget can afford twenty-four of them.
 	constexpr double kPreferredMinTimeSeconds = 0.1;
 
-	// Tighter than the benchmarks that reach a driver, a dispatch measurement on a backend that allocates nothing being the steadiest figure here.
 	constexpr double kMaxSpreadPercent = 2.0;
 
-	// Swept when the caller names no mode. eCapture is left out: it preserves debug metadata for a capture tool and is not a per-command check.
 	constexpr std::array kSweptModes{ rhi::ValidationMode::eOff, rhi::ValidationMode::eReleaseLight, rhi::ValidationMode::eDeveloper };
 
-	// Bytes the Null backend mints a pipeline from without reading them. Not marked as source, which is the one form it turns down.
 	constexpr std::array<std::uint32_t, 4> kOpaqueShader{};
 
-	/*
-	 * One validation mode's device and everything a pass records against it.
-	 *
-	 * A mode is fixed when a device is created so a sweep is a device a mode. They are all built before the first benchmark runs because Google Benchmark
-	 * registers first and runs afterwards. A fixture torn down between the two would leave a registered benchmark holding a dead device.
-	 */
 	struct Fixture final
 	{
 		rhi::ValidationMode validation = rhi::ValidationMode::eOff;
@@ -119,7 +87,6 @@ namespace
 
 		std::uint64_t submitted = 0;
 
-		// Why a shape is not measured on this fixture or empty when it is. Only the pipeline shapes can land here and only if Null turned the pipeline down.
 		std::string_view gap{};
 	};
 
@@ -172,7 +139,6 @@ namespace
 			return false;
 		}
 
-		// A set with one binding, since developer validation reads what a bound set holds and an empty one would be checked against nothing.
 		const rhi::BufferDesc scratchDesc{
 			.size	   = kScratchBufferBytes,
 			.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eIndex,
@@ -230,12 +196,6 @@ namespace
 			return false;
 		}
 
-		/*
-		 * A pipeline for the three shapes that need one bound to record what a real caller records.
-		 *
-		 * Null reads none of the shader and mints a handle, which is why it is the thing to measure against, but it still refuses a desc the other backends
-		 * would refuse. Where it does refuse, the shapes that need a pipeline report the reason where their figures would have been.
-		 */
 		const std::array shaders{
 			rhi::ShaderBinary{
 				.stage		= rhi::ShaderStage::eVertex,
@@ -273,7 +233,6 @@ namespace
 			fixture.gap = "no pipeline: the Null backend turned the pipeline desc down";
 		}
 
-		// The before state is undefined every pass, since each pass clears the target anyway and a benchmark target has no contents worth keeping.
 		fixture.toAttachment.at(0) = rhi::TextureBarrier{
 			.texture = fixture.work.target,
 			.before	 = { .use = rhi::ResourceUse::eDiscard },
@@ -304,7 +263,6 @@ namespace
 
 		rhi::Error error{};
 
-		// Every pass waited for its own submission so nothing is in flight to defer around.
 		const rhi::DestroyDesc idle{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle };
 		if (fixture.work.pipeline.IsValid())
 		{
@@ -318,12 +276,6 @@ namespace
 		fixture.device.Destroy(fixture.timeline, idle, error);
 	}
 
-	/*
-	 * One timed RHI pass over one command shape, in nanoseconds, leaving in accepted the number of entries the list took.
-	 *
-	 * The shape is chosen outside the loop so the loop body is the one call a real recording loop would have. The caller checks the count against what it asked
-	 * for, which catches a command a validation mode refused before it is reported as a cheap one.
-	 */
 	[[nodiscard]] std::uint64_t RecordRhi(const Kind kind, rhi::CommandList & list, const Workload & work, const std::size_t commands, std::uint64_t & accepted)
 	{
 		std::uint64_t taken = 0;
@@ -397,12 +349,6 @@ namespace
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 	}
 
-	/*
-	 * The same shape through one indirect call, in nanoseconds, with the arguments the RHI arm passes.
-	 *
-	 * Both the table and the impl argument go through DoNotOptimize first. The table is answered from another translation unit, but link-time optimisation can
-	 * still read the entries out of it. An arm a compiler inlined would time at nothing and hand the whole of the RHI to the delta.
-	 */
 	[[nodiscard]] std::uint64_t RecordIndirect(
 		const Kind kind, const IndirectApi & block, void * impl, const Workload & work, const std::size_t commands, std::uint64_t & accepted)
 	{
@@ -490,19 +436,12 @@ namespace
 		std::uint64_t indirectNanoseconds = 0;
 	};
 
-	/*
-	 * One pass: a fresh list out of a reset pool, opened, both arms timed into it, closed, submitted and waited on. Only the two recording loops are timed, so
-	 * the submit is in neither number.
-	 *
-	 * Null has no driver to run out of command buffers. The submit keeps the pass the shape the other two benchmarks measure and gives the pool a retire point.
-	 */
 	[[nodiscard]] bool RecordOnePass(Fixture & fixture, const Kind kind, const std::size_t commands, PassTiming & timing)
 	{
 		rhi::Error error{};
 
 		const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 
-		// Nothing is in flight past the point the last pass waited for so the pool is free to reset.
 		if (!fixture.pool.Reset(rhi::RetirePoint{ .timeline = fixture.timeline, .value = fixture.submitted }, error))
 		{
 			bench::ReportError("failed to reset the command pool", error);
@@ -533,7 +472,6 @@ namespace
 			return false;
 		}
 
-		// Untimed setup for the two draw shapes, recorded once a pass instead of once a command, which is what makes a draw one developer validation will take.
 		if ((kind == Kind::eDraw || kind == Kind::eDrawIndexed) &&
 			(!list.SetGraphicsPipeline(fixture.work.pipeline, error) || !list.SetIndexBuffer(fixture.work.scratch, 0, false, error)))
 		{
@@ -546,10 +484,6 @@ namespace
 		timing.rhiNanoseconds		   = RecordRhi(kind, list, fixture.work, commands, rhiAccepted);
 		timing.indirectNanoseconds	   = RecordIndirect(kind, bench::IndirectBlock(), bench::IndirectImpl(), fixture.work, commands, indirectAccepted);
 
-		/*
-		 * A refused command is the one way this measurement goes quietly wrong, since a mode that turns a shape down returns from the entry sooner than one that
-		 * takes it and the figure would read as a cheaper call. The count is what separates the two.
-		 */
 		if (rhiAccepted != commands)
 		{
 			std::println("{} refused a {} under validation {}, so the measurement is not of a recording",
@@ -597,21 +531,14 @@ namespace
 		return true;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
-	/*
-	 * Defaults put in front of what the caller wrote. Each of them is still a flag the command line overrides.
-	 *
-	 * The per-repetition rows are left out of the console report, since twenty-four benchmarks at thirteen rows each is a wall. --benchmark_out keeps every one
-	 * of them either way.
-	 */
 	std::array<std::string, 2> flagDefaults{ "--benchmark_repetitions=9", "--benchmark_display_aggregates_only=true" };
 
 	std::vector<char *> args = bench::WithFlagDefaults(argc, argv, flagDefaults);
 
-	// Read before Initialize, which takes the flags it recognises back out of the line as it parses them.
 	const std::size_t repetitions = bench::FlagValue(args, "--benchmark_repetitions", 1);
 	const bool ownMinTime		  = !bench::NamesFlag(args, "--benchmark_min_time");
 	const bool ownValidation	  = !bench::NamesOption(args, "--validation");
@@ -629,7 +556,6 @@ int main(int argc, char ** argv)
 		return 2;
 	}
 
-	// The backend is not a choice here. A backend that records something would put its translation in the number, which is the native delta's question.
 	if (options.backend != nullptr && std::string_view(options.backend) != "null")
 	{
 		std::println("this benchmark measures dispatch against the null backend, so it has nothing to say about {}", options.backend);
@@ -659,7 +585,6 @@ int main(int argc, char ** argv)
 	benchmark::AddCustomContext("validation", ownValidation ? std::string("off, light and developer") : std::string(bench::ValidationName(options.validation)));
 	benchmark::AddCustomContext("spread tolerance", std::to_string(static_cast<int>(options.maxSpreadPercent)) + " percent");
 
-	// One shape's pass on one fixture, wrapped in the signature the planner and the warm-up ask for.
 	const auto probeShape = [&fixtures](const std::size_t fixture, const Kind kind)
 	{
 		return [&fixtures, fixture, kind](const std::size_t commands, std::uint64_t & wallNanoseconds, std::uint64_t & timedNanoseconds)
@@ -676,19 +601,11 @@ int main(int argc, char ** argv)
 		};
 	};
 
-	/*
-	 * Warming up once for the whole run, timed by the wall clock instead of counted in passes.
-	 *
-	 * What needs warming is the clock the core is running at. A laptop that starts at its low-power frequency needs time to ramp and the shapes that follow keep
-	 * that time spent.
-	 */
 	if (!bench::WarmUp(options.warmupMilliseconds, options, probeShape(0, Kind::eSetViewport)))
 	{
 		return 1;
 	}
 
-	// The run budget is shared between the shapes that are actually measured so a fixture whose pipeline Null turned down does not hold a share for three of
-	// them it never runs.
 	std::size_t comparable = 0;
 	for (const Fixture & fixture : fixtures)
 	{
@@ -709,8 +626,6 @@ int main(int argc, char ** argv)
 			const std::string name =
 				std::string("dispatch/") + std::string(bench::ValidationName(fixture.validation)) + "/" + std::string(bench::KindName(kind));
 
-			// A shape that needs a pipeline this fixture has none of is reported as skipped, with the reason where the figures would have been. Leaving it out
-			// of the report entirely would read as if it had never been asked for.
 			if (bench::NeedsPipeline(kind) && !fixture.gap.empty())
 			{
 				const std::string_view gap = fixture.gap;
@@ -735,14 +650,12 @@ int main(int argc, char ** argv)
 			auto * registered = benchmark::RegisterBenchmark(name,
 				[&fixture, &passFailed, kind, commandsAPass](benchmark::State & state)
 				{
-					// A benchmark that ran after another one failed would report against a device that is already answering errors.
 					if (passFailed)
 					{
 						state.SkipWithError("an earlier pass failed, see the diagnostic above");
 						return;
 					}
 
-					// How big a pass turned out to be here, which differs per shape and per mode because what a pass costs does.
 					state.SetLabel(std::to_string(commandsAPass) + " commands an arm a pass");
 
 					std::uint64_t rhiTotal		= 0;
@@ -761,7 +674,6 @@ int main(int argc, char ** argv)
 						rhiTotal += timing.rhiNanoseconds;
 						indirectTotal += timing.indirectNanoseconds;
 
-						// The RHI arm is the reported time so the floor beside it has to be a counter.
 						state.SetIterationTime(static_cast<double>(timing.rhiNanoseconds) / bench::kNanosecondsASecond);
 					}
 
@@ -772,10 +684,6 @@ int main(int argc, char ** argv)
 					state.counters[kIndirectCounter] = benchmark::Counter(indirectNs);
 					state.counters[kDeltaCounter]	 = benchmark::Counter(rhiNs - indirectNs);
 
-					/*
-					 * The share is against the floor because that is the claim under test: an indirect call is what a caller pays to reach any implementation
-					 * chosen at run time and the delta over it is what choosing this one costs on top.
-					 */
 					if (indirectNs > 0.0)
 					{
 						state.counters[kDeltaShareCounter] = benchmark::Counter((rhiNs - indirectNs) / indirectNs * 100.0);
@@ -784,7 +692,6 @@ int main(int argc, char ** argv)
 
 			registered->UseManualTime()->Unit(benchmark::kNanosecond);
 
-			// A minimum time named on the command line is one Google Benchmark cannot see past a benchmark that names its own so the plan gives way to it.
 			if (ownMinTime)
 			{
 				registered->MinTime(plan.minTimeSeconds);

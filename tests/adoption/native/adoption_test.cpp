@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -90,7 +85,6 @@ namespace
 		ASSERT_TRUE(test::Ok(list.IsValid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
-		// Without this the comparison below passes on two nulls, which is what a list that never opened would give on both sides.
 		ASSERT_TRUE(static_cast<bool>(fromAccessor(list))) << "the accessor reports no native command list for an open recording";
 
 		bool ran = false;
@@ -212,7 +206,6 @@ namespace
 		vkDevice.destroyImage(image, nullptr, dispatch);
 		vkDevice.freeMemory(memory, nullptr, dispatch);
 
-		// Must stay after the caller's own destroys. Asserted before them it catches nothing, since a double free only surfaces on the second destroy.
 		if (device.GetCaps().reportsValidationMessageCounts)
 		{
 			EXPECT_EQ(device.GetValidationMessageCounts().errors, 0u)
@@ -392,7 +385,6 @@ namespace
 		const vk::DeviceMemory memory = allocated.value;
 		ASSERT_EQ(vkDevice.bindImageMemory(image, memory, 0, dispatch), vk::Result::eSuccess);
 
-		// The view and the sampler both chain the same conversion, which is what Vulkan requires of the pair.
 		vk::SamplerYcbcrConversionInfo conversionLink{};
 		conversionLink.conversion = conversion;
 
@@ -437,7 +429,6 @@ namespace
 		const rhi::SamplerHandle adoptedSampler = device.AdoptSampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{ .sampler = sampler }, {}, error);
 		ASSERT_TRUE(adoptedSampler.IsValid()) << error.message;
 
-		// The step the whole thing exists for: the conversion sampler baked into the layout, which is the only way Vulkan lets one be bound.
 		const std::array<rhi::SamplerHandle, 1> immutable{ adoptedSampler };
 		const std::array<rhi::DescriptorBinding, 1> bindings{
 			rhi::DescriptorBinding{
@@ -460,7 +451,6 @@ namespace
 		EXPECT_TRUE(device.Destroy(adoptedView, {}, error)) << error.message;
 		EXPECT_TRUE(device.Destroy(adoptedTexture, {}, error)) << error.message;
 
-		// All four still the caller's, in the order Vulkan requires.
 		vkDevice.destroySampler(sampler, nullptr, dispatch);
 		vkDevice.destroyImageView(view, nullptr, dispatch);
 		vkDevice.destroyImage(image, nullptr, dispatch);
@@ -534,7 +524,7 @@ namespace
 			desc.usage	= rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopySrc | rhi::TextureUsage::eCopyDst;
 			return desc;
 		}
-	} // namespace
+	}
 
 	TEST(VulkanAdoption, ABarrierNamingTheDeclaredStateAndFamilyIsAccepted)
 	{
@@ -684,8 +674,6 @@ namespace
 
 	namespace
 	{
-		// Nothing else instantiates the WithResult bodies, so one wired to the wrong operation compiles until a consumer writes the first call. error is a
-		// reference because a copy could be taken before the sibling call that fills it.
 		template <typename Value>
 		void ExpectFormsAgree(
 			const rhi::CString operation, const bool plainSucceeded, const bool erroredSucceeded, const rhi::Error & error, const rhi::Result<Value> & resulted)
@@ -696,7 +684,7 @@ namespace
 			EXPECT_EQ(erroredSucceeded, resulted.HasValue()) << "which form the caller reached for decided whether the call was reported as done";
 			EXPECT_EQ(error.code, resulted.HasValue() ? rhi::ErrorCode::eOk : resulted.GetError().code) << "the two diagnostic forms named different codes";
 		}
-	} // namespace
+	}
 
 	TEST(VulkanAdoption, EveryTemplatedEntryAgreesAcrossItsForms)
 	{
@@ -709,8 +697,6 @@ namespace
 		rhi::UniqueDevice owned = std::move(created).Value();
 		rhi::Device device		= owned.Get();
 
-		// Empty payloads and handles this device never handed out, so every entry takes its declining path and none of them adopts an object the sweep would
-		// then have to give back.
 		rhi::Error error{};
 
 		ExpectFormsAgree("Device::AdoptBuffer",
@@ -792,7 +778,7 @@ namespace
 			device.GetNativeBinarySemaphoreWithResult<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}));
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_VULKAN
+#endif
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_VULKAN
 
@@ -850,7 +836,6 @@ namespace
 													   : "a tier was reported on a driver without the extension");
 	}
 
-	// Compared against what the device reports, not a literal: this adapter collapses every queue onto family 0, so a literal would pass for the wrong reason.
 	TEST(VulkanAdoption, AQueueExposesItsFamilyIndexThroughTheNativePath)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::VulkanApi>();
@@ -886,7 +871,6 @@ namespace
 			});
 	}
 
-	// The three usages lower to VK_KHR_acceleration_structure and VK_KHR_ray_tracing_pipeline bits, which no device this backend makes enables.
 	TEST(VulkanRayTracingUsage, RefusesABufferOnlyRayTracingCouldUse)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::VulkanApi>();
@@ -914,7 +898,6 @@ namespace
 			EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature);
 		}
 
-		// The control, so the case cannot pass by refusing every buffer.
 		rhi::BufferDesc ordinary{};
 		ordinary.size  = 256;
 		ordinary.usage = rhi::BufferUsage::eStorage;
@@ -928,7 +911,6 @@ namespace
 		}
 	}
 
-	// deviceVersion feeds the adapter check alone. The loader check reads the instance version, which is why one field could not answer both.
 	TEST(VulkanConfigBlock, ADeviceVersionTheAdapterCannotMeetIsRefused)
 	{
 		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
@@ -953,7 +935,6 @@ namespace
 		EXPECT_FALSE(floored.HasValue()) << "a device version below the 1.2 floor was accepted";
 	}
 
-	// Malformed is a third answer beside present and absent, and neither half of it reaches the adapter.
 	TEST(VulkanConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::VulkanDeviceConfig truncated{};
@@ -977,7 +958,6 @@ namespace
 		}
 	}
 
-	// A named extension the adapter does not advertise fails creation rather than being dropped, which is the arm no other backend's block has.
 	TEST(VulkanConfigBlock, ADeviceExtensionTheAdapterDoesNotAdvertiseIsRefused)
 	{
 		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
@@ -998,7 +978,7 @@ namespace
 		}
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_VULKAN
+#endif
 
 #if defined(AZOTH_RHI_TEST_ADOPTION_METAL3) && defined(AZOTH_RHI_TEST_ADOPTION_METAL4)
 
@@ -1016,7 +996,7 @@ namespace
 		EXPECT_TRUE(four.HasValue()) << "a Metal 4 device carrying no configuration block was refused";
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_METAL3 && AZOTH_RHI_TEST_ADOPTION_METAL4
+#endif
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
 
@@ -1033,7 +1013,6 @@ namespace
 		}
 	}
 
-	// The only arm showing the entry is matched on its api field, the rest passing on any block being present.
 	TEST(MetalConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
 	{
 		rhi::native::Metal4DeviceConfig pinnedToThree{};
@@ -1043,7 +1022,6 @@ namespace
 		EXPECT_TRUE(three.HasValue()) << "Metal 3 read a block keyed to Metal 4, so the entry is not matched on its api field";
 	}
 
-	// Malformed is a third answer beside present and absent, which device_config.hpp says is never quietly defaulted.
 	TEST(MetalConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::MetalDeviceConfig truncated{};
@@ -1067,7 +1045,6 @@ namespace
 		}
 	}
 
-	// Compared against the queue the device accessor reports, so a producer always answering with the graphics queue fails the compute and copy arms.
 	TEST(MetalAdoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::MetalApi>();
@@ -1112,7 +1089,7 @@ namespace
 			});
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_METAL3
+#endif
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL4
 
@@ -1129,7 +1106,6 @@ namespace
 		}
 	}
 
-	// The one arm showing this generation matches the entry on its api field, the rest passing on any block being present.
 	TEST(Metal4ConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
 	{
 		rhi::DeviceDesc plain{};
@@ -1147,7 +1123,6 @@ namespace
 		EXPECT_TRUE(four.HasValue()) << "Metal 4 read a block keyed to Metal 3, so the entry is not matched on its api field";
 	}
 
-	// Malformed is a third answer beside present and absent, and neither half of it reaches the adapter.
 	TEST(Metal4ConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::Metal4DeviceConfig truncated{};
@@ -1171,7 +1146,6 @@ namespace
 		}
 	}
 
-	// The Metal 4 mirror of the Metal 3 case, against an unrelated queue type: MTL4CommandQueue shares no base with MTLCommandQueue.
 	TEST(Metal4Adoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::Metal4Api>();
@@ -1216,11 +1190,10 @@ namespace
 			});
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_METAL4
+#endif
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_D3D12
 
-	// Each type has its own ID3D12CommandQueue here, so the device accessor names all three and every arm has something to disagree with.
 	TEST(D3D12Adoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::D3D12Api>();
@@ -1260,6 +1233,6 @@ namespace
 			});
 	}
 
-#endif // AZOTH_RHI_TEST_ADOPTION_D3D12
+#endif
 
-} // namespace
+}

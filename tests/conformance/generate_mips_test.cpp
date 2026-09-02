@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -49,10 +44,8 @@ namespace
 	constexpr std::uint32_t kLevels		   = 4;
 	constexpr std::uint64_t kBytesPerTexel = 4;
 
-	// Downsampling a constant image reproduces it exactly, so a level that reads back different was never written or was blitted out of undefined contents.
 	constexpr std::array<std::uint8_t, kBytesPerTexel> kTexel{ 0x20u, 0x48u, 0x90u, 0xFFu };
 
-	// The placement granularity a buffer-texture copy takes on Direct3D 12, applied to every level so one readback buffer holds them all.
 	constexpr std::uint64_t kCopyAlignment = 256;
 
 	[[nodiscard]] constexpr std::uint32_t LevelDim(const std::uint32_t level) noexcept
@@ -108,7 +101,6 @@ namespace
 		return ::testing::AssertionSuccess();
 	}
 
-	// Everything one case creates, so a skip or a failed assertion still hands the handles back.
 	struct MipChain final
 	{
 		rhi::Device device;
@@ -262,7 +254,6 @@ namespace
 		return ::testing::AssertionSuccess();
 	}
 
-	// The failure this covers returns success while blitting out of undefined contents, so only the contents say whether it worked.
 	TEST_P(GenerateMipsTest, FillsEveryLevelBelowZeroFromTheContentsOfLevelZero)
 	{
 		rhi::Error error{};
@@ -294,7 +285,6 @@ namespace
 				FAIL() << "generateMips was refused: " << test::Describe(error);
 			}
 
-			// The contract leaves every level a copy source, level zero included, so the readback needs no barrier of its own.
 			const std::vector regions = LevelsBelowZero(kLevels);
 			ASSERT_TRUE(test::Ok(recording.List().CopyTextureToBuffer(chain.readback, chain.texture, regions, error), error));
 
@@ -315,7 +305,6 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mip generation reported errors to the native validation layer");
 	}
 
-	// Two ranges of one texture in one batch, which is how the header states the entry contract and what the validation state tracker cannot yet express.
 	TEST_P(GenerateMipsTest, TakesTheSplitEntryStateTheContractAsksFor)
 	{
 		rhi::Error error{};
@@ -361,7 +350,6 @@ namespace
 				FAIL() << "generateMips was refused: " << test::Describe(error);
 			}
 
-			// The exit half of the same contract, recorded the way ibl.cpp does: the whole chain leaves a copy source, level zero included.
 			const std::array toSampled{ rhi::TextureBarrier{
 				.texture = chain.texture,
 				.before	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
@@ -399,7 +387,6 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mip generation reported errors to the native validation layer");
 	}
 
-	// Entry equalling exit is what removed the single-level carve-out: a texture already a copy source records nothing and keeps what it holds.
 	TEST_P(GenerateMipsTest, LeavesASingleLevelTextureAsACopySourceHoldingItsContents)
 	{
 		rhi::Error error{};
@@ -444,7 +431,6 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mip generation reported errors to the native validation layer");
 	}
 
-	// Two chains in one list. The second is refused by a span covering levels the texture does not have, left behind when a concrete range cut an unbounded one.
 	TEST_P(GenerateMipsTest, TakesASecondChainInTheSameRecording)
 	{
 		rhi::Error error{};
@@ -482,7 +468,6 @@ namespace
 			FAIL() << "the first generateMips was refused: " << test::Describe(error);
 		}
 
-		// Naming the real level count, which is what leaves the phantom behind. Naming kAllMips here would hide it.
 		const std::array again{
 			rhi::TextureBarrier{
 				.texture = chain.texture,
@@ -499,7 +484,6 @@ namespace
 		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 	}
 
-	// The sentinel is what a caller reaches for when they do not know the level count, so mixing it with a concrete range has to stay legal.
 	TEST_P(GenerateMipsTest, TakesAChainDeclaredThroughTheWholeRangeSentinel)
 	{
 		rhi::Error error{};
@@ -520,7 +504,6 @@ namespace
 		} };
 		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = whole }, error), error));
 
-		// Named by count, which is what leaves a residual behind when the span it cuts was saturated rather than resolved.
 		const std::array below{ rhi::TextureBarrier{
 			.texture = chain.texture,
 			.before	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
@@ -576,7 +559,6 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		// Level zero right and the levels under it wrong, which is the arm the case above cannot reach.
 		const std::array split{
 			rhi::TextureBarrier{
 				.texture = chain.texture,
@@ -601,4 +583,4 @@ namespace
 		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 	}
 
-} // namespace
+}

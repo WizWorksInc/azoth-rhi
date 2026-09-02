@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -45,8 +40,6 @@ namespace azo::rhi::d3d12
 		return SwapchainStatus::eError;
 	}
 
-	// Registers or, after a resize, refreshes the back buffers as borrowed texture and view slots, rebuilding an sRGB-capable RTV over each. Holds both
-	// registry mutexes because it touches both registries and the device RTV heap.
 	bool BuildSwapchainBackBuffers(D3D12Swapchain * sc, Error * error) noexcept
 	{
 		D3D12Device * device  = sc->owner;
@@ -99,12 +92,10 @@ namespace azo::rhi::d3d12
 					.usage															   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
 					.lifetime														   = SlotLifetime::eSwapchainBorrowed });
 
-				// The new back-buffer view reuses the existing RTV descriptor, recreated over the new resource.
 				const TextureViewSlot * const oldView = device->textureViewSlots.Resolve(sc->backBufferViews[i], true);
 				const std::uint32_t rtvIndex		  = oldView != nullptr ? oldView->rtvIndex : kInvalidIndex;
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
 				static_cast<void>(device->textureViewSlots.Retire(sc->backBufferViews[i], true));
-				// Point the view's texture handle at the back buffer's new generation, else binding it as a shader resource fails after a resize.
 				sc->backBufferViews[i] = device->textureViewSlots.Store(TextureViewSlot{ .texture = sc->backBuffers[i],
 					.format																		  = sc->viewFormat,
 					.type																		  = TextureViewType::eTex2D,
@@ -191,7 +182,6 @@ namespace azo::rhi::d3d12
 
 		auto * sc = static_cast<D3D12Swapchain *>(impl);
 		Succeed(error);
-		// Flip-model acquire is immediate and has no semaphore: reuse is ordered by the present queue and the caller's frame fence.
 		return AcquireResult{
 			.status			= SwapchainStatus::eOk,
 			.imageIndex		= sc->swapchain->GetCurrentBackBufferIndex(),
@@ -220,7 +210,6 @@ namespace azo::rhi::d3d12
 
 	bool D3D12SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept
 	{
-		// Flip-model back buffers can be used as a copy source so frame capture can read them back.
 		return true;
 	}
 
@@ -231,7 +220,6 @@ namespace azo::rhi::d3d12
 		auto * sc			 = static_cast<D3D12Swapchain *>(impl);
 		D3D12Device * device = sc->owner;
 
-		// ResizeBuffers requires every back-buffer reference released first.
 		{
 			for (const TextureHandle handle : sc->backBuffers)
 			{
@@ -254,7 +242,6 @@ namespace azo::rhi::d3d12
 
 	bool D3D12SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept
 	{
-		// Both are read on every Present so this takes effect next frame with no recreate. Tearing applies only if the swapchain allowed it.
 		auto * sc				= static_cast<D3D12Swapchain *>(impl);
 		sc->presentSyncInterval = mode == PresentMode::eImmediate ? 0 : 1;
 		sc->presentFlags		= (sc->allowTearing && sc->presentSyncInterval == 0) ? DXGI_PRESENT_ALLOW_TEARING : 0;
@@ -275,7 +262,6 @@ namespace azo::rhi::d3d12
 
 	BinarySemaphoreHandle D3D12SwapchainGetPresentSemaphore([[maybe_unused]] void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept
 	{
-		// Flip-model present ordering needs no per-image binary semaphore.
 		return {};
 	}
 
@@ -286,7 +272,6 @@ namespace azo::rhi::d3d12
 
 	PresentMode D3D12SwapchainGetPresentMode(void * impl) noexcept
 	{
-		// DXGI has no mailbox or relaxed equivalent so the sync interval is the whole story: 0 presents without waiting, 1 is FIFO.
 		return static_cast<D3D12Swapchain *>(impl)->presentSyncInterval == 0 ? PresentMode::eImmediate : PresentMode::eFifo;
 	}
 
@@ -305,8 +290,6 @@ namespace azo::rhi::d3d12
 		return static_cast<D3D12Swapchain *>(impl)->height;
 	}
 
-	// Correlates a GPU timestamp with the CPU clock through GetClockCalibration, which is native here, not capability-gated.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

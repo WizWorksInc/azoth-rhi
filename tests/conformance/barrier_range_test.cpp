@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -96,7 +91,6 @@ namespace
 		rhi::Error m_error{};
 	};
 
-	// The regression itself: level zero read as a copy source while the levels under it are written, which is what GenerateMips demands on entry.
 	TEST_P(BarrierRangeTest, TakesTwoStatesOverOneTextureInOneBatch)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -118,7 +112,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The loosening risk: range tracking is only worth having if a range that disagrees is still caught.
 	TEST_P(BarrierRangeTest, StillRefusesARangeThatDisagreesWithWhatTheWholeTextureWasLeftIn)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -143,7 +136,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// Half of the second range is tracked and agrees, half is untouched and is taken rather than checked, which is the arithmetic a disjoint case never reaches.
 	TEST_P(BarrierRangeTest, TakesARangeOverlappingATrackedOneWhenTheOverlapAgrees)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -238,7 +230,6 @@ namespace
 		rhi::Error m_error{};
 	};
 
-	// Two halves of one buffer moved to different states in one batch, which whole-resource tracking read as one range contradicting itself.
 	TEST_P(BarrierRangeTest, TakesTwoDisjointByteRangesOfOneBufferInOneBatch)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -260,7 +251,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The loosening risk, the buffer half of it. Byte tracking is only worth having if a range that disagrees is still caught.
 	TEST_P(BarrierRangeTest, RefusesAByteRangeThatDisagreesWithWhatTheWholeBufferWasLeftIn)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -285,7 +275,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The overlap arithmetic, which a disjoint case never reaches: half the second range is tracked and disagrees, half was never named.
 	TEST_P(BarrierRangeTest, RefusesAByteRangeOverlappingATrackedOneWhenTheOverlapDisagrees)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -310,7 +299,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// Representable since the byte axis became real, so without a bound it would be tracked as its own region and accepted in silence. Vulkan refuses it.
 	TEST_P(BarrierRangeTest, RefusesAByteRangeStartingPastTheEndOfTheBuffer)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -331,7 +319,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The other way out of bounds: a start inside the buffer and a length that runs off the end, which an offset-only check would miss.
 	TEST_P(BarrierRangeTest, RefusesAByteRangeExtendingPastTheEndOfTheBuffer)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -352,7 +339,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The boundary the refusal must not eat: ending exactly at the last byte is the largest legal range, and an off-by-one bound would refuse it.
 	TEST_P(BarrierRangeTest, TakesAByteRangeEndingExactlyAtTheEndOfTheBuffer)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -371,7 +357,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// The whole-buffer sentinel is a count of every remaining byte, so it has to survive a bound that now resolves it to a real length.
 	TEST_P(BarrierRangeTest, TakesTheWholeBufferSentinelAtAnOffset)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -392,7 +377,6 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	// An empty box overlaps nothing, so tracking it would drop both the check against what came before and the record for what comes after.
 	TEST_P(BarrierRangeTest, RefusesABufferBarrierNamingNoBytes)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -412,4 +396,4 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-} // namespace
+}

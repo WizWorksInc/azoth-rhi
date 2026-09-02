@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -22,8 +17,6 @@ namespace azo::rhi
 {
 	namespace
 	{
-		// The standard Vulkan VK_MAKE_API_VERSION field extraction, reimplemented here so this translation unit stays free of the Vulkan headers (and thus
-		// unit-testable without a GPU SDK). These match VK_API_VERSION_MAJOR and VK_API_VERSION_MINOR.
 		constexpr std::uint32_t StandardMajor(const std::uint32_t v) noexcept
 		{
 			return (v >> 22) & 0x7FU;
@@ -33,7 +26,7 @@ namespace azo::rhi
 		{
 			return (v >> 12) & 0x3FFU;
 		}
-	} // namespace
+	}
 
 	detail::HostString FormatVulkanDriverVersion(const DriverId id, const std::uint32_t rawVersion)
 	{
@@ -42,22 +35,18 @@ namespace azo::rhi
 		switch (id)
 		{
 		case DriverId::eNvidiaProprietary:
-			// NVIDIA packs 10.8.8.6 bit fields. The displayed version is the top two.
 			major = rawVersion >> 22;
 			minor = (rawVersion >> 14) & 0xFFU;
 			break;
 		case DriverId::eIntelProprietaryWindows:
-			// Intel's Windows driver keeps the whole minor in the low 14 bits.
 			major = rawVersion >> 14;
 			minor = rawVersion & 0x3FFFU;
 			break;
 		case DriverId::eQualcommProprietary:
-			// Adreno drivers are shown with the major offset into the 512.x range.
 			major = StandardMajor(rawVersion) | 0x200U;
 			minor = StandardMinor(rawVersion);
 			break;
 		case DriverId::eMoltenvk:
-			// MoltenVK packs major*10000 + minor*100 + patch, not the Vulkan layout.
 			major = rawVersion / 10000U;
 			minor = (rawVersion / 100U) % 100U;
 			break;
@@ -81,4 +70,4 @@ namespace azo::rhi
 		std::format_to(std::back_inserter(out), "{}.{}.{}.{}", product, version, subVersion, build);
 		return out;
 	}
-} // namespace azo::rhi
+}

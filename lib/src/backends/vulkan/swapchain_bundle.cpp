@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -28,13 +23,11 @@ namespace azo::rhi::vulkan
 		const auto supported = phys.getSurfacePresentModesKHR<HostAllocatorAdapter<vk::PresentModeKHR>>(surface, dispatch);
 		if (supported.result != vk::Result::eSuccess)
 		{
-			// FIFO is the one mode Vulkan guarantees, so a surface whose modes cannot be read still has an answer, not no swapchain.
 			return vk::PresentModeKHR::eFifo;
 		}
 
 		for (const vk::PresentModeKHR mode : desired)
 		{
-			// FIFO is always supported, the rest must be advertised by the surface.
 			if (mode == vk::PresentModeKHR::eFifo || std::ranges::find(supported.value, mode) != supported.value.end())
 			{
 				return mode;
@@ -58,7 +51,6 @@ namespace azo::rhi::vulkan
 
 		const vk::SurfaceCapabilitiesKHR & caps = surfaceCaps.value;
 
-		// An empty format list would leave the front() picks below reading nothing, and a surface with no format is one no swapchain can be built on.
 		const auto surfaceFormats = phys.getSurfaceFormatsKHR<HostAllocatorAdapter<vk::SurfaceFormatKHR>>(surface, dispatch);
 		if (surfaceFormats.result != vk::Result::eSuccess || surfaceFormats.value.empty())
 		{
@@ -69,7 +61,6 @@ namespace azo::rhi::vulkan
 		sc.ColorFormat											 = formats.front().format;
 		vk::ColorSpaceKHR colorSpace							 = formats.front().colorSpace;
 
-		// Take the first desired format the surface offers, preferring an SRGB-nonlinear color space for it.
 		for (const vk::Format desiredFormat : desiredFormats)
 		{
 			const vk::SurfaceFormatKHR * match = nullptr;
@@ -142,8 +133,6 @@ namespace azo::rhi::vulkan
 
 		sc.Swapchain = created.value;
 
-		// Everything from here on has the swapchain to give back, so a failure unwinds through DestroySwapchain without returning a bundle that owns objects nobody
-		// holds a handle to.
 		const auto images = device.getSwapchainImagesKHR<HostAllocatorAdapter<vk::Image>>(sc.Swapchain, dispatch);
 		if (images.result != vk::Result::eSuccess)
 		{
@@ -237,4 +226,4 @@ namespace azo::rhi::vulkan
 		sc = {};
 	}
 
-} // namespace azo::rhi::vulkan
+}

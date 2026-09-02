@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -58,11 +53,9 @@ namespace azo::rhi::d3d12
 		case Format::eBC7Srgb:		  return DXGI_FORMAT_BC7_UNORM_SRGB;
 		case Format::eBC6HUFloat:	  return DXGI_FORMAT_BC6H_UF16;
 		case Format::eBC6HSFloat:	  return DXGI_FORMAT_BC6H_SF16;
-		// D3D12 has no pure 24-bit depth (D24 always pairs with stencil) so eX8D24UNorm maps to D24_UNORM_S8_UINT and leaves the stencil plane unused.
 		case Format::eX8D24UNorm:				 return DXGI_FORMAT_D24_UNORM_S8_UINT;
 		case Format::eG8B8R8Biplanar420UNorm:	 return DXGI_FORMAT_NV12;
 		case Format::eG10B10R10Biplanar420UNorm: return DXGI_FORMAT_P010;
-		// DXGI has no three-plane 4:2:0 format, its planar video formats all interleaving chroma, so this one reports unsupported here.
 		case Format::eG8B8R8Triplanar420UNorm: return DXGI_FORMAT_UNKNOWN;
 		case Format::eUndefined:			   return DXGI_FORMAT_UNKNOWN;
 		}
@@ -116,8 +109,6 @@ namespace azo::rhi::d3d12
 		return flags;
 	}
 
-	// D3D12 forbids a depth format in a shader resource view so a sampled depth texture is created typeless: the depth-stencil view still binds the depth
-	// format while an SRV aliases the same memory as color. Non-depth formats pass through so callers can map unconditionally.
 	[[nodiscard]] DXGI_FORMAT DepthTypelessResourceFormat(DXGI_FORMAT format) noexcept
 	{
 		switch (format)
@@ -130,7 +121,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// The color format aliasing a depth format through a typeless resource: the depth bits become the red channel the shader samples.
 	[[nodiscard]] DXGI_FORMAT DepthSrvFormat(DXGI_FORMAT format) noexcept
 	{
 		switch (format)
@@ -143,11 +133,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	/*
-	 * The typeless family a format belongs to, for a texture that allows views of another format. Direct3D 12 reinterprets texels only through a typeless
-	 * resource, each view naming the concrete format it reads. Depth falls through to the depth mapping above. R11G11B10 and RGB9E5 have no typeless family and
-	 * come back unchanged, which is what createTexture tests to refuse the request.
-	 */
 	[[nodiscard]] DXGI_FORMAT TypelessResourceFormat(DXGI_FORMAT format) noexcept
 	{
 		switch (format)
@@ -186,7 +171,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// A 3D texture sizes itself from depth, every other type from arrayLayers, which is the full subresource range and already counts a cube's six faces.
 	[[nodiscard]] D3D12_RESOURCE_DESC MakeTextureResourceDesc(const TextureDesc & desc) noexcept
 	{
 		const std::uint32_t arrayOrDepth = desc.type == TextureType::eTex3D ? desc.depth : desc.arrayLayers;
@@ -198,7 +182,6 @@ namespace azo::rhi::d3d12
 		resourceDesc.DepthOrArraySize = static_cast<UINT16>(arrayOrDepth);
 		resourceDesc.MipLevels		  = static_cast<UINT16>(desc.mipLevels);
 		resourceDesc.Format			  = MapFormat(desc.format);
-		// A sampled depth texture needs a typeless resource so an SRV can alias it. An attachment-only one keeps its depth format.
 		if (desc.usage.Contains(TextureUsage::eDepthStencilAttachment) && desc.usage.Contains(TextureUsage::eSampled))
 		{
 			resourceDesc.Format = DepthTypelessResourceFormat(resourceDesc.Format);
@@ -236,8 +219,6 @@ namespace azo::rhi::d3d12
 			return FailValue<TextureHandle>(
 				error, ErrorCode::eUnsupportedFormat, "allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not");
 		}
-		// Every axis and not only the two a flat texture uses. Depth is one for anything that is not a volume, so a description setting it to zero is as
-		// impossible as a zero width, and the other three backends already refuse it in exactly these words.
 		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
@@ -254,7 +235,6 @@ namespace azo::rhi::d3d12
 
 		const D3D12_RESOURCE_DESC resourceDesc = MakeTextureResourceDesc(desc);
 
-		// Attachments carry an optimized clear value: D3D12 fast-clears use it and the debug layer warns when one is created without it.
 		D3D12_CLEAR_VALUE clearValue{};
 		D3D12_CLEAR_VALUE * clearPtr = nullptr;
 		if (desc.usage.Contains(TextureUsage::eColorAttachment))
@@ -270,8 +250,6 @@ namespace azo::rhi::d3d12
 			clearPtr						= &clearValue;
 		}
 
-		// Reserved texture: virtual tiles bound later through bindSparse. These need the 64 KiB tiled undefined-swizzle layout, since CreateReservedResource
-		// rejects a committed resource's D3D12_TEXTURE_LAYOUT_UNKNOWN.
 		if (desc.allowSparseBinding)
 		{
 			D3D12_RESOURCE_DESC reservedDesc = resourceDesc;
@@ -298,11 +276,9 @@ namespace azo::rhi::d3d12
 				error);
 		}
 
-		// D3D12 bars textures from UPLOAD and READBACK heaps so a committed texture is always device-local and staging goes via a buffer.
 		D3D12MA::ALLOCATION_DESC allocationDesc{};
 		allocationDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
 
-		// Committed in a shared heap, for the reason an exportable buffer is. See D3D12CreateBuffer.
 		if (!desc.exportableHandleTypes.Empty())
 		{
 			allocationDesc.ExtraHeapFlags |= D3D12_HEAP_FLAG_SHARED;
@@ -350,14 +326,11 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "getTextureInfo names a texture this device did not create");
 		}
 
-		// A back buffer never came from a TextureDesc, so there is nothing here to report that would not be invented. The swapchain owns that description and
-		// answers for it.
 		if (slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 		{
 			return Fail(error, ErrorCode::eUnsupportedFeature, "a swapchain back buffer has no texture description; ask the swapchain instead");
 		}
 
-		// Zero where this texture owns no allocation, which is a placed, adopted or reserved one. Its memory is the heap's or the caller's to account for.
 		const std::uint64_t allocated = slot->allocation != nullptr ? slot->allocation->GetSize() : 0;
 
 		*out = TextureInfo{ .desc = slot->desc, .allocationSize = allocated };
@@ -380,11 +353,8 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "getBufferInfo names a buffer this device did not create");
 		}
 
-		// Zero where this buffer owns no allocation, which is a placed, adopted or reserved one.
 		const std::uint64_t allocated = slot->allocation != nullptr ? slot->allocation->GetSize() : 0;
 
-		// The two host-reachable heaps here are UPLOAD and READBACK and both are write-combined or cached in a way Direct3D 12 keeps coherent, so a
-		// host-visible buffer needs no explicit flush and there is no eCpuVisible case to report.
 		const MemoryAccess access = slot->hostVisible ? MemoryAccess::eCpuVisibleCoherent : MemoryAccess::eGpuOnly;
 
 		*out = BufferInfo{ .desc = slot->desc, .allocationSize = allocated, .memoryAccess = access };
@@ -425,8 +395,6 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid texture handle");
 		}
-		// A swapchain back buffer's lifetime is the swapchain's so a public destroy does nothing. An adopted resource is the caller's, so the slot is
-		// retired and the resource left alone, which is what keeps repeated adopt and destroy from leaking slots.
 		if (slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 		{
 			return Succeed(error);
@@ -449,7 +417,6 @@ namespace azo::rhi::d3d12
 		return device->textureSlots.Resolve(handle, kHandleAlreadyChecked);
 	}
 
-	// Fills a render-target view from the view type, format and range. Cube views render through the 2D-array dimension, one face a slice.
 	void FillRtvDesc(D3D12_RENDER_TARGET_VIEW_DESC & rtv, DXGI_FORMAT format, const TextureViewDesc & desc) noexcept
 	{
 		const TextureSubresourceRange & range = desc.range;
@@ -512,7 +479,7 @@ namespace azo::rhi::d3d12
 			dsv.Texture2DArray.FirstArraySlice = range.baseLayer;
 			dsv.Texture2DArray.ArraySize	   = range.layerCount;
 			break;
-		case TextureViewType::eTex3D: // depth has no 3D view, fall back to 2D
+		case TextureViewType::eTex3D:
 		case TextureViewType::eTex2D:
 			dsv.ViewDimension	   = D3D12_DSV_DIMENSION_TEXTURE2D;
 			dsv.Texture2D.MipSlice = range.baseMip;
@@ -536,8 +503,6 @@ namespace azo::rhi::d3d12
 		return self;
 	}
 
-	// Direct3D 12 names a concrete source per output component with no identity enumerant, so eIdentity resolves to the component's own position. The
-	// all-identity encoding is what D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING already expands to.
 	[[nodiscard]] UINT D3D12ShaderComponentMapping(ComponentMapping mapping) noexcept
 	{
 		return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(D3D12ComponentSource(mapping.r, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0),
@@ -552,7 +517,6 @@ namespace azo::rhi::d3d12
 
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		// Copy out what the view needs and release the texture mutex before touching the descriptor heaps. The ref keeps it alive between.
 		ComPtr<ID3D12Resource> resource;
 		Flags<TextureUsage> usage;
 		DXGI_FORMAT textureFormat = DXGI_FORMAT_UNKNOWN;
@@ -575,7 +539,6 @@ namespace azo::rhi::d3d12
 			texLayers	  = slot->arrayLayers;
 		}
 
-		// A range past the end builds descriptors that read subresources the resource does not have.
 		const TextureSubresourceRange & r = desc.range;
 		if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 		{
@@ -592,19 +555,12 @@ namespace azo::rhi::d3d12
 			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
 		}
 
-		/*
-		 * A view naming a plane exposes that plane's single-plane format and selects it through the shader resource view's PlaneSlice, which is how Direct3D 12
-		 * reaches the texels of NV12 and P010. Selecting a plane is not a format cast so it needs no allowFormatViews, and the reinterpretation check below is
-		 * skipped for it.
-		 */
 		const std::uint32_t plane = PlaneIndexOf(desc.range.aspects);
 		if (desc.ycbcrConversion != nullptr)
 		{
 			return FailValue<TextureViewHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views");
 		}
-		// A shader resource view over a multi-planar format has to name a plane through PlaneSlice. There is no descriptor that reads all planes at once, so a
-		// view that names none would read plane zero while claiming to be the whole texture.
 		if (plane == kNoPlane && IsMultiPlanarFormat(rhiFormat))
 		{
 			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "a texture view of a multi-planar format must name a plane aspect");
@@ -629,16 +585,12 @@ namespace azo::rhi::d3d12
 			return FailValue<TextureViewHandle>(error, ErrorCode::eUnsupportedFormat, "texture view format is unsupported");
 		}
 
-		// Casting to another format needs the resource to have been created typeless, which the texture declares through allowFormatViews. Without it
-		// the descriptor is only rejected by the debug layer, so refuse it here instead.
 		if (plane == kNoPlane && format != textureFormat && !mutableFormat)
 		{
 			return FailValue<TextureViewHandle>(
 				error, ErrorCode::eInvalidArgument, "texture view names a format the source texture was not created with allowFormatViews for");
 		}
 
-		// Only the shader resource view carries a component mapping. A render target or depth-stencil view has no field for it, so a swizzle reaching
-		// one would be dropped, not applied.
 		if (!desc.swizzle.IsIdentity() && UsageForbidsSwizzle(ResolveViewUsage(desc.usage, usage)))
 		{
 			return FailValue<TextureViewHandle>(
@@ -695,7 +647,6 @@ namespace azo::rhi::d3d12
 		}
 		if (slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 		{
-			// A swapchain back-buffer view: the swapchain frees its RTV on resize and teardown.
 			return Succeed(error);
 		}
 
@@ -711,6 +662,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

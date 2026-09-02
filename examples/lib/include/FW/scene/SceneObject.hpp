@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -33,14 +28,6 @@ namespace fw::scene
 {
 	class Scene;
 
-	/**
-	 * \brief One node of the scene tree: a transform, optionally a mesh and a material, and its children.
-	 *
-	 * Setting anything that reaches the GPU writes it through to the scene's storage at the slot this object's id names, so nothing has to be flushed before a
-	 * draw. A transform change carries down to the children.
-	 *
-	 * \attention Objects come from Scene::CreateObject, which hands out the id, and they hold a reference to the scene that made them.
-	 */
 	class SceneObject final : public std::enable_shared_from_this<SceneObject>
 	{
 	public:
@@ -56,16 +43,10 @@ namespace fw::scene
 
 		void SetScale(const glm::vec3 & scale);
 
-		/**
-		 * \brief Allocates the mesh in the scene's geometry buffer and points this object at it.
-		 */
 		void SetMesh(const MeshPrimitive & meshPrimitive);
 
 		void SetBuiltinMesh(BuiltinMeshType builtinMeshType);
 
-		/**
-		 * \brief Serializes the material against the scene's enabled components and writes it at this object's slot.
-		 */
 		void SetMaterial(const Material & material);
 
 		void AddChild(const std::shared_ptr<SceneObject> & childObject);
@@ -119,9 +100,6 @@ namespace fw::scene
 			return m_parent.lock();
 		}
 
-		/**
-		 * \brief True when this object has both of the things a draw needs, a mesh and a material.
-		 */
 		[[nodiscard]] bool HasRenderable() const noexcept
 		{
 			return m_mesh.has_value() && m_material.has_value();
@@ -140,11 +118,10 @@ namespace fw::scene
 		std::optional<MeshGpu> m_mesh;
 		std::optional<Material> m_material;
 
-		// Weak, because a child holds its parent and the parent holds the child. Owning both ways would keep the pair alive forever.
 		std::weak_ptr<SceneObject> m_parent;
 		std::vector<std::shared_ptr<SceneObject>> m_children;
 
 		mutable glm::mat4 m_worldMatrix{ 1.0f };
 		mutable bool m_worldDirty = true;
 	};
-} // namespace fw::scene
+}

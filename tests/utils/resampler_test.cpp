@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -44,7 +39,6 @@ namespace
 
 	constexpr std::uint32_t kDim = 64;
 
-	// What Resampler::GenerateMips documents it leaves behind, spelled here so the assertion reads against the promise and not against the implementation.
 	constexpr rhi::ResourceState kPromisedExit{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 
 	[[nodiscard]] rhi::TextureDesc ResampleTarget(const std::uint32_t levels) noexcept
@@ -64,7 +58,6 @@ namespace
 		} };
 	}
 
-	// A barrier claiming the promised exit state. The validation tracker refuses it when the resampler left the levels somewhere else, so it is the assertion.
 	[[nodiscard]] std::array<rhi::TextureBarrier, 1> FromPromisedExit(const rhi::TextureHandle texture, const std::uint32_t levels)
 	{
 		return { rhi::TextureBarrier{
@@ -114,7 +107,6 @@ namespace
 		static_cast<void>(device.Destroy(texture, {}, error));
 	}
 
-	// The path that used to return before recording anything, leaving a level the caller was told was fragment readable still a copy destination.
 	TEST_P(ResamplerTest, LeavesASingleLevelTextureWhereItsContractSaysItDoes)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -127,4 +119,4 @@ namespace
 		ExpectExitStateHolds(Dev(), 4);
 	}
 
-} // namespace
+}
