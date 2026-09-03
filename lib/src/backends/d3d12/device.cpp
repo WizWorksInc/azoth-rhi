@@ -556,6 +556,10 @@ namespace azo::rhi::d3d12
 		dev->onMessage		 = instance->onMessage;
 		dev->messageUserData = instance->messageUserData;
 
+		D3D12_FEATURE_DATA_D3D12_OPTIONS3 options3{};
+		dev->copyQueueTimestamps = SUCCEEDED(chosenDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS3, &options3, sizeof(options3))) &&
+								   options3.CopyQueueTimestampQueriesSupported != FALSE;
+
 	#ifdef __ID3D12InfoQueue1_INTERFACE_DEFINED__
 		if (instance->debugLayer && SUCCEEDED(chosenDevice.As(&dev->infoQueue)))
 		{

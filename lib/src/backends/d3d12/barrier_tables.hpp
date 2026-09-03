@@ -116,6 +116,10 @@ namespace azo::rhi::d3d12
 		{
 			sync = sync | D3D12_BARRIER_SYNC_ALL_SHADING;
 		}
+		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		{
+			sync = sync | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
+		}
 		if (use.Contains(ResourceUse::eColorTarget))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RENDER_TARGET;
@@ -126,7 +130,7 @@ namespace azo::rhi::d3d12
 		}
 		if (use.Contains(ResourceUse::eCopySrc) || use.Contains(ResourceUse::eCopyDst))
 		{
-			sync = sync | D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
+			sync = sync | D3D12_BARRIER_SYNC_COPY;
 		}
 		if (use.Contains(ResourceUse::eResolveSrc) || use.Contains(ResourceUse::eResolveDst))
 		{
@@ -184,7 +188,13 @@ namespace azo::rhi::d3d12
 		}
 		if (stages.Contains(Stage::eCopy))
 		{
-			sync = sync | D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
+			sync = sync | D3D12_BARRIER_SYNC_COPY;
+		}
+		// The clear scope rides on the unordered-access one rather than on the copy stage, because the sync bits a barrier names have to be ones its access
+		// bits reach, and a clear through an unordered-access view is the only clear this scope covers.
+		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		{
+			sync = sync | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
 		}
 		if (stages.Contains(Stage::eResolve))
 		{
@@ -404,11 +414,15 @@ namespace azo::rhi::d3d12
 		return clamped == layout || clamped == D3D12_BARRIER_LAYOUT_COMMON;
 	}
 
-	static_assert(
-		MapBarrierSync(Stage::eCopy, ResourceUse::eNone, QueueType::eGraphics) == (D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) &&
-			DeriveBarrierSync(ResourceUse::eCopyDst) == (D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) &&
-			DeriveBarrierSync(ResourceUse::eCopySrc) == (D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW),
-		"a copy covers clears as well, since CLEAR_UNORDERED_ACCESS_VIEW is its own sync scope and Stage::eCopy is documented as copy, clear and blit");
+	static_assert(MapBarrierSync(Stage::eCopy, ResourceUse::eNone, QueueType::eGraphics) == D3D12_BARRIER_SYNC_COPY &&
+					  DeriveBarrierSync(ResourceUse::eCopyDst) == D3D12_BARRIER_SYNC_COPY &&
+					  DeriveBarrierSync(ResourceUse::eCopySrc) == D3D12_BARRIER_SYNC_COPY &&
+					  (DeriveBarrierSync(ResourceUse::eStorageWrite) & D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) ==
+						  D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW &&
+					  (MapBarrierSync(Stage::eCopy, ResourceUse::eStorageWrite, QueueType::eGraphics) & D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) ==
+						  D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW,
+		"the clear scope rides on unordered access rather than on the copy stage, because a barrier may only name sync scopes its access bits reach and "
+		"CLEAR_UNORDERED_ACCESS_VIEW is reachable from D3D12_BARRIER_ACCESS_UNORDERED_ACCESS alone");
 
 	static_assert(
 		MapBarrierSync(Stage::eVertexWork, ResourceUse::eNone, QueueType::eGraphics) == (D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT),

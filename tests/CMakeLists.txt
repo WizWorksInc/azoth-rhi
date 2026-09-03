@@ -60,6 +60,7 @@ add_library(AzothRHITest STATIC
         support/fixtures/minimal_backend.cpp
         support/harness/backends.cpp
         support/harness/environment.cpp
+        support/harness/selection.cpp
 )
 add_library(azoth::rhi-test ALIAS AzothRHITest)
 

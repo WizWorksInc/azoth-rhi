@@ -256,6 +256,11 @@ namespace azo::rhi::d3d12
 	struct QueryPoolSlot final
 	{
 		ComPtr<ID3D12QueryHeap> heap;
+
+		// A copy command list cannot emit into a regular timestamp heap, and the portable pool is not told which queue will use it, so a device that supports
+		// copy-queue timestamps gets the second heap alongside the first and the recording picks by list type.
+		ComPtr<ID3D12QueryHeap> copyHeap;
+
 		QueryType type			 = QueryType::eTimestamp;
 		std::uint32_t queryCount = 0;
 	};
@@ -438,6 +443,7 @@ namespace azo::rhi::d3d12
 		ValidationMode validation = ValidationMode::eReleaseLight;
 		bool debugNames			  = true;
 		bool debugLabels		  = true;
+		bool copyQueueTimestamps  = false;
 		std::uint32_t deviceTag	  = 0;
 
 		DeviceCaps caps{};

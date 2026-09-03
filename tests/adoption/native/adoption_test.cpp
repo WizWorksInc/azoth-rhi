@@ -10,6 +10,7 @@
 #include "azoth/rhi/device/device.hpp"
 
 #include "conformance/matchers.hpp"
+#include "harness/backends.hpp"
 
 #include <gtest/gtest.h>
 
@@ -37,9 +38,23 @@ namespace test = azo::rhi::test;
 namespace
 {
 
+	// These are plain TESTs, so they name their backend themselves and miss the selection AZO_RHI_BACKEND_SUITE applies to a parameterised one. Refusing here
+	// rather than in each test puts the gate on the one door they all go through, and a run pinned to one backend stops reaching for another.
+	template <rhi::GraphicsApiTag Api>
+	[[nodiscard]] bool ApiIsSelected() noexcept
+	{
+		const test::Backend * backend = test::FindBackend(Api::id);
+		return backend != nullptr && test::BackendIsSelected(backend->shortName);
+	}
+
 	template <rhi::GraphicsApiTag Api>
 	[[nodiscard]] rhi::Result<rhi::UniqueDevice> MakeDevice()
 	{
+		if (!ApiIsSelected<Api>())
+		{
+			return rhi::Error{ .code = rhi::ErrorCode::eUnsupportedFeature, .message = "this backend is not among the ones this run was asked for" };
+		}
+
 		static constexpr std::array<rhi::DeviceFeature, 1> kPreferred{ rhi::DeviceFeature::eSamplerYcbcrConversion };
 
 		rhi::DeviceDesc desc{};

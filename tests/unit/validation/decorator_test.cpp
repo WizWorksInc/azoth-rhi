@@ -619,6 +619,7 @@ namespace
 			<< "the buffer was already handed to the compute queue, so releasing it again from graphics is not a transfer anyone can honour";
 		EXPECT_EQ(secondError.code, rhi::ErrorCode::eValidationFailed);
 
+		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
 	}
 

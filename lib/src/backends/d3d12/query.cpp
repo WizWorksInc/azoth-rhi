@@ -28,6 +28,13 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
+	// A copy command list can only emit into a copy queue timestamp heap, and a heap of that type can only be emitted into from a copy list, so which of the
+	// pool's two heaps a timestamp lands in is decided by the list recording it.
+	[[nodiscard]] ID3D12QueryHeap * TimestampHeapFor(const D3D12CommandList * list, const QueryPoolSlot * slot) noexcept
+	{
+		return list->type == D3D12_COMMAND_LIST_TYPE_COPY ? slot->copyHeap.Get() : slot->heap.Get();
+	}
+
 	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
@@ -40,7 +47,14 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
-		list->list->EndQuery(slot->heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, query);
+
+		ID3D12QueryHeap * heap = TimestampHeapFor(list, slot);
+		if (heap == nullptr)
+		{
+			return Fail(error, ErrorCode::eUnsupportedFeature, "this adapter does not support timestamp queries on a copy queue");
+		}
+
+		list->list->EndQuery(heap, D3D12_QUERY_TYPE_TIMESTAMP, query);
 		return Succeed(error);
 	}
 
@@ -90,7 +104,13 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
-		list->list->ResolveQueryData(slot->heap.Get(), MapQueryType(slot->type), firstQuery, queryCount, dstSlot->resource.Get(), dstOffset);
+		ID3D12QueryHeap * heap = slot->type == QueryType::eTimestamp ? TimestampHeapFor(list, slot) : slot->heap.Get();
+		if (heap == nullptr)
+		{
+			return Fail(error, ErrorCode::eUnsupportedFeature, "this adapter does not support timestamp queries on a copy queue");
+		}
+
+		list->list->ResolveQueryData(heap, MapQueryType(slot->type), firstQuery, queryCount, dstSlot->resource.Get(), dstOffset);
 		return Succeed(error);
 	}
 

@@ -115,8 +115,21 @@ namespace azo::rhi::d3d12
 			return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateQueryHeap failed");
 		}
 
+		ComPtr<ID3D12QueryHeap> copyHeap;
+		if (desc.type == QueryType::eTimestamp && device->copyQueueTimestamps)
+		{
+			D3D12_QUERY_HEAP_DESC copyDesc{};
+			copyDesc.Type  = D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP;
+			copyDesc.Count = desc.queryCount;
+			if (FAILED(device->device->CreateQueryHeap(&copyDesc, IID_PPV_ARGS(copyHeap.GetAddressOf()))))
+			{
+				return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateQueryHeap failed for the copy queue timestamp heap");
+			}
+		}
+
 		return ReturnValue(device->queryPoolSlots.Store(QueryPoolSlot{
 							   .heap	   = std::move(heap),
+							   .copyHeap   = std::move(copyHeap),
 							   .type	   = desc.type,
 							   .queryCount = desc.queryCount,
 						   }),
