@@ -177,7 +177,8 @@ namespace azo::rhi::d3d12
 							   .mipLevels									 = desc.desc.mipLevels,
 							   .arrayLayers									 = desc.desc.arrayLayers,
 							   .usage										 = desc.desc.usage,
-							   .mutableFormat								 = desc.desc.allowFormatViews }),
+							   .mutableFormat								 = desc.desc.allowFormatViews,
+							   .desc										 = detail::Recorded(desc.desc) }),
 			error);
 	}
 

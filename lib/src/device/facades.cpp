@@ -1167,15 +1167,25 @@ namespace azo::rhi
 
 	bool Device::UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes) noexcept
 	{
-		return m_blocks->Device().rayTracing != nullptr ? m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, nullptr)
-														: Decline<bool>(nullptr, kNoRayTracing);
+		if (m_blocks->Device().rayTracing == nullptr)
+		{
+			return Decline<bool>(nullptr, kNoRayTracing);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		return m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, nullptr);
 	}
 
 	bool Device::UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->Device().rayTracing != nullptr ? m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, &error)
-														: Decline<bool>(&error, kNoRayTracing);
+		if (m_blocks->Device().rayTracing == nullptr)
+		{
+			return Decline<bool>(&error, kNoRayTracing);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		return m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, &error);
 	}
 
 	bool Device::QueryMemoryBudget(HeapType heap, MemoryBudgetInfo & out) const noexcept
@@ -1931,14 +1941,24 @@ namespace azo::rhi
 
 	BufferHandle Device::AdoptBufferRaw(GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptBuffer(m_impl, api, nativeImport, desc, error)
-													  : Decline<BufferHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<BufferHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
+		return m_blocks->Device().adoption->adoptBuffer(m_impl, api, nativeImport, desc, error);
 	}
 
 	TextureHandle Device::AdoptTextureRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptTexture(m_impl, api, nativeImport, desc, error)
-													  : Decline<TextureHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<TextureHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
+		return m_blocks->Device().adoption->adoptTexture(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeBufferRaw(GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
@@ -2279,14 +2299,24 @@ namespace azo::rhi
 
 	TextureViewHandle Device::AdoptTextureViewRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptTextureView(m_impl, api, nativeImport, desc, error)
-													  : Decline<TextureViewHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<TextureViewHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTextureView));
+		return m_blocks->Device().adoption->adoptTextureView(m_impl, api, nativeImport, desc, error);
 	}
 
 	SamplerHandle Device::AdoptSamplerRaw(GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptSampler(m_impl, api, nativeImport, desc, error)
-													  : Decline<SamplerHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<SamplerHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eSampler));
+		return m_blocks->Device().adoption->adoptSampler(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeTextureViewRaw(GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept
@@ -2303,15 +2333,25 @@ namespace azo::rhi
 
 	TimelineHandle Device::AdoptTimelineRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptTimeline(m_impl, api, nativeImport, desc, error)
-													  : Decline<TimelineHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<TimelineHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
+		return m_blocks->Device().adoption->adoptTimeline(m_impl, api, nativeImport, desc, error);
 	}
 
 	BinarySemaphoreHandle Device::AdoptBinarySemaphoreRaw(
 		GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptBinarySemaphore(m_impl, api, nativeImport, desc, error)
-													  : Decline<BinarySemaphoreHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<BinarySemaphoreHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
+		return m_blocks->Device().adoption->adoptBinarySemaphore(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeTimelineRaw(GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept

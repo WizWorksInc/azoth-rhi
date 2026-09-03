@@ -732,10 +732,13 @@ namespace azo::rhi::validation
 		return found;
 	}
 
-	inline constexpr std::uint64_t kSizeDeclared = 1ull << 63u;
-	inline constexpr unsigned kSizeShift		 = 32u;
+	inline constexpr std::uint64_t kExtentsDeclared = 1ull << 62u;
+	inline constexpr unsigned kSizeShift			= 32u;
 
 	inline constexpr std::uint64_t kSizeMax = 0x3fffffffull;
+
+	static_assert((kUsageDeclared & kExtentsDeclared) == 0, "the declared-usage and declared-extents flags share a bit, so each reads as the other");
+	static_assert(((kSizeMax << kSizeShift) & (kUsageDeclared | kExtentsDeclared)) == 0, "the buffer size field reaches the flags above it");
 
 	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const BufferDesc & desc) noexcept
 	{
@@ -746,21 +749,20 @@ namespace azo::rhi::validation
 			return usage;
 		}
 
-		return usage | kSizeDeclared | (desc.size << kSizeShift);
+		return usage | kExtentsDeclared | (desc.size << kSizeShift);
 	}
 
 	[[nodiscard]] inline std::uint64_t DeclaredSizeFrom(const std::uint64_t detail) noexcept
 	{
-		return (detail & kSizeDeclared) != 0 ? (detail >> kSizeShift) & kSizeMax : 0;
+		return (detail & kExtentsDeclared) != 0 ? (detail >> kSizeShift) & kSizeMax : 0;
 	}
 
-	inline constexpr std::uint64_t kExtentsDeclared = 1ull << 62u;
-	inline constexpr unsigned kMipCountShift		= 32u;
-	inline constexpr unsigned kLayerCountShift		= 40u;
-	inline constexpr unsigned kAspectShift			= 56u;
-	inline constexpr std::uint64_t kMipCountMax		= 0xffull;
-	inline constexpr std::uint64_t kLayerCountMax	= 0xffffull;
-	inline constexpr std::uint64_t kAspectMax		= 0x3full;
+	inline constexpr unsigned kMipCountShift	  = 32u;
+	inline constexpr unsigned kLayerCountShift	  = 40u;
+	inline constexpr unsigned kAspectShift		  = 56u;
+	inline constexpr std::uint64_t kMipCountMax	  = 0xffull;
+	inline constexpr std::uint64_t kLayerCountMax = 0xffffull;
+	inline constexpr std::uint64_t kAspectMax	  = 0x3full;
 
 	[[nodiscard]] inline std::uint64_t AspectsOfFormat(const Format format) noexcept
 	{
@@ -832,12 +834,18 @@ namespace azo::rhi::validation
 		std::uint64_t bytes	  = 0;
 	};
 
-	[[nodiscard]] inline DeclaredExtents ExtentsFrom(const std::uint64_t detail) noexcept
+	[[nodiscard]] inline DeclaredExtents ExtentsFrom(const ResourceType type, const std::uint64_t detail) noexcept
 	{
-		DeclaredExtents extents{ .bytes = DeclaredSizeFrom(detail) };
+		DeclaredExtents extents{};
 
 		if ((detail & kExtentsDeclared) == 0)
 		{
+			return extents;
+		}
+
+		if (type == ResourceType::eBuffer)
+		{
+			extents.bytes = DeclaredSizeFrom(detail);
 			return extents;
 		}
 

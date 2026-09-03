@@ -1063,6 +1063,9 @@ namespace azo::rhi::validation
 			{
 				list->recording = false;
 				list->rendering = false;
+				list->recordedStates.clear();
+				list->pendingOwnership.clear();
+				list->pendingArrivals.clear();
 			}
 
 			return true;
@@ -1460,7 +1463,7 @@ namespace azo::rhi::validation
 				.index		= index,
 				.generation = generation,
 			});
-			return record != nullptr ? ExtentsFrom(record->detail.load(std::memory_order_relaxed)) : DeclaredExtents{};
+			return record != nullptr ? ExtentsFrom(type, record->detail.load(std::memory_order_relaxed)) : DeclaredExtents{};
 		}
 
 		[[nodiscard]] std::uint64_t DeclaredSizeOf(WrappedCommandList * self, const std::uint32_t index, const std::uint32_t generation) noexcept
@@ -1517,6 +1520,16 @@ namespace azo::rhi::validation
 			span.byteBegin		 = barrier.offset;
 			span.byteEnd		 = std::min(ByteSpanEnd(barrier.offset, barrier.size), declared != 0 ? declared : unbounded);
 			return span;
+		}
+
+		[[nodiscard]] bool CoversWholeResource(const TrackedSubrange & span, const DeclaredExtents & extents) noexcept
+		{
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			const std::uint64_t declaredBytes = extents.bytes != 0 ? extents.bytes : std::numeric_limits<std::uint64_t>::max();
+
+			return (extents.aspects == 0 || (span.aspects & extents.aspects) == extents.aspects) && span.mipBegin == 0 &&
+				   span.mipEnd >= BoundOr(extents.mips, unbounded) && span.layerBegin == 0 && span.layerEnd >= BoundOr(extents.layers, unbounded) &&
+				   span.byteBegin == 0 && span.byteEnd >= declaredBytes;
 		}
 
 		[[nodiscard]] bool Overlaps(const TrackedSubrange & lhs, const TrackedSubrange & rhs) noexcept
@@ -2029,6 +2042,15 @@ namespace azo::rhi::validation
 				Forget(self, box.resource);
 			}
 
+			if (CoversWholeResource(box, ExtentsOf(self, type, index, generation)))
+			{
+				SetPendingArrival(self, box.resource, after.use.Bits(), true);
+			}
+			else
+			{
+				SetPendingArrival(self, box.resource, 0, false);
+			}
+
 			return true;
 		}
 
@@ -2148,16 +2170,6 @@ namespace azo::rhi::validation
 			}
 
 			return self->blocks.aliasing->aliasBarriers(self->inner, barriers, error);
-		}
-
-		[[nodiscard]] bool CoversWholeResource(const TrackedSubrange & span, const DeclaredExtents & extents) noexcept
-		{
-			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
-			const std::uint64_t declaredBytes = extents.bytes != 0 ? extents.bytes : std::numeric_limits<std::uint64_t>::max();
-
-			return (extents.aspects == 0 || (span.aspects & extents.aspects) == extents.aspects) && span.mipBegin == 0 &&
-				   span.mipEnd >= BoundOr(extents.mips, unbounded) && span.layerBegin == 0 && span.layerEnd >= BoundOr(extents.layers, unbounded) &&
-				   span.byteBegin == 0 && span.byteEnd >= declaredBytes;
 		}
 
 		void ReconcileNativeMutation(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,

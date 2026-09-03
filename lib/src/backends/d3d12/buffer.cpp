@@ -15,7 +15,8 @@ namespace azo::rhi::d3d12
 {
 	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept
 	{
-		return device->bufferSlots.Resolve(handle, kHandleAlreadyChecked);
+		BufferSlot * slot = device->bufferSlots.Resolve(handle, kHandleAlreadyChecked);
+		return slot != nullptr && slot->resource != nullptr ? slot : nullptr;
 	}
 
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapType(MemoryUsage memory, bool & hostVisible) noexcept
@@ -119,6 +120,13 @@ namespace azo::rhi::d3d12
 
 		if (desc.allowSparseBinding)
 		{
+			if (!desc.exportableHandleTypes.Empty())
+			{
+				return FailValue<BufferHandle>(error,
+					ErrorCode::eUnsupportedFeature,
+					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse buffer cannot also be exportable");
+			}
+
 			ComPtr<ID3D12Resource> reserved;
 			if (FAILED(device->device->CreateReservedResource(
 					&resourceDesc, InitialBufferState(D3D12_HEAP_TYPE_DEFAULT, desc.usage), nullptr, IID_PPV_ARGS(reserved.GetAddressOf()))))
@@ -282,6 +290,7 @@ namespace azo::rhi::d3d12
 		}
 		if (slot->lifetime == SlotLifetime::eAdopted)
 		{
+			slot->resource.Reset();
 			static_cast<void>(device->bufferSlots.Retire(slotHandle, true));
 			return Succeed(error);
 		}

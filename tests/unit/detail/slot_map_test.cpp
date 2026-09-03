@@ -251,8 +251,15 @@ namespace
 		const TestHandle first = map.Store(1234);
 		ASSERT_TRUE(first.IsValid());
 
+		constexpr std::size_t kAtLeastRead = 64;
+		constexpr int kAtLeastStored	   = 4096;
+
+		std::vector<TestHandle> grown;
+		grown.reserve(static_cast<std::size_t>(kAtLeastStored));
+
 		std::atomic<bool> stop{ false };
 		std::atomic<std::size_t> reads{ 0 };
+		std::atomic<int> published{ 0 };
 		std::atomic<bool> mismatched{ false };
 
 		std::thread reader(
@@ -267,22 +274,30 @@ namespace
 						return;
 					}
 
+					if (const int reach = published.load(std::memory_order_acquire); reach > 0)
+					{
+						const int newest		 = reach - 1;
+						const int * grownPayload = map.Resolve(grown[static_cast<std::size_t>(newest)], true);
+						if (grownPayload == nullptr || *grownPayload != newest)
+						{
+							mismatched.store(true, std::memory_order_relaxed);
+							return;
+						}
+					}
+
 					reads.fetch_add(1, std::memory_order_relaxed);
 				}
 			});
 
-		constexpr std::size_t kAtLeastRead = 64;
-		constexpr int kAtLeastStored	   = 4096;
-		constexpr int kStoreCeiling		   = 1 << 20;
-
-		std::vector<TestHandle> grown;
-		grown.reserve(kAtLeastStored);
-
-		int index = 0;
-		while (index < kStoreCeiling && (index < kAtLeastStored || reads.load(std::memory_order_relaxed) < kAtLeastRead))
+		for (int index = 0; index < kAtLeastStored; ++index)
 		{
 			grown.push_back(map.Store(index));
-			++index;
+			published.store(index + 1, std::memory_order_release);
+		}
+
+		while (reads.load(std::memory_order_relaxed) < kAtLeastRead && !mismatched.load(std::memory_order_relaxed))
+		{
+			std::this_thread::yield();
 		}
 
 		stop.store(true, std::memory_order_relaxed);
@@ -291,7 +306,7 @@ namespace
 		EXPECT_FALSE(mismatched.load(std::memory_order_relaxed)) << "a resolve taken before growth stopped naming what it named";
 		EXPECT_GE(reads.load(std::memory_order_relaxed), kAtLeastRead) << "the reader never got a turn, so this proved nothing";
 
-		for (int stored = 0; stored < index; ++stored)
+		for (int stored = 0; stored < kAtLeastStored; ++stored)
 		{
 			const int * payload = map.Resolve(grown[static_cast<std::size_t>(stored)], true);
 			ASSERT_NE(payload, nullptr) << "slot " << stored;

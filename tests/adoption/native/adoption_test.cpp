@@ -68,6 +68,11 @@ namespace
 	template <rhi::GraphicsApiTag Api, class Config>
 	[[nodiscard]] rhi::Result<rhi::UniqueDevice> CreateWith(const rhi::GraphicsApiId key, const Config & config)
 	{
+		if (!ApiIsSelected<Api>())
+		{
+			return rhi::Error{ .code = rhi::ErrorCode::eUnsupportedFeature, .message = "this backend is not among the ones this run was asked for" };
+		}
+
 		const std::array<rhi::DeviceConfigEntry, 1> entries{ rhi::DeviceConfigEntry{ .api = key, .config = &config } };
 
 		rhi::DeviceDesc desc{};
@@ -76,6 +81,29 @@ namespace
 		return rhi::CreateDevice<Api>(desc);
 	}
 
+#endif
+
+	template <rhi::GraphicsApiTag Api>
+	class SelectedApiTest : public ::testing::Test
+	{
+	protected:
+		void SetUp() override
+		{
+			if (!ApiIsSelected<Api>())
+			{
+				GTEST_SKIP() << "this backend is not among the ones AZOTH_RHI_TEST_BACKENDS asked for";
+			}
+		}
+	};
+
+#ifdef AZOTH_RHI_TEST_ADOPTION_VULKAN
+	using VulkanConfigBlock = SelectedApiTest<rhi::VulkanApi>;
+#endif
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
+	using MetalConfigBlock = SelectedApiTest<rhi::MetalApi>;
+#endif
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL4
+	using Metal4ConfigBlock = SelectedApiTest<rhi::Metal4Api>;
 #endif
 
 #if defined(AZOTH_RHI_TEST_ADOPTION_VULKAN) || defined(AZOTH_RHI_TEST_ADOPTION_METAL) || defined(AZOTH_RHI_TEST_ADOPTION_D3D12)
@@ -926,7 +954,7 @@ namespace
 		}
 	}
 
-	TEST(VulkanConfigBlock, ADeviceVersionTheAdapterCannotMeetIsRefused)
+	TEST_F(VulkanConfigBlock, ADeviceVersionTheAdapterCannotMeetIsRefused)
 	{
 		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
 		{
@@ -950,7 +978,7 @@ namespace
 		EXPECT_FALSE(floored.HasValue()) << "a device version below the 1.2 floor was accepted";
 	}
 
-	TEST(VulkanConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
+	TEST_F(VulkanConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
 		{
@@ -978,7 +1006,7 @@ namespace
 		}
 	}
 
-	TEST(VulkanConfigBlock, ADeviceExtensionTheAdapterDoesNotAdvertiseIsRefused)
+	TEST_F(VulkanConfigBlock, ADeviceExtensionTheAdapterDoesNotAdvertiseIsRefused)
 	{
 		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
 		{
@@ -1002,17 +1030,17 @@ namespace
 
 #if defined(AZOTH_RHI_TEST_ADOPTION_METAL3) && defined(AZOTH_RHI_TEST_ADOPTION_METAL4)
 
-	TEST(MetalConfigBlock, EitherGenerationComesUpWithNoBlockAtAll)
+	TEST_F(MetalConfigBlock, EitherGenerationComesUpWithNoBlockAtAll)
 	{
 		rhi::DeviceDesc plain{};
 		plain.validation = rhi::ValidationMode::eDeveloper;
 
-		if (rhi::Result<rhi::UniqueDevice> three = rhi::CreateDevice<rhi::MetalApi>(plain); !three.HasValue())
+		if (rhi::Result<rhi::UniqueDevice> three = MakeDevice<rhi::MetalApi>(); !three.HasValue())
 		{
 			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(three.GetError());
 		}
 
-		rhi::Result<rhi::UniqueDevice> four = rhi::CreateDevice<rhi::Metal4Api>(plain);
+		rhi::Result<rhi::UniqueDevice> four = MakeDevice<rhi::Metal4Api>();
 		if (!four.HasValue() && four.GetError().code == rhi::ErrorCode::eUnsupportedFeature)
 		{
 			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(four.GetError());
@@ -1025,7 +1053,7 @@ namespace
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
 
-	TEST(MetalConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
+	TEST_F(MetalConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
 	{
 		rhi::native::MetalDeviceConfig pinnedToFour{};
 		pinnedToFour.generation = rhi::ApiVersion{ .major = 4, .minor = 0 };
@@ -1038,7 +1066,7 @@ namespace
 		}
 	}
 
-	TEST(MetalConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
+	TEST_F(MetalConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
 	{
 		rhi::native::Metal4DeviceConfig pinnedToThree{};
 		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
@@ -1047,7 +1075,7 @@ namespace
 		EXPECT_TRUE(three.HasValue()) << "Metal 3 read a block keyed to Metal 4, so the entry is not matched on its api field";
 	}
 
-	TEST(MetalConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
+	TEST_F(MetalConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::MetalDeviceConfig truncated{};
 		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
@@ -1118,7 +1146,7 @@ namespace
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL4
 
-	TEST(Metal4ConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
+	TEST_F(Metal4ConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
 	{
 		rhi::native::Metal4DeviceConfig pinnedToThree{};
 		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
@@ -1131,12 +1159,12 @@ namespace
 		}
 	}
 
-	TEST(Metal4ConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
+	TEST_F(Metal4ConfigBlock, AGenerationIgnoresABlockKeyedToTheOther)
 	{
 		rhi::DeviceDesc plain{};
 		plain.validation = rhi::ValidationMode::eDeveloper;
 
-		if (rhi::Result<rhi::UniqueDevice> unconfigured = rhi::CreateDevice<rhi::Metal4Api>(plain); !unconfigured.HasValue())
+		if (rhi::Result<rhi::UniqueDevice> unconfigured = MakeDevice<rhi::Metal4Api>(); !unconfigured.HasValue())
 		{
 			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(unconfigured.GetError());
 		}
@@ -1148,7 +1176,7 @@ namespace
 		EXPECT_TRUE(four.HasValue()) << "Metal 4 read a block keyed to Metal 3, so the entry is not matched on its api field";
 	}
 
-	TEST(Metal4ConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
+	TEST_F(Metal4ConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
 		rhi::native::Metal4DeviceConfig truncated{};
 		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);

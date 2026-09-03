@@ -439,6 +439,84 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
+	TEST_P(NativeAccessTest, ASubmittedBarrierCarriesTheStateItLeftForTheNextRecording)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		const std::array touched{ rhi::NativeTouchedBuffer{
+			.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() } };
+
+		{
+			test::Recording arriving(Dev());
+			ASSERT_TRUE(test::Ok(arriving.IsRecording(), arriving.GetError()));
+			ASSERT_TRUE(test::Ok(arriving.List().ModifyNative<rhi::NullApi>(
+									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
+				error));
+			ASSERT_TRUE(arriving.End());
+			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), arriving.List(), error), error));
+		}
+
+		{
+			test::Recording moving(Dev());
+			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
+			const std::array onward{ rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = CopyDestinationState() } };
+			ASSERT_TRUE(test::Ok(moving.List().Barriers(rhi::BarrierBatch{ .buffers = onward }, error), error));
+			ASSERT_TRUE(moving.End());
+			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), moving.List(), error), error));
+		}
+
+		test::Recording next(Dev());
+		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
+
+		const std::array onward{ rhi::BufferBarrier{ .buffer = buffer, .before = CopyDestinationState(), .after = ShaderReadState() } };
+		EXPECT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .buffers = onward }, error), error))
+			<< "a submitted barrier's after-state never reached the device record, so the next recording was held to the state before it";
+
+		static_cast<void>(next.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(NativeAccessTest, DISABLED_AQueueThatAcquiresWhatAnotherReleasedToItIsAccepted)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		{
+			test::Recording releasing(Dev(), rhi::QueueType::eGraphics);
+			ASSERT_TRUE(test::Ok(releasing.IsRecording(), releasing.GetError()));
+
+			const std::array handOver{ rhi::BufferBarrier{ .buffer = buffer,
+				.before											   = UntouchedState(),
+				.after											   = CopyDestinationState(),
+				.ownership										   = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
+			ASSERT_TRUE(test::Ok(releasing.List().Barriers(rhi::BarrierBatch{ .buffers = handOver }, error), error));
+			ASSERT_TRUE(releasing.End());
+			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), releasing.List(), error), error));
+		}
+
+		test::Recording acquiring(Dev(), rhi::QueueType::eCompute);
+		ASSERT_TRUE(test::Ok(acquiring.IsRecording(), acquiring.GetError()));
+
+		const std::array takeOver{ rhi::BufferBarrier{ .buffer = buffer,
+			.before											   = CopyDestinationState(),
+			.after											   = ShaderReadState(),
+			.ownership										   = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eGraphics } } };
+		EXPECT_TRUE(test::Ok(acquiring.List().Barriers(rhi::BarrierBatch{ .buffers = takeOver }, error), error))
+			<< "the queue the release handed the buffer to was refused when it acquired it";
+
+		static_cast<void>(acquiring.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
 	TEST_P(NativeAccessTest, ANativeMutationNamingARetiredHandleIsRefused)
 	{
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();

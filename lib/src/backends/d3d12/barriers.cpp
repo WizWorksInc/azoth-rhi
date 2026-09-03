@@ -149,6 +149,7 @@ namespace azo::rhi::d3d12
 		}
 
 		slot->heap.Reset();
+		slot->copyHeap.Reset();
 		static_cast<void>(device->queryPoolSlots.Retire(slotHandle, true));
 		return Succeed(error);
 	}
@@ -181,7 +182,7 @@ namespace azo::rhi::d3d12
 			// The slot outlives what it held, and a barrier needs the resource pointer itself, so a destroyed buffer has to be caught here rather than handed on
 			// as a null the runtime refuses.
 			BufferSlot * slot = ResolveBuffer(device, b.buffer);
-			if (slot == nullptr || slot->resource == nullptr)
+			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
@@ -209,7 +210,7 @@ namespace azo::rhi::d3d12
 		for (const TextureBarrier & t : barriers.textures)
 		{
 			TextureSlot * slot = ResolveTexture(device, t.texture);
-			if (slot == nullptr || slot->resource == nullptr)
+			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
@@ -238,15 +239,16 @@ namespace azo::rhi::d3d12
 			// An acquire's before-state describes what the other device left behind, not anything this one recorded, and the layout a shared texture crosses in
 			// is the common one. Claiming the caller's before-layout here would assert a transition this device never made. The release is the mirror: the
 			// texture has to leave in the layout the far side will find it in.
-			const D3D12_BARRIER_LAYOUT before =
-				t.ownership.op == OwnershipOp::eAcquireFromExternal ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.before.use, queue);
-			const D3D12_BARRIER_LAYOUT after =
-				t.ownership.op == OwnershipOp::eReleaseToExternal ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.after.use, queue);
+			const bool crossesIn  = t.ownership.op == OwnershipOp::eAcquireFromExternal;
+			const bool crossesOut = t.ownership.op == OwnershipOp::eReleaseToExternal;
+
+			const D3D12_BARRIER_LAYOUT before = crossesIn ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.before.use, queue);
+			const D3D12_BARRIER_LAYOUT after  = crossesOut ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.after.use, queue);
 			textures.push_back(D3D12_TEXTURE_BARRIER{
 				.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
 				.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
-				.AccessBefore = MapBarrierAccess(t.before.use, queue),
-				.AccessAfter  = MapBarrierAccess(t.after.use, queue),
+				.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.before.use, queue),
+				.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.after.use, queue),
 				.LayoutBefore = before,
 				.LayoutAfter  = after,
 				.pResource	  = slot->resource.Get(),
@@ -304,48 +306,32 @@ namespace azo::rhi::d3d12
 		// has to ask the second question too or an alias barrier naming a destroyed resource is taken in every mode that has no validation layer above it.
 		const auto liveBuffer = [device](const BufferHandle handle)
 		{
-			const BufferSlot * slot = ResolveBuffer(device, handle);
-			return slot != nullptr && slot->resource != nullptr;
+			return !handle.IsValid() || ResolveBuffer(device, handle) != nullptr;
 		};
 
 		const auto liveTexture = [device](const TextureHandle handle)
 		{
-			const TextureSlot * slot = ResolveTexture(device, handle);
-			return slot != nullptr && slot->resource != nullptr;
+			return !handle.IsValid() || ResolveTexture(device, handle) != nullptr;
 		};
 
 		for (const AliasBarrier & alias : barriers)
 		{
-			if (alias.beforeBuffer.IsValid())
+			if (!liveBuffer(alias.beforeBuffer) || !liveBuffer(alias.afterBuffer))
 			{
-				if (!liveBuffer(alias.beforeBuffer))
-				{
-					return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid buffer handle");
-				}
+				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid buffer handle");
 			}
-			else if (alias.beforeTexture.IsValid())
+			if (!liveTexture(alias.beforeTexture) || !liveTexture(alias.afterTexture))
 			{
-				if (!liveTexture(alias.beforeTexture))
-				{
-					return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
-				}
+				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
 			}
 
-			if (alias.afterBuffer.IsValid())
-			{
-				if (!liveBuffer(alias.afterBuffer))
-				{
-					return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid buffer handle");
-				}
-				continue;
-			}
 			if (!alias.afterTexture.IsValid())
 			{
 				continue;
 			}
 
 			TextureSlot * slot = ResolveTexture(device, alias.afterTexture);
-			if (slot == nullptr || slot->resource == nullptr)
+			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
 			}

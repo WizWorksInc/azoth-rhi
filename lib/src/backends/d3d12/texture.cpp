@@ -252,6 +252,13 @@ namespace azo::rhi::d3d12
 
 		if (desc.allowSparseBinding)
 		{
+			if (!desc.exportableHandleTypes.Empty())
+			{
+				return FailValue<TextureHandle>(error,
+					ErrorCode::eUnsupportedFeature,
+					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse texture cannot also be exportable");
+			}
+
 			D3D12_RESOURCE_DESC reservedDesc = resourceDesc;
 			reservedDesc.Layout				 = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
 
@@ -402,6 +409,7 @@ namespace azo::rhi::d3d12
 
 		if (slot->lifetime == SlotLifetime::eAdopted)
 		{
+			slot->resource.Reset();
 			static_cast<void>(device->textureSlots.Retire(slotHandle, true));
 			return Succeed(error);
 		}
@@ -414,7 +422,8 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] TextureSlot * ResolveTexture(D3D12Device * device, TextureHandle handle) noexcept
 	{
-		return device->textureSlots.Resolve(handle, kHandleAlreadyChecked);
+		TextureSlot * slot = device->textureSlots.Resolve(handle, kHandleAlreadyChecked);
+		return slot != nullptr && slot->resource != nullptr ? slot : nullptr;
 	}
 
 	void FillRtvDesc(D3D12_RENDER_TARGET_VIEW_DESC & rtv, DXGI_FORMAT format, const TextureViewDesc & desc) noexcept
@@ -658,6 +667,8 @@ namespace azo::rhi::d3d12
 
 		device->rtvHeap.Free(slot->rtvIndex);
 		device->dsvHeap.Free(slot->dsvIndex);
+		slot->rtvIndex = kInvalidIndex;
+		slot->dsvIndex = kInvalidIndex;
 		static_cast<void>(device->textureViewSlots.Retire(slotHandle, true));
 		return Succeed(error);
 	}

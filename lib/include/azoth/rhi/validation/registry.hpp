@@ -151,6 +151,7 @@ namespace azo::rhi::validation
 
 				slot->record.use.store(0, std::memory_order_relaxed);
 				slot->record.useKnown.store(false, std::memory_order_relaxed);
+				slot->record.owner.store(0, std::memory_order_relaxed);
 				slot->record.owned.store(false, std::memory_order_relaxed);
 				slot->record.detail.store(0, std::memory_order_relaxed);
 				slot->record.format.store(0, std::memory_order_relaxed);

@@ -22,6 +22,8 @@
 
 #include <d3d12.h>
 
+#include <array>
+
 namespace azo::rhi::d3d12
 {
 
@@ -107,9 +109,13 @@ namespace azo::rhi::d3d12
 		{
 			sync = sync | D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
 		}
-		if (use.Contains(ResourceUse::eVertexBuffer) || use.Contains(ResourceUse::eIndexBuffer))
+		if (use.Contains(ResourceUse::eVertexBuffer))
 		{
-			sync = sync | D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT;
+			sync = sync | D3D12_BARRIER_SYNC_VERTEX_SHADING;
+		}
+		if (use.Contains(ResourceUse::eIndexBuffer))
+		{
+			sync = sync | D3D12_BARRIER_SYNC_INDEX_INPUT;
 		}
 		if (use.Contains(ResourceUse::eUniformRead) || use.Contains(ResourceUse::eSampledRead) || use.Contains(ResourceUse::eStorageRead) ||
 			use.Contains(ResourceUse::eStorageWrite))
@@ -136,7 +142,11 @@ namespace azo::rhi::d3d12
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RESOLVE;
 		}
-		if (use.Contains(ResourceUse::eAccelBuildInput) || use.Contains(ResourceUse::eAccelWrite))
+		if (use.Contains(ResourceUse::eAccelBuildInput))
+		{
+			sync = sync | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
+		}
+		if (use.Contains(ResourceUse::eAccelWrite))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
 				   D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
@@ -153,11 +163,48 @@ namespace azo::rhi::d3d12
 		return sync == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : sync;
 	}
 
+	[[nodiscard]] constexpr D3D12_BARRIER_SYNC SyncReachableFrom(const D3D12_BARRIER_SYNC sync, const D3D12_BARRIER_ACCESS access) noexcept
+	{
+		if (access == D3D12_BARRIER_ACCESS_COMMON || access == D3D12_BARRIER_ACCESS_NO_ACCESS)
+		{
+			return sync;
+		}
+
+		struct Reach final
+		{
+			D3D12_BARRIER_SYNC scope;
+			D3D12_BARRIER_ACCESS reaching;
+		};
+
+		constexpr std::array kRestricted{
+			Reach{ D3D12_BARRIER_SYNC_INDEX_INPUT, D3D12_BARRIER_ACCESS_INDEX_BUFFER },
+			Reach{ D3D12_BARRIER_SYNC_RENDER_TARGET, D3D12_BARRIER_ACCESS_RENDER_TARGET },
+			Reach{ D3D12_BARRIER_SYNC_DEPTH_STENCIL, D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE | D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ },
+			Reach{ D3D12_BARRIER_SYNC_COPY, D3D12_BARRIER_ACCESS_COPY_SOURCE | D3D12_BARRIER_ACCESS_COPY_DEST },
+			Reach{ D3D12_BARRIER_SYNC_RESOLVE, D3D12_BARRIER_ACCESS_RESOLVE_SOURCE | D3D12_BARRIER_ACCESS_RESOLVE_DEST },
+			Reach{ D3D12_BARRIER_SYNC_EXECUTE_INDIRECT, D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT },
+			Reach{ D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW, D3D12_BARRIER_ACCESS_UNORDERED_ACCESS },
+		};
+
+		D3D12_BARRIER_SYNC reachable = sync;
+		for (const Reach & entry : kRestricted)
+		{
+			if ((reachable & entry.scope) != D3D12_BARRIER_SYNC_NONE && (access & entry.reaching) == D3D12_BARRIER_ACCESS_COMMON)
+			{
+				reachable = reachable & ~entry.scope;
+			}
+		}
+
+		return reachable == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : reachable;
+	}
+
+	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS MapBarrierAccess(Flags<ResourceUse> use, QueueType queue) noexcept;
+
 	[[nodiscard]] constexpr D3D12_BARRIER_SYNC MapBarrierSync(const Flags<Stage> stages, const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
 		if (stages.Empty())
 		{
-			return ClampSyncToQueue(DeriveBarrierSync(use), queue);
+			return ClampSyncToQueue(SyncReachableFrom(DeriveBarrierSync(use), MapBarrierAccess(use, queue)), queue);
 		}
 
 		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
@@ -223,7 +270,7 @@ namespace azo::rhi::d3d12
 			sync = sync | D3D12_BARRIER_SYNC_ALL;
 		}
 
-		return ClampSyncToQueue(sync == D3D12_BARRIER_SYNC_NONE ? DeriveBarrierSync(use) : sync, queue);
+		return ClampSyncToQueue(SyncReachableFrom(sync == D3D12_BARRIER_SYNC_NONE ? DeriveBarrierSync(use) : sync, MapBarrierAccess(use, queue)), queue);
 	}
 
 	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS MapBarrierAccess(const Flags<ResourceUse> use, const QueueType queue) noexcept
@@ -427,6 +474,25 @@ namespace azo::rhi::d3d12
 	static_assert(
 		MapBarrierSync(Stage::eVertexWork, ResourceUse::eNone, QueueType::eGraphics) == (D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT),
 		"index fetch is a sync scope separate from vertex shading, and Stage::eVertexWork is documented as covering both");
+
+	static_assert(MapBarrierSync(Stage::eNone, ResourceUse::eVertexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_VERTEX_SHADING &&
+					  MapBarrierSync(Stage::eNone, ResourceUse::eIndexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_INDEX_INPUT &&
+					  MapBarrierSync(Stage::eVertexWork, ResourceUse::eVertexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_VERTEX_SHADING &&
+					  MapBarrierSync(Flags<Stage>(Stage::eVertexWork), Flags<ResourceUse>(ResourceUse::eVertexBuffer) | ResourceUse::eIndexBuffer,
+						  QueueType::eGraphics) == (D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT),
+		"index input is reachable from D3D12_BARRIER_ACCESS_INDEX_BUFFER alone, so a buffer bound only as a vertex buffer never names it");
+
+	static_assert(MapBarrierSync(Stage::eCopy, ResourceUse::eStorageWrite, QueueType::eGraphics) == D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW &&
+					  MapBarrierSync(Stage::eCopy, ResourceUse::eCopyDst, QueueType::eGraphics) == D3D12_BARRIER_SYNC_COPY &&
+					  MapBarrierSync(Stage::eColorOutput, ResourceUse::eSampledRead, QueueType::eGraphics) == D3D12_BARRIER_SYNC_ALL &&
+					  MapBarrierSync(Stage::eIndirectFetch, ResourceUse::eIndirectArgs, QueueType::eGraphics) == D3D12_BARRIER_SYNC_EXECUTE_INDIRECT,
+		"a stage names a sync scope the barrier's own access bits cannot reach, so the scopes with a restricted access list are dropped and the universal one "
+		"answers when nothing survives");
+
+	static_assert(DeriveBarrierSync(ResourceUse::eAccelBuildInput) == D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE &&
+					  MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
+		"a build input is geometry read as a shader resource, which the compatibility table pairs with the build scope but with neither the copy nor the "
+		"emit-postbuild one, since those act on the structure and never on its inputs");
 
 	static_assert(MapBarrierSync(Stage::eAccelBuild, ResourceUse::eNone, QueueType::eGraphics) ==
 						  (D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |

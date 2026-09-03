@@ -49,13 +49,31 @@ namespace azo::rhi::test
 			return table;
 		}
 
+		[[nodiscard]] constexpr bool IsSpacing(const char c) noexcept
+		{
+			return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
+		}
+
+		[[nodiscard]] constexpr std::string_view Trimmed(std::string_view text) noexcept
+		{
+			while (!text.empty() && IsSpacing(text.front()))
+			{
+				text.remove_prefix(1);
+			}
+			while (!text.empty() && IsSpacing(text.back()))
+			{
+				text.remove_suffix(1);
+			}
+			return text;
+		}
+
 		[[nodiscard]] std::vector<std::string_view> Split(std::string_view rest)
 		{
 			std::vector<std::string_view> names;
 			while (!rest.empty())
 			{
 				const std::size_t comma		= rest.find(',');
-				const std::string_view head = rest.substr(0, comma);
+				const std::string_view head = Trimmed(rest.substr(0, comma));
 				if (!head.empty())
 				{
 					names.push_back(head);
@@ -67,6 +85,11 @@ namespace azo::rhi::test
 				rest.remove_prefix(comma + 1);
 			}
 			return names;
+		}
+
+		[[nodiscard]] bool NameRefersTo(const std::string_view name, const Backend & backend) noexcept
+		{
+			return name == backend.shortName || name == backend.canonicalName;
 		}
 
 		[[nodiscard]] const std::vector<Backend> & Selected()
@@ -86,7 +109,7 @@ namespace azo::rhi::test
 					const bool wanted = std::ranges::any_of(requested,
 						[&backend](std::string_view name)
 						{
-							return name == backend.shortName;
+							return NameRefersTo(name, backend);
 						});
 					if (wanted)
 					{
@@ -122,7 +145,7 @@ namespace azo::rhi::test
 				const bool known = std::ranges::any_of(AvailableBackends(),
 					[name](const Backend & backend)
 					{
-						return name == backend.shortName;
+						return NameRefersTo(name, backend);
 					});
 				if (!known)
 				{
@@ -148,16 +171,52 @@ namespace azo::rhi::test
 			return message;
 		}
 
+		std::string excluded;
+		for (const std::string_view name : Split(RequiredBackends()))
+		{
+			const bool selected = std::ranges::any_of(SelectedBackends(),
+				[name](const Backend & backend)
+				{
+					return NameRefersTo(name, backend);
+				});
+			if (!selected)
+			{
+				if (!excluded.empty())
+				{
+					excluded += ", ";
+				}
+				excluded += name;
+			}
+		}
+
+		if (!excluded.empty())
+		{
+			std::string message =
+				"AZOTH_RHI_TEST_REQUIRE_BACKENDS names backends AZOTH_RHI_TEST_BACKENDS leaves out, so they would be skipped rather than "
+				"required: " +
+				excluded + ". Selected:";
+			for (const Backend & backend : SelectedBackends())
+			{
+				message += ' ';
+				message += backend.shortName;
+			}
+			return message;
+		}
+
 		return {};
 	}
 
 	bool BackendIsRequired(const std::string_view shortName)
 	{
 		const std::vector<std::string_view> required = Split(RequiredBackends());
-		return std::ranges::any_of(required,
-			[shortName](std::string_view name)
+		return std::ranges::any_of(AvailableBackends(),
+			[shortName, &required](const Backend & backend)
 			{
-				return name == shortName;
+				return shortName == backend.shortName && std::ranges::any_of(required,
+															 [&backend](std::string_view name)
+															 {
+																 return NameRefersTo(name, backend);
+															 });
 			});
 	}
 
