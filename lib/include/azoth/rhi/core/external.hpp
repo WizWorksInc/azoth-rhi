@@ -13,7 +13,6 @@
 #include "azoth/rhi/core/flags.hpp"
 
 #include <array>
-
 #include <cstdint>
 
 namespace azo::rhi

@@ -40,7 +40,7 @@ namespace azo::rhi::metal
 				.adapterIndex			   = i,
 				.dedicatedVideoMemoryBytes = device->recommendedMaxWorkingSetSize(),
 				.unifiedMemoryArchitecture = device->hasUnifiedMemory(),
-				.name = nullptr,
+				.name					   = nullptr,
 			};
 		}
 
@@ -80,14 +80,14 @@ namespace azo::rhi::metal
 		};
 
 		DeviceCaps caps{};
-		caps.apiId		= MetalApi::id;
-		caps.apiVersion = ApiVersion{ .major = 3, .minor = 0 };
+		caps.apiId		  = MetalApi::id;
+		caps.apiVersion	  = ApiVersion{ .major = 3, .minor = 0 };
 		const bool apple3 = mtl->supportsFamily(MTL::GPUFamilyApple3);
 		const bool apple5 = mtl->supportsFamily(MTL::GPUFamilyApple5);
 		const bool apple7 = mtl->supportsFamily(MTL::GPUFamilyApple7);
 		const bool mac2	  = mtl->supportsFamily(MTL::GPUFamilyMac2);
 
-		caps.supportsTimelineSync	  = apple7 || mac2;
+		caps.supportsTimelineSync = apple7 || mac2;
 
 		const MTL::ArgumentBuffersTier argumentTier = mtl->argumentBuffersSupport();
 		caps.bindingTier							= argumentTier >= MTL::ArgumentBuffersTier2 ? BindingTier::eUnbounded : BindingTier::eDynamicIndexing;

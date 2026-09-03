@@ -55,41 +55,41 @@ namespace azo::rhi::metal_common
 	{
 		switch (format)
 		{
-		case Format::eR8UNorm:		  return MTL::PixelFormatR8Unorm;
-		case Format::eR8UInt:		  return MTL::PixelFormatR8Uint;
-		case Format::eR8SInt:		  return MTL::PixelFormatR8Sint;
-		case Format::eRG8UNorm:		  return MTL::PixelFormatRG8Unorm;
-		case Format::eRGBA8UNorm:	  return MTL::PixelFormatRGBA8Unorm;
-		case Format::eRGBA8Srgb:	  return MTL::PixelFormatRGBA8Unorm_sRGB;
-		case Format::eBGRA8UNorm:	  return MTL::PixelFormatBGRA8Unorm;
-		case Format::eBGRA8Srgb:	  return MTL::PixelFormatBGRA8Unorm_sRGB;
-		case Format::eR16UInt:		  return MTL::PixelFormatR16Uint;
-		case Format::eR16SInt:		  return MTL::PixelFormatR16Sint;
-		case Format::eR16Float:		  return MTL::PixelFormatR16Float;
-		case Format::eRG16Float:	  return MTL::PixelFormatRG16Float;
-		case Format::eRGBA16Float:	  return MTL::PixelFormatRGBA16Float;
-		case Format::eR11G11B10Float: return MTL::PixelFormatRG11B10Float;
-		case Format::eRGB10A2UNorm:	  return MTL::PixelFormatRGB10A2Unorm;
-		case Format::eRGB9E5Float:	  return MTL::PixelFormatRGB9E5Float;
-		case Format::eR32UInt:		  return MTL::PixelFormatR32Uint;
-		case Format::eR32SInt:		  return MTL::PixelFormatR32Sint;
-		case Format::eR32Float:		  return MTL::PixelFormatR32Float;
-		case Format::eRG32Float:	  return MTL::PixelFormatRG32Float;
-		case Format::eRGBA32Float:	  return MTL::PixelFormatRGBA32Float;
-		case Format::eD16UNorm:		  return MTL::PixelFormatDepth16Unorm;
-		case Format::eD24UNormS8UInt: return MTL::PixelFormatDepth24Unorm_Stencil8;
-		case Format::eD32Float:		  return MTL::PixelFormatDepth32Float;
-		case Format::eD32FloatS8UInt: return MTL::PixelFormatDepth32Float_Stencil8;
-		case Format::eBC1RGBAUNorm:	  return MTL::PixelFormatBC1_RGBA;
-		case Format::eBC1RGBASrgb:	  return MTL::PixelFormatBC1_RGBA_sRGB;
-		case Format::eBC3UNorm:		  return MTL::PixelFormatBC3_RGBA;
-		case Format::eBC3Srgb:		  return MTL::PixelFormatBC3_RGBA_sRGB;
-		case Format::eBC5UNorm:		  return MTL::PixelFormatBC5_RGUnorm;
-		case Format::eBC5SNorm:		  return MTL::PixelFormatBC5_RGSnorm;
-		case Format::eBC7UNorm:		  return MTL::PixelFormatBC7_RGBAUnorm;
-		case Format::eBC7Srgb:		  return MTL::PixelFormatBC7_RGBAUnorm_sRGB;
-		case Format::eBC6HUFloat:	  return MTL::PixelFormatBC6H_RGBUfloat;
-		case Format::eBC6HSFloat:	  return MTL::PixelFormatBC6H_RGBFloat;
+		case Format::eR8UNorm:					 return MTL::PixelFormatR8Unorm;
+		case Format::eR8UInt:					 return MTL::PixelFormatR8Uint;
+		case Format::eR8SInt:					 return MTL::PixelFormatR8Sint;
+		case Format::eRG8UNorm:					 return MTL::PixelFormatRG8Unorm;
+		case Format::eRGBA8UNorm:				 return MTL::PixelFormatRGBA8Unorm;
+		case Format::eRGBA8Srgb:				 return MTL::PixelFormatRGBA8Unorm_sRGB;
+		case Format::eBGRA8UNorm:				 return MTL::PixelFormatBGRA8Unorm;
+		case Format::eBGRA8Srgb:				 return MTL::PixelFormatBGRA8Unorm_sRGB;
+		case Format::eR16UInt:					 return MTL::PixelFormatR16Uint;
+		case Format::eR16SInt:					 return MTL::PixelFormatR16Sint;
+		case Format::eR16Float:					 return MTL::PixelFormatR16Float;
+		case Format::eRG16Float:				 return MTL::PixelFormatRG16Float;
+		case Format::eRGBA16Float:				 return MTL::PixelFormatRGBA16Float;
+		case Format::eR11G11B10Float:			 return MTL::PixelFormatRG11B10Float;
+		case Format::eRGB10A2UNorm:				 return MTL::PixelFormatRGB10A2Unorm;
+		case Format::eRGB9E5Float:				 return MTL::PixelFormatRGB9E5Float;
+		case Format::eR32UInt:					 return MTL::PixelFormatR32Uint;
+		case Format::eR32SInt:					 return MTL::PixelFormatR32Sint;
+		case Format::eR32Float:					 return MTL::PixelFormatR32Float;
+		case Format::eRG32Float:				 return MTL::PixelFormatRG32Float;
+		case Format::eRGBA32Float:				 return MTL::PixelFormatRGBA32Float;
+		case Format::eD16UNorm:					 return MTL::PixelFormatDepth16Unorm;
+		case Format::eD24UNormS8UInt:			 return MTL::PixelFormatDepth24Unorm_Stencil8;
+		case Format::eD32Float:					 return MTL::PixelFormatDepth32Float;
+		case Format::eD32FloatS8UInt:			 return MTL::PixelFormatDepth32Float_Stencil8;
+		case Format::eBC1RGBAUNorm:				 return MTL::PixelFormatBC1_RGBA;
+		case Format::eBC1RGBASrgb:				 return MTL::PixelFormatBC1_RGBA_sRGB;
+		case Format::eBC3UNorm:					 return MTL::PixelFormatBC3_RGBA;
+		case Format::eBC3Srgb:					 return MTL::PixelFormatBC3_RGBA_sRGB;
+		case Format::eBC5UNorm:					 return MTL::PixelFormatBC5_RGUnorm;
+		case Format::eBC5SNorm:					 return MTL::PixelFormatBC5_RGSnorm;
+		case Format::eBC7UNorm:					 return MTL::PixelFormatBC7_RGBAUnorm;
+		case Format::eBC7Srgb:					 return MTL::PixelFormatBC7_RGBAUnorm_sRGB;
+		case Format::eBC6HUFloat:				 return MTL::PixelFormatBC6H_RGBUfloat;
+		case Format::eBC6HSFloat:				 return MTL::PixelFormatBC6H_RGBFloat;
 		case Format::eUndefined:
 		case Format::eRGB32Float:
 		case Format::eX8D24UNorm:
@@ -105,15 +105,15 @@ namespace azo::rhi::metal_common
 	{
 		switch (format)
 		{
-		case Format::eR32Float:	   return MTL::VertexFormatFloat;
-		case Format::eRG32Float:   return MTL::VertexFormatFloat2;
-		case Format::eRGB32Float:  return MTL::VertexFormatFloat3;
-		case Format::eRGBA32Float: return MTL::VertexFormatFloat4;
-		case Format::eRG16Float:   return MTL::VertexFormatHalf2;
-		case Format::eRGBA16Float: return MTL::VertexFormatHalf4;
-		case Format::eRGBA8UNorm:  return MTL::VertexFormatUChar4Normalized;
-		case Format::eRG8UNorm:	   return MTL::VertexFormatUChar2Normalized;
-		case Format::eR32UInt:	   return MTL::VertexFormatUInt;
+		case Format::eR32Float:		return MTL::VertexFormatFloat;
+		case Format::eRG32Float:	return MTL::VertexFormatFloat2;
+		case Format::eRGB32Float:	return MTL::VertexFormatFloat3;
+		case Format::eRGBA32Float:	return MTL::VertexFormatFloat4;
+		case Format::eRG16Float:	return MTL::VertexFormatHalf2;
+		case Format::eRGBA16Float:	return MTL::VertexFormatHalf4;
+		case Format::eRGBA8UNorm:	return MTL::VertexFormatUChar4Normalized;
+		case Format::eRG8UNorm:		return MTL::VertexFormatUChar2Normalized;
+		case Format::eR32UInt:		return MTL::VertexFormatUInt;
 		case Format::eR32SInt:		return MTL::VertexFormatInt;
 		case Format::eR16Float:		return MTL::VertexFormatHalf;
 		case Format::eR16UInt:		return MTL::VertexFormatUShort;
@@ -123,7 +123,7 @@ namespace azo::rhi::metal_common
 		case Format::eR8SInt:		return MTL::VertexFormatChar;
 		case Format::eBGRA8UNorm:	return MTL::VertexFormatUChar4Normalized_BGRA;
 		case Format::eRGB10A2UNorm: return MTL::VertexFormatUInt1010102Normalized;
-		default:				   return MTL::VertexFormatInvalid;
+		default:					return MTL::VertexFormatInvalid;
 		}
 	}
 
@@ -422,7 +422,7 @@ namespace azo::rhi::metal_common
 		case PrimitiveTopology::eLineStrip:		return MTL::PrimitiveTypeLineStrip;
 		case PrimitiveTopology::eTriangleList:	return MTL::PrimitiveTypeTriangle;
 		case PrimitiveTopology::eTriangleStrip: return MTL::PrimitiveTypeTriangleStrip;
-		case PrimitiveTopology::ePatchList: return MTL::PrimitiveTypeTriangle;
+		case PrimitiveTopology::ePatchList:		return MTL::PrimitiveTypeTriangle;
 		}
 		return MTL::PrimitiveTypeTriangle;
 	}

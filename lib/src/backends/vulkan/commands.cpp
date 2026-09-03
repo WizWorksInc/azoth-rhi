@@ -371,7 +371,7 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc & , Error * error) noexcept
+	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc &, Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		if (api != VulkanApi::id)
@@ -381,7 +381,7 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc & , Error * error) noexcept
+	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc &, Error * error) noexcept
 	{
 		static_cast<void>(impl);
 		return Succeed(error);

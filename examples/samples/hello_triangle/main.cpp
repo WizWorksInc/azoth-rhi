@@ -232,10 +232,10 @@ int main(int argc, char ** argv)
 
 	const std::array shaders{
 		rhi::ShaderBinary{
-			.stage	= rhi::ShaderStage::eVertex,
-			.format = chosen.binaryFormat,
-			.data	= vertex->getBufferPointer(),
-			.size	= vertex->getBufferSize(),
+			.stage		= rhi::ShaderStage::eVertex,
+			.format		= chosen.binaryFormat,
+			.data		= vertex->getBufferPointer(),
+			.size		= vertex->getBufferSize(),
 			.entryPoint = chosen.keepsEntryPointName ? "vertexMain" : "main",
 		},
 		rhi::ShaderBinary{

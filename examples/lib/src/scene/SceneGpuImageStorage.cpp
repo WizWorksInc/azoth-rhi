@@ -193,13 +193,13 @@ namespace fw::scene
 
 		const azo::rhi::TextureHandle texture = m_config.device.CreateTexture(
 			azo::rhi::TextureDesc{
-				.type		 = type,
-				.format		 = format,
-				.width		 = first.width,
-				.height		 = first.height,
-				.mipLevels	 = mips,
-				.arrayLayers = layerCount,
-				.usage		 = usage,
+				.type			  = type,
+				.format			  = format,
+				.width			  = first.width,
+				.height			  = first.height,
+				.mipLevels		  = mips,
+				.arrayLayers	  = layerCount,
+				.usage			  = usage,
 				.allowFormatViews = mips > 1,
 				.debugName		  = name.c_str(),
 			},
@@ -363,7 +363,7 @@ namespace fw::scene
 		{
 			m_resampleArena = m_config.device.CreateDescriptorArena(
 				azo::rhi::DescriptorArenaDesc{
-					.type = azo::rhi::DescriptorArenaType::ePersistent,
+					.type			= azo::rhi::DescriptorArenaType::ePersistent,
 					.maxSets		= kResampleSets,
 					.maxDescriptors = kResampleSets * 3,
 					.debugName		= "fw.scene.resampleArena",

@@ -214,15 +214,15 @@ namespace azo::rhi::metal
 		const PresentMode presentMode = EffectivePresentMode(desc.presentMode);
 		layer->setDisplaySyncEnabled(presentMode != PresentMode::eImmediate);
 
-		auto swapchain		   = HostNew<MetalSwapchain>();
-		swapchain->object	   = PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
-		swapchain->owner	   = device;
-		swapchain->layer	   = layer;
-		swapchain->format	   = desc.preferredFormat;
-		swapchain->presentMode = presentMode;
-		swapchain->width	   = desc.width;
-		swapchain->height	   = desc.height;
-		swapchain->imageCount  = imageCount;
+		auto swapchain			  = HostNew<MetalSwapchain>();
+		swapchain->object		  = PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
+		swapchain->owner		  = device;
+		swapchain->layer		  = layer;
+		swapchain->format		  = desc.preferredFormat;
+		swapchain->presentMode	  = presentMode;
+		swapchain->width		  = desc.width;
+		swapchain->height		  = desc.height;
+		swapchain->imageCount	  = imageCount;
 		swapchain->backBuffer	  = device->textures.Store(MetalTextureSlot{ .format = swapchain->format, .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->backBufferView = device->textureViews.Store(MetalTextureViewSlot{ .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->imageAvailable = MetalCreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr);

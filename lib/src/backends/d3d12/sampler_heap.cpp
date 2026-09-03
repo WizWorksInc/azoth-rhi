@@ -150,7 +150,7 @@ namespace azo::rhi::d3d12
 		heapDesc.SizeInBytes	 = desc.size;
 		heapDesc.Properties.Type = MapHeapClass(desc.type);
 		heapDesc.Alignment		 = desc.alignment != 0 ? desc.alignment : D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-		heapDesc.Flags = desc.allowTextures ? D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES : D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
+		heapDesc.Flags			 = desc.allowTextures ? D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES : D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
 
 		if (!desc.exportableHandleTypes.Empty())
 		{

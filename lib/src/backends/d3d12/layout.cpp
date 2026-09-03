@@ -17,7 +17,7 @@ namespace azo::rhi::d3d12
 	{
 		switch (type)
 		{
-		case DescriptorType::eSampler: return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+		case DescriptorType::eSampler:				 return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
 		case DescriptorType::eCombinedImageSampler:	 return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		case DescriptorType::eUniformBuffer:
 		case DescriptorType::eDynamicUniformBuffer:	 return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -221,8 +221,8 @@ namespace azo::rhi::d3d12
 		for (std::size_t i = 0; i < desc.pushConstants.size(); ++i)
 		{
 			D3D12_ROOT_PARAMETER1 param{};
-			param.ParameterType	   = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-			param.ShaderVisibility = MapShaderVisibility(desc.pushConstants[i].stages);
+			param.ParameterType			   = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+			param.ShaderVisibility		   = MapShaderVisibility(desc.pushConstants[i].stages);
 			param.Constants.ShaderRegister = static_cast<UINT>(i);
 			param.Constants.RegisterSpace  = kPushConstantRegisterSpace;
 			param.Constants.Num32BitValues = (desc.pushConstants[i].size + 3u) / 4u;

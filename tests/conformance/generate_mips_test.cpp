@@ -526,6 +526,8 @@ namespace
 
 	TEST_P(GenerateMipsTest, IsRefusedWhenLevelZeroIsNotACopySource)
 	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
 		rhi::Error error{};
 		MipChain chain(Dev());
 		if (!Build(chain, kLevels, error))
@@ -549,6 +551,8 @@ namespace
 
 	TEST_P(GenerateMipsTest, IsRefusedWhenALevelBelowZeroIsNotACopyDestination)
 	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
 		rhi::Error error{};
 		MipChain chain(Dev());
 		if (!Build(chain, kLevels, error))

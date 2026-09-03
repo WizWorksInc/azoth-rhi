@@ -181,12 +181,12 @@ namespace
 
 			const rhi::TextureHandle texture = dev.CreateTexture(
 				rhi::TextureDesc{
-					.format	   = rhi::Format::eRGBA8Srgb,
-					.width	   = image.width,
-					.height	   = image.height,
-					.mipLevels = mips,
-					.usage = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eCopySrc |
-							 rhi::TextureUsage::eStorage,
+					.format			  = rhi::Format::eRGBA8Srgb,
+					.width			  = image.width,
+					.height			  = image.height,
+					.mipLevels		  = mips,
+					.usage			  = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eCopySrc |
+										rhi::TextureUsage::eStorage,
 					.allowFormatViews = true,
 					.debugName		  = "deccer.texture",
 				},
@@ -406,12 +406,11 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder()
-			.DebugName("deccer_cubes")
-			.GraphicsQueue()
-			.RequireFeature(rhi::DeviceFeature::eShaderDrawParameters)
-			.Build(backends.Registry(), backends.PreferredApis().first(1));
+	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
+													  .DebugName("deccer_cubes")
+													  .GraphicsQueue()
+													  .RequireFeature(rhi::DeviceFeature::eShaderDrawParameters)
+													  .Build(backends.Registry(), backends.PreferredApis().first(1));
 	if (!device)
 	{
 		return fw::ReportNoDevice(device.GetError());
@@ -577,7 +576,7 @@ int main(int argc, char ** argv)
 		rhi::VertexAttributeDesc{ .location = 2, .binding = 0, .format = rhi::Format::eRG32Float, .offset = offsetof(deccer::Vertex, uv) },
 	};
 
-	constexpr std::uint32_t kPushConstantBytes = sizeof(float) * 32;
+	constexpr std::uint32_t kPushConstantBytes				   = sizeof(float) * 32;
 	constexpr rhi::Flags<rhi::ShaderStage> kPushConstantStages = rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment;
 
 	const std::array pushConstants{ rhi::PushConstantRange{ .stages = kPushConstantStages, .size = kPushConstantBytes } };
@@ -844,7 +843,6 @@ int main(int argc, char ** argv)
 
 		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
 		capture.FramePresented();
-
 	}
 
 	static_cast<void>(queue.WaitIdle(error));

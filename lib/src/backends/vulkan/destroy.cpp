@@ -37,7 +37,7 @@ namespace azo::rhi::vulkan
 	bool VulkanCollectGarbage(void * impl, ResourceType type, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.collectGarbage");
-		auto * device = static_cast<VulkanDevice *>(impl);
+		auto * device		   = static_cast<VulkanDevice *>(impl);
 		const std::size_t kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{
@@ -61,7 +61,7 @@ namespace azo::rhi::vulkan
 	bool VulkanCollectGarbageTimeline(void * impl, ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.collectGarbage");
-		auto * device = static_cast<VulkanDevice *>(impl);
+		auto * device		   = static_cast<VulkanDevice *>(impl);
 		const std::size_t kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{

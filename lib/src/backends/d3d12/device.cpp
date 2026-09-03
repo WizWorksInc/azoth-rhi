@@ -94,11 +94,11 @@ namespace azo::rhi::d3d12
 		D3D12_FEATURE_DATA_D3D12_OPTIONS4 options4{};
 		const bool haveOptions4 = SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS4, &options4, sizeof(options4)));
 
-		caps.supportsTimelineSync	  = true;
-		caps.supportsTimestampQueries = true;
+		caps.supportsTimelineSync			= true;
+		caps.supportsTimestampQueries		= true;
 		caps.supportsTimestampWritesInScope = true;
-		caps.supportsAnisotropy = true;
-		caps.supportsRootDescriptors = false;
+		caps.supportsAnisotropy				= true;
+		caps.supportsRootDescriptors		= false;
 
 		caps.bindingTier					   = BindingTierFromResourceBindingTier(options.ResourceBindingTier);
 		caps.shaderBinaryFormat				   = ShaderBinaryFormat::eDxil;
@@ -125,13 +125,13 @@ namespace azo::rhi::d3d12
 		caps.conservativeRasterTier	  = ConservativeRasterTierFrom(options.ConservativeRasterizationTier);
 		caps.supportsEnhancedBarriers = haveOptions12 && options12.EnhancedBarriersSupported != FALSE;
 		caps.supportsDepthBounds	  = haveOptions2 && options2.DepthBoundsTestSupported != FALSE;
-		caps.supportsShaderFloat16 = haveOptions4 && options4.Native16BitShaderOpsSupported != FALSE;
+		caps.supportsShaderFloat16	  = haveOptions4 && options4.Native16BitShaderOpsSupported != FALSE;
 
 		caps.sparseTier			 = SparseTierFromTiledResourcesTier(options.TiledResourcesTier);
 		caps.sparseTileSizeBytes = caps.sparseTier > SparseTier::eNone ? kD3D12TileSizeBytes : 0;
 
-		caps.supportsIndependentBlend	= true;
-		caps.supportsTextureViewSwizzle = true;
+		caps.supportsIndependentBlend		   = true;
+		caps.supportsTextureViewSwizzle		   = true;
 		caps.supportsMultiPlanarFormats		   = true;
 		caps.supportsIndirectCount			   = true;
 		caps.supportsMultiDrawIndirect		   = true;
@@ -274,10 +274,10 @@ namespace azo::rhi::d3d12
 		support.depthStencilAttachment = has(D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL);
 		support.linearFiltering		   = has(D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE);
 		support.blendable			   = has(D3D12_FORMAT_SUPPORT1_BLENDABLE);
-		const bool usableResource = has(D3D12_FORMAT_SUPPORT1_TEXTURE1D) || has(D3D12_FORMAT_SUPPORT1_TEXTURE2D) || has(D3D12_FORMAT_SUPPORT1_TEXTURE3D) ||
-									has(D3D12_FORMAT_SUPPORT1_TEXTURECUBE) || has(D3D12_FORMAT_SUPPORT1_BUFFER);
-		support.copySrc			  = usableResource;
-		support.copyDst			  = usableResource;
+		const bool usableResource	   = has(D3D12_FORMAT_SUPPORT1_TEXTURE1D) || has(D3D12_FORMAT_SUPPORT1_TEXTURE2D) || has(D3D12_FORMAT_SUPPORT1_TEXTURE3D) ||
+										 has(D3D12_FORMAT_SUPPORT1_TEXTURECUBE) || has(D3D12_FORMAT_SUPPORT1_BUFFER);
+		support.copySrc				   = usableResource;
+		support.copyDst				   = usableResource;
 		return support;
 	}
 

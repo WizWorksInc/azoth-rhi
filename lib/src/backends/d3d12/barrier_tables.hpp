@@ -488,12 +488,13 @@ namespace azo::rhi::d3d12
 	static_assert(MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
 					  MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eCompute) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
 					  !AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics)),
-		"a scratch is where the build keeps its working data and the spec requires the unordered access state for it, which is not a state a structure is ever in");
+		"a scratch is where the build keeps its working data and the spec requires the unordered access state for it, which is not a state a structure is ever "
+		"in");
 
-	static_assert(DeriveBarrierSync(ResourceUse::eAccelBuildScratch) == D3D12_BARRIER_SYNC_ALL &&
-					  (MapBarrierSync(Stage::eAccelBuild, ResourceUse::eAccelBuildScratch, QueueType::eGraphics) & D3D12_BARRIER_SYNC_ALL) ==
-						  D3D12_BARRIER_SYNC_ALL &&
-					  (MapBarrierSync(Stage::eCompute, ResourceUse::eAccelBuildScratch, QueueType::eCompute) & D3D12_BARRIER_SYNC_ALL) == D3D12_BARRIER_SYNC_ALL,
+	static_assert(
+		DeriveBarrierSync(ResourceUse::eAccelBuildScratch) == D3D12_BARRIER_SYNC_ALL &&
+			(MapBarrierSync(Stage::eAccelBuild, ResourceUse::eAccelBuildScratch, QueueType::eGraphics) & D3D12_BARRIER_SYNC_ALL) == D3D12_BARRIER_SYNC_ALL &&
+			(MapBarrierSync(Stage::eCompute, ResourceUse::eAccelBuildScratch, QueueType::eCompute) & D3D12_BARRIER_SYNC_ALL) == D3D12_BARRIER_SYNC_ALL,
 		"the sync compatibility table pairs no acceleration-structure build scope with an unordered access, so the universal scope is the only one that both "
 		"covers a build and is legal beside the access it carries");
 

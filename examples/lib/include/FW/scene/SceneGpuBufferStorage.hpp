@@ -132,9 +132,9 @@ namespace fw::scene
 
 		[[nodiscard]] bool WriteAttribute(std::uint64_t offset, const Accessor & accessor, std::uint32_t elementSize) const;
 
-		static constexpr auto kGeometryBufferName	= "fw.scene.geometry";
-		static constexpr auto kTransformStorageName = "fw.scene.transforms";
-		static constexpr auto kMaterialStorageName	= "fw.scene.materials";
+		static constexpr auto kGeometryBufferName		  = "fw.scene.geometry";
+		static constexpr auto kTransformStorageName		  = "fw.scene.transforms";
+		static constexpr auto kMaterialStorageName		  = "fw.scene.materials";
 		static constexpr std::uint64_t kGeometryAlignment = 4;
 
 		SceneConfig m_config;

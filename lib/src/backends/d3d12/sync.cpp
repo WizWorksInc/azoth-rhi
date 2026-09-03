@@ -153,7 +153,8 @@ namespace azo::rhi::d3d12
 
 		if (desc.reuse == ListReuse::ePerListReset)
 		{
-			return FailValue<void *>(error, ErrorCode::eUnsupportedFeature,
+			return FailValue<void *>(error,
+				ErrorCode::eUnsupportedFeature,
 				"D3D12 command pools recycle every list through one allocator, so a single list cannot be begun again on its own");
 		}
 

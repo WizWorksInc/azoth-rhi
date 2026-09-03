@@ -103,7 +103,7 @@ namespace
 			rhi::BufferBarrier{
 				.buffer = target,
 				.before = { .use = rhi::ResourceUse::eDiscard },
-				.after  = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			},
 		};
 		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));

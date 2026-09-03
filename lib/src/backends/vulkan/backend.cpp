@@ -1230,10 +1230,10 @@ namespace azo::rhi
 
 			record->caps.supportsTimelineSync = static_cast<bool>(supported12.timelineSemaphore);
 
-			record->caps.reportsValidationMessageCounts = instance != nullptr && static_cast<bool>(instance->debugMessenger);
+			record->caps.reportsValidationMessageCounts	   = instance != nullptr && static_cast<bool>(instance->debugMessenger);
 			record->caps.supportsIndirectCount			   = drawIndirectCount;
-			record->caps.supportsScaledBlit = true;
-			record->caps.supportsDynamicBufferOffsets = true;
+			record->caps.supportsScaledBlit				   = true;
+			record->caps.supportsDynamicBufferOffsets	   = true;
 			record->caps.supportsMultiDrawIndirect		   = static_cast<bool>(enabledFeatures.multiDrawIndirect);
 			record->caps.supportsDrawIndirectFirstInstance = static_cast<bool>(enabledFeatures.drawIndirectFirstInstance);
 			record->caps.supportsShaderDrawParameters	   = static_cast<bool>(features11.shaderDrawParameters);
@@ -1241,23 +1241,23 @@ namespace azo::rhi
 			record->caps.bindingTier					   = bindless ? BindingTier::eUnbounded : BindingTier::eBasic;
 			record->caps.supportsPartiallyBoundDescriptors = bindless;
 			record->caps.supportsUpdateAfterBind		   = static_cast<bool>(supported12.descriptorBindingSampledImageUpdateAfterBind);
-			vk::TimeDomainEXT calibrationHostDomain	  = vk::TimeDomainEXT::eDevice;
-			record->caps.supportsTimestampCalibration = hasCalibratedTimestamps && VulkanCalibrationDomains(phys, record->dispatch, calibrationHostDomain);
-			record->caps.maxBindlessSampledTextures	  = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
-			record->caps.maxBindlessStorageBuffers	  = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
-			record->caps.maxSamplerDescriptors		  = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
-			record->caps.supportsTimestampQueries	  = static_cast<bool>(limits.timestampComputeAndGraphics);
-			record->caps.supportsTimestampWritesInScope = record->caps.supportsTimestampQueries;
-			record->caps.supportsAnisotropy				= static_cast<bool>(enabledFeatures.samplerAnisotropy);
-			record->caps.supportsIndependentBlend		= static_cast<bool>(enabledFeatures.independentBlend);
-			record->caps.supportsTextureViewSwizzle		= AdapterSupportsViewSwizzle(phys, record->dispatch);
-			record->caps.supportsMultiPlanarFormats		= AdapterSupportsMultiPlanarFormats(phys, record->dispatch);
+			vk::TimeDomainEXT calibrationHostDomain		   = vk::TimeDomainEXT::eDevice;
+			record->caps.supportsTimestampCalibration	   = hasCalibratedTimestamps && VulkanCalibrationDomains(phys, record->dispatch, calibrationHostDomain);
+			record->caps.maxBindlessSampledTextures		   = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
+			record->caps.maxBindlessStorageBuffers		   = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
+			record->caps.maxSamplerDescriptors			   = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
+			record->caps.supportsTimestampQueries		   = static_cast<bool>(limits.timestampComputeAndGraphics);
+			record->caps.supportsTimestampWritesInScope	   = record->caps.supportsTimestampQueries;
+			record->caps.supportsAnisotropy				   = static_cast<bool>(enabledFeatures.samplerAnisotropy);
+			record->caps.supportsIndependentBlend		   = static_cast<bool>(enabledFeatures.independentBlend);
+			record->caps.supportsTextureViewSwizzle		   = AdapterSupportsViewSwizzle(phys, record->dispatch);
+			record->caps.supportsMultiPlanarFormats		   = AdapterSupportsMultiPlanarFormats(phys, record->dispatch);
 			record->caps.supportsSamplerYcbcrConversion	   = static_cast<bool>(features11.samplerYcbcrConversion) && record->caps.supportsMultiPlanarFormats;
 			record->caps.supportsDepthBounds			   = static_cast<bool>(feats.depthBounds);
 			record->caps.supportsPipelineStatisticsQueries = static_cast<bool>(feats.pipelineStatisticsQuery);
 			record->caps.conservativeRasterTier			   = conservativeTier;
 			record->caps.shaderBinaryFormat				   = ShaderBinaryFormat::eSpirV;
-			record->caps.sparseTier = SparseTier::eNone;
+			record->caps.sparseTier						   = SparseTier::eNone;
 			if ((enabledFeatures.sparseBinding != 0u) && (enabledFeatures.sparseResidencyBuffer != 0u) && record->graphicsFamilyBindsSparse)
 			{
 				record->caps.sparseTier = SparseTier::eBuffers;
@@ -1517,8 +1517,8 @@ namespace azo::rhi
 				.copyDst				= has(vk::FormatFeatureFlagBits::eTransferDst),
 				.linearFiltering		= has(vk::FormatFeatureFlagBits::eSampledImageFilterLinear),
 				.blendable				= has(vk::FormatFeatureFlagBits::eColorAttachmentBlend),
-				.blitSrc = has(vk::FormatFeatureFlagBits::eBlitSrc),
-				.blitDst = has(vk::FormatFeatureFlagBits::eBlitDst),
+				.blitSrc				= has(vk::FormatFeatureFlagBits::eBlitSrc),
+				.blitDst				= has(vk::FormatFeatureFlagBits::eBlitDst),
 			};
 		}
 

@@ -86,6 +86,8 @@ namespace
 
 	TEST_P(RenderingScopeTest, TransfersAreRefusedInsideARenderingScope)
 	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
 		rhi::Error error{};
 		const Scene scene = MakeScene(Dev(), error);
 		ASSERT_TRUE(test::Ok(scene.IsValid(), error));
@@ -141,6 +143,8 @@ namespace
 
 	TEST_P(RenderingScopeTest, DispatchIsRefusedInsideARenderingScope)
 	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
 		rhi::Error error{};
 		const Scene scene = MakeScene(Dev(), error);
 		ASSERT_TRUE(test::Ok(scene.IsValid(), error));

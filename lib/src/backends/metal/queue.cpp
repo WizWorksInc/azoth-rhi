@@ -109,7 +109,7 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::CommandBuffer * commandBuffer = commandQueue->commandBuffer();
+		MTL::CommandBuffer * commandBuffer			  = commandQueue->commandBuffer();
 		commandBuffer->commit();
 		commandBuffer->waitUntilCompleted();
 		return Succeed(error);

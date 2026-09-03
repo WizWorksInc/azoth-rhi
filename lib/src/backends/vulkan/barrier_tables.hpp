@@ -341,7 +341,7 @@ namespace azo::rhi::vulkan
 		"reading and building a structure are the two accesses the structure bits exist for");
 
 	static_assert(MapBarrierAccess(ResourceUse::eAccelBuildScratch) ==
-						  (vk::AccessFlagBits2::eAccelerationStructureReadKHR | vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
+					  (vk::AccessFlagBits2::eAccelerationStructureReadKHR | vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
 		"the spec names the pair for a scratch, not the write bit alone, so naming half of it leaves the build's own reads of that memory unordered");
 
 	static_assert(MapBarrierStages(Flags<Stage>(), ResourceUse::eAccelBuildScratch) == vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,

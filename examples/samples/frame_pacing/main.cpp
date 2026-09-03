@@ -105,7 +105,7 @@ int main(int argc, char ** argv)
 	}
 
 	const rhi::BufferDesc scratchDesc{
-		.size = kScratchBytes,
+		.size	   = kScratchBytes,
 		.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eCopyDst) | rhi::BufferUsage::eStorage,
 		.memory	   = rhi::MemoryUsage::eGpuOnly,
 		.debugName = "example.frameScratch",

@@ -325,10 +325,10 @@ namespace azo::rhi
 		bool hasDedicatedComputeQueue  = false;
 		bool hasDedicatedTransferQueue = false;
 
-		std::uint32_t maxColorAttachments  = 0;
-		std::uint32_t maxRenderTargets	   = 0;
-		std::uint32_t maxDescriptorSets	   = 0;
-		std::uint32_t maxDescriptorsPerSet = 0;
+		std::uint32_t maxColorAttachments				= 0;
+		std::uint32_t maxRenderTargets					= 0;
+		std::uint32_t maxDescriptorSets					= 0;
+		std::uint32_t maxDescriptorsPerSet				= 0;
 		std::uint32_t maxBindlessSampledTextures		= 0;
 		std::uint32_t maxBindlessStorageBuffers			= 0;
 		std::uint32_t maxBindlessAccelerationStructures = 0;
@@ -369,12 +369,12 @@ namespace azo::rhi
 			case DeviceFeature::eDrawIndirectFirstInstance: return supportsDrawIndirectFirstInstance;
 			case DeviceFeature::eShaderDrawParameters:		return supportsShaderDrawParameters;
 			case DeviceFeature::eSparseResources:
-			case DeviceFeature::eSparseBuffers:			 return sparseTier >= SparseTier::eBuffers;
-			case DeviceFeature::eSparseTextures:		 return sparseTier >= SparseTier::eResidentTextures;
-			case DeviceFeature::eSparseVolumes:			 return sparseTier >= SparseTier::eResidentVolumes;
-			case DeviceFeature::eTextureViewSwizzle:	 return supportsTextureViewSwizzle;
-			case DeviceFeature::eMultiPlanarFormats:	 return supportsMultiPlanarFormats;
-			case DeviceFeature::eSamplerYcbcrConversion: return supportsSamplerYcbcrConversion;
+			case DeviceFeature::eSparseBuffers:				return sparseTier >= SparseTier::eBuffers;
+			case DeviceFeature::eSparseTextures:			return sparseTier >= SparseTier::eResidentTextures;
+			case DeviceFeature::eSparseVolumes:				return sparseTier >= SparseTier::eResidentVolumes;
+			case DeviceFeature::eTextureViewSwizzle:		return supportsTextureViewSwizzle;
+			case DeviceFeature::eMultiPlanarFormats:		return supportsMultiPlanarFormats;
+			case DeviceFeature::eSamplerYcbcrConversion:	return supportsSamplerYcbcrConversion;
 			}
 
 			return false;

@@ -153,9 +153,9 @@ namespace azo::rhi
 	{
 		InterfaceHeader header{ .byteSize = sizeof(ExternalSharingApi), .version = 1 };
 
-		bool (*exportBuffer)(void * impl, BufferHandle buffer, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept	 = nullptr;
-		bool (*exportHeap)(void * impl, HeapHandle heap, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept			 = nullptr;
-		bool (*exportTexture)(void * impl, TextureHandle texture, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept = nullptr;
+		bool (*exportBuffer)(void * impl, BufferHandle buffer, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept		= nullptr;
+		bool (*exportHeap)(void * impl, HeapHandle heap, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept				= nullptr;
+		bool (*exportTexture)(void * impl, TextureHandle texture, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept	= nullptr;
 		bool (*exportTimeline)(void * impl, TimelineHandle timeline, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept = nullptr;
 		bool (*exportBinarySemaphore)(
 			void * impl, BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept = nullptr;

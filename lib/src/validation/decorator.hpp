@@ -174,8 +174,8 @@ namespace azo::rhi::validation
 
 		CommandListBlocks blocks{};
 
-		bool recording	   = false;
-		bool rendering	   = false;
+		bool recording		 = false;
+		bool rendering		 = false;
 		bool graphicsBound	 = false;
 		bool computeBound	 = false;
 		bool rayTracingBound = false;

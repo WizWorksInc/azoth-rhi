@@ -136,12 +136,11 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder()
-			.DebugName("imgui_overlay")
-			.GraphicsQueue()
-			.Validation(rhi::ValidationMode::eDeveloper)
-			.Build(backends.Registry(), backends.PreferredApis().first(1));
+	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
+													  .DebugName("imgui_overlay")
+													  .GraphicsQueue()
+													  .Validation(rhi::ValidationMode::eDeveloper)
+													  .Build(backends.Registry(), backends.PreferredApis().first(1));
 	if (!device)
 	{
 		return fw::ReportNoDevice(device.GetError());

@@ -259,9 +259,9 @@ namespace fw::scene
 
 		buffer.handle = m_config.device.CreateBuffer(
 			azo::rhi::BufferDesc{
-				.size	= sizeBytes,
-				.stride = stride,
-				.usage	= usage,
+				.size		   = sizeBytes,
+				.stride		   = stride,
+				.usage		   = usage,
 				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
 				.persistentMap = true,
 				.debugName	   = debugName,

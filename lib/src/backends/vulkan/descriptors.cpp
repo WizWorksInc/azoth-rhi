@@ -15,10 +15,10 @@ namespace azo::rhi::vulkan
 	{
 		switch (type)
 		{
-		case DescriptorType::eSampler:				return vk::DescriptorType::eSampler;
-		case DescriptorType::eCombinedImageSampler: return vk::DescriptorType::eCombinedImageSampler;
-		case DescriptorType::eTextureSRV:			return vk::DescriptorType::eSampledImage;
-		case DescriptorType::eTextureUAV:			return vk::DescriptorType::eStorageImage;
+		case DescriptorType::eSampler:				 return vk::DescriptorType::eSampler;
+		case DescriptorType::eCombinedImageSampler:	 return vk::DescriptorType::eCombinedImageSampler;
+		case DescriptorType::eTextureSRV:			 return vk::DescriptorType::eSampledImage;
+		case DescriptorType::eTextureUAV:			 return vk::DescriptorType::eStorageImage;
 		case DescriptorType::eBufferSRV:
 		case DescriptorType::eBufferUAV:
 		case DescriptorType::eStorageBuffer:		 return vk::DescriptorType::eStorageBuffer;
@@ -158,7 +158,7 @@ namespace azo::rhi::vulkan
 	void * VulkanCreateDescriptorArena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createDescriptorArena");
-		auto * device = static_cast<VulkanDevice *>(impl);
+		auto * device				= static_cast<VulkanDevice *>(impl);
 		const std::uint32_t perType = desc.maxDescriptors > 0 ? desc.maxDescriptors : 1;
 		const std::array<vk::DescriptorPoolSize, 10> poolSizes{ { { vk::DescriptorType::eUniformBuffer, perType },
 			{ vk::DescriptorType::eStorageBuffer, perType },

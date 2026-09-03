@@ -207,8 +207,7 @@ namespace
 			const std::array<rhi::TextureBarrier, 1> toAttachment{ rhi::TextureBarrier{
 				.texture = backBuffer,
 				.before	 = {},
-				.after	 =
-					{ .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				.range	 = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error), error))
@@ -226,8 +225,7 @@ namespace
 
 			const std::array<rhi::TextureBarrier, 1> toPresent{ rhi::TextureBarrier{
 				.texture = backBuffer,
-				.before	 =
-					{ .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				.after	 = { .use = rhi::ResourceUse::ePresent },
 				.range	 = test::samples::WholeColorRange(),
 			} };

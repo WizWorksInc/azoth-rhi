@@ -154,10 +154,10 @@ int main(int argc, char ** argv)
 	{
 		textures.at(slot) = dev.CreateTexture(
 			rhi::TextureDesc{
-				.type	= rhi::TextureType::eTex2D,
-				.format = rhi::Format::eRGBA8UNorm,
-				.width	= 1,
-				.height = 1,
+				.type	   = rhi::TextureType::eTex2D,
+				.format	   = rhi::Format::eRGBA8UNorm,
+				.width	   = 1,
+				.height	   = 1,
 				.usage	   = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eColorAttachment,
 				.debugName = "bindless.texture",
 			},

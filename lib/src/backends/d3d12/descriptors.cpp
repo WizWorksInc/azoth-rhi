@@ -363,7 +363,7 @@ namespace azo::rhi::d3d12
 				default:
 					srv.Texture2D.MostDetailedMip = view->range.baseMip;
 					srv.Texture2D.MipLevels		  = view->range.mipCount;
-					srv.Texture2D.PlaneSlice = view->planeSlice;
+					srv.Texture2D.PlaneSlice	  = view->planeSlice;
 					break;
 				}
 				device->device->CreateShaderResourceView(texture->resource.Get(), &srv, cpu);

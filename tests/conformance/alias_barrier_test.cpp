@@ -125,6 +125,8 @@ namespace
 
 	TEST_P(AliasBarrierTest, IsRefusedInsideARenderingScope)
 	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
 		rhi::Error error{};
 		const rhi::TextureHandle target = Dev().CreateTexture(test::samples::ColorTarget2D(), error);
 		ASSERT_TRUE(test::Ok(target.IsValid(), error));

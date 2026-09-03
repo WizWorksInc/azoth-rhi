@@ -953,7 +953,7 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] vk::Pipeline ResolveComputePipeline(const VulkanDevice * device, ComputePipelineHandle handle) noexcept;
 	PipelineCacheHandle VulkanCreatePipelineCache(void * impl, const PipelineCacheDesc & desc, Error * error) noexcept;
 	bool VulkanGetPipelineCacheData(void * impl, PipelineCacheHandle cache, PipelineCacheData * out, Error * error) noexcept;
-	BinarySemaphoreHandle VulkanCreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & , Error * error) noexcept;
+	BinarySemaphoreHandle VulkanCreateBinarySemaphore(void * impl, const BinarySemaphoreDesc &, Error * error) noexcept;
 	bool VulkanQueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
 	bool VulkanSetResidencyPriority(void * impl, std::span<const ResidencyPriorityDesc> priorities, Error * error) noexcept;
 	bool VulkanCalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
@@ -976,8 +976,8 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] std::array<float, 4> UnpackLabelColor(std::uint32_t color) noexcept;
 	bool VulkanCmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
 	bool VulkanCmdEndDebugLabel(void * impl, Error * error) noexcept;
-	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc & , Error * error) noexcept;
-	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc & , Error * error) noexcept;
+	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc &, Error * error) noexcept;
+	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc &, Error * error) noexcept;
 	bool VulkanQueueBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
 	bool VulkanQueueEndDebugLabel(void * impl, Error * error) noexcept;
 	bool VulkanCmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;

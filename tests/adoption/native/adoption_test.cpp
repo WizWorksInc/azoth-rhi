@@ -937,6 +937,11 @@ namespace
 
 	TEST(VulkanConfigBlock, ABlockTooShortOrOfAnotherVersionIsRefusedRatherThanDefaulted)
 	{
+		if (const rhi::Result<rhi::UniqueDevice> plain = MakeDevice<rhi::VulkanApi>(); !plain.HasValue())
+		{
+			GTEST_SKIP() << "no Vulkan device on this machine: " << test::Describe(plain.GetError());
+		}
+
 		rhi::native::VulkanDeviceConfig truncated{};
 		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
 
@@ -993,6 +998,11 @@ namespace
 		}
 
 		rhi::Result<rhi::UniqueDevice> four = rhi::CreateDevice<rhi::Metal4Api>(plain);
+		if (!four.HasValue() && four.GetError().code == rhi::ErrorCode::eUnsupportedFeature)
+		{
+			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(four.GetError());
+		}
+
 		EXPECT_TRUE(four.HasValue()) << "a Metal 4 device carrying no configuration block was refused";
 	}
 
@@ -1209,7 +1219,8 @@ namespace
 		ASSERT_TRUE(native.HasValue()) << "a D3D12 device did not hand back its native handles";
 
 		const std::array expected{ std::pair{ rhi::QueueType::eGraphics, native.Value().graphicsQueue },
-			std::pair{ rhi::QueueType::eCompute, native.Value().computeQueue }, std::pair{ rhi::QueueType::eCopy, native.Value().copyQueue } };
+			std::pair{ rhi::QueueType::eCompute, native.Value().computeQueue },
+			std::pair{ rhi::QueueType::eCopy, native.Value().copyQueue } };
 
 		for (const auto [type, reported] : expected)
 		{

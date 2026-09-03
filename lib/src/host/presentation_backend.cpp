@@ -26,12 +26,12 @@ namespace azo::rhi
 		class HandlePassthroughBackend final : public PresentationBackend
 		{
 		public:
-			bool InitInstanceLoader(SurfaceSource & ) override
+			bool InitInstanceLoader(SurfaceSource &) override
 			{
 				return true;
 			}
 
-			SurfaceHandle CreateSurface(SurfaceSource & source, Device ) override
+			SurfaceHandle CreateSurface(SurfaceSource & source, Device) override
 			{
 				Payload payload{};
 				const SurfaceRequest request{

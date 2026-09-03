@@ -152,10 +152,10 @@ namespace deccer
 		}
 
 		const rhi::ShaderBinary binary{
-			.stage	= stage,
-			.format = m_format,
-			.data	= code->getBufferPointer(),
-			.size	= code->getBufferSize(),
+			.stage			 = stage,
+			.format			 = m_format,
+			.data			 = code->getBufferPointer(),
+			.size			 = code->getBufferSize(),
 			.entryPoint		 = m_keepsEntryPointName ? entryPoint : "main",
 			.threadgroupSize = stage == rhi::ShaderStage::eCompute ? rhi::ThreadgroupSize{ .x = threadgroup.x, .y = threadgroup.y, .z = threadgroup.z }
 																   : rhi::ThreadgroupSize{},

@@ -354,9 +354,9 @@ namespace azo::rhi::imgui
 
 		m_pipeline = m_device.CreateGraphicsPipeline(
 			GraphicsPipelineDesc{
-				.layout		 = m_pipelineLayout,
-				.shaders	 = stages,
-				.vertexInput = &vertexInput,
+				.layout		   = m_pipelineLayout,
+				.shaders	   = stages,
+				.vertexInput   = &vertexInput,
 				.raster		   = { .cullMode = CullMode::eNone },
 				.depthStencil  = { .depthTestEnable = false, .depthWriteEnable = false },
 				.blend		   = blend,

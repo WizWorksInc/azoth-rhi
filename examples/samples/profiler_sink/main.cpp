@@ -67,7 +67,7 @@ namespace
 			Latest(m_counters, name, value);
 		}
 
-		void GpuAllocate(const void * , const std::uint64_t size, const rhi::CString pool) override
+		void GpuAllocate(const void *, const std::uint64_t size, const rhi::CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++m_allocations;
@@ -75,7 +75,7 @@ namespace
 			m_pool = pool;
 		}
 
-		void GpuFree(const void * , const rhi::CString ) override
+		void GpuFree(const void *, const rhi::CString) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++m_frees;

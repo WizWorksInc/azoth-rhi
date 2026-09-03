@@ -707,12 +707,12 @@ namespace azo::rhi::test::minimal
 			Object * device	 = New(Presenting ? PresentingDeviceObject() : HeadlessDeviceObject(), Presenting);
 			device->instance = static_cast<Object *>(instanceImpl);
 
-			device->caps.apiId					  = Presenting ? PresentingApi::id : HeadlessApi::id;
-			device->caps.graphicsQueueCount		  = 1;
-			device->caps.computeQueueCount		  = 1;
-			device->caps.copyQueueCount			  = 1;
-			device->adapter.apiId				  = device->caps.apiId;
-			device->adapter.name				  = Presenting ? "Minimal presenting fixture" : "Minimal headless fixture";
+			device->caps.apiId				= Presenting ? PresentingApi::id : HeadlessApi::id;
+			device->caps.graphicsQueueCount = 1;
+			device->caps.computeQueueCount	= 1;
+			device->caps.copyQueueCount		= 1;
+			device->adapter.apiId			= device->caps.apiId;
+			device->adapter.name			= Presenting ? "Minimal presenting fixture" : "Minimal headless fixture";
 
 			return device;
 		}

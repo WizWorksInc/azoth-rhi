@@ -10,7 +10,6 @@
 #pragma once
 
 #include "azoth/rhi/core/c_string.hpp"
-
 #include "azoth/rhi/core/version_numbers.hpp"
 
 #include <array>

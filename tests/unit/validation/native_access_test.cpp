@@ -345,9 +345,9 @@ namespace
 		ASSERT_TRUE(backBuffer.IsValid()) << "the swapchain handed out no back buffer";
 
 		const std::array touched{ rhi::NativeTouchedTexture{ .texture = backBuffer,
-			.access													 = rhi::NativeMutationAccess::eReadWrite,
-			.range													 = test::samples::WholeColorRange(),
-			.finalState												 = ShaderReadState() } };
+			.access													  = rhi::NativeMutationAccess::eReadWrite,
+			.range													  = test::samples::WholeColorRange(),
+			.finalState												  = ShaderReadState() } };
 
 		{
 			test::Recording moving(Dev());
@@ -366,10 +366,8 @@ namespace
 		test::Recording next(Dev());
 		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
 
-		const std::array stale{ rhi::TextureBarrier{ .texture = backBuffer,
-			.before											 = UntouchedState(),
-			.after											 = CopyDestinationState(),
-			.range											 = test::samples::WholeColorRange() } };
+		const std::array stale{ rhi::TextureBarrier{
+			.texture = backBuffer, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
 
 		rhi::Error staleError{};
 		EXPECT_FALSE(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, staleError))

@@ -280,8 +280,8 @@ namespace azo::rhi::vulkan
 		case vk::Result::eErrorOutOfDateKHR:   return SwapchainStatus::eOutOfDate;
 		case vk::Result::eErrorSurfaceLostKHR: return SwapchainStatus::eSurfaceLost;
 		case vk::Result::eTimeout:
-		case vk::Result::eNotReady: return SwapchainStatus::eTimeout;
-		default:					return SwapchainStatus::eOk;
+		case vk::Result::eNotReady:			   return SwapchainStatus::eTimeout;
+		default:							   return SwapchainStatus::eOk;
 		}
 	}
 

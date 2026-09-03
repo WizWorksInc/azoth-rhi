@@ -56,7 +56,7 @@ namespace
 	class ZoneCounter final : public rhi::Profiler
 	{
 	public:
-		void BeginZone(const rhi::ZoneLocation & ) override
+		void BeginZone(const rhi::ZoneLocation &) override
 		{
 			m_zones.fetch_add(1, std::memory_order_relaxed);
 		}

@@ -84,7 +84,7 @@ namespace azo::rhi::metal4
 		encoder->setArgumentTable(list->argumentTable.get(), MTL::RenderStageVertex | MTL::RenderStageFragment);
 		list->renderEncoder = NS::RetainPtr(encoder);
 		++list->encoderEpoch;
-		list->scopeDrew		= false;
+		list->scopeDrew = false;
 
 		FlushPendingBarrier(list, encoder);
 

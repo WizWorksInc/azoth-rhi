@@ -56,7 +56,7 @@ DerivePointerAlignment: false
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
 EnumTrailingComma: Leave
-FixNamespaceComments: true
+FixNamespaceComments: false
 IncludeBlocks: Regroup
 IncludeCategories:
   # Project .h headers.

@@ -1624,8 +1624,7 @@ namespace azo::rhi::validation
 
 			if (after.use.Bits() == 0u && !releasing)
 			{
-				return self->validator->Fail(
-					error, "a barrier names no after-state, so it does not say what the resource is being moved into");
+				return self->validator->Fail(error, "a barrier names no after-state, so it does not say what the resource is being moved into");
 			}
 
 			return true;

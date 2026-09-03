@@ -81,9 +81,9 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array released{ rhi::BufferBarrier{ .buffer = buffer,
-				.before					   = kNothing,
-				.after					   = kNothing,
-				.ownership				   = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
+				.before											   = kNothing,
+				.after											   = kNothing,
+				.ownership										   = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
 
 			EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = released }, error), error))
 				<< "a release naming no after-state was refused, which is the half of the pair that cannot answer it";
@@ -107,15 +107,15 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array released{ rhi::BufferBarrier{ .buffer = buffer,
-				.before					   = kNothing,
-				.after					   = kNothing,
-				.ownership				   = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
+				.before											   = kNothing,
+				.after											   = kNothing,
+				.ownership										   = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
 			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = released }, error), error));
 
 			const std::array acquired{ rhi::BufferBarrier{ .buffer = buffer,
-				.before					   = kNothing,
-				.after					   = kNothing,
-				.ownership				   = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } } };
+				.before											   = kNothing,
+				.after											   = kNothing,
+				.ownership										   = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } } };
 
 			rhi::Error acquireError{};
 			EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = acquired }, acquireError))

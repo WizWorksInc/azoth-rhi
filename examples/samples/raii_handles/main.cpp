@@ -70,7 +70,7 @@ namespace
 		static constexpr std::array kQueues{ rhi::QueueRequest{ .type = rhi::QueueType::eGraphics } };
 
 		rhi::Result<rhi::raii::Device> device = selection.CreateDevice(rhi::DeviceDesc{
-			.queues = kQueues,
+			.queues			  = kQueues,
 			.requireSwapchain = false,
 			.debugName		  = "raii_handles",
 		});

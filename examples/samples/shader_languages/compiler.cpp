@@ -148,10 +148,10 @@ namespace langs
 		const std::vector<std::uint8_t> & stored = m_session->files.back();
 
 		return rhi::ShaderBinary{
-			.stage	= rhi::ShaderStage::eCompute,
-			.format = m_format,
-			.data	= stored.data(),
-			.size	= stored.size(),
+			.stage			 = rhi::ShaderStage::eCompute,
+			.format			 = m_format,
+			.data			 = stored.data(),
+			.size			 = stored.size(),
 			.entryPoint		 = entryPoint,
 			.threadgroupSize = rhi::ThreadgroupSize{ .x = threadgroup.x, .y = threadgroup.y, .z = threadgroup.z },
 		};
@@ -204,10 +204,10 @@ namespace langs
 		}
 
 		const rhi::ShaderBinary binary{
-			.stage	= rhi::ShaderStage::eCompute,
-			.format = m_format,
-			.data	= code->getBufferPointer(),
-			.size	= code->getBufferSize(),
+			.stage			 = rhi::ShaderStage::eCompute,
+			.format			 = m_format,
+			.data			 = code->getBufferPointer(),
+			.size			 = code->getBufferSize(),
 			.entryPoint		 = m_keepsEntryPointName ? entryPoint : "main",
 			.threadgroupSize = rhi::ThreadgroupSize{ .x = threadgroup.x, .y = threadgroup.y, .z = threadgroup.z },
 		};

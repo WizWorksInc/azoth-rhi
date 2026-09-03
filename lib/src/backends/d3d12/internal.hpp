@@ -438,7 +438,7 @@ namespace azo::rhi::d3d12
 		ValidationMode validation = ValidationMode::eReleaseLight;
 		bool debugNames			  = true;
 		bool debugLabels		  = true;
-		std::uint32_t deviceTag = 0;
+		std::uint32_t deviceTag	  = 0;
 
 		DeviceCaps caps{};
 		AdapterInfo adapterInfo{};
@@ -744,7 +744,7 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] BinarySemaphoreSlot * ResolveBinarySemaphore(D3D12Device * device, BinarySemaphoreHandle handle) noexcept;
 	TimelineHandle D3D12CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept;
 	bool D3D12DestroyTimeline(D3D12Device * device, RawHandle handle, Error * error) noexcept;
-	BinarySemaphoreHandle D3D12CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & , Error * error) noexcept;
+	BinarySemaphoreHandle D3D12CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc &, Error * error) noexcept;
 	bool D3D12DestroyBinarySemaphore(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	void * D3D12CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
 	void * D3D12CommandPoolAllocate(void * impl, CString debugName, Error * error) noexcept;
