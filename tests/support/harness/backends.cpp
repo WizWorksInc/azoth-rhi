@@ -69,6 +69,8 @@ namespace azo::rhi::test
 			GTEST_SKIP() << GetParam().displayName << " is not among the backends AZOTH_RHI_TEST_BACKENDS asked for";
 		}
 
+		ClearValidationMessageLog();
+
 		m_harness = std::make_unique<DeviceHarness>(GetParam(), MakeDeviceDesc());
 		if (m_harness->IsValid())
 		{

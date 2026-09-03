@@ -203,10 +203,22 @@ namespace azo::rhi::d3d12
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no scaled blit; resample through azoth::rhi-utils instead");
 	}
 
-	bool D3D12CmdGenerateMips(void * impl, [[maybe_unused]] TextureHandle texture, Error * error) noexcept
+	bool D3D12CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.generateMips");
-		static_cast<void>(impl);
+
+		auto * list				 = static_cast<D3D12CommandList *>(impl);
+		const TextureSlot * slot = ResolveTexture(list->owner, texture);
+		if (slot == nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidHandle, "generateMips with an invalid or stale texture handle");
+		}
+
+		// A chain of one is already whole, so there is nothing to build and nothing to refuse, which is what every other backend answers here.
+		if (slot->mipLevels <= 1)
+		{
+			return Succeed(error);
+		}
 
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no scaled blit to build a mip chain from; use azoth::rhi-utils instead");
 	}

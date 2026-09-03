@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -181,4 +182,61 @@ namespace azo::rhi::test
 		return nullptr;
 	}
 
+	namespace
+	{
+
+		constexpr std::size_t kValidationLogLimit = 16;
+
+		[[nodiscard]] std::mutex & ValidationLogMutex()
+		{
+			static std::mutex mutex;
+			return mutex;
+		}
+
+		[[nodiscard]] std::vector<std::string> & ValidationLogLines()
+		{
+			static std::vector<std::string> lines;
+			return lines;
+		}
+
+	}
+
+	void RecordValidationMessage(const ValidationMessageSeverity severity, const char * message, void *) noexcept
+	{
+		if (severity != ValidationMessageSeverity::eError || message == nullptr)
+		{
+			return;
+		}
+
+		const std::lock_guard<std::mutex> held(ValidationLogMutex());
+		std::vector<std::string> & lines = ValidationLogLines();
+		if (lines.size() < kValidationLogLimit)
+		{
+			lines.emplace_back(message);
+		}
+	}
+
+	std::string ValidationMessageLog()
+	{
+		const std::lock_guard<std::mutex> held(ValidationLogMutex());
+		const std::vector<std::string> & lines = ValidationLogLines();
+		if (lines.empty())
+		{
+			return {};
+		}
+
+		std::string joined = "\nvalidation errors recorded by any device in this process:";
+		for (const std::string & line : lines)
+		{
+			joined += "\n  ";
+			joined += line;
+		}
+		return joined;
+	}
+
+	void ClearValidationMessageLog()
+	{
+		const std::lock_guard<std::mutex> held(ValidationLogMutex());
+		ValidationLogLines().clear();
+	}
 }

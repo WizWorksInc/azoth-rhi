@@ -65,6 +65,12 @@ namespace azo::rhi::test
 
 	[[nodiscard]] DeviceDesc DefaultDeviceDesc() noexcept;
 
+	void RecordValidationMessage(ValidationMessageSeverity severity, const char * message, void * userData) noexcept;
+
+	[[nodiscard]] std::string ValidationMessageLog();
+
+	void ClearValidationMessageLog();
+
 	class DeviceHarness final
 	{
 	public:
@@ -182,7 +188,7 @@ namespace azo::rhi::test
 	{                                                                                                                                                          \
 		if ((device).GetCaps().reportsValidationMessageCounts)                                                                                                 \
 		{                                                                                                                                                      \
-			EXPECT_EQ((device).GetValidationMessageCounts().errors, 0u) << what;                                                                               \
+			EXPECT_EQ((device).GetValidationMessageCounts().errors, 0u) << what << ::azo::rhi::test::ValidationMessageLog();                                   \
 		}                                                                                                                                                      \
 	} while (false)
 

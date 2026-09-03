@@ -27,7 +27,8 @@ namespace azo::rhi::test
 	DeviceDesc DefaultDeviceDesc() noexcept
 	{
 		DeviceDesc desc{};
-		desc.validation = kValidationMode;
+		desc.validation					= kValidationMode;
+		desc.nativeValidation.onMessage = &RecordValidationMessage;
 
 		desc.requireSwapchain = false;
 
