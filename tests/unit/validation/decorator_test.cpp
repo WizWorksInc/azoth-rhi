@@ -50,7 +50,7 @@ namespace
 			const test::DeviceHarness device{ backend, desc };
 			if (!device.IsValid())
 			{
-				declinedForAnotherReason += device.GetError().code != rhi::ErrorCode::eNoCompatibleAdapter ? 1 : 0;
+				declinedForAnotherReason += test::NoAdapterHere(device.GetError()) ? 0 : 1;
 				continue;
 			}
 

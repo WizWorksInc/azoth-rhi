@@ -119,6 +119,11 @@ namespace azo::rhi::test
 		return ::testing::AssertionSuccess();
 	}
 
+	[[nodiscard]] constexpr bool NoAdapterHere(const Error & error) noexcept
+	{
+		return error.code == ErrorCode::eNoCompatibleAdapter;
+	}
+
 	template <class T>
 	[[nodiscard]] ::testing::AssertionResult IsResetOnFailure(const T & value, const T & fresh)
 	{

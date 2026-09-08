@@ -12,6 +12,7 @@
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/selection.hpp"
 
+#include "conformance/matchers.hpp"
 #include "harness/environment.hpp"
 
 #include <algorithm>
@@ -83,7 +84,7 @@ namespace azo::rhi::test
 
 		if (mustBeThere)
 		{
-			if (error.code == ErrorCode::eNoCompatibleAdapter)
+			if (test::NoAdapterHere(error))
 			{
 				GTEST_SKIP() << GetParam().displayName << " is required by AZOTH_RHI_TEST_REQUIRE_BACKENDS but no adapter on this machine can back it: " << why;
 			}

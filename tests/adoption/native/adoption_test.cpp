@@ -1041,7 +1041,7 @@ namespace
 		}
 
 		rhi::Result<rhi::UniqueDevice> four = MakeDevice<rhi::Metal4Api>();
-		if (!four.HasValue() && four.GetError().code == rhi::ErrorCode::eUnsupportedFeature)
+		if (!four.HasValue() && test::NoAdapterHere(four.GetError()))
 		{
 			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(four.GetError());
 		}
