@@ -243,9 +243,7 @@ namespace azo::rhi::d3d12
 				};
 			}
 
-			// An acquire's before-state describes what the other device left behind, not anything this one recorded, and the layout a shared texture crosses in
-			// is the common one. Claiming the caller's before-layout here would assert a transition this device never made. The release is the mirror: the
-			// texture has to leave in the layout the far side will find it in.
+			// A shared texture crosses in the common layout, so claiming the caller's would assert a transition this device never made.
 			const bool crossesIn  = t.ownership.op == OwnershipOp::eAcquireFromExternal;
 			const bool crossesOut = t.ownership.op == OwnershipOp::eReleaseToExternal;
 
