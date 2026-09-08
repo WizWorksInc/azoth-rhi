@@ -116,8 +116,8 @@ if (NOT SDL3_FOUND)
     return()
 endif ()
 
-# Creating the Vulkan surface is the one part that cannot be written without naming Vulkan's types, so
-# it sits under a native/ directory, which is where the API boundary check permits them.
+# Creating the Vulkan surface cannot be written without naming Vulkan's types, so it sits under a
+# native/ directory. That matches lib/include's layout, though the boundary check scans only there.
 add_library(AzothRHIExamplesSdl3 STATIC
         src/platform/Sdl3Window.cpp
         src/platform/native/Sdl3Natives.cpp)

@@ -12,23 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The Dear ImGui renderer, which is the half of an ImGui backend that belongs to a graphics API.
-#
-# Optional and off by default, because ImGui is a dependency this library does not otherwise have and a
-# consumer that wants no interface should not be made to carry one.
-#
-# The ImGui itself is yours. This links a target you already have without fetching one, because an
-# application almost always has an ImGui already, and a second copy in the same process is two contexts,
-# two font atlases and one very confusing afternoon. Point AZOTH_RHI_IMGUI_TARGET at whatever yours is
-# called if it is not the usual name.
+# The Dear ImGui renderer, the half of an ImGui backend that belongs to a graphics API. Off by
+# default, since a consumer wanting no interface should carry none. The ImGui itself is yours: this
+# links a target you already have, because a second copy in one process is two contexts and two font
+# atlases. Point AZOTH_RHI_IMGUI_TARGET at whatever yours is called.
 
 set(AZOTH_RHI_IMGUI_TARGET "imgui::imgui" CACHE STRING "The Dear ImGui target azoth::rhi-imgui links")
 set(AZOTH_RHI_FETCH_IMGUI OFF CACHE BOOL "Fetch Dear ImGui when the host provides none. Off so a consumer never ends up with two")
 set(AZOTH_RHI_IMGUI_TAG "v1.92.4" CACHE STRING "Dear ImGui tag fetched when AZOTH_RHI_FETCH_IMGUI is on")
 mark_as_advanced(AZOTH_RHI_IMGUI_TARGET AZOTH_RHI_IMGUI_TAG)
 
-# Three ways in, cheapest first, and the fetch only when it was asked for. Same shape as the sample
-# dependencies, judged by whether the target exists and not by a _FOUND of its own.
+# Three ways in, cheapest first. The fetch only when it was asked for, judged by whether the target
+# exists and not by a _FOUND of its own.
 if(NOT TARGET ${AZOTH_RHI_IMGUI_TARGET})
     find_package(imgui QUIET CONFIG)
 endif()
@@ -44,8 +39,8 @@ if(NOT TARGET ${AZOTH_RHI_IMGUI_TARGET} AND AZOTH_RHI_FETCH_IMGUI)
     )
     FetchContent_MakeAvailable(imgui)
 
-    # ImGui ships no CMakeLists, so a fetched one is wrapped here. Only the core: the platform backends are
-    # the consumer's choice and the renderer backend is what this library replaces.
+    # ImGui ships no CMakeLists, so a fetched one is wrapped here. Core only: platform backends are
+    # the consumer's choice and the renderer is ours.
     add_library(azoth_rhi_imgui_vendored STATIC
             ${imgui_SOURCE_DIR}/imgui.cpp
             ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -66,14 +61,10 @@ if(NOT TARGET ${AZOTH_RHI_IMGUI_TARGET})
     return()
 endif()
 
-# The shader compiles here at build time and is embedded, the same way the utility target's is, so this
-# links no shader compiler and is skipped, not degraded when there is none to compile with.
-#
-# Four sources say the same thing. Slang is the default because one file reaches all three targets, which
-# means one thing to keep correct. The other three are there for a consumer who would rather not add Slang
-# to their build, or who wants the shader in a language their own already speaks: GLSL for Vulkan, HLSL for
-# Direct3D 12, MSL for Metal. Whichever is chosen, the binaries are the same shape and the renderer does not
-# know which compiler produced them.
+# The shader compiles here at build time and is embedded, so this links no shader compiler and is
+# skipped, not degraded when there is none to compile with. Slang is the default because one file
+# reaches all three targets. The other three are for a consumer who will not add Slang, or who
+# wants GLSL, HLSL or MSL.
 set(AZOTH_RHI_IMGUI_SHADER_LANGUAGE "slang" CACHE STRING
         "What the imgui shader is compiled from: slang, or native for each backend's own language")
 set_property(CACHE AZOTH_RHI_IMGUI_SHADER_LANGUAGE PROPERTY STRINGS slang native)
@@ -118,10 +109,8 @@ if(AZOTH_RHI_IMGUI_SHADER_LANGUAGE STREQUAL "slang")
         return()
     endif()
 else()
-    # One compiler per language, each the one that language is normally built by, and each found the way the
-    # shader_languages sample finds it. A target whose compiler is missing loses its shader, not
-    # failing the build, the same as a backend that was never enabled: the renderer refuses to create against
-    # a backend it holds no binary for.
+    # One compiler per language, found the way the shader_languages sample finds them. A target
+    # whose compiler is missing loses its shader, not the build.
     find_program(AZOTH_RHI_GLSLC NAMES glslc
             HINTS $ENV{VULKAN_SDK}/Bin $ENV{VULKAN_SDK}/bin
             DOC "The Shaderc GLSL compiler, used when the imgui shader is built from GLSL")
@@ -166,10 +155,8 @@ file(MAKE_DIRECTORY ${_generated})
 set(_headers "")
 set(_entry_definitions "")
 
-# Compiles one stage for one target and embeds it, whichever language and compiler that combination uses.
-# The entry point name is recorded, not assumed, because it is a property of the compiler that ran:
-# glslc renames every entry point to main, slangc does the same for the two targets that carry one container
-# per entry, and dxc and Apple's metal keep whatever the source called it.
+# Compiles one stage for one target and embeds it. The entry point name is recorded, not assumed,
+# because it is a property of the compiler that ran.
 function(_azoth_rhi_imgui_shader target stage entry comment)
     set(_binary ${CMAKE_CURRENT_BINARY_DIR}/imgui_${stage}.${target})
     set(_header ${_generated}/imgui_${stage}_${target}.hpp)
@@ -202,8 +189,8 @@ foreach(_target IN LISTS _shader_targets)
                 set(_profile -profile sm_6_0)
             endif()
 
-            # Slang renames the entry point to main for a container that carries one, which spirv and dxil
-            # are and a Metal library is not.
+            # Slang renames the entry point to main for a container that carries one, which spirv
+            # and dxil are and a Metal library is not.
             set(_entry main)
             if(_target STREQUAL "metallib")
                 set(_entry ${_stage}Main)
@@ -216,8 +203,8 @@ foreach(_target IN LISTS _shader_targets)
         elseif(_target STREQUAL "spirv")
             set(_source ${CMAKE_CURRENT_SOURCE_DIR}/shaders/imgui.glsl)
 
-            # Both stages live in the one file behind a define, GLSL having no way to carry two entry points
-            # and glslc no way to pick between them. It names the survivor main either way.
+            # Both stages live in one file behind a define, GLSL having no way to carry two entry
+            # points and glslc no way to pick between them.
             set(_define "")
             if(_stage STREQUAL "vertex")
                 set(_define -DAZOTH_RHI_IMGUI_VERTEX_STAGE)
@@ -234,18 +221,16 @@ foreach(_target IN LISTS _shader_targets)
                 set(_profile ps_6_0)
             endif()
 
-            # The vk:: attributes beside each register() are what let the same file reach SPIR-V. Compiling
-            # for DXIL warns about every one of them, which is noise, not news.
+            # The vk:: attributes beside each register() are what let the same file reach SPIR-V.
+            # Compiling for DXIL warns about every one, which is noise.
             _azoth_rhi_imgui_shader(${_target} ${_stage} ${_stage}Main "Compiling imgui.hlsl ${_stage} to dxil"
                     ${AZOTH_RHI_DXC} -T ${_profile} -E ${_stage}Main -Wno-ignored-attributes -Fo ${_binary} ${_source})
 
         elseif(_target STREQUAL "metallib")
             set(_source ${CMAKE_CURRENT_SOURCE_DIR}/shaders/imgui.metal)
 
-            # Compiled once per stage, so the generated headers are the same shape whatever the language.
-            # Apple's compiler has no way to emit one stage, so each library holds both entry points and the
-            # name is what selects between them. It costs a few kilobytes twice over, which is cheaper than a
-            # second shape for the renderer to know about.
+            # Apple's compiler cannot emit one stage, so each library holds both entry points and
+            # the name selects between them. Cheaper than a second shape.
             _azoth_rhi_imgui_shader(${_target} ${_stage} ${_stage}Main "Compiling imgui.metal ${_stage} to metallib"
                     ${AZOTH_RHI_XCRUN} -sdk macosx metal -std=metal3.0 -o ${_binary} ${_source})
         endif()
@@ -260,8 +245,8 @@ add_dependencies(AzothRHI-imgui AzothRHI-imgui-shaders)
 
 target_sources(AzothRHI-imgui PRIVATE ${_headers})
 
-# The include directory alone, the way azoth::rhi and azoth::rhi-utils do it. No HEADERS file set, this
-# tree having no install rules for one to feed.
+# The include directory alone, the way azoth::rhi and azoth::rhi-utils do it. No HEADERS file set,
+# this tree having no install rules for one to feed.
 target_include_directories(AzothRHI-imgui
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -273,9 +258,8 @@ target_link_libraries(AzothRHI-imgui PUBLIC azoth::rhi ${AZOTH_RHI_IMGUI_TARGET}
 
 target_compile_features(AzothRHI-imgui PUBLIC cxx_std_23)
 
-# Which containers actually got compiled in, so the renderer binds the one the running backend takes and
-# refuses the rest without reading past an array that was never built. The entry point names come with
-# them, since which one a container carries is the compiler's business and not the renderer's.
+# Which containers actually got compiled in, so the renderer binds the one its backend takes and
+# refuses the rest. The entry point names come with them.
 foreach(_target IN LISTS _shader_targets)
     string(TOUPPER ${_target} _upper)
     target_compile_definitions(AzothRHI-imgui PRIVATE AZOTH_RHI_IMGUI_HAVE_${_upper})

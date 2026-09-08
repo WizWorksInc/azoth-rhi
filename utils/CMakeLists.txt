@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The utility target: what left the core when the RHI stopped owning shaders.
-#
-# It depends on the public headers alone, which the boundary checker proves, not this file asserting.
-# Shaders compile here at build time and are embedded, so the library links no shader compiler and the
-# target is skipped, not degraded when there is none to compile with.
+# The utility target: what left the core when the RHI stopped owning shaders. Shaders compile at
+# build time and are embedded, so this links no shader compiler. With none available the target is
+# skipped whole.
 
 include(azoth_rhi_shader_tools)
 azoth_rhi_provide_slang_if_needed()
@@ -41,9 +39,8 @@ if(NOT AZOTH_RHI_SLANGC)
     return()
 endif()
 
-# One target per enabled backend, because each takes a different container and nothing portable spans them.
-# metallib needs the Metal toolchain, which only exists on macOS, and that is the reason these are compiled
-# here, not checked in.
+# One target per enabled backend, each taking a different container. metallib needs the macOS Metal
+# toolchain, so these compile here and are not checked in.
 set(_shader_targets "")
 if(AZOTH_RHI_BACKEND_VULKAN)
     list(APPEND _shader_targets "spirv")
@@ -102,13 +99,14 @@ target_include_directories(AzothRHI-utils
         PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
-# Public headers only. The boundary checker scans this tree, so the layering is proven, not promised.
+# Public headers only. Linking the library target and not its sources is what keeps it that way,
+# since lib/src is PRIVATE to AzothRHI.
 target_link_libraries(AzothRHI-utils PUBLIC azoth::rhi)
 
 target_compile_features(AzothRHI-utils PUBLIC cxx_std_23)
 
-# Which containers actually got compiled in, so the resampler binds the one the running backend takes and
-# refuses the rest without reading past an array that was never built.
+# Which containers actually got compiled in, so the resampler binds the one its backend takes and
+# refuses the rest without reading past an array never built.
 foreach(_target IN LISTS _shader_targets)
     string(TOUPPER ${_target} _upper)
     target_compile_definitions(AzothRHI-utils PRIVATE AZOTH_RHI_UTILS_HAVE_${_upper})

@@ -13,8 +13,7 @@
 # limitations under the License.
 
 # Everything here runs against whichever backends this build bundled. The Null backend needs no
-# driver and no GPU so the whole suite is meaningful in CI and the same test bodies run against
-# Vulkan, Direct3D 12 and Metal on a machine that has them.
+# driver, which is what makes the whole suite meaningful in CI.
 
 include(FetchContent)
 
@@ -30,12 +29,8 @@ FetchContent_Declare(googletest
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# GoogleTest compiles itself with -Werror so a compiler newer than the pin above turns a new warning
-# in its own headers into a failed build of code this project does not own and cannot fix. Clang 22
-# added -Wcharacter-conversion, which its printers trip and there will be another.
-#
-# This demotes errors back to warnings for those targets alone. Nothing here relaxes anything for our
-# own code, which still fails on what its compiler chooses to warn about.
+# GoogleTest compiles itself with -Werror. A new warning in its own headers fails a build this
+# project cannot fix. Clang 22's -Wcharacter-conversion was one.
 foreach (_gtest_target IN ITEMS gtest gtest_main gmock gmock_main)
     if (TARGET ${_gtest_target})
         target_compile_options(${_gtest_target} PRIVATE
@@ -50,9 +45,9 @@ set(AZOTH_RHI_TESTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 include(azoth_rhi_test_helpers)
 include(azoth_rhi_test_options)
 
-# The harness every suite links. The entry point is not here: azoth_rhi_add_gtest_suite compiles
-# main.cpp into each suite so the per-target validation definitions reach it. No suite links
-# gtest_main.
+# The harness every suite links. azoth_rhi_add_gtest_suite compiles main.cpp into each suite so the
+# per-target validation definitions reach the entry point. The two hand-built suites, adoption and
+# shader_abi, link gtest_main instead.
 add_library(AzothRHITest STATIC
         support/conformance/backend_contract.cpp
         support/conformance/block_contract.cpp
@@ -64,8 +59,8 @@ add_library(AzothRHITest STATIC
 )
 add_library(azoth::rhi-test ALIAS AzothRHITest)
 
-# The backend SDK because the block checks ask an object what it publishes, which is a question only the
-# dispatch header can put.
+# The backend SDK because the block checks ask an object what it publishes, which only the dispatch
+# header can ask.
 target_link_libraries(AzothRHITest PUBLIC azoth::rhi azoth::rhi-backend-sdk GTest::gtest GTest::gmock)
 
 target_include_directories(AzothRHITest PUBLIC
@@ -75,20 +70,14 @@ target_include_directories(AzothRHITest PUBLIC
 
 target_compile_features(AzothRHITest PUBLIC cxx_std_23)
 
-# The two halves of the self-registration route, built as the two library kinds that decide whether it
-# works. Neither is referenced by anything: that is what they are for and naming a symbol in either to
-# make it link would be testing a different mechanism.
-#
-# The object library's translation unit reaches the final link because an OBJECT library has no archive
-# for it to be dropped from. The static library's does not because a linker pulls an object out of an
-# archive when something references a symbol in it and nothing here ever does.
 include(azoth_rhi_module)
 
-# The loadable backend, built the way a host would build one and never linked by anything. The suite is
-# told where it landed without guessing, since the path is a build layout detail and a test that
-# reconstructed it would be testing the reconstruction.
+# The loadable backend, built the way a host would and never linked by anything. The suite is told
+# where it landed instead of reconstructing the path.
 azoth_rhi_add_backend_module(rhi_test_loadable_backend SOURCES support/modules/loadable_backend.cpp)
 
+# The two library kinds that decide whether self-registration works: an OBJECT library has no
+# archive to drop its translation unit from and a static one does.
 add_library(rhi_test_object_backend OBJECT support/backends/object_library_backend.cpp)
 target_link_libraries(rhi_test_object_backend PUBLIC azoth::rhi)
 target_compile_features(rhi_test_object_backend PUBLIC cxx_std_23)
@@ -105,14 +94,14 @@ if (AZOTH_RHI_BUILD_RIGOROUS_TESTS)
     add_subdirectory(rigorous)
 endif ()
 
-# Grouped with the rigorous suites because it is a cross-checking suite and not a per-module one, and
-# because it is the one suite that reaches for a shader compiler. It skips itself when Slang is absent.
+# Grouped with the rigorous suites. It cross-checks instead of covering one module. It is also the
+# one suite that reaches for a shader compiler.
 if (AZOTH_RHI_BUILD_RIGOROUS_TESTS)
     add_subdirectory(shader_abi)
 endif ()
 
-# Grouped here for the same reason: it is the one suite that names a graphics API, adoption being templated
-# on an API tag and so unreachable from a portable suite.
+# Grouped here too. Adoption is templated on an API tag. It names a graphics API, which a portable
+# suite cannot reach.
 if (AZOTH_RHI_BUILD_RIGOROUS_TESTS)
     add_subdirectory(adoption)
 endif ()
