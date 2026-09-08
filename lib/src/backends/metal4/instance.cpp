@@ -247,6 +247,7 @@ namespace azo::rhi::metal4
 
 		if (mtlDevice.get() == nullptr)
 		{
+			refusal = Error{ .code = ErrorCode::eNoCompatibleAdapter, .message = "this machine reports no Metal device" };
 			return nullptr;
 		}
 

@@ -207,6 +207,7 @@ namespace azo::rhi::metal
 
 		if (mtlDevice.get() == nullptr)
 		{
+			refusal = Error{ .code = ErrorCode::eNoCompatibleAdapter, .message = "this machine reports no Metal device" };
 			return nullptr;
 		}
 
@@ -261,6 +262,7 @@ namespace azo::rhi::metal
 		if (!makeQueues(device->graphicsQueues, plan.graphicsCount) || !makeQueues(device->computeQueues, plan.computeCount) ||
 			!makeQueues(device->copyQueues, plan.copyCount))
 		{
+			refusal = Error{ .code = ErrorCode::eNativeApiError, .message = "this Metal device would not make a command queue" };
 			return nullptr;
 		}
 
@@ -305,6 +307,7 @@ namespace azo::rhi::metal
 		std::uint32_t deviceTag = 0;
 		if (!detail::DeviceTags().Acquire(deviceTag))
 		{
+			refusal = Error{ .code = ErrorCode::eOutOfHostMemory, .message = "no device tag is available, too many devices are alive at once" };
 			return nullptr;
 		}
 		raw->deviceTag = deviceTag;
