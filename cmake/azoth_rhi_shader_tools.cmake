@@ -145,7 +145,7 @@ macro(azoth_rhi_provide_slang)
 endmacro()
 
 macro(azoth_rhi_provide_slang_if_needed)
-    if(AZOTH_RHI_BUILD_EXAMPLES OR AZOTH_RHI_BUILD_IMGUI)
+    if(AZOTH_RHI_BUILD_EXAMPLES OR AZOTH_RHI_BUILD_IMGUI OR (AZOTH_RHI_BUILD_TESTS AND AZOTH_RHI_BUILD_RIGOROUS_TESTS))
         azoth_rhi_provide_slang()
     endif()
 endmacro()

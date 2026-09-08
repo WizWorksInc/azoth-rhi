@@ -36,13 +36,21 @@ set(_scan_roots
         "${AZOTH_RHI_SOURCE_ROOT}/extras/imgui/include"
 )
 
-set(_globs)
+set(_files)
 foreach(_root IN LISTS _scan_roots)
+    set(_globs)
     foreach(_ext hpp h hh cpp cc cxx mm inl ipp)
         list(APPEND _globs "${_root}/*.${_ext}")
     endforeach()
+    file(GLOB_RECURSE _found ${_globs})
+
+    # A root that matches nothing is a moved or misspelled path, which would otherwise pass as clean.
+    if(NOT _found)
+        message(FATAL_ERROR "AzothRHI API boundary: the scan root ${_root} matched no files, so it is not being checked.")
+    endif()
+
+    list(APPEND _files ${_found})
 endforeach()
-file(GLOB_RECURSE _files ${_globs})
 
 set(_forbidden "(^vulkan/|^vk_mem_alloc\\.h|^volk\\.h|^d3d12\\.h|^d3dx12|^dxgi|^D3D12MemAlloc\\.h|^Metal/|^MetalKit/|^QuartzCore/|^Foundation/|^MoltenVK/|^wrl/|^pix3\\.h|^tracy/TracyVulkan\\.hpp)")
 
