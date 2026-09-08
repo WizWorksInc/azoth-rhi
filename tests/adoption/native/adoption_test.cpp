@@ -1028,30 +1028,18 @@ namespace
 
 #endif
 
-#if defined(AZOTH_RHI_TEST_ADOPTION_METAL3) && defined(AZOTH_RHI_TEST_ADOPTION_METAL4)
+#ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
 
-	TEST_F(MetalConfigBlock, EitherGenerationComesUpWithNoBlockAtAll)
+	TEST_F(MetalConfigBlock, ComesUpWithNoBlockAtAll)
 	{
-		rhi::DeviceDesc plain{};
-		plain.validation = rhi::ValidationMode::eDeveloper;
-
-		if (rhi::Result<rhi::UniqueDevice> three = MakeDevice<rhi::MetalApi>(); !three.HasValue())
+		const rhi::Result<rhi::UniqueDevice> three = MakeDevice<rhi::MetalApi>();
+		if (!three.HasValue() && test::NoAdapterHere(three.GetError()))
 		{
 			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(three.GetError());
 		}
 
-		rhi::Result<rhi::UniqueDevice> four = MakeDevice<rhi::Metal4Api>();
-		if (!four.HasValue() && test::NoAdapterHere(four.GetError()))
-		{
-			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(four.GetError());
-		}
-
-		EXPECT_TRUE(four.HasValue()) << "a Metal 4 device carrying no configuration block was refused";
+		EXPECT_TRUE(three.HasValue()) << "a Metal 3 device carrying no configuration block was refused";
 	}
-
-#endif
-
-#ifdef AZOTH_RHI_TEST_ADOPTION_METAL3
 
 	TEST_F(MetalConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
 	{
@@ -1145,6 +1133,17 @@ namespace
 #endif
 
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL4
+
+	TEST_F(Metal4ConfigBlock, ComesUpWithNoBlockAtAll)
+	{
+		const rhi::Result<rhi::UniqueDevice> four = MakeDevice<rhi::Metal4Api>();
+		if (!four.HasValue() && test::NoAdapterHere(four.GetError()))
+		{
+			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(four.GetError());
+		}
+
+		EXPECT_TRUE(four.HasValue()) << "a Metal 4 device carrying no configuration block was refused";
+	}
 
 	TEST_F(Metal4ConfigBlock, RefusesABlockPinningItToTheOtherGeneration)
 	{
