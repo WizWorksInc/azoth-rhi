@@ -18,8 +18,14 @@
 
 #include <array>
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <string>
+#include <typeinfo>
+
+#if defined(_WIN32) && defined(_DEBUG)
+	#include <crtdbg.h>
+#endif
 
 namespace azo::rhi::test
 {
@@ -93,10 +99,44 @@ namespace
 		std::cout << std::flush;
 	}
 
+	[[noreturn]] void ReportTerminate()
+	{
+		if (std::current_exception())
+		{
+			try
+			{
+				std::rethrow_exception(std::current_exception());
+			}
+			catch (const std::exception & failure)
+			{
+				std::cerr << "terminate: " << typeid(failure).name() << ": " << failure.what() << '\n';
+			}
+			catch (...)
+			{
+				std::cerr << "terminate: an exception that does not derive from std::exception\n";
+			}
+		}
+		else
+		{
+			std::cerr << "terminate: no active exception, so a joinable thread was destroyed or a noexcept function threw\n";
+		}
+
+		std::cerr << std::flush;
+		std::abort();
+	}
 }
 
 int main(int argc, char ** argv)
 {
+	static_cast<void>(std::set_terminate(&ReportTerminate));
+
+#if defined(_WIN32) && defined(_DEBUG)
+	for (const int report : { _CRT_ASSERT, _CRT_ERROR })
+	{
+		static_cast<void>(::_CrtSetReportMode(report, _CRTDBG_MODE_FILE));
+		static_cast<void>(::_CrtSetReportFile(report, _CRTDBG_FILE_STDERR));
+	}
+#endif
 
 	// NOLINTBEGIN(concurrency-mt-unsafe): startup environment edit, before any test or worker thread exists.
 #ifdef _WIN32

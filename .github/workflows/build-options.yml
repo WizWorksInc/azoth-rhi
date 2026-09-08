@@ -74,10 +74,24 @@ jobs:
           AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
         run: |
           suite="build/tests/unit/$BUILD_TYPE/rhi_unit_device.exe"
+          one='Backends/ThreadingModeTest.gate_ThreadingModelPreserved/d3d12'
           ls -l "$suite" "build/tests/unit/$BUILD_TYPE/"*.dll || true
+
+          # Whether a flag arrives through argv or through the environment says which half of gtest is not reading it.
           status=0
-          "$suite" --gtest_list_tests || status=$?
-          echo "rhi_unit_device --gtest_list_tests exited $status"
+          "$suite" --gtest_filter="$one" > argv-filter.log 2>&1 || status=$?
+          echo "argv filter exited $status, ran $(grep -c '^\[ RUN' argv-filter.log || true)"
+          tail -20 argv-filter.log
+
+          status=0
+          GTEST_FILTER="$one" "$suite" > env-filter.log 2>&1 || status=$?
+          echo "env filter exited $status, ran $(grep -c '^\[ RUN' env-filter.log || true)"
+          tail -20 env-filter.log
+
+          status=0
+          "$suite" --gtest_list_tests > list.log 2>&1 || status=$?
+          echo "list exited $status, ran $(grep -c '^\[ RUN' list.log || true)"
+          tail -20 list.log
 
       - name: Test
         env:
