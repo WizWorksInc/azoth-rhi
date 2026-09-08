@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,13 +11,6 @@
 
 namespace azo::rhi::metal4
 {
-	/*
-	 * Opening a rendering scope.
-	 *
-	 * The attachment descriptors did not fork, so everything below the descriptor type is the same code the other generation runs. What did change is the
-	 * timestamps: Metal 3 has to choose between naming sample points on the pass descriptor and taking them by command, depending on what the adapter samples
-	 * at, and this generation takes a timestamp on the encoder unconditionally. Both branches collapse into one write.
-	 */
 	bool Metal4CmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.beginRendering");
@@ -93,27 +81,18 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eNativeApiError, "Metal 4 render command encoder creation failed");
 		}
 
-		// Both stages see the table. A vertex-only binding would leave a fragment shader reading nothing.
 		encoder->setArgumentTable(list->argumentTable.get(), MTL::RenderStageVertex | MTL::RenderStageFragment);
 		list->renderEncoder = NS::RetainPtr(encoder);
-		list->scopeDrew		= false;
+		++list->encoderEpoch;
+		list->scopeDrew = false;
 
-		// A barrier recorded before this scope opened was meant to order this scope, so it goes on first.
 		FlushPendingBarrier(list, encoder);
 
 		if (timestamps != nullptr && desc.timestamps->beginQuery != kInvalidIndex && timestamps->heap.get() != nullptr)
 		{
-			/*
-			 * Precise and not relaxed, since relaxed may sample only at encoder boundaries, which is the resolution the other generation is stuck with and
-			 * the reason this one is worth having.
-			 *
-			 * Sampled after the vertex stage for the begin and after the fragment stage for the end, which are the earliest and latest points in a pass, so the
-			 * pair brackets the whole of it.
-			 */
 			encoder->writeTimestamp(MTL4::TimestampGranularityPrecise, MTL::RenderStageVertex, timestamps->heap.get(), desc.timestamps->beginQuery);
 		}
 
-		// Held for Metal4CmdEndRendering, which is the last point the encoder is still open.
 		if (timestamps != nullptr && desc.timestamps->endQuery != kInvalidIndex && timestamps->heap.get() != nullptr)
 		{
 			list->pendingEndHeap  = timestamps->heap;
@@ -134,18 +113,12 @@ namespace azo::rhi::metal4
 
 		if (list->pendingEndHeap.get() != nullptr)
 		{
-			/*
-			 * Fragment where the scope drew, because that is the last stage a draw passes through, and vertex where it did not.
-			 *
-			 * One stage and not a mask: writeTimestamp takes an afterStage, not an afterStages, and Metal refuses a value with two bits set. So a scope that
-			 * never drew cannot ask for both and cannot ask for fragment either, since a stage nothing reached takes no sample and leaves the slot reading as
-			 * unwritten.
-			 */
 			const MTL::RenderStages endStage = list->scopeDrew ? MTL::RenderStageFragment : MTL::RenderStageVertex;
 			list->renderEncoder->writeTimestamp(MTL4::TimestampGranularityPrecise, endStage, list->pendingEndHeap.get(), list->pendingEndQuery);
 			list->pendingEndHeap.reset();
 		}
 
+		PopEncoderDebugGroups(list, list->renderEncoder.get());
 		list->renderEncoder->endEncoding();
 		list->renderEncoder.reset();
 		return Succeed(error);
@@ -169,7 +142,6 @@ namespace azo::rhi::metal4
 
 		MTL4::RenderCommandEncoder * encoder = list->renderEncoder.get();
 
-		// The same MTLRenderPipelineState the other generation builds, and the same state Metal keeps on the encoder and not in the pipeline object.
 		encoder->setRenderPipelineState(tracked->state.get());
 		encoder->setCullMode(tracked->cull);
 		encoder->setFrontFacingWinding(tracked->winding);
@@ -196,8 +168,6 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "setViewport outside a rendering scope");
 		}
 
-		// Metal's own NDC runs Y up so eYUp needs nothing done. Presenting eYDown means flipping: origin to the bottom edge, height negated. Winding is left as
-		// authored either way. The same flip the other generation makes, and without it this backend alone renders vertically mirrored.
 		double originY = viewport.y;
 		double height  = viewport.height;
 		if (GetClipSpace() == ClipSpaceConvention::eYDown)
@@ -261,10 +231,6 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * A vertex buffer, which on this generation is an address in the argument table, not a call on the encoder. The index is the same one the other generation
-	 * uses, so what a shader declares does not change with the path.
-	 */
 	bool Metal4CmdSetVertexBuffer(void * impl, const std::uint32_t slot, BufferHandle buffer, const std::uint64_t offset, Error * error) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
@@ -301,17 +267,11 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer names a buffer this device never created");
 		}
 
-		/*
-		 * The length is what bounds an indexed draw on this generation, which takes an address and a span where Metal 3 passes the buffer object and lets
-		 * Metal bound it. An offset past the end has to be refused here because the subtraction below wraps, and the span it would produce covers most of the
-		 * address space.
-		 */
 		if (offset > resolved->length())
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "setIndexBuffer offset is past the end of the buffer");
 		}
 
-		// Held, not bound, a draw taking the index buffer as an argument on this generation.
 		list->boundIndexBuffer = resolved->gpuAddress() + offset;
 		list->boundIndexLength = resolved->length() - offset;
 		list->boundIndexType   = index32 ? MTL::IndexTypeUInt32 : MTL::IndexTypeUInt16;
@@ -327,7 +287,6 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "draw outside a rendering scope");
 		}
 
-		// vertexStart comes before vertexCount here, unlike drawIndexedPrimitives, which takes its count first.
 		list->renderEncoder->drawPrimitives(list->boundPrimitive, firstVertex, vertexCount, instanceCount, firstInstance);
 		list->scopeDrew = true;
 		return Succeed(error);
@@ -346,12 +305,9 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidState, "drawIndexed with no index buffer bound");
 		}
 
-		// The first index is folded into the address, this generation taking no first-index argument.
 		const std::uint64_t indexSize = list->boundIndexType == MTL::IndexTypeUInt32 ? 4 : 2;
 		const std::uint64_t byteStart = static_cast<std::uint64_t>(firstIndex) * indexSize;
 
-		// The same span rule as setIndexBuffer, applied to where this draw actually reads. Subtracting a first index past the end wraps, so the draw would be
-		// handed a span reaching well beyond the allocation instead of a refusal.
 		if (byteStart + (static_cast<std::uint64_t>(indexCount) * indexSize) > list->boundIndexLength)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "drawIndexed reads past the end of the bound index buffer");
@@ -369,12 +325,6 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-	/*
-	 * Indirect draws, one command per entry.
-	 *
-	 * Metal takes one draw per indirect call on both generations, so a batch is issued as the documented one command per entry and not as a multi-draw,
-	 * which is why supportsMultiDrawIndirect stays false.
-	 */
 	bool Metal4CmdDrawIndirect(
 		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
 	{
@@ -437,4 +387,4 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal4
+}

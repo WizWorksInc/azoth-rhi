@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -31,14 +26,12 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-	// The backend name this sample takes as its first argument or null when it was not given one.
-
 	const char * Yes(const bool value)
 	{
 		return value ? "yes" : "no";
 	}
 
-} // namespace
+}
 
 namespace
 {
@@ -88,7 +81,6 @@ namespace
 		LOG_INFO(fw::Log(), "  [{}] {} ({})", adapter.adapterIndex, (adapter.name != nullptr ? adapter.name : "unnamed"), Describe(adapter.type));
 		LOG_INFO(fw::Log(), "      ids:     vendor 0x{:x}, device 0x{:x}", adapter.vendorId, adapter.deviceId);
 
-		// Composed, not printed a piece at a time: a log line arrives whole, and a half line would interleave with whatever the backend thread writes next.
 		const char * driver = Describe(adapter.driverId);
 		LOG_INFO(fw::Log(), "      driver:  {}{}", driver != nullptr ? std::format("{} ", driver) : std::string{}, OrNone(adapter.driverVersion));
 
@@ -110,8 +102,6 @@ namespace
 		LOG_INFO(fw::Log(), "{}", memory);
 	}
 
-	// The two-call idiom: an empty span asks how many there are, the second call fills a span that size. Returns an empty vector on failure having already
-	// reported why.
 	std::vector<rhi::AdapterInfo> CollectAdapters(const rhi::Instance & instance)
 	{
 		rhi::Error error{};
@@ -129,12 +119,11 @@ namespace
 			return {};
 		}
 
-		// A backend may report fewer than it counted if an adapter went away in between.
 		adapters.resize(count);
 		return adapters;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
@@ -154,10 +143,9 @@ int main(int argc, char ** argv)
 
 	rhi::InstanceDesc desc{};
 	desc.applicationName = "adapter_report";
-	desc.validation		 = rhi::ValidationMode::eOff; // nothing is created here so there is nothing to validate
+	desc.validation		 = rhi::ValidationMode::eOff;
 
 	std::uint32_t found = 0;
-	// What each backend reports about itself such as whether it shipped with the RHI or was registered here.
 	for (const rhi::BackendInfo & backend : backends.Preferred())
 	{
 		LOG_INFO(fw::Log(), "{}", backend.displayName);
@@ -167,7 +155,6 @@ int main(int argc, char ** argv)
 			Yes(backend.supportsDebugMarkers),
 			Yes(backend.supportsExternalNativeAccess));
 
-		// One backend at a time so each gets its own instance and not the runtime picking one of them for us.
 		const rhi::Result<rhi::UniqueInstance> instance = backends.CreateInstance(backend.id, desc);
 		if (!instance)
 		{

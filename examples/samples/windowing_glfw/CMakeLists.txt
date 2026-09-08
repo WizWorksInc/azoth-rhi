@@ -18,29 +18,29 @@
 # over.
 find_package(glfw3 QUIET CONFIG)
 
-if(NOT glfw3_FOUND)
+if (NOT glfw3_FOUND)
     message(STATUS "AzothRHI examples: skipping windowed_present_glfw, GLFW was not found")
     return()
-endif()
+endif ()
 
 # The SDL3 sample needs no equivalent of this. GLFW declares glfwCreateWindowSurface only when it is
 # allowed to include the Vulkan headers so a machine with GLFW but no Vulkan headers still skips.
 find_package(Vulkan QUIET)
 
-if(NOT Vulkan_FOUND)
+if (NOT Vulkan_FOUND)
     message(STATUS "AzothRHI examples: skipping windowed_present_glfw, the Vulkan headers were not found")
     return()
-endif()
+endif ()
 
 set(_glfw_sources main.cpp native/glfw_natives.cpp)
 set(_glfw_libraries glfw Vulkan::Headers)
 
 # And on macOS it needs Objective-C because glfwGetCocoaWindow stops at the NSWindow and the
 # CAMetalLayer has to be made and attached by hand.
-if(APPLE)
+if (APPLE)
     list(APPEND _glfw_sources native/glfw_metal_layer.mm)
     list(APPEND _glfw_libraries "-framework AppKit" "-framework QuartzCore")
-endif()
+endif ()
 
 azoth_rhi_add_example(windowed_present_glfw
         SOURCES ${_glfw_sources}

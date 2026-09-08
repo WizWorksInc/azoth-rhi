@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -27,12 +22,6 @@ namespace azo::rhi::d3d12
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device = list->owner;
 
-		/*
-		 * The scope's timestamps, resolved and range checked before anything is recorded so a bad one refuses without leaving a half-opened scope.
-		 *
-		 * Direct3D 12 has no render-pass object on this path, so both writes are ordinary EndQuery calls placed at the two ends. The begin goes ahead of the clears
-		 * below, matching the Metal stage-boundary path where the sample sits before the load actions, not after them.
-		 */
 		QueryPoolSlot * timestamps	  = nullptr;
 		list->pendingEndTimestampHeap = nullptr;
 		if (desc.timestamps != nullptr)
@@ -53,7 +42,6 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		// The render-target views select the array slices so desc.layers is informational: layered rendering comes from array RTVs.
 		list->pendingDiscards.clear();
 		detail::HostVector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
 		rtvHandles.reserve(desc.colors.size());
@@ -96,7 +84,6 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		// Everything above only resolves and refuses, so this is the first recorded command and the scope's opening timestamp belongs ahead of it.
 		if (timestamps != nullptr)
 		{
 			if (desc.timestamps->beginQuery != kInvalidIndex)
@@ -124,7 +111,6 @@ namespace azo::rhi::d3d12
 		}
 		if (haveDepth && desc.depthStencil->load == LoadOp::eClear)
 		{
-			// Clear the stencil plane only when the format has one, as Vulkan attaches no stencil aspect for a depth-only format.
 			const D3D12_CLEAR_FLAGS clearFlags = dsvHasStencil ? (D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL) : D3D12_CLEAR_FLAG_DEPTH;
 			list->list->ClearDepthStencilView(dsvHandle,
 				clearFlags,
@@ -136,13 +122,10 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// No render-pass object so bound targets persist. This issues the StoreOp::eDontCare discards deferred from BeginRendering, while the attachments are still in
-	// their render-target or depth-write state.
 	bool D3D12CmdEndRendering(void * impl, Error * error) noexcept
 	{
 		auto * list = static_cast<D3D12CommandList *>(impl);
 
-		// Ahead of the discards so the scope is timed over its own work, not over the teardown that follows it.
 		if (list->pendingEndTimestampHeap != nullptr)
 		{
 			list->list->EndQuery(list->pendingEndTimestampHeap, D3D12_QUERY_TYPE_TIMESTAMP, list->pendingEndTimestampQuery);
@@ -169,8 +152,6 @@ namespace azo::rhi::d3d12
 		list->list->SetPipelineState(slot->pipeline.Get());
 		list->list->IASetPrimitiveTopology(slot->topology);
 
-		// Blend factor, stencil reference and depth bounds are command-list state, not PSO state so the pipeline's baked values are applied here. A dynamic setter
-		// issued after this bind still overrides them.
 		if (slot->bakeBlendConstants)
 		{
 			list->list->OMSetBlendFactor(slot->blendConstants.data());
@@ -181,7 +162,6 @@ namespace azo::rhi::d3d12
 		}
 		if (list->owner->caps.supportsDepthBounds)
 		{
-			// Reset to the full range when the pipeline has no depth bounds so a prior pipeline's do not leak. Needs GraphicsCommandList1.
 			ComPtr<ID3D12GraphicsCommandList1> list1;
 			if (SUCCEEDED(list->list.As(&list1)))
 			{
@@ -218,7 +198,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "pushConstants with a layout that has no root constants");
 		}
 
-		// Route the write to the root-constants parameter whose range contains offset so a multi-range layout addresses each separately.
 		const PipelineLayoutSlot::PushConstantParam * target = nullptr;
 		for (const PipelineLayoutSlot::PushConstantParam & pc : layoutSlot->pushConstantParams)
 		{
@@ -249,11 +228,6 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
 	{
 		D3D12_VIEWPORT vp{};
-		/*
-		 * D3D12's own NDC runs Y up so eYUp needs nothing done. Presenting eYDown means the vertex stage emits Y-down clip coordinates, which a direct viewport would
-		 * render vertically inverted so the origin moves to the bottom edge and the height is negated. That is the D3D12 counterpart of Vulkan's negative-viewport
-		 * flip. Winding is left as authored either way, matching the projection's baked flip without reversing the face.
-		 */
 		const bool flip = GetClipSpace() == ClipSpaceConvention::eYDown;
 
 		vp.TopLeftX = viewport.x;
@@ -337,8 +311,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Applies the sets recorded since the last draw, now that a pipeline is bound and the compute-or-graphics root is known. Slots clear once applied and the
-	// tables persist until the root signature changes so a later draw that rebinds nothing keeps them.
 	void FlushPendingDescriptorSets(D3D12CommandList * list) noexcept
 	{
 		for (D3D12CommandList::PendingDescriptorSet & pending : list->pendingSets)
@@ -411,10 +383,10 @@ namespace azo::rhi::d3d12
 			countResource = countSlot->resource.Get();
 		}
 
-		ID3D12CommandSignature * signature = GetCommandSignature(list, type, stride);
+		ID3D12CommandSignature * signature = GetCommandSignature(list, type, stride, error);
 		if (signature == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "failed to create the indirect command signature");
+			return false;
 		}
 		FlushPendingDescriptorSets(list);
 		list->list->ExecuteIndirect(signature, maxCount, argsSlot->resource.Get(), argsOffset, countResource, countOffset);
@@ -478,8 +450,6 @@ namespace azo::rhi::d3d12
 			error);
 	}
 
-	// A DEFAULT-heap scratch buffer in COPY_DEST for repacking a copy into D3D12's 256-byte row pitch. Retired with the command list so it outlives the GPU work.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

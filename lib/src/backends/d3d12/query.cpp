@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -26,7 +21,6 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid handle");
 		}
-		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
 		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
@@ -34,7 +28,13 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<PipelineStage> stage, Error * error) noexcept
+	// A copy list can only emit into a copy heap, so the recording list's type decides which one.
+	[[nodiscard]] ID3D12QueryHeap * TimestampHeapFor(const D3D12CommandList * list, const QueryPoolSlot * slot) noexcept
+	{
+		return list->type == D3D12_COMMAND_LIST_TYPE_COPY ? slot->copyHeap.Get() : slot->heap.Get();
+	}
+
+	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
@@ -46,7 +46,14 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
-		list->list->EndQuery(slot->heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, query);
+
+		ID3D12QueryHeap * heap = TimestampHeapFor(list, slot);
+		if (heap == nullptr)
+		{
+			return Fail(error, ErrorCode::eUnsupportedFeature, "this adapter does not support timestamp queries on a copy queue");
+		}
+
+		list->list->EndQuery(heap, D3D12_QUERY_TYPE_TIMESTAMP, query);
 		return Succeed(error);
 	}
 
@@ -92,25 +99,27 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid handle");
 		}
-		// Subtracted and not added, the sum of two counts a caller chooses being free to wrap and let an out-of-range range through.
 		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
-		list->list->ResolveQueryData(slot->heap.Get(), MapQueryType(slot->type), firstQuery, queryCount, dstSlot->resource.Get(), dstOffset);
+		ID3D12QueryHeap * heap = slot->type == QueryType::eTimestamp ? TimestampHeapFor(list, slot) : slot->heap.Get();
+		if (heap == nullptr)
+		{
+			return Fail(error, ErrorCode::eUnsupportedFeature, "this adapter does not support timestamp queries on a copy queue");
+		}
+
+		list->list->ResolveQueryData(heap, MapQueryType(slot->type), firstQuery, queryCount, dstSlot->resource.Get(), dstOffset);
 		return Succeed(error);
 	}
 
 	#if defined(AZOTH_RHI_ENABLE_PIX)
-	// Maps an RHI 0xRRGGBBAA label color to the PIX event tint. PIX ignores the alpha byte.
 	[[nodiscard]] UINT PixColor(std::uint32_t rgba) noexcept
 	{
 		return PIX_COLOR(static_cast<BYTE>((rgba >> 24) & 0xFFu), static_cast<BYTE>((rgba >> 16) & 0xFFu), static_cast<BYTE>((rgba >> 8) & 0xFFu));
 	}
 	#endif
 
-	// Opens a PIX event so the region shows by name and color. The raw BeginEvent takes a PIX-specific blob so it has to go through PIXBeginEvent to be
-	// decoded. A no-op without PIX, and a no-op when DeviceDesc turned labels off.
 	bool D3D12CmdBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 	#if defined(AZOTH_RHI_ENABLE_PIX)
@@ -135,7 +144,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// The queue-level analog, which PIX shows around the submit boundary.
 	bool D3D12QueueBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 	#if defined(AZOTH_RHI_ENABLE_PIX)
@@ -160,7 +168,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// The native mutation scope lets an app record raw D3D12 onto this list. Recording already targets it so the scope is a marker only.
 	bool D3D12CmdBeginNativeMutation(void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
 	{
 		if (api != D3D12Api::id)
@@ -177,6 +184,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

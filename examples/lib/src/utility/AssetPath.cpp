@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -28,25 +23,21 @@ namespace fw::util
 	namespace
 	{
 		constexpr auto kAssetsDirectory = "assets";
-	} // namespace
+	}
 
 	std::filesystem::path FindResource(const std::filesystem::path & relative, int maxDepth)
 	{
-		// An empty relative path joins to the directory being probed, which exists, so the search would hand back a directory and call it a match.
 		if (relative.empty())
 		{
 			return {};
 		}
 
-		// A negative depth would skip the loop body entirely and miss a file sitting right beside the executable.
 		maxDepth = maxDepth < 0 ? 0 : maxDepth;
 
 		std::error_code ec;
 		std::filesystem::path directory = ExecutableDirectory();
 
 #ifdef AZOTH_RHI_OS_MAC
-		// An app bundle runs its executable out of Contents/MacOS and keeps read-only data in Contents/Resources. Probing there first is what lets a bundle
-		// that has been moved stay self contained. The walk below still covers a plain binary in a build tree.
 		if (directory.filename() == "MacOS")
 		{
 			if (std::filesystem::path resources = directory.parent_path() / "Resources" / relative; std::filesystem::exists(resources, ec))
@@ -65,7 +56,6 @@ namespace fw::util
 
 			std::filesystem::path parent = directory.parent_path();
 
-			// A root directory is its own parent, which would otherwise spin here until the depth ran out.
 			if (parent.empty() || parent == directory)
 			{
 				break;
@@ -90,7 +80,6 @@ namespace fw::util
 			return {};
 		}
 
-		// Sized from the seek, not grown while reading, so one allocation holds the whole file.
 		const std::streamoff size = file.tellg();
 		if (size < 0)
 		{
@@ -125,4 +114,4 @@ namespace fw::util
 
 		return { reinterpret_cast<const char *>(bytes.data()), bytes.size() }; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	}
-} // namespace fw::util
+}

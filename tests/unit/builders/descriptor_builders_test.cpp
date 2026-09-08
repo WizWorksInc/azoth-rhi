@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -148,8 +143,6 @@ namespace
 
 	TEST(PipelineLayoutBuilder, KeepsSetOrderBecauseTheIndexIsTheBindingSlot)
 	{
-		// A pipeline layout's set order is not cosmetic. BindDescriptorSet names a set by index so reordering here would silently rebind everything one
-		// slot over.
 		constexpr rhi::DescriptorSetLayoutHandle first{
 			.index		= 1,
 			.generation = 1,
@@ -255,7 +248,7 @@ namespace
 		static_assert(buffer.type == rhi::DescriptorType::eUniformBuffer);
 
 		constexpr rhi::DescriptorWriteTexture texture = rhi::DescriptorWriteTextureBuilder{}.Build();
-		static_assert(texture.expectedLayout == rhi::TextureLayout::eShaderReadOnly);
+		static_assert(texture.expectedUse == rhi::ResourceUse::eSampledRead);
 		static_assert(texture.type == rhi::DescriptorType::eTextureSRV);
 
 		SUCCEED();
@@ -298,13 +291,13 @@ namespace
 		const rhi::DescriptorWriteTexture write = rhi::DescriptorWriteTextureBuilder{}
 													  .View(view)
 													  .Sampler(sampler)
-													  .ExpectedLayout(rhi::TextureLayout::eGeneral)
+													  .ExpectedUse(rhi::ResourceUse::eStorageWrite)
 													  .Type(rhi::DescriptorType::eTextureUAV)
 													  .Build();
 
 		EXPECT_EQ(write.view, view);
 		EXPECT_EQ(write.sampler, sampler);
-		EXPECT_EQ(write.expectedLayout, rhi::TextureLayout::eGeneral);
+		EXPECT_EQ(write.expectedUse, rhi::ResourceUse::eStorageWrite);
 		EXPECT_EQ(write.type, rhi::DescriptorType::eTextureUAV);
 
 		const rhi::DescriptorWriteSampler samplerOnly = rhi::DescriptorWriteSamplerBuilder{}.Binding(2).Sampler(sampler).Build();
@@ -312,4 +305,4 @@ namespace
 		EXPECT_EQ(samplerOnly.sampler, sampler);
 	}
 
-} // namespace
+}

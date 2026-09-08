@@ -16,10 +16,10 @@ include(azoth_rhi_shader_tools)
 
 azoth_rhi_provide_slang()
 
-if(NOT slang_FOUND)
+if (NOT slang_FOUND)
     message(STATUS "AzothRHI examples: skipping bindless, Slang was not found")
     return()
-endif()
+endif ()
 
 azoth_rhi_add_example(bindless
         SOURCES main.cpp

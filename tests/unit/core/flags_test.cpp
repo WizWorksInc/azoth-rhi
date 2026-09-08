@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -52,8 +47,8 @@ namespace
 		static_assert(rhi::FlagEnum<Sample>);
 		static_assert(rhi::FlagEnum<rhi::BufferUsage>);
 		static_assert(rhi::FlagEnum<rhi::TextureUsage>);
-		static_assert(rhi::FlagEnum<rhi::PipelineStage>);
-		static_assert(rhi::FlagEnum<rhi::Access>);
+		static_assert(rhi::FlagEnum<rhi::Stage>);
+		static_assert(rhi::FlagEnum<rhi::ResourceUse>);
 		static_assert(rhi::FlagEnum<rhi::ShaderStage>);
 		static_assert(!rhi::FlagEnum<int>);
 		static_assert(!rhi::FlagEnum<unsigned>);
@@ -179,23 +174,18 @@ namespace
 
 	TEST(FlagsInPublicDescs, KeepTheWideAliasesDistinctFromTheStagesTheyCover)
 	{
-		constexpr rhi::Flags<rhi::PipelineStage> alias = rhi::PipelineStage::eAllGraphics;
-		EXPECT_FALSE(alias.Contains(rhi::PipelineStage::eVertexShader));
-		EXPECT_FALSE(alias.Contains(rhi::PipelineStage::eFragmentShader));
-
-		constexpr rhi::Flags<rhi::Access> memory = rhi::Access::eMemoryRead;
-		EXPECT_FALSE(memory.Contains(rhi::Access::eShaderRead));
+		constexpr rhi::Flags<rhi::Stage> alias = rhi::Stage::eAllGraphics;
+		EXPECT_FALSE(alias.Contains(rhi::Stage::eVertexWork));
+		EXPECT_FALSE(alias.Contains(rhi::Stage::eFragmentShading));
 	}
 
 	TEST(FlagsInPublicDescs, SurviveTheFullSixtyFourBitStageDomain)
 	{
-		static_assert(std::same_as<rhi::Flags<rhi::PipelineStage>::Underlying, std::uint64_t>);
-		static_assert(std::same_as<rhi::Flags<rhi::Access>::Underlying, std::uint64_t>);
+		static_assert(std::same_as<rhi::Flags<rhi::Stage>::Underlying, std::uint64_t>);
 
-		constexpr rhi::Flags<rhi::PipelineStage> wide =
-			rhi::Flags<rhi::PipelineStage>(rhi::PipelineStage::eAllCommands) | rhi::PipelineStage::eAccelerationStructureBuild;
-		EXPECT_TRUE(wide.Contains(rhi::PipelineStage::eAllCommands));
-		EXPECT_TRUE(wide.Contains(rhi::PipelineStage::eAccelerationStructureBuild));
+		constexpr rhi::Flags<rhi::Stage> wide = rhi::Flags<rhi::Stage>(rhi::Stage::eAllCommands) | rhi::Stage::eAccelBuild;
+		EXPECT_TRUE(wide.Contains(rhi::Stage::eAllCommands));
+		EXPECT_TRUE(wide.Contains(rhi::Stage::eAccelBuild));
 	}
 
-} // namespace
+}

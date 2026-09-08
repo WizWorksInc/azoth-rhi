@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -17,6 +12,7 @@
 #include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 
+#include <array>
 #include <cstdint>
 #include <mutex>
 #include <span>
@@ -39,12 +35,6 @@ namespace azo::rhi
 			}
 		}
 
-		/*
-		 * What a caller is told when the backend did not publish the block an operation lives in.
-		 *
-		 * Naming the capability and not the block, since a caller reaching CreateSwapchain wants to know this backend cannot present, not which struct that answer
-		 * came out of.
-		 */
 		constexpr const char * kNoPresent			= "this backend cannot create swapchains";
 		constexpr const char * kNoPlacedMemory		= "this backend cannot place resources into memory the caller granted";
 		constexpr const char * kNoRayTracing		= "this backend has no ray tracing";
@@ -62,12 +52,6 @@ namespace azo::rhi
 		constexpr const char * kNoIndirectCount		= "this backend cannot take an indirect draw count from a buffer";
 		constexpr const char * kNoNativeEscape		= "this backend hands out no native command buffer";
 
-		/*
-		 * What a declined block answers with.
-		 *
-		 * A backend says it does not implement a capability by not publishing its block so a null block pointer is an answer and not a fault. Every operation behind
-		 * that block reports eUnsupportedFeature and hands back whatever its own return type calls nothing.
-		 */
 		template <class ValueT>
 		[[nodiscard]] ValueT Decline(Error * error, const char * what) noexcept
 		{
@@ -75,12 +59,6 @@ namespace azo::rhi
 			return ValueT{};
 		}
 
-		/*
-		 * What a call produced, read off the sentinel its own return type carries.
-		 *
-		 * One of the two things a verdict is built from. The other is the Error and the point of naming this is that the two are read in one place, not each form of
-		 * an operation picking one.
-		 */
 		template <class Tag>
 		[[nodiscard]] bool Produced(const Handle<Tag> & handle) noexcept
 		{
@@ -113,8 +91,6 @@ namespace azo::rhi
 			return presented.status != SwapchainStatus::eError;
 		}
 
-		// What each return type looks like once a call has been settled as a failure. Everything but the two swapchain answers is its own default and theirs defaults
-		// to success.
 		template <class Tag>
 		void Discard(Handle<Tag> & handle) noexcept
 		{
@@ -147,13 +123,6 @@ namespace azo::rhi
 			presented = PresentResult{ .status = SwapchainStatus::eError };
 		}
 
-		/*
-		 * The verdict on one call, decided once and written into both things it answered with. A tripled operation reports what happened three ways and each public
-		 * form carries only part: the plain form the return value, the out-Error form both, the Result form the Error. Deciding separately in each is how they come
-		 * to disagree.
-		 *
-		 * A backend handing back a resource beside a populated Error has broken its contract. That counts as a failure and not a success.
-		 */
 		template <class ValueT>
 		void Settle(ValueT & value, Error & error) noexcept
 		{
@@ -164,7 +133,6 @@ namespace azo::rhi
 
 			Discard(value);
 
-			// A failure with no code reads as success to anyone checking the code and not the value, which is the disagreement in the other direction.
 			if (error.code == ErrorCode::eOk)
 			{
 				error = Error{
@@ -174,11 +142,6 @@ namespace azo::rhi
 			}
 		}
 
-		/*
-		 * The Result form of a settled verdict.
-		 *
-		 * It reads the Error and nothing else. Settle has already made the value agree with it so there is no second predicate here to drift from the first.
-		 */
 		template <class ValueT>
 		[[nodiscard]] Result<ValueT> AsResult(ValueT value, const Error & error) noexcept
 		{
@@ -190,12 +153,6 @@ namespace azo::rhi
 			return value;
 		}
 
-		/*
-		 * Asks the allocator for room and records what it granted.
-		 *
-		 * The backend already reports the footprint a resource needs and already knows how to place one at an offset in a heap so an allocator only has to answer
-		 * with somewhere to put it. That makes this the whole of the routing.
-		 */
 		[[nodiscard]] bool ReserveSpan(Device device, DeviceMemoryAllocator * allocator, const MemoryInfo & info, const HeapType heapType, const bool forBuffer,
 			CString debugName, MemorySpan & out, Error * error)
 		{
@@ -209,7 +166,6 @@ namespace azo::rhi
 				.debugName	   = debugName,
 			};
 
-			// The allocator is handed a Device and makes heaps through it so it is one of the two places the RHI calls out to something that can call back in.
 			detail::CheckNoGuardHeld();
 
 			if (!allocator->Allocate(device, request, out) || !out.IsValid())
@@ -218,8 +174,6 @@ namespace azo::rhi
 				return false;
 			}
 
-			// Checked here, not left to the placed create, which would reject it as whatever the native API calls a bad offset. An allocator that suballocates is the
-			// one likely to get this wrong and it is the one that benefits most from being told which promise it broke.
 			if (info.alignment != 0 && out.offset % info.alignment != 0)
 			{
 				detail::CheckNoGuardHeld();
@@ -252,12 +206,6 @@ namespace azo::rhi
 				span);
 		}
 
-		/*
-		 * Takes back the span a destroyed resource held, when its destroy said the GPU was already done with it.
-		 *
-		 * Called under the guard for the kind being destroyed, since the tracker is partitioned by kind and that guard is its whole synchronization. What it does not
-		 * do is hand the span to the allocator: that is a call out to a host interface holding an RHI object and it waits until the guard is gone.
-		 */
 		[[nodiscard]] bool TakeRetiredSpan(BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
 			const DestroyDesc & desc, MemorySpan & out)
 		{
@@ -275,12 +223,6 @@ namespace azo::rhi
 				out);
 		}
 
-		/*
-		 * Runs a collect over every kind, each under that kind's guard. A destroy queues its resource while holding the guard for the kind it destroyed so the
-		 * collect draining that queue holds the same one. Sixteen guards at once would mean holding one while taking another, which the cooperative rules forbid.
-		 *
-		 * Every kind is visited even after one fails so one failing kind cannot strand what the other fifteen queued. The error reported is the first.
-		 */
 		template <class Collect>
 		[[nodiscard]] bool CollectEveryKind(BackendBlockSet & blocks, Error * error, Collect collect) noexcept
 		{
@@ -303,12 +245,6 @@ namespace azo::rhi
 			return collected;
 		}
 
-		/*
-		 * Hands a collect's spans back to the allocator, once every guard the sweep took has been released.
-		 *
-		 * Free is host code that may create or destroy heaps of its own so calling it under a device guard would be the RHI holding a lock across a call it does not
-		 * control, which is the first of the cooperative rules.
-		 */
 		void FreeSpans(Device device, DeviceMemoryAllocator * allocator, const detail::HostVector<MemorySpan> & spans) noexcept
 		{
 			if (allocator == nullptr)
@@ -324,11 +260,7 @@ namespace azo::rhi
 			}
 		}
 
-	} // namespace
-
-	// Instance.
-
-	// UniqueInstance is the sole owner of backend instance teardown.
+	}
 
 	void UniqueInstance::Reset() noexcept
 	{
@@ -386,12 +318,6 @@ namespace azo::rhi
 		out	  = {};
 		error = {};
 
-		/*
-		 * A backend that declines the block shares nothing, and that is an answer and not a failure.
-		 *
-		 * Reporting it as a cleared result keeps the question askable on every backend, which is what this query replaced two capability flags to achieve. A caller
-		 * sweeping handle types gets no everywhere instead of having to tell a refusal apart from an absence.
-		 */
 		const ExternalCapabilityApi * block = detail::QueryBlock<ExternalCapabilityApi>(m_impl);
 		if (block == nullptr || block->queryExternalHandleSupport == nullptr)
 		{
@@ -401,8 +327,6 @@ namespace azo::rhi
 		bool answered = block->queryExternalHandleSupport(m_impl, desc, &out, &error);
 		Settle(answered, error);
 
-		// A refusal leaves nothing behind and not a partly filled answer, so a caller that ignored the return reads no support, not whatever the backend got to
-		// before it stopped.
 		if (!answered)
 		{
 			out = {};
@@ -419,8 +343,6 @@ namespace azo::rhi
 		return AsResult(out, error);
 	}
 
-	// Device queries.
-
 	GraphicsApiId Device::GetGraphicsApiId() const noexcept
 	{
 		return m_blocks->Device().core->getGraphicsApiId(m_impl);
@@ -430,8 +352,6 @@ namespace azo::rhi
 	{
 		return m_blocks->Device().core->getGraphicsApiName(m_impl);
 	}
-
-	// Device resource and object creation.
 
 	BufferHandle Device::CreateBuffer(const BufferDesc & desc) noexcept
 	{
@@ -448,22 +368,14 @@ namespace azo::rhi
 		return produced;
 	}
 
-	// Both public forms come through here so an installed allocator is not something one overload honors and another walks past.
 	BufferHandle Device::CreateBufferRouted(const BufferDesc & desc, Error * error) noexcept
 	{
-		// Settled when the device was created so this is a load and a branch, not two questions asked per create.
 		if (!m_blocks->AllocatesPlaced())
 		{
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
 			return m_blocks->Device().core->createBuffer(m_impl, desc, error);
 		}
 
-		/*
-		 * Each step that reaches the backend takes the guard on its own and not one held across all three. The middle step calls into host allocator code that may
-		 * create heaps of its own. Holding a guard across it would lock across a call the RHI does not control while the heap create underneath takes a second.
-		 *
-		 * Splitting costs an atomicity the sequence never needed. A footprint is a function of the desc, not device state.
-		 */
 		MemoryInfo info{};
 		{
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
@@ -490,13 +402,8 @@ namespace azo::rhi
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
 			handle = m_blocks->Device().placedMemory->createPlacedBuffer(m_impl, placed, error);
 
-			// Under the guard with the create, since the tracker is partitioned by kind and that is its whole synchronization.
 			if (handle.IsValid() && !RecordSpan(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, span))
 			{
-				/*
-				 * A span the tracker could not take is one no destroy will ever hand back, so the buffer goes with it rather than the range staying held for the
-				 * life of the device. The span is freed below, on the path a create that produced no handle already takes.
-				 */
 				static_cast<void>(m_blocks->Device().core->destroy(m_impl,
 					ResourceType::eBuffer,
 					{
@@ -512,7 +419,6 @@ namespace azo::rhi
 
 		if (!handle.IsValid())
 		{
-			// Outside the guard, for the same reason the reservation was taken outside one.
 			detail::CheckNoGuardHeld();
 			m_blocks->Allocator()->Free(*this, span);
 		}
@@ -543,19 +449,12 @@ namespace azo::rhi
 
 	TextureHandle Device::CreateTextureRouted(const TextureDesc & desc, Error * error) noexcept
 	{
-		// Settled when the device was created so this is a load and a branch, not two questions asked per create.
 		if (!m_blocks->AllocatesPlaced())
 		{
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
 			return m_blocks->Device().core->createTexture(m_impl, desc, error);
 		}
 
-		/*
-		 * Each step that reaches the backend takes the guard on its own and not one held across all three. The middle step calls into host allocator code that may
-		 * create heaps of its own. Holding a guard across it would lock across a call the RHI does not control while the heap create underneath takes a second.
-		 *
-		 * Splitting costs an atomicity the sequence never needed. A footprint is a function of the desc, not device state.
-		 */
 		MemoryInfo info{};
 		{
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
@@ -565,11 +464,6 @@ namespace azo::rhi
 			}
 		}
 
-		/*
-		 * Through the same mapping a buffer create uses so the heap a routed texture lands in is the one an unrouted create would have picked. Forcing device-local
-		 * here would quietly ignore a TextureDesc::memory the backends do read. Where a backend cannot place a texture in that class of heap (Direct3D 12 bars UPLOAD
-		 * and READBACK) the placed create below reports it.
-		 */
 		MemorySpan span{};
 		if (!ReserveSpan(*this, m_blocks->Allocator(), info, HeapTypeForUsage(desc.memory), false, desc.debugName, span, error))
 		{
@@ -587,7 +481,6 @@ namespace azo::rhi
 			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
 			handle = m_blocks->Device().placedMemory->createPlacedTexture(m_impl, placed, error);
 
-			// As in the buffer path above, and for the same reason.
 			if (handle.IsValid() && !RecordSpan(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, span))
 			{
 				static_cast<void>(m_blocks->Device().core->destroy(m_impl,
@@ -1180,8 +1073,6 @@ namespace azo::rhi
 		return 0;
 	}
 
-	// Device mapping.
-
 	MappedMemory Device::Map(BufferHandle buffer, const MapDesc & desc) noexcept
 	{
 		Error error{};
@@ -1235,9 +1126,6 @@ namespace azo::rhi
 		return m_blocks->Device().core->invalidateMappedRange(m_impl, buffer, offset, size, &error);
 	}
 
-	// Descriptor updates. Guarded, not left to the backend: on MoltenVK a texture write is where the image's MTLTexture gets lazily materialized and that is not
-	// thread-safe so concurrent writes from several recording threads need serializing somewhere.
-
 	bool Device::UpdateDescriptors(std::span<const DescriptorWriteBuffer> writes) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
@@ -1279,18 +1167,26 @@ namespace azo::rhi
 
 	bool Device::UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes) noexcept
 	{
-		return m_blocks->Device().rayTracing != nullptr ? m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, nullptr)
-														: Decline<bool>(nullptr, kNoRayTracing);
+		if (m_blocks->Device().rayTracing == nullptr)
+		{
+			return Decline<bool>(nullptr, kNoRayTracing);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		return m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, nullptr);
 	}
 
 	bool Device::UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->Device().rayTracing != nullptr ? m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, &error)
-														: Decline<bool>(&error, kNoRayTracing);
-	}
+		if (m_blocks->Device().rayTracing == nullptr)
+		{
+			return Decline<bool>(&error, kNoRayTracing);
+		}
 
-	// Device memory, residency, profiling and capabilities.
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		return m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, &error);
+	}
 
 	bool Device::QueryMemoryBudget(HeapType heap, MemoryBudgetInfo & out) const noexcept
 	{
@@ -1375,10 +1271,6 @@ namespace azo::rhi
 
 	const DeviceCaps & Device::GetCaps() const noexcept
 	{
-		/*
-		 * The copy the RHI derived, not the one the backend filled. Limits and scalar features are the backend's own answers and came across untouched. The
-		 * categorical ones were taken off the blocks it published, which is what leaves a caller one thing to read, not two that can disagree.
-		 */
 		return m_blocks->Caps();
 	}
 
@@ -1386,8 +1278,6 @@ namespace azo::rhi
 	{
 		FormatSupport support = m_blocks->Device().core->getFormatSupport(m_impl, format);
 
-		// Whether the device has a scaled blit at all is one answer, so it is given once, not repeated per format. A backend without one only has to leave
-		// supportsScaledBlit false and every format follows, which is what stops the two disagreeing.
 		if (!m_blocks->Caps().supportsScaledBlit)
 		{
 			support.blitSrc = false;
@@ -1472,12 +1362,8 @@ namespace azo::rhi
 
 	ValidationMessageCounts Device::GetValidationMessageCounts() const noexcept
 	{
-		// Every backend fills this entry. One with no validation channel to read reports zeros and says so through caps, which is what tells a caller that a zero
-		// here is not evidence of a clean run.
 		return m_blocks->Device().core->getValidationMessageCounts(m_impl);
 	}
-
-	// All typed destroy overloads route through the shared backend destroy entry.
 
 	bool Device::Destroy(BufferHandle handle, const DestroyDesc & desc) noexcept
 	{
@@ -1501,7 +1387,6 @@ namespace azo::rhi
 			}
 		}
 
-		// Outside the guard: the allocator is handed this device and frees a heap through it, which is another create.
 		if (hasSpan)
 		{
 			detail::CheckNoGuardHeld();
@@ -1534,7 +1419,6 @@ namespace azo::rhi
 			}
 		}
 
-		// Outside the guard: the allocator is handed this device and frees a heap through it, which is another create.
 		if (hasSpan)
 		{
 			detail::CheckNoGuardHeld();
@@ -1566,7 +1450,6 @@ namespace azo::rhi
 			}
 		}
 
-		// Outside the guard: the allocator is handed this device and frees a heap through it, which is another create.
 		if (hasSpan)
 		{
 			detail::CheckNoGuardHeld();
@@ -1599,7 +1482,6 @@ namespace azo::rhi
 			}
 		}
 
-		// Outside the guard: the allocator is handed this device and frees a heap through it, which is another create.
 		if (hasSpan)
 		{
 			detail::CheckNoGuardHeld();
@@ -1987,8 +1869,6 @@ namespace azo::rhi
 			&error);
 	}
 
-	// A collect is what retires the native resource so it is also what releases the heap range underneath it.
-
 	bool Device::CollectGarbage() noexcept
 	{
 		const CoreDeviceApi * core = m_blocks->Device().core;
@@ -1998,7 +1878,6 @@ namespace azo::rhi
 			nullptr,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				// Under this kind's guard, which is the one the destroy that queued these held.
 				m_blocks->Tracker().TakeAll(type, released);
 				return core->collectGarbage(m_impl, type, kindError);
 			});
@@ -2017,7 +1896,6 @@ namespace azo::rhi
 			&error,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				// Under this kind's guard, which is the one the destroy that queued these held.
 				m_blocks->Tracker().TakeAll(type, released);
 				return core->collectGarbage(m_impl, type, kindError);
 			});
@@ -2035,7 +1913,6 @@ namespace azo::rhi
 			nullptr,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				// Under this kind's guard, which is the one the destroy that queued these held.
 				m_blocks->Tracker().TakeReleasable(type, timeline, completedValue, released);
 				return core->collectGarbageTimeline(m_impl, type, timeline, completedValue, kindError);
 			});
@@ -2054,7 +1931,6 @@ namespace azo::rhi
 			&error,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				// Under this kind's guard, which is the one the destroy that queued these held.
 				m_blocks->Tracker().TakeReleasable(type, timeline, completedValue, released);
 				return core->collectGarbageTimeline(m_impl, type, timeline, completedValue, kindError);
 			});
@@ -2063,18 +1939,26 @@ namespace azo::rhi
 		return collected;
 	}
 
-	// Adoption of native objects made on this same device.
-
 	BufferHandle Device::AdoptBufferRaw(GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptBuffer(m_impl, api, nativeImport, desc, error)
-													  : Decline<BufferHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<BufferHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
+		return m_blocks->Device().adoption->adoptBuffer(m_impl, api, nativeImport, desc, error);
 	}
 
 	TextureHandle Device::AdoptTextureRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptTexture(m_impl, api, nativeImport, desc, error)
-													  : Decline<TextureHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<TextureHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
+		return m_blocks->Device().adoption->adoptTexture(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeBufferRaw(GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
@@ -2088,8 +1972,6 @@ namespace azo::rhi
 		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeTexture(m_impl, api, texture, outNativeImport, error)
 													  : Decline<bool>(error, kNoAdoption);
 	}
-
-	// External sharing.
 
 	bool Device::ExportBuffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out) noexcept
 	{
@@ -2110,7 +1992,6 @@ namespace azo::rhi
 		bool exported = m_blocks->Device().externalSharing->exportBuffer(m_impl, buffer, type, &out, &error);
 		Settle(exported, error);
 
-		// A refusal leaves nothing behind, so a caller that ignored the return closes an empty handle, not whatever the backend got to.
 		if (!exported)
 		{
 			out = {};
@@ -2146,7 +2027,6 @@ namespace azo::rhi
 		bool exported = m_blocks->Device().externalSharing->exportHeap(m_impl, heap, type, &out, &error);
 		Settle(exported, error);
 
-		// A refusal leaves nothing behind, so a caller that ignored the return closes an empty handle, not whatever the backend got to.
 		if (!exported)
 		{
 			out = {};
@@ -2182,7 +2062,6 @@ namespace azo::rhi
 		bool exported = m_blocks->Device().externalSharing->exportTexture(m_impl, texture, type, &out, &error);
 		Settle(exported, error);
 
-		// A refusal leaves nothing behind, so a caller that ignored the return closes an empty handle, not whatever the backend got to.
 		if (!exported)
 		{
 			out = {};
@@ -2218,7 +2097,6 @@ namespace azo::rhi
 		bool exported = m_blocks->Device().externalSharing->exportTimeline(m_impl, timeline, type, &out, &error);
 		Settle(exported, error);
 
-		// A refusal leaves nothing behind, so a caller that ignored the return closes an empty handle, not whatever the backend got to.
 		if (!exported)
 		{
 			out = {};
@@ -2254,7 +2132,6 @@ namespace azo::rhi
 		bool exported = m_blocks->Device().externalSharing->exportBinarySemaphore(m_impl, semaphore, type, &out, &error);
 		Settle(exported, error);
 
-		// A refusal leaves nothing behind, so a caller that ignored the return closes an empty handle, not whatever the backend got to.
 		if (!exported)
 		{
 			out = {};
@@ -2415,7 +2292,6 @@ namespace azo::rhi
 			return Decline<bool>(&error, kNoExternalSharing);
 		}
 
-		// No guard: a handle names no slot in this device's registries, so nothing here races a create or a destroy.
 		bool closed = m_blocks->Device().externalSharing->closeExportedHandle(m_impl, handle, &error);
 		Settle(closed, error);
 		return closed;
@@ -2423,14 +2299,24 @@ namespace azo::rhi
 
 	TextureViewHandle Device::AdoptTextureViewRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptTextureView(m_impl, api, nativeImport, desc, error)
-													  : Decline<TextureViewHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<TextureViewHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTextureView));
+		return m_blocks->Device().adoption->adoptTextureView(m_impl, api, nativeImport, desc, error);
 	}
 
 	SamplerHandle Device::AdoptSamplerRaw(GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptSampler(m_impl, api, nativeImport, desc, error)
-													  : Decline<SamplerHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<SamplerHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eSampler));
+		return m_blocks->Device().adoption->adoptSampler(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeTextureViewRaw(GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept
@@ -2447,15 +2333,25 @@ namespace azo::rhi
 
 	TimelineHandle Device::AdoptTimelineRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptTimeline(m_impl, api, nativeImport, desc, error)
-													  : Decline<TimelineHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<TimelineHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
+		return m_blocks->Device().adoption->adoptTimeline(m_impl, api, nativeImport, desc, error);
 	}
 
 	BinarySemaphoreHandle Device::AdoptBinarySemaphoreRaw(
 		GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->adoptBinarySemaphore(m_impl, api, nativeImport, desc, error)
-													  : Decline<BinarySemaphoreHandle>(error, kNoAdoption);
+		if (m_blocks->Device().adoption == nullptr)
+		{
+			return Decline<BinarySemaphoreHandle>(error, kNoAdoption);
+		}
+
+		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
+		return m_blocks->Device().adoption->adoptBinarySemaphore(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeTimelineRaw(GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
@@ -2470,16 +2366,9 @@ namespace azo::rhi
 													  : Decline<bool>(error, kNoAdoption);
 	}
 
-	// Queue.
-
 	QueueType Queue::GetType() const noexcept
 	{
 		return m_blocks->core->getType(m_impl);
-	}
-
-	std::uint32_t Queue::GetFamilyIndex() const noexcept
-	{
-		return m_blocks->core->getFamilyIndex(m_impl);
 	}
 
 	bool Queue::Submit(const SubmitDesc & desc) noexcept
@@ -2588,8 +2477,6 @@ namespace azo::rhi
 		return AsResult(out, error);
 	}
 
-	// Command pool.
-
 	CommandList CommandPool::Allocate(const char * debugName) noexcept
 	{
 		Error error{};
@@ -2624,8 +2511,6 @@ namespace azo::rhi
 		return m_dispatch->reset(m_impl, safeAfter, &error);
 	}
 
-	// Command list recording.
-
 	bool CommandList::Begin() noexcept
 	{
 		return m_blocks->render->begin(m_impl, nullptr);
@@ -2657,6 +2542,33 @@ namespace azo::rhi
 	{
 		error = {};
 		return m_blocks->render->barriers(m_impl, barriers, &error);
+	}
+
+	bool CommandList::Transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse) noexcept
+	{
+		Error ignored{};
+		return Transition(texture, fromUse, toUse, ignored);
+	}
+
+	bool CommandList::Transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
+	{
+		const std::array textures{ TextureBarrier{ .texture = texture,
+			.before											= { .use = fromUse },
+			.after											= { .use = toUse },
+			.range											= { .aspects = kAllAspects, .mipCount = kAllMips, .layerCount = kAllLayers } } };
+		return Barriers(BarrierBatch{ .textures = textures }, error);
+	}
+
+	bool CommandList::Transition(const BufferHandle buffer, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse) noexcept
+	{
+		Error ignored{};
+		return Transition(buffer, fromUse, toUse, ignored);
+	}
+
+	bool CommandList::Transition(const BufferHandle buffer, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
+	{
+		const std::array buffers{ BufferBarrier{ .buffer = buffer, .before = { .use = fromUse }, .after = { .use = toUse } } };
+		return Barriers(BarrierBatch{ .buffers = buffers }, error);
 	}
 
 	bool CommandList::AliasBarriers(std::span<const AliasBarrier> barriers) noexcept
@@ -3102,12 +3014,12 @@ namespace azo::rhi
 										  : Decline<bool>(&error, kNoQueryCommand);
 	}
 
-	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage) noexcept
+	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept
 	{
 		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, nullptr) : Decline<bool>(nullptr, kNoQueryCommand);
 	}
 
-	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<PipelineStage> stage, Error & error) noexcept
+	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, &error) : Decline<bool>(&error, kNoQueryCommand);
@@ -3183,8 +3095,6 @@ namespace azo::rhi
 		return m_blocks->nativeEscape != nullptr ? m_blocks->nativeEscape->endNativeMutation(m_impl, desc, error) : Decline<bool>(error, kNoNativeEscape);
 	}
 
-	// Swapchain.
-
 	AcquireResult Swapchain::AcquireNextImage(std::uint64_t timeoutNanoseconds) noexcept
 	{
 		Error error{};
@@ -3197,8 +3107,6 @@ namespace azo::rhi
 		AcquireResult produced = m_dispatch->acquireNextImage(m_impl, timeoutNanoseconds, &error);
 		Settle(produced, error);
 
-		// A backend answers with a status, an index and the acquire semaphore. Resolving what that index names happens here and not in each backend, since the three
-		// accessors it goes through are the same ones a caller would have had to call itself.
 		if (produced.status == SwapchainStatus::eOk || produced.status == SwapchainStatus::eSuboptimal)
 		{
 			produced.texture		= m_dispatch->getBackBuffer(m_impl, produced.imageIndex);
@@ -3296,8 +3204,6 @@ namespace azo::rhi
 		return m_dispatch->getPresentMode(m_impl);
 	}
 
-	// Descriptor arena.
-
 	DescriptorSetHandle DescriptorArena::Allocate(const DescriptorSetAllocDesc & desc) noexcept
 	{
 		Error error{};
@@ -3308,11 +3214,6 @@ namespace azo::rhi
 	{
 		error = {};
 
-		/*
-		 * The same guard a destroy of a set takes, because this reaches the same table. Every backend stores the set it made in the device's descriptor set table so
-		 * two arenas allocating on two threads are two writers to one structure and D24's promise that a backend may assume its entries are serialized for that kind
-		 * covers this one like every other.
-		 */
 		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
 		DescriptorSetHandle produced = m_dispatch->allocate(m_impl, desc, &error);
 		Settle(produced, error);
@@ -3327,8 +3228,6 @@ namespace azo::rhi
 
 	bool DescriptorArena::Reset(RetirePoint safeAfter) noexcept
 	{
-		// Retiring the sets this arena handed out walks the same table allocating them filled so it takes the same guard. Still one acquisition for the whole
-		// reclaim, which is the property D27 chose a bulk reset for.
 		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
 		return m_dispatch->reset(m_impl, safeAfter, nullptr);
 	}
@@ -3340,8 +3239,6 @@ namespace azo::rhi
 		return m_dispatch->reset(m_impl, safeAfter, &error);
 	}
 
-	// UniqueDevice is the sole owner of backend device teardown.
-
 	void UniqueDevice::Reset() noexcept
 	{
 		if (m_impl != nullptr && m_blocks != nullptr)
@@ -3351,11 +3248,8 @@ namespace azo::rhi
 				m_blocks->Device().core->destroyDevice(m_impl);
 			}
 
-			// Dropped, not freed. The backend released its heaps wholesale as it tore down so handing each span back would be returning ranges of memory that no longer
-			// exists.
 			m_blocks->Tracker().Forget();
 
-			// The resolved blocks go with the device that published them. Every facade derived from it pointed here and none of those outlive the owner.
 			detail::ReleaseDeviceBlocks(m_blocks);
 		}
 
@@ -3363,12 +3257,9 @@ namespace azo::rhi
 		m_blocks = nullptr;
 	}
 
-	// Dynamic creation.
-
 	namespace
 	{
 
-		// Brings up an instance on the first preferred API the registry has an entry point for.
 		[[nodiscard]] void * CreateBackendInstance(
 			GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc, Error & error)
 		{
@@ -3404,12 +3295,6 @@ namespace azo::rhi
 			return nullptr;
 		}
 
-		/*
-		 * The instance's block when it published a whole one. Fills error and releases the instance otherwise.
-		 *
-		 * An instance nothing can drive still has to go back and destroyInstance is the only entry that can send it. A backend that published no block at all or left
-		 * even that one entry unset, leaves nothing to call so the object is abandoned, not reached through a null pointer.
-		 */
 		[[nodiscard]] const InstanceApi * BlockOrRelease(void * instanceImpl, Error & error)
 		{
 			const auto * block = detail::CheckedBlock<InstanceApi>(instanceImpl, &error);
@@ -3442,7 +3327,6 @@ namespace azo::rhi
 				return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null instance" } : error;
 			}
 
-			// Checked before createDevice is reached through it, since that entry is one of the ones that could be missing.
 			const InstanceApi * dispatch = BlockOrRelease(instanceImpl, error);
 			if (dispatch == nullptr)
 			{
@@ -3457,8 +3341,6 @@ namespace azo::rhi
 
 			if (deviceImpl == nullptr)
 			{
-				// On success the instance stays with the backend, which holds it for the devices created from it. A device that never came up leaves nobody to do that so it
-				// is released here, not left for the static teardown at process exit.
 				const detail::LifetimeLock lifetime;
 				dispatch->destroyInstance(instanceImpl);
 				return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null device", } : error;
@@ -3467,8 +3349,6 @@ namespace azo::rhi
 			BackendBlockSet * blocks = detail::ResolveDeviceBlocks(deviceImpl, desc, &error);
 			if (blocks == nullptr)
 			{
-				// The device came up but cannot be driven. Unwind it the same way the null-device path above does so a rejected backend does not strand a device and an
-				// instance for the life of the process.
 				detail::ReleaseUndrivableDevice(deviceImpl);
 
 				const detail::LifetimeLock lifetime;
@@ -3479,7 +3359,7 @@ namespace azo::rhi
 			return detail::FacadeBuilder::MakeUniqueDevice(deviceImpl, blocks);
 		}
 
-	} // namespace
+	}
 
 	Result<UniqueInstance> CreateInstance(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc)
 	{
@@ -3508,7 +3388,6 @@ namespace azo::rhi
 
 		const InstanceDesc instanceDesc = InstanceDescForDevice(desc);
 
-		// The order is walked until a backend hands back a device and not until one is merely registered.
 		Error refusal{};
 		bool anyTried = false;
 
@@ -3526,8 +3405,6 @@ namespace azo::rhi
 				return device;
 			}
 
-			// The first refusal and not the last, since it comes from the backend nearest what the caller asked for. The ones behind it are backends they may not
-			// know the build even has.
 			if (!anyTried)
 			{
 				refusal	 = device.GetError();
@@ -3546,4 +3423,4 @@ namespace azo::rhi
 		return refusal;
 	}
 
-} // namespace azo::rhi
+}

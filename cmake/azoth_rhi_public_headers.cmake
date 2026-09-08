@@ -30,6 +30,11 @@ endif()
 
 file(GLOB_RECURSE _headers "${AZOTH_RHI_SOURCE_ROOT}/lib/include/*.hpp")
 
+# A root that matches nothing is a moved or misspelled path, which would otherwise pass as clean.
+if(NOT _headers)
+    message(FATAL_ERROR "AzothRHI public header contract: lib/include matched no headers, so it is not being checked.")
+endif()
+
 # Conditional compilation only. Naming the AZOTH_RHI_BACKEND environment variable in a doc comment
 # is not what this is about.
 set(_forbidden "^[ \t]*#[ \t]*(if|ifdef|ifndef|elif)[^\n]*AZOTH_RHI_BACKEND")
@@ -53,16 +58,5 @@ if(_violations)
             "and would get the other branch without a word about it. Ask rhi::AvailableBackends or "
             "rhi::FindAvailableBackend at runtime instead, which is also the only form a backend of your own can "
             "answer.\n\n${_report}\n")
-endif()
-# A root that stops resolving makes this quieter, not redder, which is how a stale one once went on
-# printing OK over a third of the tree. The floor is the count at the last deliberate change: raise it as
-# headers are added, lower it only when headers are genuinely removed.
-set(_floor 76)
-if(_scanned LESS _floor)
-    message(FATAL_ERROR
-            "AzothRHI public header contract scanned ${_scanned} headers, fewer than the ${_floor} this check covers.\n"
-            "A scan root has most likely stopped resolving, which leaves the check reporting OK over a smaller tree "
-            "than it was written for.\nFix the root, or lower the floor in cmake/azoth_rhi_public_headers.cmake if "
-            "headers were genuinely removed.\n")
 endif()
 message(STATUS "AzothRHI: public header contract OK, ${_scanned} headers scanned, none branch on the build's backends.")

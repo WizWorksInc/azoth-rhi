@@ -21,7 +21,7 @@ include_guard(GLOBAL)
 
 # Fetching SDL3 and Slang when the host has neither.
 #
-# Both are needed only by the samples, and a machine without them used to skip those samples silently.
+# A machine without them used to skip those samples silently.
 # That is how the Direct3D 12 shader path went unexercised: the Windows box has neither, so the two
 # samples that compile and bind a shader never ran there and the only end-to-end check of the binding
 # ABI was macOS. Fetching them makes the samples the same set everywhere and not a set that varies
@@ -30,7 +30,7 @@ include_guard(GLOBAL)
 # Either can be turned off, for a build that would rather skip a sample than pull a dependency.
 
 set(AZOTH_RHI_FETCH_SDL3 ON CACHE BOOL "Fetch SDL3 for the samples when the host has none")
-set(AZOTH_RHI_FETCH_SLANG ON CACHE BOOL "Fetch a prebuilt Slang for the samples when the host has none")
+set(AZOTH_RHI_FETCH_SLANG ON CACHE BOOL "Fetch a prebuilt Slang when the host has none")
 
 set(AZOTH_RHI_SDL3_TAG "release-3.4.12" CACHE STRING "SDL3 tag fetched when the host has no SDL3")
 set(AZOTH_RHI_SLANG_TAG "2026.14.1" CACHE STRING "Slang release fetched when the host has no Slang")
@@ -72,10 +72,17 @@ macro(azoth_rhi_provide_slang)
     find_package(slang QUIET CONFIG)
 
     if(NOT slang_FOUND AND AZOTH_RHI_FETCH_SLANG)
+        # An MSVC cross toolchain leaves CMAKE_SYSTEM_PROCESSOR on the host, so the compiler's own target
+        # decides when they disagree, otherwise an ARM64 host targeting x64 fetches a Slang that cannot link.
+        set(_slang_processor "${CMAKE_SYSTEM_PROCESSOR}")
+        if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+            set(_slang_processor "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+        endif()
+
         set(_slang_arch "")
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        if(_slang_processor MATCHES "^(aarch64|arm64|ARM64)$")
             set(_slang_arch "aarch64")
-        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+        elseif(_slang_processor MATCHES "^(x86_64|AMD64|amd64|x64)$")
             set(_slang_arch "x86_64")
         endif()
 
@@ -134,5 +141,11 @@ macro(azoth_rhi_provide_slang)
             target_include_directories(slang::slang INTERFACE ${AZOTH_RHI_SLANG_INCLUDE_DIR})
         endif()
         mark_as_advanced(AZOTH_RHI_SLANG_INCLUDE_DIR)
+    endif()
+endmacro()
+
+macro(azoth_rhi_provide_slang_if_needed)
+    if(AZOTH_RHI_BUILD_EXAMPLES OR AZOTH_RHI_BUILD_IMGUI OR (AZOTH_RHI_BUILD_TESTS AND AZOTH_RHI_BUILD_RIGOROUS_TESTS))
+        azoth_rhi_provide_slang()
     endif()
 endmacro()

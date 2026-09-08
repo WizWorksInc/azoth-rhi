@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -18,25 +13,12 @@ namespace azo::rhi::d3d12
 {
 	namespace
 	{
-		/*
-		 * Which handle types name the NT handle CreateSharedHandle produces for each kind of object.
-		 *
-		 * One call produces one handle whatever it was given, so what varies is the name it travels under: the plain Win32 one, and the producer-tagged one Vulkan
-		 * and CUDA use when importing that same handle. The tagged names are not interchangeable between kinds, a resource handle and a heap handle being different
-		 * objects, not two spellings of one, which is the distinction both consumers draw.
-		 */
 		constexpr Flags<ExternalHandleType> kResourceTypes = Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Resource;
 		constexpr Flags<ExternalHandleType> kHeapTypes	   = Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Heap;
 		constexpr Flags<ExternalHandleType> kFenceTypes	   = Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Fence;
 
 		constexpr const char * kUndeclared = "export of a handle type this object was not created exportable to";
 
-		/*
-		 * The NT handle for an object created with the shared flag.
-		 *
-		 * Security attributes and a name are both left absent, which Direct3D 12 reads as a default descriptor and a non-inheritable unnamed handle. A named handle
-		 * would share the kernel object namespace and collide, and no consumer here needs one.
-		 */
 		[[nodiscard]] bool ExportObject(D3D12Device * device, ID3D12DeviceChild * object, const Flags<ExternalHandleType> declared,
 			const Flags<ExternalHandleType> accepted, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 		{
@@ -56,18 +38,17 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 does not name this kind of object under that handle type");
 			}
 
-			HANDLE handle = nullptr;
-			if (FAILED(device->device->CreateSharedHandle(object, nullptr, GENERIC_ALL, nullptr, &handle)))
+			HANDLE handle	 = nullptr;
+			const HRESULT hr = device->device->CreateSharedHandle(object, nullptr, GENERIC_ALL, nullptr, &handle);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateSharedHandle failed");
+				return FailNative(error, hr, "ID3D12Device::CreateSharedHandle failed");
 			}
 
 			*out = ExternalHandle{ .type = type, .handle = handle };
 			return Succeed(error);
 		}
 
-		// The other half. A handle from another adapter, another API, or a corrupted one fails here without opening into a broken object, which is the validation the
-		// external path has and adoption does not.
 		template <class Object>
 		[[nodiscard]] bool OpenShared(
 			D3D12Device * device, const ExternalHandle & handle, const Flags<ExternalHandleType> accepted, ComPtr<Object> & out, Error * error) noexcept
@@ -82,16 +63,16 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Win32 handle");
 			}
 
-			if (FAILED(device->device->OpenSharedHandle(handle.handle, IID_PPV_ARGS(out.GetAddressOf()))))
+			const HRESULT hr = device->device->OpenSharedHandle(handle.handle, IID_PPV_ARGS(out.GetAddressOf()));
+			if (FAILED(hr))
 			{
-				return Fail(error,
-					ErrorCode::eNativeApiError,
-					"the handle names no payload this device can open, which is what a handle from another adapter or a corrupted one reports");
+				return FailNative(
+					error, hr, "the handle names no payload this device can open, which is what a handle from another adapter or a corrupted one reports");
 			}
 
 			return Succeed(error);
 		}
-	} // namespace
+	}
 
 	bool D3D12ExportBuffer(void * impl, const BufferHandle buffer, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
@@ -154,13 +135,6 @@ namespace azo::rhi::d3d12
 		return ExportObject(device, slot->fence.Get(), slot->exportableHandleTypes, kFenceTypes, type, out, error);
 	}
 
-	/*
-	 * A buffer over memory another component produced.
-	 *
-	 * OpenSharedHandle hands back the resource the exporter created without building a new one over its memory, so desc is read for the size the slot records and
-	 * for the debug name and nothing else. Direct3D 12 keeps the description with the resource, which is the one place this surface is easier than the Vulkan
-	 * side, where every field has to be restated because none of it travels with the handle.
-	 */
 	BufferHandle D3D12ImportBuffer(void * impl, const ExternalBufferImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.importBuffer");
@@ -174,8 +148,6 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.desc.debugName, device->debugNames);
 
-		// No allocation and no exportable set: this device owns the reference the open returned and not the memory under it, and re-exporting a payload it did not
-		// create would hand out a handle to memory that is not its to share.
 		return ReturnValue(device->bufferSlots.Store(BufferSlot{
 							   .resource = std::move(resource), .size = desc.desc.size, .hostVisible = false, .desc = detail::Recorded(desc.desc) }),
 			error);
@@ -206,7 +178,8 @@ namespace azo::rhi::d3d12
 							   .mipLevels									 = desc.desc.mipLevels,
 							   .arrayLayers									 = desc.desc.arrayLayers,
 							   .usage										 = desc.desc.usage,
-							   .mutableFormat								 = desc.desc.allowFormatViews }),
+							   .mutableFormat								 = desc.desc.allowFormatViews,
+							   .desc										 = detail::Recorded(desc.desc) }),
 			error);
 	}
 
@@ -221,7 +194,6 @@ namespace azo::rhi::d3d12
 			return HeapHandle{};
 		}
 
-		// The heap's own description and not the caller's, since the exporter fixed both and the placement checks have to judge against what the memory actually is.
 		const D3D12_HEAP_DESC opened = heap->GetDesc();
 		return ReturnValue(device->heapSlots.Store(HeapSlot{
 							   .heap = std::move(heap),
@@ -242,8 +214,6 @@ namespace azo::rhi::d3d12
 			return TimelineHandle{};
 		}
 
-		// The initial value in desc is ignored on purpose: the payload arrives at whatever the exporter left it at, and setting it here would rewind a counter the
-		// other side is still advancing.
 		return ReturnValue(device->timelineSlots.Store(TimelineSlot{ .fence = std::move(fence) }), error);
 	}
 
@@ -258,8 +228,6 @@ namespace azo::rhi::d3d12
 			return BinarySemaphoreHandle{};
 		}
 
-		// Both counters start at zero here as they do on the exporting side, which is what keeps an exporter that only signals and an importer that only waits in
-		// step. See BinarySemaphoreSlot.
 		return ReturnValue(device->binarySemaphoreSlots.Store(BinarySemaphoreSlot{ .fence = std::move(fence) }), error);
 	}
 
@@ -267,7 +235,6 @@ namespace azo::rhi::d3d12
 	{
 		switch (handle.type)
 		{
-		// Every handle this backend produces is an NT handle, which an import does not consume, so releasing it here is what ends its life.
 		case ExternalHandleType::eOpaqueWin32:
 		case ExternalHandleType::eD3D12Resource:
 		case ExternalHandleType::eD3D12Heap:
@@ -279,7 +246,6 @@ namespace azo::rhi::d3d12
 
 			return Succeed(error);
 
-		// Owned by nobody, so closing it is the defect without leaving it alone.
 		case ExternalHandleType::eOpaqueWin32Kmt: return Succeed(error);
 
 		case ExternalHandleType::eOpaqueFd:
@@ -310,4 +276,4 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-} // namespace azo::rhi::d3d12
+}

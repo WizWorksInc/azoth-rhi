@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -179,8 +174,6 @@ namespace
 
 	TEST_P(DeviceTest, ReportsFormatSupportForTheFormatItWasAsked)
 	{
-		// Whatever a backend concludes about a format, it has to answer about the one it was given. A backend echoing eUndefined here would make every
-		// support check silently meaningless.
 		for (const rhi::Format format : { rhi::Format::eRGBA8UNorm, rhi::Format::eBGRA8Srgb, rhi::Format::eD32Float, rhi::Format::eR32Float })
 		{
 			const rhi::FormatSupport support = Dev().GetFormatSupport(format);
@@ -526,4 +519,4 @@ namespace
 		EXPECT_FALSE(moved.IsValid());
 	}
 
-} // namespace
+}

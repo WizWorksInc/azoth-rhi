@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -43,7 +38,7 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-} // namespace
+}
 
 namespace
 {
@@ -86,7 +81,6 @@ namespace
 
 		std::memcpy(mapped.data, values.data(), values.size_bytes());
 
-		// Coherent memory reaches the GPU on its own. Everything else needs the write pushed out.
 		if (!mapped.coherent && !dev.FlushMappedRange(buffer, 0, values.size_bytes(), error))
 		{
 			fw::ReportError("failed to flush the upload buffer", error);
@@ -102,7 +96,6 @@ namespace
 		return MapOutcome::eDone;
 	}
 
-	// Reads the buffer back and says whether it holds what went up, printing both either way.
 	bool ReadBackMatches(rhi::Device dev, const rhi::BufferHandle buffer, const std::span<const std::uint32_t> expected)
 	{
 		rhi::Error error{};
@@ -113,7 +106,6 @@ namespace
 			return false;
 		}
 
-		// The mirror of the flush above: the CPU's view of this range may predate the GPU's writes.
 		if (!mapped.coherent && !dev.InvalidateMappedRange(buffer, 0, expected.size_bytes(), error))
 		{
 			fw::ReportError("failed to invalidate the readback buffer", error);
@@ -130,14 +122,12 @@ namespace
 		return std::ranges::equal(observed, expected);
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
 	const char * requested = fw::RequestedBackend(argc, argv);
 
-	// Every backend this build has, registered, with the requested one first. What that set is was settled when the library was compiled so this sample never
-	// has to ask.
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
 	if (requested != nullptr && !backends.HonoredRequest())
 	{
@@ -175,8 +165,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Host visible memory is the one part of this a backend can genuinely not have. Where there is none the copies below still record and submit also there is
-	// just nothing to look at afterwards.
 	const std::vector<std::uint32_t> pattern = MakePattern();
 	const MapOutcome uploaded				 = WritePattern(dev, upload, pattern);
 	if (uploaded == MapOutcome::eFailed)
@@ -204,21 +192,19 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// The second copy has to see the first so the storage buffer moves from copy write to copy read between them. Without that barrier the two copies are
-	// unordered against each other.
 	const std::array intoStorage{
 		rhi::BufferBarrier{
 			.buffer = storage,
-			.before = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone },
-			.after	= { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite },
+			.before = { .use = rhi::ResourceUse::eDiscard },
+			.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 		},
 	};
 
 	const std::array outOfStorage{
 		rhi::BufferBarrier{
 			.buffer = storage,
-			.before = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite },
-			.after	= { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead },
+			.before = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+			.after	= { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 		},
 	};
 
@@ -254,7 +240,6 @@ int main(int argc, char ** argv)
 		status = matched ? 0 : 1;
 	}
 
-	// Retire everything against the value the submission signaled and then collect once it is reached.
 	const rhi::DestroyDesc retired{
 		.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 		.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 1 },

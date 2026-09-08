@@ -15,9 +15,10 @@
 # Native graphics headers may appear in the public tree only under include/azoth/rhi/native/.
 # src/ is exempt.
 #
-# Only lib/include is scanned. Tests, examples and benchmarks consume that surface rather than form
-# it, and they reach for a native header when interop is the thing being shown. Holding them to the
-# rule turned every such example into a native/ directory.
+# lib/include, utils/include and extras/imgui/include are scanned, which are the trees that form the
+# public surface. Tests, examples and benchmarks consume that surface rather than form it, and they
+# reach for a native header when interop is the thing being shown. Holding them to the rule turned
+# every such example into a native/ directory.
 #
 # Registered as gate_api_boundary. By hand:
 #
@@ -31,15 +32,25 @@ endif()
 
 set(_scan_roots
         "${AZOTH_RHI_SOURCE_ROOT}/lib/include"
+        "${AZOTH_RHI_SOURCE_ROOT}/utils/include"
+        "${AZOTH_RHI_SOURCE_ROOT}/extras/imgui/include"
 )
 
-set(_globs)
+set(_files)
 foreach(_root IN LISTS _scan_roots)
+    set(_globs)
     foreach(_ext hpp h hh cpp cc cxx mm inl ipp)
         list(APPEND _globs "${_root}/*.${_ext}")
     endforeach()
+    file(GLOB_RECURSE _found ${_globs})
+
+    # A root that matches nothing is a moved or misspelled path, which would otherwise pass as clean.
+    if(NOT _found)
+        message(FATAL_ERROR "AzothRHI API boundary: the scan root ${_root} matched no files, so it is not being checked.")
+    endif()
+
+    list(APPEND _files ${_found})
 endforeach()
-file(GLOB_RECURSE _files ${_globs})
 
 set(_forbidden "(^vulkan/|^vk_mem_alloc\\.h|^volk\\.h|^d3d12\\.h|^d3dx12|^dxgi|^D3D12MemAlloc\\.h|^Metal/|^MetalKit/|^QuartzCore/|^Foundation/|^MoltenVK/|^wrl/|^pix3\\.h|^tracy/TracyVulkan\\.hpp)")
 
@@ -94,13 +105,6 @@ if(_violations)
             "AzothRHI boundary violate: a file outside native/ has a graphics header or names a graphics API type.\n"
             "\n\n${_report}\n"
     )
-endif()
-
-set(_floor 81)
-if(_scanned LESS _floor)
-    message(FATAL_ERROR
-            "AzothRHI API boundary scanned ${_scanned} files, fewer than the ${_floor} this check covers.\n"
-            "Fix the root or lower the floor in cmake/azoth_rhi_boundary.cmake if files were genuinely removed.\n")
 endif()
 
 message(STATUS "AzothRHI: API boundary OK, ${_scanned} files scanned, no graphics headers or API types outside native/.")

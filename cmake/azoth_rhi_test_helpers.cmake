@@ -28,6 +28,11 @@ if(NOT DEFINED AZOTH_RHI_TESTS_ROOT)
     message(FATAL_ERROR "azoth_rhi_test_helpers: set AZOTH_RHI_TESTS_ROOT before including this module.")
 endif()
 
+# CMake's default is 5 seconds, which a shared Windows Debug build crosses: two runs of the same commit
+# timed out on different targets, so what a suite costs to list varies by more than the margin.
+set(AZOTH_RHI_TEST_DISCOVERY_TIMEOUT 60 CACHE STRING "Seconds a suite gets to answer --gtest_list_tests")
+mark_as_advanced(AZOTH_RHI_TEST_DISCOVERY_TIMEOUT)
+
 # Collects the test sources of one directory, relative to the tests root so callers can prefix them.
 function(azoth_rhi_collect_test_sources source_dir out_var)
     cmake_parse_arguments(ARG "" "" "EXCLUDE;PATTERNS" ${ARGN})
@@ -131,6 +136,7 @@ function(azoth_rhi_add_gtest_suite target)
     # the middle of a build and it keeps cross-compiled builds configurable.
     gtest_discover_tests(${target}
             DISCOVERY_MODE PRE_TEST
+            DISCOVERY_TIMEOUT ${AZOTH_RHI_TEST_DISCOVERY_TIMEOUT}
             PROPERTIES ${_properties}
     )
 
@@ -223,6 +229,11 @@ function(azoth_rhi_add_header_self_containment_library target)
             LIST_DIRECTORIES false
             RELATIVE "${_conformance_root}"
             "${_conformance_root}/conformance/*.hpp")
+
+    # A dot-prefixed name is filesystem residue rather than a header, and macOS writes one beside every
+    # file carrying extended attributes, so globbing them in compiles binary metadata as C++.
+    list(FILTER _headers EXCLUDE REGEX "(^|/)\\.")
+    list(FILTER _conformance_headers EXCLUDE REGEX "(^|/)\\.")
 
     list(SORT _headers)
     list(SORT _conformance_headers)

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -18,6 +13,7 @@
 #include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/hash.hpp"
 #include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/native/vulkan_config.hpp"
 #include "azoth/rhi/native/vulkan_native.hpp"
 
 #include "backends/registration.hpp"
@@ -54,14 +50,11 @@ namespace azo::rhi
 {
 	namespace vulkan
 	{
-		// Resolves a buffer handle to its slot under the device's validation mode. Lockless, like the rest of the resolves here.
 		[[nodiscard]] BufferSlot * ResolveBuffer(VulkanDevice * device, BufferHandle handle) noexcept
 		{
 			return device->bufferSlots.Resolve(handle, kHandleAlreadyChecked);
 		}
 
-		// Bounds a request against a buffer. The whole-buffer sentinel clamps to the bytes left after offset, any other overrun returns false, which map, flush and
-		// invalidate turn into eInvalidArgument.
 		[[nodiscard]] bool BoundBufferRange(VkDeviceSize bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept
 		{
 			if (offset > bufferSize)
@@ -82,9 +75,6 @@ namespace azo::rhi
 
 			return true;
 		}
-
-		// The resolve helpers below are lockless reads, since the recording contract forbids registry mutation while recording. A failed range or generation check
-		// returns null.
 
 		[[nodiscard]] vk::PipelineLayout ResolvePipelineLayout(VulkanDevice * device, PipelineLayoutHandle handle) noexcept
 		{
@@ -147,19 +137,12 @@ namespace azo::rhi
 			return {};
 		}
 
-		// Maps buffer usage onto Vulkan bits. Ray tracing and shader binding table usages wait on their device extensions being enabled.
-
 		[[nodiscard]] VulkanBackendOwner & Owner()
 		{
 			static VulkanBackendOwner owner;
 			return owner;
 		}
 
-		/*
-		 * Brings up the owner's loader-level dispatcher if no one has. A host that already seeded the process-global one from its own loader has that loader reused.
-		 * Headless there is nothing to reuse so a DynamicLoader opens the library instead. Reached only from createInstance, which the RHI serializes. False when
-		 * there is no Vulkan library to open, or one that has no vkGetInstanceProcAddr in it.
-		 */
 		[[nodiscard]] bool EnsureDispatcherInitialized(VulkanBackendOwner & owner)
 		{
 			if (owner.dispatch.vkGetInstanceProcAddr != nullptr)
@@ -167,8 +150,6 @@ namespace azo::rhi
 				return true;
 			}
 
-			// The window library's loader, if platform code brought one up through the presentation backend. Sharing it matters because a surface made from one loader
-			// cannot be used by an instance from another.
 			auto getInstanceProcAddr = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr;
 			if (getInstanceProcAddr == nullptr)
 			{
@@ -177,7 +158,6 @@ namespace azo::rhi
 					owner.loader.emplace();
 				}
 
-				// A loader that could not open reports it here and never throws, which is the shape it has once Vulkan-Hpp is told there are no exceptions.
 				if (!owner.loader->success())
 				{
 					return false;
@@ -192,8 +172,6 @@ namespace azo::rhi
 
 			owner.dispatch.init(getInstanceProcAddr);
 
-			// The global stays initialized for whoever reaches past the RHI through GetVulkanNativeDevice and calls Vulkan-Hpp with its own defaults. Nothing in this
-			// backend reads it: every call here goes through the table of the instance or device it belongs to.
 			VULKAN_HPP_DEFAULT_DISPATCHER.init(getInstanceProcAddr);
 			return true;
 		}
@@ -215,12 +193,6 @@ namespace azo::rhi
 
 		namespace
 		{
-			/*
-			 * Resolves one NativeValidationPolicy against the RHI mode.
-			 *
-			 * eFollowValidationMode is the default on most of these fields and what it follows is whether the mode is one that validates at all so a release build stays
-			 * quiet without the caller spelling that out per field.
-			 */
 			[[nodiscard]] bool ResolveNativePolicy(const NativeValidationPolicy policy, const ValidationMode mode) noexcept
 			{
 				switch (policy)
@@ -232,12 +204,12 @@ namespace azo::rhi
 
 				return false;
 			}
-		} // namespace
+
+		}
 
 		VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
 			[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types, const vk::DebugUtilsMessengerCallbackDataEXT * data, void * userData) noexcept
 		{
-			// Severity bits are ordered and the messenger enables only warning and error so one comparison classifies each message.
 			auto * instance		 = static_cast<VulkanInstance *>(userData);
 			const bool isError	 = severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
 			const bool isWarning = !isError && severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning;
@@ -259,14 +231,10 @@ namespace azo::rhi
 				}
 				else
 				{
-					// Nothing installed, so this is the whole of where a validation message goes. The layer reports through the messenger and nowhere else, and a check that
-					// trips silently is worse than one printed somewhere the host did not choose.
 					std::cerr << "[vulkan validation] " << data->pMessage << '\n';
 				}
 			}
 
-			// Breaking here puts the debugger on the call that tripped the check, while the offending frames are still on the stack. Returning VK_TRUE instead would
-			// abort the call, which is not what a caller asking to break wants.
 			if ((isError && instance->breakOnError) || (isWarning && instance->breakOnWarning))
 			{
 				AZO_RHI_DEBUG_BREAK();
@@ -275,8 +243,6 @@ namespace azo::rhi
 			return VK_FALSE;
 		}
 
-		// Builds an instance from an InstanceDesc without registering it so the caller owns the result. Null with *error set on failure and the whole thing is
-		// guarded because Vulkan-Hpp throws.
 		[[nodiscard]] HostUniquePtr<VulkanInstance> BuildInstance(const InstanceDesc & desc, Error * error)
 		{
 			VulkanBackendOwner & owner = Owner();
@@ -289,21 +255,20 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			const auto instanceFail = [error](const char * message) -> HostUniquePtr<VulkanInstance>
+			const auto instanceFail = [error](const char * message, vk::Result result) -> HostUniquePtr<VulkanInstance>
 			{
 				*error = Error{
-					.code	 = ErrorCode::eNativeApiError,
-					.message = message,
+					.code		= ErrorCode::eNativeApiError,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
 				};
 				return nullptr;
 			};
 
-			// Portability enumeration is what makes MoltenVK report its physical device. Headless needs no surface extensions and debug utils comes along when present,
-			// for later labelling.
 			const auto enumeratedExts = vk::enumerateInstanceExtensionProperties<HostAllocatorAdapter<vk::ExtensionProperties>>(nullptr, owner.dispatch);
 			if (enumeratedExts.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan instance extension enumeration failed");
+				return instanceFail("Vulkan instance extension enumeration failed", enumeratedExts.result);
 			}
 
 			const detail::HostVector<vk::ExtensionProperties> & availExts = enumeratedExts.value;
@@ -329,8 +294,6 @@ namespace azo::rhi
 				instanceExts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			}
 
-			// WSI extensions so platform code can later make a window surface from this instance. Only what the loader advertises is enabled, which keeps this a no-op
-			// headless and portable across platforms.
 			for (const char * surfaceExt : { VK_KHR_SURFACE_EXTENSION_NAME,
 					 "VK_EXT_metal_surface",
 					 "VK_MVK_macos_surface",
@@ -345,13 +308,11 @@ namespace azo::rhi
 				}
 			}
 
-			// The Khronos layer follows nativeValidation.apiValidation, which defaults to the RHI mode so release stays quiet unless a caller asks otherwise. Requested
-			// but absent is not an error: a machine without the SDK still gets a working instance.
 			const NativeValidationDesc & native = desc.nativeValidation;
 			const auto enumeratedLayers			= vk::enumerateInstanceLayerProperties<HostAllocatorAdapter<vk::LayerProperties>>(owner.dispatch);
 			if (enumeratedLayers.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan instance layer enumeration failed");
+				return instanceFail("Vulkan instance layer enumeration failed", enumeratedLayers.result);
 			}
 
 			const detail::HostVector<vk::LayerProperties> & availLayers = enumeratedLayers.value;
@@ -387,10 +348,6 @@ namespace azo::rhi
 				}
 			}
 
-			/*
-			 * Synchronization validation, GPU-assisted validation and best practices are toggles of the Khronos layer and not layers of their own so they are requested
-			 * through VK_EXT_validation_features and only mean anything when that layer is on.
-			 */
 			detail::HostVector<vk::ValidationFeatureEnableEXT> validationEnables;
 			if (wantApiValidation)
 			{
@@ -421,7 +378,7 @@ namespace azo::rhi
 			const auto loaderApi			 = vk::enumerateInstanceVersion(owner.dispatch);
 			if (loaderApi.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan loader version query failed");
+				return instanceFail("Vulkan loader version query failed", loaderApi.result);
 			}
 
 			if (requestedApi > loaderApi.value)
@@ -466,24 +423,16 @@ namespace azo::rhi
 			const auto created = vk::createInstance(instInfo, nullptr, instance->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan instance creation failed");
+				return instanceFail("Vulkan instance creation failed", created.result);
 			}
 
 			instance->instance	 = created.value;
 			instance->debugUtils = extAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-			// From here this instance's table carries the instance-level entry points of the layer chain the create above negotiated, which is what makes it wrong to
-			// share with an instance that negotiated a different one.
 			instance->dispatch.init(instance->instance);
 
-			// The global follows the newest instance, as it always has. See the note beside the matching device init for what it is still for.
 			VULKAN_HPP_DEFAULT_DISPATCHER.init(instance->instance);
 
-			/*
-			 * Wherever the layer is on, route its messages through a messenger that counts them and hands the text to onMessage, or to stderr when the caller installed
-			 * nothing, so the validation-clean assertions have a number to read, not messages that only print. Tied to the same policy as the layer so a caller enabling
-			 * validation in a release build still gets the counts and the break.
-			 */
 			if (instance->debugUtils && wantApiValidation)
 			{
 				vk::DebugUtilsMessengerCreateInfoEXT messengerInfo;
@@ -493,7 +442,6 @@ namespace azo::rhi
 				messengerInfo.pfnUserCallback = &DebugMessengerCallback;
 				messengerInfo.pUserData		  = instance.get();
 
-				// Best effort, like the object naming it feeds. A messenger that could not be made costs the counts, not the instance.
 				const auto messenger = instance->instance.createDebugUtilsMessengerEXT(messengerInfo, nullptr, instance->dispatch);
 				if (messenger.result == vk::Result::eSuccess)
 				{
@@ -504,8 +452,6 @@ namespace azo::rhi
 			return instance;
 		}
 
-		// Builds an instance and registers it with the process owner so the returned pointer is borrowed. The owner releases it when its last device is destroyed or
-		// when a UniqueInstance built from it is reset. It is not held until process exit.
 		[[nodiscard]] VulkanInstance * MakeOwnedInstance(const InstanceDesc & desc, Error * error)
 		{
 			HostUniquePtr<VulkanInstance> instance = BuildInstance(desc, error);
@@ -519,12 +465,6 @@ namespace azo::rhi
 			return raw;
 		}
 
-		/*
-		 * Which host clock a calibration pairs the device clock with, and whether the adapter offers both.
-		 *
-		 * Not the same question as whether VK_EXT_calibrated_timestamps is enabled: a driver may expose it and enumerate neither domain, and a calibration
-		 * naming one the adapter lacks is refused. Shared so the cap and the call cannot disagree.
-		 */
 		[[nodiscard]] bool VulkanCalibrationDomains(
 			vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, vk::TimeDomainEXT & hostDomain) noexcept
 		{
@@ -548,32 +488,111 @@ namespace azo::rhi
 			return hasDomain(vk::TimeDomainEXT::eDevice) && hasDomain(hostDomain);
 		}
 
-		// Picks a physical device, creates the logical device, its queues and the VMA allocator, then fills the capability and adapter records from real queries.
-		// Null with *error set on failure. The instance is borrowed.
+		[[nodiscard]] constexpr bool CanBackGraphicsQueue(const vk::QueueFlags flags) noexcept
+		{
+			return static_cast<bool>(flags & vk::QueueFlagBits::eGraphics) && static_cast<bool>(flags & vk::QueueFlagBits::eCompute);
+		}
+
+		static_assert(CanBackGraphicsQueue(vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute));
+		static_assert(!CanBackGraphicsQueue(vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer), "a graphics family without compute was accepted");
+		static_assert(!CanBackGraphicsQueue(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer), "a family without graphics was accepted");
+
+		[[nodiscard]] const char * VulkanAdapterRefusal(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
+		{
+			const std::uint32_t adapterApi = phys.getProperties(dispatch).apiVersion;
+			if (adapterApi < PackVkApiVersion(1, 2))
+			{
+				return "this adapter reports a Vulkan version below 1.2, which the backend requires";
+			}
+
+			const detail::HostVector<vk::QueueFamilyProperties> qfs = phys.getQueueFamilyProperties<HostAllocatorAdapter<vk::QueueFamilyProperties>>(dispatch);
+			bool anyGraphicsFamily									= false;
+			bool foundGraphics										= false;
+			for (const vk::QueueFamilyProperties & qf : qfs)
+			{
+				if (!static_cast<bool>(qf.queueFlags & vk::QueueFlagBits::eGraphics))
+				{
+					continue;
+				}
+
+				anyGraphicsFamily = true;
+				if (CanBackGraphicsQueue(qf.queueFlags))
+				{
+					foundGraphics = true;
+					break;
+				}
+			}
+
+			if (!foundGraphics)
+			{
+				return anyGraphicsFamily ? "every Vulkan graphics queue family on this adapter lacks compute, which the RHI's graphics queue promises"
+										 : "no Vulkan graphics queue family";
+			}
+
+			const auto enumeratedExts = phys.enumerateDeviceExtensionProperties<HostAllocatorAdapter<vk::ExtensionProperties>>(nullptr, dispatch);
+			if (enumeratedExts.result != vk::Result::eSuccess)
+			{
+				return "Vulkan device extension enumeration failed on this adapter";
+			}
+
+			const detail::HostVector<vk::ExtensionProperties> & availableExts = enumeratedExts.value;
+			const auto hasExt												  = [&availableExts](const char * name) noexcept
+			{
+				return std::ranges::any_of(availableExts,
+					[name](const vk::ExtensionProperties & ep)
+					{
+						return std::strcmp(ep.extensionName, name) == 0;
+					});
+			};
+
+			if (!hasExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+			{
+				return "this adapter does not support VK_KHR_swapchain, which the backend enables on every device";
+			}
+
+			if (adapterApi < PackVkApiVersion(1, 3) && !hasExt(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME))
+			{
+				return "Vulkan below 1.3 requires VK_KHR_synchronization2";
+			}
+
+			return nullptr;
+		}
+
 		[[nodiscard]] VulkanDevice * MakeOwnedDevice(VulkanInstance * instance, const DeviceDesc & desc, Error * error)
 		{
 			VulkanBackendOwner & owner = Owner();
 
-			const auto deviceFail = [error](const char * message) -> VulkanDevice *
+			const auto deviceFail = [error](const char * message, vk::Result result) -> VulkanDevice *
 			{
 				*error = Error{
-					.code	 = ErrorCode::eNativeApiError,
-					.message = message,
+					.code		= ErrorCode::eNativeApiError,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
 				};
 				return nullptr;
 			};
 
+			const auto config = native::FindDeviceConfig<VulkanApi>(desc.backendConfigs);
+			if (config.malformed)
+			{
+				*error = Error{
+					.code	 = ErrorCode::eInvalidArgument,
+					.message = "the Vulkan configuration block declares a size or version this backend cannot read",
+				};
+				return nullptr;
+			}
+
 			const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 			if (enumerated.result != vk::Result::eSuccess)
 			{
-				return deviceFail("Vulkan physical device enumeration failed");
+				return deviceFail("Vulkan physical device enumeration failed", enumerated.result);
 			}
 
 			const detail::HostVector<vk::PhysicalDevice> & physicals = enumerated.value;
 			if (physicals.empty())
 			{
 				*error = Error{
-					.code	 = ErrorCode::eUnsupportedFeature,
+					.code	 = ErrorCode::eNoCompatibleAdapter,
 					.message = "no Vulkan physical devices found",
 				};
 				return nullptr;
@@ -584,10 +603,18 @@ namespace azo::rhi
 			if (desc.preferredAdapterIndex != kInvalidIndex && desc.preferredAdapterIndex < physicals.size())
 			{
 				adapterIndex = desc.preferredAdapterIndex;
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				phys = physicals[adapterIndex];
 
-				// An explicitly chosen adapter must still satisfy the required features.
+				if (const char * refusal = VulkanAdapterRefusal(phys, instance->dispatch); refusal != nullptr)
+				{
+					*error = Error{
+						.code	 = ErrorCode::eNoCompatibleAdapter,
+						.message = refusal,
+					};
+					return nullptr;
+				}
+
 				for (const DeviceFeature feature : desc.requiredFeatures)
 				{
 					if (!AdapterSupportsFeature(phys, instance->dispatch, feature))
@@ -602,13 +629,24 @@ namespace azo::rhi
 			}
 			else
 			{
-				// Score eligible adapters: a discrete GPU outweighs any number of preferred features, which only break ties. Adapters missing a required feature are
-				// skipped.
-				int bestScore = -1;
+				int bestScore			  = -1;
+				std::uint32_t usableCount = 0;
+				const char * firstRefusal = nullptr;
 				for (std::uint32_t i = 0; i < physicals.size(); ++i)
 				{
 					const vk::PhysicalDevice candidate = physicals[i];
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					if (const char * refusal = VulkanAdapterRefusal(candidate, instance->dispatch); refusal != nullptr)
+					{
+						if (firstRefusal == nullptr)
+						{
+							firstRefusal = refusal;
+						}
+
+						continue;
+					}
+
+					++usableCount;
 					if (!AdapterSupportsAllFeatures(candidate, instance->dispatch, desc.requiredFeatures))
 					{
 						continue;
@@ -638,13 +676,22 @@ namespace azo::rhi
 
 				if (!phys)
 				{
-					// Name the first required feature no adapter supports, otherwise report the combination.
+					if (usableCount == 0)
+					{
+						*error = Error{
+							.code	 = ErrorCode::eNoCompatibleAdapter,
+							.message = firstRefusal,
+						};
+						return nullptr;
+					}
+
 					for (const DeviceFeature feature : desc.requiredFeatures)
 					{
 						const bool anySupports = std::ranges::any_of(physicals,
 							[feature, instance](vk::PhysicalDevice candidate) noexcept
 							{
-								return AdapterSupportsFeature(candidate, instance->dispatch, feature);
+								return VulkanAdapterRefusal(candidate, instance->dispatch) == nullptr &&
+									   AdapterSupportsFeature(candidate, instance->dispatch, feature);
 							});
 
 						if (!anySupports)
@@ -668,37 +715,19 @@ namespace azo::rhi
 
 			const detail::HostVector<vk::QueueFamilyProperties> qfs =
 				phys.getQueueFamilyProperties<HostAllocatorAdapter<vk::QueueFamilyProperties>>(instance->dispatch);
-			bool foundGraphics			 = false;
 			std::uint32_t graphicsFamily = 0;
 			for (std::uint32_t i = 0; i < qfs.size(); ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				if (static_cast<bool>(qfs[i].queueFlags & vk::QueueFlagBits::eGraphics))
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				if (CanBackGraphicsQueue(qfs[i].queueFlags))
 				{
 					graphicsFamily = i;
-					foundGraphics  = true;
 					break;
 				}
 			}
 
-			if (!foundGraphics)
-			{
-				*error = Error{
-					.code	 = ErrorCode::eUnsupportedFeature,
-					.message = "no Vulkan graphics queue family",
-				};
-				return nullptr;
-			}
-
-			// A queue capability, not a device feature, and an adapter can have every sparse feature with no family carrying this. Only the graphics family is asked,
-			// that being the one this backend binds on.
 			const bool bindsSparse = static_cast<bool>(qfs[graphicsFamily].queueFlags & vk::QueueFlagBits::eSparseBinding);
 
-			/*
-			 * Pick the most specific family for compute and copy: async compute without graphics, transfer without graphics or compute. Each falls back to the graphics
-			 * family. The spec guarantees a graphics family runs transfer work, but it only guarantees compute on some graphics family and not necessarily on the first
-			 * one this picks.
-			 */
 			std::uint32_t computeFamily = graphicsFamily;
 			std::uint32_t copyFamily	= graphicsFamily;
 			for (std::uint32_t i = 0; i < qfs.size(); ++i)
@@ -719,9 +748,7 @@ namespace azo::rhi
 				}
 			}
 
-			// Resolve the requested version ({0, 0} means 1.3) and reject what the adapter lacks or anything below the 1.2 floor, where timeline semaphores and
-			// descriptor indexing are core and synchronization2 comes from VK_KHR_synchronization2.
-			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(desc.apiVersion);
+			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(config.block != nullptr ? config.block->deviceVersion : desc.apiVersion);
 			const std::uint32_t requestedApi = PackVkApiVersion(apiMajor, apiMinor);
 			if (apiMajor < 1 || (apiMajor == 1 && apiMinor < 2))
 			{
@@ -737,14 +764,12 @@ namespace azo::rhi
 				};
 				return nullptr;
 			}
-			const bool core13 = apiMajor > 1 || (apiMajor == 1 && apiMinor >= 3); // dynamic rendering + synchronization2 are core
+			const bool core13 = apiMajor > 1 || (apiMajor == 1 && apiMinor >= 3);
 
-			// Swapchain is universal, portability subset is opted into when advertised. Below the promotion versions the features come from KHR extensions, which must
-			// then be present.
 			const auto enumeratedExts = phys.enumerateDeviceExtensionProperties<HostAllocatorAdapter<vk::ExtensionProperties>>(nullptr, instance->dispatch);
 			if (enumeratedExts.result != vk::Result::eSuccess)
 			{
-				return deviceFail("Vulkan device extension enumeration failed");
+				return deviceFail("Vulkan device extension enumeration failed", enumeratedExts.result);
 			}
 
 			const detail::HostVector<vk::ExtensionProperties> & availableExts = enumeratedExts.value;
@@ -757,15 +782,13 @@ namespace azo::rhi
 					});
 			};
 
-			// Dynamic rendering is core at 1.3 and a KHR extension below. DeviceDesc::dynamicRendering then decides: eDisabled and an ePreferred adapter without it both
-			// fall back to render-pass objects, while eRequired fails outright.
 			const bool adapterHasDynamicRendering = core13 || hasExt(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 			bool useDynamicRendering			  = false;
-			switch (desc.dynamicRendering)
+			switch (config.block != nullptr ? config.block->renderingLowering : native::VulkanRenderingLowering::eAutomatic)
 			{
-			case DynamicRenderingMode::eDisabled:  useDynamicRendering = false; break;
-			case DynamicRenderingMode::ePreferred: useDynamicRendering = adapterHasDynamicRendering; break;
-			case DynamicRenderingMode::eRequired:
+			case native::VulkanRenderingLowering::eRenderPassObjects: useDynamicRendering = false; break;
+			case native::VulkanRenderingLowering::eAutomatic:		  useDynamicRendering = adapterHasDynamicRendering; break;
+			case native::VulkanRenderingLowering::eDynamicRendering:
 				if (!adapterHasDynamicRendering)
 				{
 					*error = Error{
@@ -799,21 +822,12 @@ namespace azo::rhi
 					deviceExts.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 				}
 			}
-			// VK_EXT_calibrated_timestamps backs CalibrateTimestamp by sampling the device and host clocks as one pair. Optional so the cap stays false without it and
-			// the query fails with eUnsupportedFeature.
 			const bool hasCalibratedTimestamps = hasExt(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
 			if (hasCalibratedTimestamps)
 			{
 				deviceExts.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
 			}
 
-			/*
-			 * The external memory and semaphore transports, each taken only where the driver advertises it. The capability structures and the family that owns the
-			 * handle type enumerations are core since 1.1 and this backend floors at 1.2. What is left to enable is the transport: a file descriptor everywhere but
-			 * Windows, an NT handle there.
-			 *
-			 * Both families are asked for separately because they are separate extensions and a driver may answer them differently.
-			 */
 			const bool hasExternalMemoryFd = hasExt(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
 			if (hasExternalMemoryFd)
 			{
@@ -842,8 +856,6 @@ namespace azo::rhi
 			}
 #endif
 
-			// Conservative rasterization. The extension carries the property struct the tier is read from, and the fully-covered fragment input is a separate feature on
-			// top of it, so the two are queried together and reported as one ladder.
 			const bool hasConservativeRaster		= hasExt(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
 			ConservativeRasterTier conservativeTier = ConservativeRasterTier::eNone;
 			if (hasConservativeRaster)
@@ -855,13 +867,6 @@ namespace azo::rhi
 				props2.pNext = &conservativeProps;
 				phys.getProperties2(&props2, instance->dispatch);
 
-				/*
-				 * The extension itself is the overestimate the base level names. Degenerates culled, not rasterized, is what the level above it adds, and the fully-covered
-				 * fragment input is the top one.
-				 *
-				 * Climbed in order and not picked, because the levels mirror Direct3D's tiers and those are cumulative. A device with inner coverage but degenerates still
-				 * rasterized therefore reports the base level, which understates it and never promises the level below the top.
-				 */
 				conservativeTier = ConservativeRasterTier::eBasic;
 				if (conservativeProps.degenerateTrianglesRasterized == 0u)
 				{
@@ -870,8 +875,51 @@ namespace azo::rhi
 				}
 			}
 
-			// Descriptor indexing is 1.2 core but its features are individually optional so enable only what bindless needs: a runtime-sized, partially-bound,
-			// non-uniform indexable sampled-image array. supportsBindless means all three are there.
+			const bool adapterHasUnifiedLayouts = hasExt(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
+			bool unifiedImageLayouts			= false;
+			if (adapterHasUnifiedLayouts)
+			{
+				vk::PhysicalDeviceUnifiedImageLayoutsFeaturesKHR supportedUnified{};
+				vk::PhysicalDeviceFeatures2 unifiedProbe{};
+				unifiedProbe.pNext = &supportedUnified;
+				phys.getFeatures2(&unifiedProbe, instance->dispatch);
+				unifiedImageLayouts = static_cast<bool>(supportedUnified.unifiedImageLayouts);
+			}
+			if (unifiedImageLayouts)
+			{
+				deviceExts.push_back(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
+			}
+
+			if (config.block != nullptr)
+			{
+				for (const char * extra : config.block->deviceExtensions)
+				{
+					if (extra == nullptr)
+					{
+						continue;
+					}
+
+					if (!hasExt(extra))
+					{
+						*error = Error{
+							.code	 = ErrorCode::eUnsupportedFeature,
+							.message = "a device extension named in the Vulkan configuration block is not supported by the adapter",
+						};
+						return nullptr;
+					}
+
+					const bool alreadyEnabled = std::ranges::any_of(deviceExts,
+						[extra](const char * name) noexcept
+						{
+							return std::strcmp(name, extra) == 0;
+						});
+					if (!alreadyEnabled)
+					{
+						deviceExts.push_back(extra);
+					}
+				}
+			}
+
 			vk::PhysicalDeviceVulkan12Features supported12{};
 			vk::PhysicalDeviceFeatures2 supportedFeatures2{};
 			supportedFeatures2.pNext = &supported12;
@@ -880,17 +928,17 @@ namespace azo::rhi
 								  static_cast<bool>(supported12.shaderSampledImageArrayNonUniformIndexing) &&
 								  static_cast<bool>(supported12.descriptorBindingPartiallyBound);
 
-			// shaderFloat16 is 1.2 core but optional like the set above so it is enabled when exposed and the cap reports exactly that.
 			const bool shaderFloat16 = static_cast<bool>(supported12.shaderFloat16);
 
-			// Version-aware: the core 1.3 structs at 1.3 and up, the KHR ones they promoted from below. Timeline semaphores are 1.2 core, synchronization2 is always on,
-			// dynamic rendering only when this device uses it. The chain hangs off PhysicalDeviceFeatures2.
+			const bool drawIndirectCount = static_cast<bool>(supported12.drawIndirectCount);
+
 			vk::PhysicalDeviceFeatures2 features2;
 			vk::PhysicalDeviceVulkan13Features features13;
 			vk::PhysicalDeviceVulkan12Features features12;
 			vk::PhysicalDeviceVulkan11Features features11;
 			vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures;
 			vk::PhysicalDeviceSynchronization2Features sync2Features;
+			vk::PhysicalDeviceUnifiedImageLayoutsFeaturesKHR unifiedLayoutFeatures;
 			if (core13)
 			{
 				features12.timelineSemaphore = VK_TRUE;
@@ -917,20 +965,19 @@ namespace azo::rhi
 				}
 			}
 
-			// features12 is always chained and sits at the tail so hanging the 1.1 struct off it brings both within reach of the create info, along with the
-			// descriptor-indexing fields enabled here.
 			features12.pNext = &features11;
 
-			/*
-			 * The portability subset is validated against what the device enabled, not what the adapter supports, so a bit left off this chain is off however the
-			 * adapter answered. Everything offered is echoed straight back: withholding one would only disable a feature the caps then report as present, and nothing
-			 * here wants a portability feature switched off.
-			 */
 			PortabilitySubsetFeatures portabilityFeatures{};
 			if (QueryPortabilitySubsetFeatures(phys, instance->dispatch, portabilityFeatures))
 			{
 				portabilityFeatures.pNext = features11.pNext;
 				features11.pNext		  = &portabilityFeatures;
+			}
+			if (unifiedImageLayouts)
+			{
+				unifiedLayoutFeatures.unifiedImageLayouts = VK_TRUE;
+				unifiedLayoutFeatures.pNext				  = features11.pNext;
+				features11.pNext						  = &unifiedLayoutFeatures;
 			}
 			if (bindless)
 			{
@@ -943,8 +990,11 @@ namespace azo::rhi
 				features12.shaderFloat16 = VK_TRUE;
 			}
 
-			// Enable the negotiated set: every required feature, which selection already checked for, plus each preferred one the chosen adapter supports. They live in
-			// the feature chain's base struct.
+			if (drawIndirectCount)
+			{
+				features12.drawIndirectCount = VK_TRUE;
+			}
+
 			vk::PhysicalDeviceFeatures enabledFeatures{};
 			for (const DeviceFeature feature : desc.requiredFeatures)
 			{
@@ -959,8 +1009,6 @@ namespace azo::rhi
 			}
 			features2.features = enabledFeatures;
 
-			// Resolve the DeviceDesc queue requests into per-type counts. A request that requires a dedicated compute or copy queue fails when the adapter folds that
-			// capability onto the graphics family.
 			const QueuePlan plan = PlanQueues(desc.queues);
 			if (plan.computeDedicated && plan.computeCount > 0 && computeFamily == graphicsFamily)
 			{
@@ -969,8 +1017,6 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			// Comparing against the graphics family alone is enough: copyFamily is picked with neither graphics nor compute so a dedicated one differs from
-			// computeFamily by construction and the only non-dedicated case is having folded back onto graphics.
 			if (plan.copyDedicated && plan.copyCount > 0 && copyFamily == graphicsFamily)
 			{
 				*error = Error{ .code = ErrorCode::eUnsupportedFeature,
@@ -978,8 +1024,6 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			// One DeviceQueueCreateInfo per distinct family, since Vulkan rejects duplicates. Each takes the sum of the requests resolving to it, clamped to its
-			// queueCount. On a single all-capable family such as MoltenVK's they collapse and share its queues.
 			struct FamilyQueues final
 			{
 				std::uint32_t family = 0;
@@ -1025,13 +1069,12 @@ namespace azo::rhi
 			std::uint32_t maxQueuesPerFamily = 1;
 			for (FamilyQueues & entry : families)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				entry.count = std::min(entry.count, qfs[entry.family].queueCount);
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				maxQueuesPerFamily = std::max(maxQueuesPerFamily, entry.count);
 			}
 
-			// All queues take the same priority so one shared array at least as long as the largest family backs every create info.
 			const detail::HostVector<float> queuePriorities(maxQueuesPerFamily, 1.0f);
 			detail::HostVector<vk::DeviceQueueCreateInfo> queueInfos;
 			queueInfos.reserve(families.size());
@@ -1055,13 +1098,6 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			/*
-			 * Two published sets, chosen by whether this device enabled a transport from either external family.
-			 *
-			 * Block presence is what this codebase reports capability from, and QueryExternalHandleSupport answers per object kind, so demanding both families
-			 * left an adapter with memory transports and no semaphore ones calling a texture shareable through a block nothing published. Each entry already
-			 * refuses the transport it lacks, so publishing on either keeps the two answers together.
-			 */
 			const bool sharesExternally	   = hasExternalMemoryFd || hasExternalMemoryWin32 || hasExternalSemaphoreFd || hasExternalSemaphoreWin32;
 			record->object				   = sharesExternally ? PublishingObject<Published<CoreDeviceApi, &CoreDeviceBlock>,
 																	Published<PresentApi, &PresentBlock>,
@@ -1088,14 +1124,12 @@ namespace azo::rhi
 			record->instanceWrapper		   = instance;
 			record->phys				   = phys;
 
-			// The device's table starts as its instance's so the instance-level entries are already right and createDevice below is dispatched through the same layer
-			// chain the instance negotiated.
 			record->dispatch = instance->dispatch;
 
 			const auto createdDevice = phys.createDevice(deviceInfo, nullptr, record->dispatch);
 			if (createdDevice.result != vk::Result::eSuccess)
 			{
-				return deviceFail("Vulkan device creation failed");
+				return deviceFail("Vulkan device creation failed", createdDevice.result);
 			}
 
 			record->device					  = createdDevice.value;
@@ -1111,9 +1145,8 @@ namespace azo::rhi
 			record->apiVersionMinor			  = apiMinor;
 			record->coreVk13				  = core13;
 			record->dynamicRendering		  = useDynamicRendering;
+			record->unifiedImageLayouts		  = unifiedImageLayouts;
 
-			// A distinct tag per live device, carried in the top bits of every handle's index word so another device rejects it outright. The pool is process-global and
-			// returns the tag at teardown so the ceiling is devices alive at once.
 			std::uint32_t deviceTag = 0;
 			if (!detail::DeviceTags().Acquire(deviceTag))
 			{
@@ -1125,11 +1158,6 @@ namespace azo::rhi
 			}
 			record->deviceTag = deviceTag;
 
-			/*
-			 * The tag goes back on every way out of here that does not reach the owner list. The pool is process-global with a ceiling of 255 and is shared by
-			 * every backend, so a caller probing adapters in a loop would otherwise drop that ceiling by one per failed create until no backend can make a device
-			 * at all. Dismissed once the record is owned, from which point the destroy path releases it.
-			 */
 			auto tagGuard = detail::MakeScopeGuard(
 				[deviceTag]() noexcept
 				{
@@ -1151,19 +1179,10 @@ namespace azo::rhi
 			record->textureViewSlots.Rebind(deviceTag);
 			record->descriptorSetSlots.Rebind(deviceTag);
 
-			// Specializes the device-level entries to this VkDevice, skipping the loader's dispatch trampoline. Only this device's table is touched so a device already
-			// alive keeps calling through the entry points its own objects were made with.
 			record->dispatch.init(record->device);
 
-			/*
-			 * The process-global table follows the newest device, which is all it can do and all it ever did. It exists for callers reaching past the RHI through
-			 * GetVulkanNativeDevice with Vulkan-Hpp's own defaults and those holding more than one device should take the table from VulkanNativeDevice::dispatch and
-			 * not this one.
-			 */
 			VULKAN_HPP_DEFAULT_DISPATCHER.init(record->device);
 
-			// Hand each type its slice of its family's queues. When a shared family runs out, the type aliases queue 0 so every requested capability still resolves to a
-			// queue.
 			const auto assignQueues = [&](detail::HostVector<vk::Queue> & out, std::uint32_t family, std::uint32_t requested)
 			{
 				if (requested == 0)
@@ -1190,8 +1209,6 @@ namespace azo::rhi
 			assignQueues(record->computeQueues, computeFamily, plan.computeCount);
 			assignQueues(record->copyQueues, copyFamily, plan.copyCount);
 
-			// minCount is a minimum so a type whose family cannot supply that many distinct queues is rejected and never quietly handed fewer. Aliasing onto a shared
-			// family's queue 0 still satisfies a request whose count it can meet.
 			if (record->graphicsQueues.size() < plan.graphicsCount || record->computeQueues.size() < plan.computeCount ||
 				record->copyQueues.size() < plan.copyCount)
 			{
@@ -1206,7 +1223,6 @@ namespace azo::rhi
 			record->caps.hasDedicatedComputeQueue  = !record->computeQueues.empty() && computeFamily != graphicsFamily;
 			record->caps.hasDedicatedTransferQueue = !record->copyQueues.empty() && copyFamily != graphicsFamily;
 
-			// VMA cannot call Vulkan directly under VK_NO_PROTOTYPES so it takes the dispatcher's instance and device proc-address getters.
 			VmaVulkanFunctions vmaFns{};
 			vmaFns.vkGetInstanceProcAddr = record->dispatch.vkGetInstanceProcAddr;
 			vmaFns.vkGetDeviceProcAddr	 = record->dispatch.vkGetDeviceProcAddr;
@@ -1216,8 +1232,6 @@ namespace azo::rhi
 			allocatorInfo.instance		   = instance->instance;
 			allocatorInfo.vulkanApiVersion = requestedApi;
 			allocatorInfo.pVulkanFunctions = &vmaFns;
-// Any installed sink sees these, not just the bundled Tracy one. The guard is on profiling as a whole so a build with it off installs no callbacks at all and
-// never pays VMA's per-block call to reach macros that expand to nothing.
 #ifdef AZOTH_RHI_ENABLE_PROFILING
 			constexpr VmaDeviceMemoryCallbacks memoryCallbacks{
 				.pfnAllocate =
@@ -1260,7 +1274,7 @@ namespace azo::rhi
 			const vk::PhysicalDeviceMemoryProperties memProps = phys.getMemoryProperties(record->dispatch);
 			for (std::uint32_t i = 0; i < memProps.memoryHeapCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				if (static_cast<bool>(memProps.memoryHeaps[i].flags & vk::MemoryHeapFlagBits::eDeviceLocal))
 				{
 					deviceLocalBytes += memProps.memoryHeaps[i].size;
@@ -1288,67 +1302,37 @@ namespace azo::rhi
 				.major = apiMajor,
 				.minor = apiMinor,
 			};
-			record->caps.supportsDynamicRendering = useDynamicRendering;
 
-			// Read from what the adapter exposes, not assumed from the create call having succeeded. Creation does request this unconditionally, since the sync model
-			// has nothing to fall back on without it, so the two agree today. Reading it keeps them agreeing if that ever changes.
 			record->caps.supportsTimelineSync = static_cast<bool>(supported12.timelineSemaphore);
 
-			// The messenger is what does the tallying so the counts mean something only where one was installed. Without it they stay zero, which would otherwise be
-			// indistinguishable from a run that produced no messages.
-			record->caps.reportsValidationMessageCounts = instance != nullptr && static_cast<bool>(instance->debugMessenger);
-			/*
-			 * vkCmdDrawIndirectCount is core in Vulkan 1.2, the backend floor so the count-buffer draws are always available. Read by VulkanCommandListQueryInterface,
-			 * which is what turns it into a published block. Nothing else consults it: what a caller sees comes off the block, not off here.
-			 */
-			record->caps.supportsIndirectCount = true;
-			/*
-			 * vkCmdBlitImage is core with no feature to gate it, so the device half is unconditional and whether a given format can take part is the per-format half
-			 * getFormatSupport already answers from eBlitSrc and eBlitDst. Both halves are needed: the facade zeroes the per-format pair when this is false, so leaving
-			 * it unset would hide a scaled blit this backend has.
-			 */
-			record->caps.supportsScaledBlit = true;
-			// bindDescriptorSet lowers these onto vkCmdBindDescriptorSets' pDynamicOffsets, so the flag says what this backend already does. Direct3D 12 refuses a
-			// non-empty list against the same flag, which is what makes it worth reporting without leaving at its default.
-			record->caps.supportsDynamicBufferOffsets = true;
-			// These read what this device enabled, not what the adapter exposes. Vulkan permits the matching use only when the feature was requested at creation so a
-			// cap reporting mere adapter support would invite the illegal state it exists to prevent.
+			record->caps.reportsValidationMessageCounts	   = instance != nullptr && static_cast<bool>(instance->debugMessenger);
+			record->caps.supportsIndirectCount			   = drawIndirectCount;
+			record->caps.supportsScaledBlit				   = true;
+			record->caps.supportsDynamicBufferOffsets	   = true;
 			record->caps.supportsMultiDrawIndirect		   = static_cast<bool>(enabledFeatures.multiDrawIndirect);
 			record->caps.supportsDrawIndirectFirstInstance = static_cast<bool>(enabledFeatures.drawIndirectFirstInstance);
 			record->caps.supportsShaderDrawParameters	   = static_cast<bool>(features11.shaderDrawParameters);
 			record->caps.supportsShaderFloat16			   = shaderFloat16;
-			// The three features bindless needs arrive together on every driver that has any of them, so this backend reads one level or the base one and does not
-			// distinguish dynamic indexing from unbounded arrays.
 			record->caps.bindingTier					   = bindless ? BindingTier::eUnbounded : BindingTier::eBasic;
 			record->caps.supportsPartiallyBoundDescriptors = bindless;
 			record->caps.supportsUpdateAfterBind		   = static_cast<bool>(supported12.descriptorBindingSampledImageUpdateAfterBind);
-			// The extension alone is not the capability. An adapter offering it without enumerating both clocks refuses every calibration, so the domains are
-			// asked for here and the answer is what the cap reports.
-			vk::TimeDomainEXT calibrationHostDomain	  = vk::TimeDomainEXT::eDevice;
-			record->caps.supportsTimestampCalibration = hasCalibratedTimestamps && VulkanCalibrationDomains(phys, record->dispatch, calibrationHostDomain);
-			record->caps.maxBindlessSampledTextures	  = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
-			record->caps.maxBindlessStorageBuffers	  = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
-			record->caps.maxSamplerDescriptors		  = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
-			record->caps.supportsTimestampQueries	  = static_cast<bool>(limits.timestampComputeAndGraphics);
-			// vkCmdWriteTimestamp2 is legal inside a render-pass instance, so the scope a timestamp sits in is not a restriction Vulkan carries.
-			record->caps.supportsTimestampWritesInScope = record->caps.supportsTimestampQueries;
-			record->caps.supportsAnisotropy				= static_cast<bool>(enabledFeatures.samplerAnisotropy);
-			record->caps.supportsIndependentBlend		= static_cast<bool>(enabledFeatures.independentBlend);
-			record->caps.supportsTextureViewSwizzle		= AdapterSupportsViewSwizzle(phys, record->dispatch);
-			record->caps.supportsMultiPlanarFormats		= AdapterSupportsMultiPlanarFormats(phys, record->dispatch);
-			// Reports what this device enabled, not what the adapter offers: a conversion created with the feature off is a validation error, so a cap reading adapter
-			// support would invite exactly the illegal state it exists to prevent. The bit is on only where it was declared.
+			vk::TimeDomainEXT calibrationHostDomain		   = vk::TimeDomainEXT::eDevice;
+			record->caps.supportsTimestampCalibration	   = hasCalibratedTimestamps && VulkanCalibrationDomains(phys, record->dispatch, calibrationHostDomain);
+			record->caps.maxBindlessSampledTextures		   = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
+			record->caps.maxBindlessStorageBuffers		   = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
+			record->caps.maxSamplerDescriptors			   = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
+			record->caps.supportsTimestampQueries		   = static_cast<bool>(limits.timestampComputeAndGraphics);
+			record->caps.supportsTimestampWritesInScope	   = record->caps.supportsTimestampQueries;
+			record->caps.supportsAnisotropy				   = static_cast<bool>(enabledFeatures.samplerAnisotropy);
+			record->caps.supportsIndependentBlend		   = static_cast<bool>(enabledFeatures.independentBlend);
+			record->caps.supportsTextureViewSwizzle		   = AdapterSupportsViewSwizzle(phys, record->dispatch);
+			record->caps.supportsMultiPlanarFormats		   = AdapterSupportsMultiPlanarFormats(phys, record->dispatch);
 			record->caps.supportsSamplerYcbcrConversion	   = static_cast<bool>(features11.samplerYcbcrConversion) && record->caps.supportsMultiPlanarFormats;
 			record->caps.supportsDepthBounds			   = static_cast<bool>(feats.depthBounds);
 			record->caps.supportsPipelineStatisticsQueries = static_cast<bool>(feats.pipelineStatisticsQuery);
 			record->caps.conservativeRasterTier			   = conservativeTier;
 			record->caps.shaderBinaryFormat				   = ShaderBinaryFormat::eSpirV;
-			/*
-			 * One ladder, not a bit per resource kind. Image residency without the binding feature under it is not a state Vulkan can be in, so the levels were never
-			 * independent. Binding is what the queue does, so dispatch holds this at eNone for as long as this backend declines SparseApi and the level becomes live the
-			 * moment it publishes one.
-			 */
-			record->caps.sparseTier = SparseTier::eNone;
+			record->caps.sparseTier						   = SparseTier::eNone;
 			if ((enabledFeatures.sparseBinding != 0u) && (enabledFeatures.sparseResidencyBuffer != 0u) && record->graphicsFamilyBindsSparse)
 			{
 				record->caps.sparseTier = SparseTier::eBuffers;
@@ -1358,12 +1342,6 @@ namespace azo::rhi
 				}
 			}
 
-			/*
-			 * The sparse block size, which Vulkan states per resource and not as a device limit.
-			 *
-			 * Read off the memory requirements of a throwaway sparse buffer, the same way getBufferMemoryInfo answers an alignment, because every sparse bind is
-			 * expressed in whole tiles and a tier without a tile size is a ladder a caller cannot climb.
-			 */
 			if (record->caps.sparseTier > SparseTier::eNone)
 			{
 				vk::BufferCreateInfo probe{};
@@ -1382,12 +1360,6 @@ namespace azo::rhi
 			record->caps.maxColorAttachments = limits.maxColorAttachments;
 			record->caps.maxRenderTargets	 = limits.maxColorAttachments;
 
-			/*
-			 * The most descriptors of any one type a single set may declare.
-			 *
-			 * Vulkan states a ceiling per descriptor type and not one for the set, so the smallest of them is the number a caller can rely on whatever they fill the set
-			 * with. Taking the largest instead would be a ceiling that only holds for one type.
-			 */
 			record->caps.maxDescriptorsPerSet				= std::min({ limits.maxDescriptorSetSamplers,
 				limits.maxDescriptorSetUniformBuffers,
 				limits.maxDescriptorSetStorageBuffers,
@@ -1408,7 +1380,7 @@ namespace azo::rhi
 			record->caps.optimalBufferCopyOffsetAlignment	= limits.optimalBufferCopyOffsetAlignment;
 			record->caps.optimalBufferCopyRowPitchAlignment = limits.optimalBufferCopyRowPitchAlignment;
 			record->caps.timestampPeriodNanoseconds			= limits.timestampPeriod;
-			// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			record->caps.timestampValidBits = qfs[graphicsFamily].timestampValidBits;
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
@@ -1426,14 +1398,10 @@ namespace azo::rhi
 			return raw;
 		}
 
-		// Tears down a device created by this backend: drop its owning record, which runs ~VulkanDevice. Called once from UniqueDevice's destructor through the
-		// dispatch table.
 		void VulkanDestroyDevice(void * impl) noexcept
 		{
 			VulkanBackendOwner & owner = Owner();
 
-			// Capture the owning instance before the device record is dropped so we can retire the instance alongside its last device (below). The tag goes back at the
-			// same time so the ceiling is devices alive at once, not devices ever created.
 			VulkanInstance * owningInstance = nullptr;
 			std::uint32_t releasedTag		= 0;
 			for (const HostUniquePtr<VulkanDevice> & device : owner.devices)
@@ -1453,12 +1421,6 @@ namespace azo::rhi
 				});
 			detail::DeviceTags().Release(releasedTag);
 
-			/*
-			 * Retire the instance once its last device is gone, destroying the VkInstance here and never deferring to the static owner's destructor at process exit. By
-			 * then the app's SDL loader or headless the DynamicLoader this owner holds, has already unloaded the Vulkan library so a deferred vkDestroyInstance would
-			 * jump into an unloaded module and fault. An instance with no device left has no other owner and its VkDevice children were destroyed just above so the
-			 * teardown order is right.
-			 */
 			if (owningInstance != nullptr)
 			{
 				bool stillUsed = false;
@@ -1481,8 +1443,6 @@ namespace azo::rhi
 			}
 		}
 
-		// Tears down an instance nothing built a device from: drop its owning record, which runs ~VulkanInstance. Called once from UniqueInstance's destructor
-		// through the dispatch table, for the same reason the device entry above retires its instance and does not leave it to the static.
 		void VulkanDestroyInstance(void * impl) noexcept
 		{
 			VulkanBackendOwner & owner = Owner();
@@ -1516,9 +1476,34 @@ namespace azo::rhi
 			return false;
 		}
 
-		// Every not-yet-implemented slot routes here. Value outputs are reset before failure.
+		bool FailNative(Error * error, const char * message, vk::Result result) noexcept
+		{
+			if (error != nullptr)
+			{
+				*error = Error{
+					.code		= ErrorCode::eNativeApiError,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
+				};
+			}
 
-		// Device identity and capability entries, the part this slice implements for real.
+			return false;
+		}
+
+		bool FailAllocation(Error * error, const char * message, vk::Result result) noexcept
+		{
+			if (error != nullptr)
+			{
+				*error = Error{
+					.code		= ErrorCode::eOutOfDeviceMemory,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
+				};
+			}
+
+			return false;
+		}
+
 		GraphicsApiId VulkanDeviceApiId([[maybe_unused]] void * impl) noexcept
 		{
 			return VulkanApi::id;
@@ -1566,8 +1551,6 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eInvalidHandle, "getTextureInfo names a texture this device did not create");
 			}
 
-			// A back buffer never came from a TextureDesc, so there is nothing here to report that would not be invented. The swapchain owns that description and
-			// answers for it.
 			if (slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 			{
 				return Fail(error, ErrorCode::eUnsupportedFeature, "a swapchain back buffer has no texture description; ask the swapchain instead");
@@ -1579,7 +1562,6 @@ namespace azo::rhi
 				vmaGetAllocationInfo(device->allocator, slot->allocation, &allocationInfo);
 			}
 
-			// Zero where this image owns no allocation, which is a placed, adopted or sparse one. Its memory is the heap's or the caller's to account for.
 			*out = TextureInfo{ .desc = slot->desc, .allocationSize = allocationInfo.size };
 			return true;
 		}
@@ -1605,7 +1587,6 @@ namespace azo::rhi
 				vmaGetAllocationInfo(device->allocator, slot->allocation, &allocationInfo);
 			}
 
-			// Read off what the memory turned out to be, not what was asked for, since this query runs after creation.
 			const MemoryAccess access =
 				slot->hostVisible ? (slot->coherent ? MemoryAccess::eCpuVisibleCoherent : MemoryAccess::eCpuVisible) : MemoryAccess::eGpuOnly;
 
@@ -1639,14 +1620,11 @@ namespace azo::rhi
 				.copyDst				= has(vk::FormatFeatureFlagBits::eTransferDst),
 				.linearFiltering		= has(vk::FormatFeatureFlagBits::eSampledImageFilterLinear),
 				.blendable				= has(vk::FormatFeatureFlagBits::eColorAttachmentBlend),
-				// The same two bits VulkanCmdBlit checks before recording, so a caller can now ask the question the backend was already answering.
-				.blitSrc = has(vk::FormatFeatureFlagBits::eBlitSrc),
-				.blitDst = has(vk::FormatFeatureFlagBits::eBlitDst),
+				.blitSrc				= has(vk::FormatFeatureFlagBits::eBlitSrc),
+				.blitDst				= has(vk::FormatFeatureFlagBits::eBlitDst),
 			};
 		}
 
-		// Names an object through VK_EXT_debug_utils so RenderDoc, the validation layer and captures show it by name. A no-op when naming is off, debug-utils is
-		// absent or no name was given. Best effort so an error never fails the create that asked for it.
 		void NameVulkanObject(const VulkanDevice * device, vk::ObjectType type, std::uint64_t handle, CString name) noexcept
 		{
 			if (!device->debugNames || !device->debugUtils || name == nullptr || *name == '\0' || handle == 0)
@@ -1654,14 +1632,11 @@ namespace azo::rhi
 				return;
 			}
 
-			// Dropping the result is the behaviour, not an oversight. There is nothing to report to: the caller asked to name a resource, not to be told the debug layer
-			// was unavailable.
 			static_cast<void>(device->device.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT(type, handle, name), device->dispatch));
 		}
 
 		namespace
 		{
-			// A buffer whose pages arrive through bindSparse. Refused where the device cannot bind them and never handed back as a buffer that can never be written to.
 			[[nodiscard]] BufferHandle VulkanCreateSparseBuffer(VulkanDevice * device, const BufferDesc & desc, Error * error) noexcept
 			{
 				if (device->caps.sparseTier < SparseTier::eBuffers)
@@ -1683,7 +1658,6 @@ namespace azo::rhi
 				VkBuffer raw = static_cast<VkBuffer>(created.value);
 				NameVulkanObject(device, vk::ObjectType::eBuffer, std::bit_cast<std::uint64_t>(raw), desc.debugName);
 
-				// Never host visible: mapping is a property of the memory, and this buffer has none until bindSparse gives it some.
 				const BufferHandle handle =
 					device->bufferSlots.Store(BufferSlot{ .buffer = raw, .size = desc.size, .sparse = true, .desc = detail::Recorded(desc) });
 				if (!handle.IsValid())
@@ -1694,7 +1668,7 @@ namespace azo::rhi
 
 				return ReturnValue(handle, error);
 			}
-		} // namespace
+		}
 
 		BufferHandle VulkanCreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
 		{
@@ -1714,13 +1688,11 @@ namespace azo::rhi
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
 			}
+			if (!VulkanRefuseRayTracingUsage(desc.usage, device->caps.supportsRayTracing, error))
+			{
+				return BufferHandle{};
+			}
 
-			/*
-			 * A sparse buffer is a virtual range with no memory behind it, filled a page at a time through bindSparse. Created straight through vkCreateBuffer and not
-			 * VMA, since there is no allocation to make and vmaCreateBuffer would bind memory the buffer exists to bind later.
-			 *
-			 * Residency comes with binding here because a buffer that can only be fully resident is not what the RHI means by sparse.
-			 */
 			if (desc.allowSparseBinding)
 			{
 				return VulkanCreateSparseBuffer(device, desc, error);
@@ -1728,7 +1700,6 @@ namespace azo::rhi
 
 			vk::BufferCreateInfo bufferCreateInfo({}, desc.size, MapBufferUsage(desc.usage), vk::SharingMode::eExclusive);
 
-			// The exportable pair, and a dedicated allocation with it. See VulkanCreateTexture for why sharing a block is not an option.
 			vk::ExternalMemoryBufferCreateInfo externalBufferInfo;
 			vk::ExportMemoryAllocateInfo exportInfo;
 			const bool exportable = !desc.exportableHandleTypes.Empty();
@@ -1749,14 +1720,15 @@ namespace azo::rhi
 			VmaAllocation allocation = nullptr;
 			if (exportable)
 			{
-				if (vmaCreateDedicatedBuffer(device->allocator, &bufferInfo, &allocInfo, &exportInfo, &raw, &allocation, nullptr) != VK_SUCCESS)
+				if (const VkResult made = vmaCreateDedicatedBuffer(device->allocator, &bufferInfo, &allocInfo, &exportInfo, &raw, &allocation, nullptr);
+					made != VK_SUCCESS)
 				{
-					return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateDedicatedBuffer failed for an exportable buffer");
+					return FailAllocationValue<BufferHandle>(error, "vmaCreateDedicatedBuffer failed for an exportable buffer", static_cast<vk::Result>(made));
 				}
 			}
-			else if (vmaCreateBuffer(device->allocator, &bufferInfo, &allocInfo, &raw, &allocation, nullptr) != VK_SUCCESS)
+			else if (const VkResult made = vmaCreateBuffer(device->allocator, &bufferInfo, &allocInfo, &raw, &allocation, nullptr); made != VK_SUCCESS)
 			{
-				return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateBuffer failed");
+				return FailAllocationValue<BufferHandle>(error, "vmaCreateBuffer failed", static_cast<vk::Result>(made));
 			}
 
 			NameVulkanObject(device, vk::ObjectType::eBuffer, std::bit_cast<std::uint64_t>(raw), desc.debugName);
@@ -1764,8 +1736,6 @@ namespace azo::rhi
 			VkMemoryPropertyFlags memFlags = 0;
 			vmaGetAllocationMemoryProperties(device->allocator, allocation, &memFlags);
 
-			// VMA maps only an allocation that asked for host access. On unified memory a device-local buffer can still land in a host-visible heap so gate on the
-			// requested access and not the heap property or vmaMapMemory aborts on strict ICDs.
 			const bool mappable = (allocFlags & (VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)) != 0;
 
 			const BufferHandle handle = device->bufferSlots.Store(BufferSlot{ .buffer = raw,
@@ -1809,17 +1779,15 @@ namespace azo::rhi
 			void * mapped = nullptr;
 			if (slot->placedMemory != VK_NULL_HANDLE)
 			{
-				// Placed buffer: map its slice of the heap memory (only one mapping per heap at a time).
-				if (device->device.mapMemory(slot->placedMemory, slot->placedOffset, slot->size, vk::MemoryMapFlags{}, &mapped, device->dispatch) !=
-					vk::Result::eSuccess)
+				if (const vk::Result mapResult =
+						device->device.mapMemory(slot->placedMemory, slot->placedOffset, slot->size, vk::MemoryMapFlags{}, &mapped, device->dispatch);
+					mapResult != vk::Result::eSuccess)
 				{
-					return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "vkMapMemory failed");
+					return FailNativeValue<MappedMemory>(error, "vkMapMemory failed", mapResult);
 				}
 			}
 			else if (slot->persistentMapped)
 			{
-				// VMA already holds the mapping for this allocation. Hand back its pointer instead of bumping the map count, which Unmap (and destroy) would otherwise have
-				// to balance.
 				VmaAllocationInfo info{};
 				vmaGetAllocationInfo(device->allocator, slot->allocation, &info);
 				mapped = info.pMappedData;
@@ -1828,9 +1796,9 @@ namespace azo::rhi
 					return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "persistent mapping is unexpectedly null");
 				}
 			}
-			else if (vmaMapMemory(device->allocator, slot->allocation, &mapped) != VK_SUCCESS)
+			else if (const VkResult vmaResult = vmaMapMemory(device->allocator, slot->allocation, &mapped); vmaResult != VK_SUCCESS)
 			{
-				return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "vmaMapMemory failed");
+				return FailNativeValue<MappedMemory>(error, "vmaMapMemory failed", static_cast<vk::Result>(vmaResult));
 			}
 
 			return ReturnValue(
@@ -1857,7 +1825,6 @@ namespace azo::rhi
 			}
 			else if (!slot->persistentMapped)
 			{
-				// Persistent mappings stay live for the buffer's lifetime. VMA releases them on destroy.
 				vmaUnmapMemory(device->allocator, slot->allocation);
 			}
 			return Succeed(error);
@@ -1880,12 +1847,12 @@ namespace azo::rhi
 
 			if (slot->placedMemory != VK_NULL_HANDLE)
 			{
-				return Succeed(error); // placed buffers live in a host-coherent heap so no flush is needed
+				return Succeed(error);
 			}
 
-			if (vmaFlushAllocation(device->allocator, slot->allocation, offset, bounded) != VK_SUCCESS)
+			if (const VkResult flushed = vmaFlushAllocation(device->allocator, slot->allocation, offset, bounded); flushed != VK_SUCCESS)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "vmaFlushAllocation failed");
+				return FailNative(error, "vmaFlushAllocation failed", static_cast<vk::Result>(flushed));
 			}
 
 			return Succeed(error);
@@ -1907,20 +1874,18 @@ namespace azo::rhi
 
 			if (slot->placedMemory != VK_NULL_HANDLE)
 			{
-				return Succeed(error); // placed buffers live in a host-coherent heap so no invalidate is needed
+				return Succeed(error);
 			}
 
-			if (vmaInvalidateAllocation(device->allocator, slot->allocation, offset, bounded) != VK_SUCCESS)
+			if (const VkResult invalidated = vmaInvalidateAllocation(device->allocator, slot->allocation, offset, bounded); invalidated != VK_SUCCESS)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "vmaInvalidateAllocation failed");
+				return FailNative(error, "vmaInvalidateAllocation failed", static_cast<vk::Result>(invalidated));
 			}
 			return Succeed(error);
 		}
 
 		namespace
 		{
-			// A cube sets the compatible flag, its six faces being six of desc.arrayLayers. Mutable format is what lets a view name a format other than the image's own,
-			// opted into per texture because it can cost lossless compression.
 			[[nodiscard]] vk::ImageCreateFlags TextureCreateFlags(const TextureDesc & desc) noexcept
 			{
 				vk::ImageCreateFlags flags{};
@@ -1928,22 +1893,14 @@ namespace azo::rhi
 				{
 					flags |= vk::ImageCreateFlagBits::eCubeCompatible;
 				}
-				// A plane view names that plane's single-plane format, which is a different format from the image's, so a multi-planar image needs the mutable flag
-				// whatever the caller asked for. Its planes would be unreachable otherwise, which is the only way to sample one.
 				if (desc.allowFormatViews || IsMultiPlanarFormat(desc.format))
 				{
 					flags |= vk::ImageCreateFlagBits::eMutableFormat;
 				}
 				return flags;
 			}
-		} // namespace
+		}
 
-		/*
-		 * The image an ordinary and an imported texture both name, which is everything about a texture that does not concern where its memory comes from.
-		 *
-		 * Split out so the import path states the shape once and never a second time. A description the two paths read differently would give an importer an image
-		 * laid out unlike the one the exporter made, which no error reports and which reads as corruption at the far end.
-		 */
 		bool VulkanImageCreateInfo(const TextureDesc & desc, vk::ImageCreateInfo & out, Error * error) noexcept
 		{
 			if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
@@ -1951,7 +1908,6 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
 			}
 
-			// Refused here and not left to the driver, because on MoltenVK the image becomes an MTLTexture and Metal asserts on a chain longer than the extent holds.
 			if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, desc.type == TextureType::eTex3D ? desc.depth : 1))
 			{
 				return Fail(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
@@ -1977,19 +1933,10 @@ namespace azo::rhi
 			return Succeed(error);
 		}
 
-		// Names the image, gives it its default view and registers the slot, for an image that already has memory behind it however that memory arrived. Owns the
-		// failure cleanup for both, so a caller that got this far hands the image over and does not unwind it itself.
 		TextureHandle VulkanFinishTexture(VulkanDevice * device, const TextureDesc & desc, VkImage image, VmaAllocation allocation, Error * error) noexcept
 		{
 			NameVulkanObject(device, vk::ObjectType::eImage, std::bit_cast<std::uint64_t>(image), desc.debugName);
 
-			/*
-			 * A default view is legal only on a view-capable usage so a pure transfer texture gets none: creating one violates VUID-VkImageViewCreateInfo-image-04441
-			 * and nothing binds such a texture anyway since copies work off the image.
-			 *
-			 * A multi-planar texture gets none either. A sampled view at the image's own format would need a VkSamplerYcbcrConversion chained onto it
-			 * (VUID-VkImageViewCreateInfo-format-06415), and there is no conversion to chain: these are reached a plane at a time instead.
-			 */
 			constexpr vk::ImageUsageFlags viewCapableUsage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage |
 															 vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eDepthStencilAttachment |
 															 vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eTransientAttachment;
@@ -2010,7 +1957,7 @@ namespace azo::rhi
 				if (created.result != vk::Result::eSuccess)
 				{
 					vmaDestroyImage(device->allocator, image, allocation);
-					return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan texture creation failed");
+					return FailNativeValue<TextureHandle>(error, "Vulkan texture creation failed", created.result);
 				}
 
 				view = created.value;
@@ -2046,8 +1993,6 @@ namespace azo::rhi
 			return ReturnValue(handle, error);
 		}
 
-		// A texture is a VkImage, a VMA allocation and a default view spanning every mip and layer. The view's aspect follows the format and a cube sets the
-		// compatible flag, its six faces being six of desc.arrayLayers.
 		TextureHandle VulkanCreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createTexture");
@@ -2069,12 +2014,6 @@ namespace azo::rhi
 				return TextureHandle{};
 			}
 
-			/*
-			 * A sparse texture is a virtual tile grid with no memory behind it, filled through bindSparse.
-			 *
-			 * Created straight through vkCreateImage and not VMA for the same reason a sparse buffer is: there is no allocation to make. Residency and not binding
-			 * alone, since a texture that can only be fully resident is not what the caps ladder means by a resident texture.
-			 */
 			VkImage image			 = VK_NULL_HANDLE;
 			VmaAllocation allocation = nullptr;
 			if (desc.allowSparseBinding)
@@ -2088,11 +2027,6 @@ namespace azo::rhi
 				imageInfo.flags |= vk::ImageCreateFlagBits::eSparseBinding | vk::ImageCreateFlagBits::eSparseResidency;
 			}
 
-			/*
-			 * An exportable texture takes its handle types twice, once on the image and once on the allocation, and a dedicated allocation so that the exported memory
-			 * is this texture and nothing else. A suballocated one would hand an importer the whole block with no offset to find the texture at, and every neighbour's
-			 * memory with it.
-			 */
 			vk::ExternalMemoryImageCreateInfo externalImageInfo;
 			vk::ExportMemoryAllocateInfo exportInfo;
 			const bool exportable = !desc.exportableHandleTypes.Empty();
@@ -2114,28 +2048,27 @@ namespace azo::rhi
 				const auto created = device->device.createImage(imageInfo, nullptr, device->dispatch);
 				if (created.result != vk::Result::eSuccess)
 				{
-					return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "vkCreateImage failed for a sparse texture");
+					return FailAllocationValue<TextureHandle>(error, "vkCreateImage failed for a sparse texture", created.result);
 				}
 
 				image = static_cast<VkImage>(created.value);
 			}
 			else if (exportable)
 			{
-				if (vmaCreateDedicatedImage(device->allocator, &cImageInfo, &allocInfo, &exportInfo, &image, &allocation, nullptr) != VK_SUCCESS)
+				if (const VkResult made = vmaCreateDedicatedImage(device->allocator, &cImageInfo, &allocInfo, &exportInfo, &image, &allocation, nullptr);
+					made != VK_SUCCESS)
 				{
-					return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateDedicatedImage failed for an exportable texture");
+					return FailAllocationValue<TextureHandle>(error, "vmaCreateDedicatedImage failed for an exportable texture", static_cast<vk::Result>(made));
 				}
 			}
-			else if (vmaCreateImage(device->allocator, &cImageInfo, &allocInfo, &image, &allocation, nullptr) != VK_SUCCESS)
+			else if (const VkResult made = vmaCreateImage(device->allocator, &cImageInfo, &allocInfo, &image, &allocation, nullptr); made != VK_SUCCESS)
 			{
-				return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateImage failed");
+				return FailAllocationValue<TextureHandle>(error, "vmaCreateImage failed", static_cast<vk::Result>(made));
 			}
 
 			return VulkanFinishTexture(device, desc, image, allocation, error);
 		}
 
-		// Picks a memory type for a heap from its abstract type: host-visible+coherent for the CPU heaps, device-local otherwise. Returns false when no type
-		// qualifies.
 		[[nodiscard]] bool FindMemoryTypeForHeap(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, HeapType type,
 			std::uint32_t & outIndex, bool & outHostVisible, bool & outCoherent) noexcept
 		{
@@ -2145,7 +2078,7 @@ namespace azo::rhi
 																	  : vk::MemoryPropertyFlags{ vk::MemoryPropertyFlagBits::eDeviceLocal };
 			for (std::uint32_t i = 0; i < props.memoryTypeCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const vk::MemoryPropertyFlags flags = props.memoryTypes[i].propertyFlags;
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				if ((flags & required) == required)
@@ -2159,7 +2092,6 @@ namespace azo::rhi
 			return false;
 		}
 
-		// Resolves a heap handle to its slot. Writers are serialized by the guard the RHI takes for the kind so this needs nothing.
 		[[nodiscard]] HeapSlot * ResolveHeap(VulkanDevice * device, HeapHandle handle) noexcept
 		{
 			return device->heapSlots.Resolve(handle, kHandleAlreadyChecked);
@@ -2173,7 +2105,6 @@ namespace azo::rhi
 					desc.exportableHandleTypes,
 					ExternalObjectKind::eHeap,
 					Format::eUndefined,
-					// A heap accepts whatever a caller later places in it, so the question is whether memory crosses at all, not what will use it.
 					kExternalQueryBufferUsage,
 					"heap creation asked for an external handle type this adapter cannot export",
 					error))
@@ -2193,7 +2124,6 @@ namespace azo::rhi
 				return FailValue<HeapHandle>(error, ErrorCode::eUnsupportedFeature, "no memory type matches the requested heap");
 			}
 
-			// A heap is the one memory-backed kind this backend allocates itself, so the export declaration chains straight in and never reaches VMA.
 			vk::MemoryAllocateInfo allocateInfo(desc.size, typeIndex);
 			vk::ExportMemoryAllocateInfo exportInfo;
 			if (!desc.exportableHandleTypes.Empty())
@@ -2231,6 +2161,10 @@ namespace azo::rhi
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "placed buffer size must be greater than zero");
 			}
+			if (!VulkanRefuseRayTracingUsage(desc.buffer.usage, device->caps.supportsRayTracing, error))
+			{
+				return BufferHandle{};
+			}
 
 			HeapSlot heap{};
 			{
@@ -2246,13 +2180,11 @@ namespace azo::rhi
 				vk::BufferCreateInfo({}, desc.buffer.size, MapBufferUsage(desc.buffer.usage), vk::SharingMode::eExclusive), nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<BufferHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed buffer creation failed");
+				return FailNativeValue<BufferHandle>(error, "Vulkan placed buffer creation failed", created.result);
 			}
 
 			const vk::Buffer buffer			  = created.value;
 			const vk::MemoryRequirements reqs = device->device.getBufferMemoryRequirements(buffer, device->dispatch);
-			// Checked in every mode, since binding to memory the buffer does not fit is undefined and not merely wrong. The range is subtracted and not added,
-			// an offset a suballocator produced by underflow being free to wrap the sum back inside the heap.
 			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset > heap.size ||
 				reqs.size > heap.size - desc.offset)
 			{
@@ -2260,10 +2192,10 @@ namespace azo::rhi
 				return FailValue<BufferHandle>(error, ErrorCode::eValidationFailed, "placed buffer does not fit the heap (memory type, alignment, or range)");
 			}
 
-			if (device->device.bindBufferMemory(buffer, heap.memory, desc.offset, device->dispatch) != vk::Result::eSuccess)
+			if (const vk::Result bound = device->device.bindBufferMemory(buffer, heap.memory, desc.offset, device->dispatch); bound != vk::Result::eSuccess)
 			{
 				device->device.destroyBuffer(buffer, nullptr, device->dispatch);
-				return FailValue<BufferHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed buffer memory binding failed");
+				return FailNativeValue<BufferHandle>(error, "Vulkan placed buffer memory binding failed", bound);
 			}
 
 			const BufferHandle handle = device->bufferSlots.Store(BufferSlot{ .buffer = buffer,
@@ -2329,13 +2261,11 @@ namespace azo::rhi
 			const auto createdImage = device->device.createImage(imageInfo, nullptr, device->dispatch);
 			if (createdImage.result != vk::Result::eSuccess)
 			{
-				return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed texture creation failed");
+				return FailNativeValue<TextureHandle>(error, "Vulkan placed texture creation failed", createdImage.result);
 			}
 
 			const vk::Image image			  = createdImage.value;
 			const vk::MemoryRequirements reqs = device->device.getImageMemoryRequirements(image, device->dispatch);
-			// Same in every mode and for the same reason as the placed buffer above. The range is subtracted and not added, an offset a suballocator produced by
-			// underflow being free to wrap the sum back inside the heap.
 			if (((reqs.memoryTypeBits & (1u << heap.memoryTypeIndex)) == 0) || (desc.offset % reqs.alignment) != 0 || desc.offset > heap.size ||
 				reqs.size > heap.size - desc.offset)
 			{
@@ -2343,16 +2273,14 @@ namespace azo::rhi
 				return FailValue<TextureHandle>(error, ErrorCode::eValidationFailed, "placed texture does not fit the heap (memory type, alignment, or range)");
 			}
 
-			if (device->device.bindImageMemory(image, heap.memory, desc.offset, device->dispatch) != vk::Result::eSuccess)
+			if (const vk::Result bound = device->device.bindImageMemory(image, heap.memory, desc.offset, device->dispatch); bound != vk::Result::eSuccess)
 			{
 				device->device.destroyImage(image, nullptr, device->dispatch);
-				return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed texture memory binding failed");
+				return FailNativeValue<TextureHandle>(error, "Vulkan placed texture memory binding failed", bound);
 			}
 
 			const vk::ImageAspectFlags aspect =
 				IsDepthFormat(t.format) ? vk::ImageAspectFlags{ vk::ImageAspectFlagBits::eDepth } : vk::ImageAspectFlags{ vk::ImageAspectFlagBits::eColor };
-			// No default view over a multi-planar format, for the reason the committed path states: one at the image's own format would need a VkSamplerYcbcrConversion
-			// chained onto it, and these are reached a plane at a time instead.
 			VkImageView placedView = VK_NULL_HANDLE;
 			if (!IsMultiPlanarFormat(t.format))
 			{
@@ -2366,7 +2294,7 @@ namespace azo::rhi
 				if (createdView.result != vk::Result::eSuccess)
 				{
 					device->device.destroyImage(image, nullptr, device->dispatch);
-					return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed texture view creation failed");
+					return FailNativeValue<TextureHandle>(error, "Vulkan placed texture view creation failed", createdView.result);
 				}
 				placedView = createdView.value;
 			}
@@ -2398,8 +2326,6 @@ namespace azo::rhi
 			return ReturnValue(handle, error);
 		}
 
-		// Queries a throwaway unbound VkImage built from the same create info createPlacedTexture uses so size and alignment match the placement exactly. The
-		// desc-only maintenance4 query is unavailable, since the device does not enable that feature.
 		bool VulkanGetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.getTextureMemoryInfo");
@@ -2420,8 +2346,6 @@ namespace azo::rhi
 
 			const std::uint32_t layers = desc.arrayLayers;
 			vk::ImageCreateInfo imageInfo{};
-			// The same mapping creation uses. Built by hand here once, which left the query answering for an image without the mutable-format flag that a
-			// view-permitting or multi-planar texture is actually made with, so the size and alignment it reported were not that texture's.
 			imageInfo.flags			= TextureCreateFlags(desc);
 			imageInfo.imageType		= MapImageType(desc.type);
 			imageInfo.format		= format;
@@ -2437,7 +2361,7 @@ namespace azo::rhi
 			const auto created = device->device.createImage(imageInfo, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan texture memory query failed");
+				return FailNative(error, "Vulkan texture memory query failed", created.result);
 			}
 
 			const vk::MemoryRequirements reqs = device->device.getImageMemoryRequirements(created.value, device->dispatch);
@@ -2447,8 +2371,6 @@ namespace azo::rhi
 			return Succeed(error);
 		}
 
-		// Memory footprint of a buffer described by a desc. Mirrors how createPlacedBuffer sizes one, on a throwaway unbound VkBuffer so the size and alignment match
-		// the placement exactly.
 		bool VulkanGetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.getBufferMemoryInfo");
@@ -2466,7 +2388,7 @@ namespace azo::rhi
 				vk::BufferCreateInfo({}, desc.size, MapBufferUsage(desc.usage), vk::SharingMode::eExclusive), nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan buffer memory query failed");
+				return FailNative(error, "Vulkan buffer memory query failed", created.result);
 			}
 
 			const vk::MemoryRequirements reqs = device->device.getBufferMemoryRequirements(created.value, device->dispatch);
@@ -2476,7 +2398,6 @@ namespace azo::rhi
 			return Succeed(error);
 		}
 
-		// Creates a VkImageView onto a device-created texture, defaulting to the texture's own format and tracks it in the registry.
 		TextureViewHandle VulkanCreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createTextureView");
@@ -2507,8 +2428,6 @@ namespace azo::rhi
 				texRhiFormat	 = slot.rhiFormat;
 			}
 
-			// Component mapping is only legal where the view is sampled. Vulkan enforces it at the bind and not here, so a swizzle that reaches a storage image or an
-			// attachment would come back as a validation error at descriptor write or framebuffer creation instead.
 			if (!desc.swizzle.IsIdentity())
 			{
 				if (!device->caps.supportsTextureViewSwizzle)
@@ -2522,24 +2441,24 @@ namespace azo::rhi
 				}
 			}
 
-			// A range past the end of the texture builds a view Vulkan will not have so this is asked whatever the mode.
 			const TextureSubresourceRange & r = desc.range;
-			if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip || r.baseLayer >= texLayers || r.layerCount > texLayers - r.baseLayer)
+			if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view subresource range is outside the source texture");
+				return FailValue<TextureViewHandle>(error,
+					ErrorCode::eInvalidArgument,
+					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+			}
+			if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip)
+			{
+				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+			}
+			if (r.baseLayer >= texLayers || r.layerCount > texLayers - r.baseLayer)
+			{
+				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
 			}
 
-			/*
-			 * A view naming a plane exposes that plane's single-plane format and not the multi-planar one, which is how Vulkan reaches the texels and is legal without
-			 * allowFormatViews: the aspect, not a format cast, is what selects the plane. Everything else resolves its format the ordinary way and stays under the
-			 * reinterpretation rule.
-			 */
 			const std::uint32_t plane = PlaneIndexOf(desc.range.aspects);
 
-			/*
-			 * Sampling a multi-planar format as a whole is defined only through a conversion, so a view that names no plane needs one
-			 * (VUID-VkImageViewCreateInfo-format-06415). A plane view reads raw texels and must not carry one.
-			 */
 			vk::SamplerYcbcrConversionInfo conversionInfo{};
 			if (desc.ycbcrConversion != nullptr)
 			{
@@ -2553,10 +2472,11 @@ namespace azo::rhi
 					return FailValue<TextureViewHandle>(
 						error, ErrorCode::eInvalidArgument, "a texture view naming a plane reads it raw and cannot also carry a Y'CbCr conversion");
 				}
-				conversionInfo.conversion = AcquireYcbcrConversion(device, *desc.ycbcrConversion);
+				vk::Result conversionResult = vk::Result::eSuccess;
+				conversionInfo.conversion	= AcquireYcbcrConversion(device, *desc.ycbcrConversion, conversionResult);
 				if (!conversionInfo.conversion)
 				{
-					return FailValue<TextureViewHandle>(error, ErrorCode::eNativeApiError, "Vulkan texture view Y'CbCr conversion creation failed");
+					return FailNativeValue<TextureViewHandle>(error, "Vulkan texture view Y'CbCr conversion creation failed", conversionResult);
 				}
 			}
 			else if (plane == kNoPlane && IsMultiPlanarFormat(texRhiFormat))
@@ -2580,8 +2500,6 @@ namespace azo::rhi
 			{
 				viewFormat = desc.format == Format::eUndefined ? textureFormat : MapFormat(desc.format);
 
-				// Reinterpreting texels needs an image created for it (VUID-VkImageViewCreateInfo-image-01762), which the texture declares through allowFormatViews. Asked
-				// whatever the mode, since otherwise this builds a view Vulkan rejects.
 				if (viewFormat != textureFormat && !texMutableFormat)
 				{
 					return FailValue<TextureViewHandle>(
@@ -2589,8 +2507,6 @@ namespace azo::rhi
 				}
 			}
 
-			// range.aspects defaults to eColor so an unspecified aspect and an explicit color one arrive identical. Color over a depth format is illegal either way
-			// (VUID-VkImageViewCreateInfo-subresourceRange-09594) so take it from the format in that case.
 			vk::ImageSubresourceRange subresource	= MapSubresourceRange(desc.range);
 			const vk::ImageAspectFlags formatAspect = AspectForViewFormat(viewFormat);
 			if (subresource.aspectMask == vk::ImageAspectFlags{ vk::ImageAspectFlagBits::eColor } && formatAspect != vk::ImageAspectFlagBits::eColor)
@@ -2612,7 +2528,7 @@ namespace azo::rhi
 			const auto created = device->device.createImageView(viewInfo, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eNativeApiError, "Vulkan texture view creation failed");
+				return FailNativeValue<TextureViewHandle>(error, "Vulkan texture view creation failed", created.result);
 			}
 
 			const TextureViewHandle handle = device->textureViewSlots.Store(TextureViewSlot{
@@ -2629,16 +2545,8 @@ namespace azo::rhi
 			return ReturnValue(handle, error);
 		}
 
-		// Maps push constant ranges onto Vulkan and tracks the VkPipelineLayout.
 		namespace
 		{
-			/*
-			 * Refuses a pipeline whose shaders claim their bindings landed somewhere other than where this layout binds them.
-			 *
-			 * Vulkan's half of the ABI is the identity, a binding staying at the set and binding it was declared with, so a map that disagrees is a shader built against
-			 * something other than this layout. Nothing here changes what is bound. It changes a silently wrong descriptor read into a refusal that names what
-			 * disagreed.
-			 */
 			[[nodiscard]] bool BindingMapsAgree(
 				VulkanDevice * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 			{
@@ -2707,7 +2615,7 @@ namespace azo::rhi
 
 				return true;
 			}
-		} // namespace
+		}
 
 		PipelineLayoutHandle VulkanCreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 		{
@@ -2720,7 +2628,6 @@ namespace azo::rhi
 				return FailValue<PipelineLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan pipeline layout storage allocation failed");
 			}
 
-			// Both were reserved for exactly what the loops below put in them, so neither append can grow.
 			for (const DescriptorSetLayoutHandle & handle : desc.sets)
 			{
 				const vk::DescriptorSetLayout setLayout = ResolveDescriptorSetLayout(device, handle);
@@ -2739,7 +2646,7 @@ namespace azo::rhi
 			const auto created = device->device.createPipelineLayout(vk::PipelineLayoutCreateInfo({}, setLayouts, ranges), nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<PipelineLayoutHandle>(error, ErrorCode::eNativeApiError, "Vulkan pipeline layout creation failed");
+				return FailNativeValue<PipelineLayoutHandle>(error, "Vulkan pipeline layout creation failed", created.result);
 			}
 
 			PipelineLayoutSlot slot{ .layout = created.value };
@@ -2755,14 +2662,10 @@ namespace azo::rhi
 			return ReturnValue(handle, error);
 		}
 
-		/*
-		 * Returns a VkRenderPass matching the key, built and cached on first use, for the no-dynamic-rendering case only. One graphics subpass references the color
-		 * attachments in order with depth last. Every layout field equals the attachment's recorded layout so the pass performs no implicit transitions and the RHI's
-		 * explicit barriers keep ownership. A null pass is what a failure looks like, which the caller turns into an Error.
-		 */
 		[[nodiscard]] vk::RenderPass GetOrCreateRenderPass(
-			VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key)
+			VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key, vk::Result & outResult)
 		{
+			outResult = vk::Result::eSuccess;
 			if (const auto it = cache.find(key); it != cache.end())
 			{
 				return it->second;
@@ -2776,10 +2679,9 @@ namespace azo::rhi
 				return {};
 			}
 
-			// Both were reserved for exactly what this loop and the depth attachment below put in them, so neither append can grow.
 			for (std::uint32_t i = 0; i < key.colorCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const RenderPassAttachmentKey & a = key.colors[i];
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				attachments.emplace_back(vk::AttachmentDescriptionFlags{},
@@ -2825,11 +2727,10 @@ namespace azo::rhi
 			const auto created = device->device.createRenderPass(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
+				outResult = created.result;
 				return {};
 			}
 
-			// The cache is what owns these until teardown walks it, so a pass it cannot take is one nothing would ever destroy. Give it back and report the failure
-			// instead of leaking it for the life of the device.
 			if (!detail::TryInsertOrAssign(cache, key, created.value))
 			{
 				device->device.destroyRenderPass(created.value, nullptr, device->dispatch);
@@ -2839,20 +2740,17 @@ namespace azo::rhi
 			return created.value;
 		}
 
-		// The render-pass key a pipeline is created against when dynamic rendering is off. Only formats and sample counts decide compatibility so ops and layouts
-		// normalize to fixed values and the result matches whatever pass BeginRendering builds.
 		[[nodiscard]] RenderPassKey MakePipelineRenderPassKey(const GraphicsPipelineDesc & desc) noexcept
 		{
 			RenderPassKey key;
 
-			// Creation refuses a count past the array before reaching here, so this only keeps the function true on its own terms and not on its caller's.
 			const std::uint32_t colorCount = std::min(desc.renderTarget.colorFormatCount, static_cast<std::uint32_t>(key.colors.size()));
 
 			key.colorCount						  = colorCount;
 			const vk::SampleCountFlagBits samples = MapSampleCount(desc.renderTarget.samples);
 			for (std::uint32_t i = 0; i < colorCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				key.colors[i] = RenderPassAttachmentKey{ .format = MapFormat(desc.renderTarget.colorFormats[i]),
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					.samples = samples,
@@ -2873,8 +2771,6 @@ namespace azo::rhi
 			return key;
 		}
 
-		// Resolves an optional pipeline-cache handle to its VkPipelineCache so graphics and compute pipeline creation can reuse a warm cache. A null or unknown
-		// handle falls back to VK_NULL_HANDLE (creation without a cache).
 		[[nodiscard]] vk::PipelineCache ResolvePipelineCache(VulkanDevice * device, PipelineCacheHandle handle) noexcept
 		{
 			if (!handle.IsValid())
@@ -2885,15 +2781,8 @@ namespace azo::rhi
 			return slot != nullptr ? slot->cache : vk::PipelineCache{};
 		}
 
-		// Maps GraphicsPipelineDesc onto a Vulkan pipeline. With dynamic rendering the attachment formats come from the desc through VkPipelineRenderingCreateInfo,
-		// without it from a compatible cached render pass. Shader modules are destroyed right after the create.
 		namespace
 		{
-			/*
-			 * What this backend can consume, checked and not assumed. vkCreateShaderModule takes a uint32 pointer and a byte count, so a blob in another container is
-			 * read as SPIR-V words and handed to the driver, which is undefined behaviour and not a refusal. The word-multiple check is the same rule from the other
-			 * side: SPIR-V is a stream of 32-bit words and a size that is not a multiple of four cannot be one.
-			 */
 			[[nodiscard]] bool ShaderBytesUsable(const ShaderBinary & shader, Error * error) noexcept
 			{
 				if (shader.format != ShaderBinaryFormat::eSpirV)
@@ -2901,7 +2790,6 @@ namespace azo::rhi
 					return Fail(error, ErrorCode::eUnsupportedFormat, "the Vulkan backend takes SPIR-V shader binaries");
 				}
 
-				// Nothing here compiles a shader, which is what supportsShaderSource says. Reading source as SPIR-V would hand the driver text.
 				if (shader.isSource)
 				{
 					return Fail(error, ErrorCode::eUnsupportedFormat, "the Vulkan backend has no shader compiler, so it takes compiled SPIR-V only");
@@ -2919,16 +2807,12 @@ namespace azo::rhi
 
 				return true;
 			}
-		} // namespace
+		}
 
 		GraphicsPipelineHandle VulkanCreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createGraphicsPipeline");
 			auto * device = static_cast<VulkanDevice *>(impl);
-			/*
-			 * A null vertexInput means primitives come from somewhere other than vertex buffers, which is what a mesh pipeline is. No backend here builds one, so it is
-			 * refused by name and never lowered as an empty vertex layout that would draw nothing and report success.
-			 */
 			if (desc.vertexInput == nullptr)
 			{
 				return FailValue<GraphicsPipelineHandle>(error,
@@ -2937,10 +2821,6 @@ namespace azo::rhi
 			}
 
 			const VertexInputDesc & vertexInput = *desc.vertexInput;
-			/*
-			 * Both of these change what the rasterizer actually covers, so a backend that cannot do them refuses and never lowers the pipeline without them. Dropping
-			 * either one silently produces a pipeline that creates, draws, and covers the wrong pixels.
-			 */
 			if (desc.raster.conservativeRasterEnable && device->caps.conservativeRasterTier == ConservativeRasterTier::eNone)
 			{
 				return FailValue<GraphicsPipelineHandle>(
@@ -2952,19 +2832,12 @@ namespace azo::rhi
 				return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "a patch list needs a non-zero patchControlPoints");
 			}
 
-			/*
-			 * Both counts index arrays of a fixed size, so a desc naming more than those hold is refused here and never read past their end.
-			 *
-			 * The rendering scope already refuses the same overrun on its own attachment list. Nothing refused it on this path, which left the count reading off the end
-			 * of the array and the bounds-checked accessor as the only thing between a malformed desc and a bad read.
-			 */
 			if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 			{
 				return FailValue<GraphicsPipelineHandle>(
 					error, ErrorCode::eInvalidArgument, "graphics pipeline names more color attachments than a render target can hold");
 			}
 
-			// A stageless pipeline could never be bound so handing one back would defer the failure to a draw that cannot report it.
 			if (desc.shaders.empty())
 			{
 				return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "graphics pipeline requires at least one shader stage");
@@ -2972,7 +2845,6 @@ namespace azo::rhi
 
 			detail::HostVector<vk::ShaderModule> modules;
 
-			// The pipeline create consumes the modules and nothing needs them after it, so one guard covers every path out of here, the successful one included.
 			auto moduleGuard = detail::MakeScopeGuard(
 				[&]
 				{
@@ -3005,7 +2877,6 @@ namespace azo::rhi
 				return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan graphics pipeline storage allocation failed");
 			}
 
-			// Each was reserved for exactly what the loops below put in it, so none of the appends can grow.
 			for (const ShaderBinary & shader : desc.shaders)
 			{
 				if (!ShaderBytesUsable(shader, error))
@@ -3017,7 +2888,7 @@ namespace azo::rhi
 					vk::ShaderModuleCreateInfo({}, shader.size, static_cast<const std::uint32_t *>(shader.data)), nullptr, device->dispatch);
 				if (created.result != vk::Result::eSuccess)
 				{
-					return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan shader module creation failed");
+					return FailNativeValue<GraphicsPipelineHandle>(error, "Vulkan shader module creation failed", created.result);
 				}
 
 				modules.push_back(created.value);
@@ -3039,8 +2910,6 @@ namespace azo::rhi
 			const vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
 				{}, MapTopology(vertexInput.topology), vertexInput.primitiveRestartEnable ? VK_TRUE : VK_FALSE);
 
-			// Read only for a patch list, and the create info is only chained in for one, since Vulkan ignores it otherwise and a stale count in the struct is easier to
-			// misread than an absent struct.
 			const vk::PipelineTessellationStateCreateInfo tessellation({}, vertexInput.patchControlPoints);
 			const bool patches = vertexInput.topology == PrimitiveTopology::ePatchList;
 			constexpr vk::PipelineViewportStateCreateInfo viewportState({}, 1, nullptr, 1, nullptr);
@@ -3057,8 +2926,6 @@ namespace azo::rhi
 			raster.depthBiasSlopeFactor	   = desc.raster.depthBiasSlopeFactor;
 			raster.lineWidth			   = 1.0f;
 
-			// Chained only when asked for, so a device without the extension never sees the struct. The gate above already refused the request on a device reporting no
-			// tier, so reaching here means the extension is there.
 			const vk::PipelineRasterizationConservativeStateCreateInfoEXT conservative({}, vk::ConservativeRasterizationModeEXT::eOverestimate, 0.0f);
 			if (desc.raster.conservativeRasterEnable)
 			{
@@ -3094,7 +2961,7 @@ namespace azo::rhi
 
 			for (std::uint32_t i = 0; i < desc.blend.attachmentCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const ColorBlendAttachmentDesc & a = desc.blend.attachments[i];
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				vk::PipelineColorBlendAttachmentState state;
@@ -3128,7 +2995,6 @@ namespace azo::rhi
 				&dynamicState,
 				layout);
 
-			// colorFormats and renderingInfo must outlive the create call below so they live here even though only the dynamic-rendering branch fills them.
 			detail::HostVector<vk::Format> colorFormats;
 			vk::PipelineRenderingCreateInfo renderingInfo;
 			if (device->dynamicRendering)
@@ -3140,7 +3006,7 @@ namespace azo::rhi
 
 				for (std::uint32_t i = 0; i < desc.renderTarget.colorFormatCount; ++i)
 				{
-					// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					colorFormats.push_back(MapFormat(desc.renderTarget.colorFormats[i]));
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				}
@@ -3152,10 +3018,11 @@ namespace azo::rhi
 			}
 			else
 			{
-				const vk::RenderPass renderPass = GetOrCreateRenderPass(device, device->renderPasses, MakePipelineRenderPassKey(desc));
+				vk::Result renderPassResult		= vk::Result::eSuccess;
+				const vk::RenderPass renderPass = GetOrCreateRenderPass(device, device->renderPasses, MakePipelineRenderPassKey(desc), renderPassResult);
 				if (!renderPass)
 				{
-					return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan render pass creation failed");
+					return FailNativeValue<GraphicsPipelineHandle>(error, "Vulkan render pass creation failed", renderPassResult);
 				}
 
 				pipelineInfo.renderPass = renderPass;
@@ -3166,10 +3033,9 @@ namespace azo::rhi
 			const auto created					  = device->device.createGraphicsPipeline(pipelineCache, pipelineInfo, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan graphics pipeline creation failed");
+				return FailNativeValue<GraphicsPipelineHandle>(error, "Vulkan graphics pipeline creation failed", created.result);
 			}
 
-			// Released unless the slot map takes it, since nothing else would free the pipeline once this returns without a handle for it.
 			auto pipelineGuard = detail::MakeScopeGuard(
 				[&]
 				{
@@ -3186,8 +3052,6 @@ namespace azo::rhi
 			return ReturnValue(storedHandle, error);
 		}
 
-		// Timeline entry. A timeline is a VkSemaphore of the timeline type, the standard primitive for CPU to GPU progress and frame pacing. Tracked in the device
-		// registry with a generation validated destroy.
 		TimelineHandle VulkanCreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createTimeline");
@@ -3214,7 +3078,7 @@ namespace azo::rhi
 			const auto created = device->device.createSemaphore(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<TimelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan timeline creation failed");
+				return FailNativeValue<TimelineHandle>(error, "Vulkan timeline creation failed", created.result);
 			}
 
 			const TimelineHandle handle =
@@ -3284,6 +3148,11 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createQueryPool");
 			auto * device = static_cast<VulkanDevice *>(impl);
+			if (desc.queryCount == 0)
+			{
+				return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+			}
+
 			vk::QueryPoolCreateInfo info({}, MapQueryType(desc.type), desc.queryCount);
 			if (desc.type == QueryType::ePipelineStatistics)
 			{
@@ -3293,7 +3162,7 @@ namespace azo::rhi
 			const auto created = device->device.createQueryPool(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "Vulkan query pool creation failed");
+				return FailNativeValue<QueryPoolHandle>(error, "Vulkan query pool creation failed", created.result);
 			}
 
 			const QueryPoolHandle handle = device->queryPoolSlots.Store(QueryPoolSlot{ .pool = created.value, .queryCount = desc.queryCount });
@@ -3306,7 +3175,6 @@ namespace azo::rhi
 			return ReturnValue(handle, error);
 		}
 
-		// Resolves a query pool handle to its slot under the device's validation mode (recording is lockless so no mutex). Mirrors ResolveBuffer.
 		[[nodiscard]] QueryPoolSlot * ResolveQueryPool(VulkanDevice * device, QueryPoolHandle handle) noexcept
 		{
 			return device->queryPoolSlots.Resolve(handle, kHandleAlreadyChecked);
@@ -3354,8 +3222,6 @@ namespace azo::rhi
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createSampler");
 			auto * device = static_cast<VulkanDevice *>(impl);
 
-			// The conversion hangs off the sampler and does not sit in its create info, and the view this sampler reads has to name an equal one so both land on the
-			// same object.
 			vk::SamplerYcbcrConversionInfo conversionInfo{};
 			if (desc.ycbcrConversion != nullptr)
 			{
@@ -3363,10 +3229,6 @@ namespace azo::rhi
 				{
 					return FailValue<SamplerHandle>(error, ErrorCode::eUnsupportedFeature, "sampler Y'CbCr conversion is not supported by this Vulkan adapter");
 				}
-				/*
-				 * Vulkan pins the rest of the sampler down once a conversion is attached (VUID-VkSamplerCreateInfo-addressModeU-01646 and its neighbours): edge clamping
-				 * only, no anisotropy and no depth comparison. Refused and never quietly rewritten, so the sampler that comes back is the one that was asked for.
-				 */
 				const bool clampsToEdge =
 					desc.addressU == AddressMode::eClampToEdge && desc.addressV == AddressMode::eClampToEdge && desc.addressW == AddressMode::eClampToEdge;
 				if (!clampsToEdge || desc.anisotropyEnable || desc.compareEnable)
@@ -3376,10 +3238,11 @@ namespace azo::rhi
 						"a sampler with a Y'CbCr conversion must clamp to edge on every axis and enable neither anisotropy nor depth comparison");
 				}
 
-				conversionInfo.conversion = AcquireYcbcrConversion(device, *desc.ycbcrConversion);
+				vk::Result conversionResult = vk::Result::eSuccess;
+				conversionInfo.conversion	= AcquireYcbcrConversion(device, *desc.ycbcrConversion, conversionResult);
 				if (!conversionInfo.conversion)
 				{
-					return FailValue<SamplerHandle>(error, ErrorCode::eNativeApiError, "Vulkan sampler Y'CbCr conversion creation failed");
+					return FailNativeValue<SamplerHandle>(error, "Vulkan sampler Y'CbCr conversion creation failed", conversionResult);
 				}
 			}
 
@@ -3407,7 +3270,7 @@ namespace azo::rhi
 			const auto created = device->device.createSampler(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<SamplerHandle>(error, ErrorCode::eNativeApiError, "Vulkan sampler creation failed");
+				return FailNativeValue<SamplerHandle>(error, "Vulkan sampler creation failed", created.result);
 			}
 
 			const SamplerHandle handle = device->samplerSlots.Store(SamplerSlot{ .sampler = created.value });
@@ -3424,11 +3287,6 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createComputePipeline");
 
-			/*
-			 * Required on every backend, not only the one that reads it. SPIR-V and DXIL carry the size inside the binary so Vulkan and Direct3D 12 never look at this
-			 * field, but refusing it here too is what stops a shader developed against one of them reaching Metal with the size forgotten, where the failure would be a
-			 * dispatch that quietly does a fraction of the work.
-			 */
 			if (!desc.shader.threadgroupSize.IsStated())
 			{
 				return FailValue<ComputePipelineHandle>(error,
@@ -3457,11 +3315,9 @@ namespace azo::rhi
 				vk::ShaderModuleCreateInfo({}, desc.shader.size, static_cast<const std::uint32_t *>(desc.shader.data)), nullptr, device->dispatch);
 			if (createdModule.result != vk::Result::eSuccess)
 			{
-				return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan shader module creation failed");
+				return FailNativeValue<ComputePipelineHandle>(error, "Vulkan shader module creation failed", createdModule.result);
 			}
 
-			// The module is consumed by pipeline creation and goes either way so the guard covers the success path too. One owner and not a hand destroy on each path
-			// out, which would free it twice on the path where the slot store refuses.
 			const auto moduleGuard = detail::MakeScopeGuard(
 				[&]
 				{
@@ -3474,10 +3330,9 @@ namespace azo::rhi
 			const auto created					  = device->device.createComputePipeline(pipelineCache, info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan compute pipeline creation failed");
+				return FailNativeValue<ComputePipelineHandle>(error, "Vulkan compute pipeline creation failed", created.result);
 			}
 
-			// Released unless the slot map takes it, which is where ownership actually moves.
 			auto pipelineGuard = detail::MakeScopeGuard(
 				[&]
 				{
@@ -3508,7 +3363,7 @@ namespace azo::rhi
 			const auto created = device->device.createPipelineCache(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<PipelineCacheHandle>(error, ErrorCode::eNativeApiError, "Vulkan pipeline cache creation failed");
+				return FailNativeValue<PipelineCacheHandle>(error, "Vulkan pipeline cache creation failed", created.result);
 			}
 
 			const PipelineCacheHandle handle = device->pipelineCacheSlots.Store(PipelineCacheSlot{ .cache = created.value });
@@ -3534,10 +3389,9 @@ namespace azo::rhi
 			auto data = device->device.getPipelineCacheData<HostAllocatorAdapter<std::uint8_t>>(slot->cache, device->dispatch);
 			if (data.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan getPipelineCacheData failed");
+				return FailNative(error, "Vulkan getPipelineCacheData failed", data.result);
 			}
 
-			// Retained in the slot so the returned view stays valid until the next query on this cache.
 			slot->data = std::move(data.value);
 			if (out != nullptr)
 			{
@@ -3573,7 +3427,7 @@ namespace azo::rhi
 			const auto created = device->device.createSemaphore(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "Vulkan binary semaphore creation failed");
+				return FailNativeValue<BinarySemaphoreHandle>(error, "Vulkan binary semaphore creation failed", created.result);
 			}
 
 			BinarySemaphoreHandle handle =
@@ -3584,7 +3438,7 @@ namespace azo::rhi
 				return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan binary semaphore handle tracking failed");
 			}
 
-			handle.index |= kDeviceBinarySemaphoreBit; // tag so ResolveBinarySemaphore reads the device registry, not the swapchain
+			handle.index |= kDeviceBinarySemaphoreBit;
 			return ReturnValue(handle, error);
 		}
 
@@ -3596,8 +3450,6 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eInvalidArgument, "queryMemoryBudget output pointer is null");
 			}
 
-			// Map the abstract heap type to a Vulkan memory heap: device-local for GPU and transient heaps, the first host heap otherwise (on a unified-memory device
-			// there is only one heap).
 			const vk::PhysicalDeviceMemoryProperties memProps = device->phys.getMemoryProperties(device->dispatch);
 			const bool wantDeviceLocal						  = heap == HeapType::eGpuLocal || heap == HeapType::eTransient;
 			std::uint32_t heapIndex							  = 0;
@@ -3613,7 +3465,8 @@ namespace azo::rhi
 
 			std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
 			vmaGetHeapBudgets(device->allocator, budgets.data());
-			// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			// memoryHeapCount never exceeds VK_MAX_MEMORY_HEAPS, which is what budgets is sized to.
+			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			const VmaBudget & budget = budgets[heapIndex];
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
@@ -3621,12 +3474,10 @@ namespace azo::rhi
 			out->budgetBytes				  = budget.budget;
 			out->usageBytes					  = budget.usage;
 			out->availableForReservationBytes = budget.budget > budget.usage ? budget.budget - budget.usage : 0;
-			out->budgetIsPrecise			  = false; // VK_EXT_memory_budget is not enabled so VMA estimates.
+			out->budgetIsPrecise			  = false;
 			return Succeed(error);
 		}
 
-		// Best-effort residency hint. This device cannot honor it (VK_EXT_memory_priority is not enabled) so the hint validates the named resources and is accepted
-		// as a no-op, the contract for an advisory hint.
 		bool VulkanSetResidencyPriority(void * impl, std::span<const ResidencyPriorityDesc> priorities, Error * error) noexcept
 		{
 			auto * device = static_cast<VulkanDevice *>(impl);
@@ -3651,8 +3502,6 @@ namespace azo::rhi
 			return Succeed(error);
 		}
 
-		// Samples the device and host clocks as one calibrated pair through VK_EXT_calibrated_timestamps. The host domain is QueryPerformanceCounter on Windows and a
-		// monotonic clock elsewhere. Fails with eUnsupportedFeature without the extension.
 		bool VulkanCalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
 		{
 			if (out == nullptr)
@@ -3665,7 +3514,6 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eUnsupportedFeature, "VK_EXT_calibrated_timestamps is not available on this device");
 			}
 
-			// The same question the cap was settled from, asked through the same helper so the two cannot drift apart again.
 			vk::TimeDomainEXT hostDomain = vk::TimeDomainEXT::eDevice;
 			if (!VulkanCalibrationDomains(device->phys, device->dispatch, hostDomain))
 			{
@@ -3677,7 +3525,7 @@ namespace azo::rhi
 			const auto calibrated = device->device.getCalibratedTimestampsEXT<HostAllocatorAdapter<std::uint64_t>>(infos, device->dispatch);
 			if (calibrated.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan timestamp calibration failed");
+				return FailNative(error, "Vulkan timestamp calibration failed", calibrated.result);
 			}
 
 			const std::pair<detail::HostVector<std::uint64_t>, std::uint64_t> & sampled = calibrated.value;
@@ -3689,7 +3537,6 @@ namespace azo::rhi
 			out->queueType	  = queueType;
 			out->gpuTimestamp = sampled.first[0];
 #ifdef _WIN32
-			// QueryPerformanceCounter reports ticks so scale by the counter frequency to reach nanoseconds.
 			static const double nanosPerTick = []
 			{
 				LARGE_INTEGER frequency{};
@@ -3697,7 +3544,6 @@ namespace azo::rhi
 			}();
 			out->cpuTimestampNanoseconds = static_cast<std::uint64_t>(static_cast<double>(sampled.first[1]) * nanosPerTick);
 #else
-			// eClockMonotonic / eClockMonotonicRaw already report nanoseconds.
 			out->cpuTimestampNanoseconds = sampled.first[1];
 #endif
 			out->gpuPeriodNanoseconds = device->caps.timestampPeriodNanoseconds;
@@ -3705,7 +3551,7 @@ namespace azo::rhi
 			return Succeed(error);
 		}
 
-	} // namespace vulkan
+	}
 
 	Result<VulkanNativeDevice> GetVulkanNativeDevice(Device device)
 	{
@@ -3821,6 +3667,20 @@ namespace azo::rhi
 		return impl != nullptr ? impl->pool : vk::CommandPool{};
 	}
 
+	Result<native::VulkanQueueView> GetVulkanQueueView(Queue queue)
+	{
+		const auto * impl = static_cast<vulkan::VulkanQueue *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), vulkan::QueueBlock()));
+		if (impl == nullptr)
+		{
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "GetVulkanQueueView called on a queue that is not a Vulkan one",
+			};
+		}
+
+		return native::VulkanQueueView{ .queue = impl->queue, .familyIndex = impl->familyIndex };
+	}
+
 	Result<void> RegisterVulkanBackend(GraphicsApiRegistry & registry)
 	{
 		BackendCreateInfo info{};
@@ -3834,7 +3694,6 @@ namespace azo::rhi
 		return registry.Register<VulkanApi>(info);
 	}
 
-	// Static device form: bring up an owned instance, then a device from it and hand back the owner.
 	template <>
 	Result<UniqueDevice> CreateDevice<VulkanApi>(const DeviceDesc & desc)
 	{
@@ -3851,8 +3710,6 @@ namespace azo::rhi
 			return error;
 		}
 
-		// The device owns its instance here so both tear down deterministically when the owning UniqueDevice is reset, while the loader and any validation layer are
-		// still loaded.
 		vulkan::VulkanInstance * instanceRaw = instance.get();
 		void * device						 = vulkan::MakeOwnedDevice(instanceRaw, desc, &error);
 		if (device == nullptr)
@@ -3874,8 +3731,9 @@ namespace azo::rhi
 	{
 		VulkanCommandListView NativeAccess<VulkanApi>::MakeCommandListView(void * commandListImpl) noexcept
 		{
-			return VulkanCommandListView{ .commandBuffer = static_cast<vulkan::VulkanCommandList *>(commandListImpl)->buffer };
+			const auto * impl = static_cast<vulkan::VulkanCommandList *>(detail::NativeImplOf(commandListImpl, vulkan::RenderCommandBlock()));
+			return VulkanCommandListView{ .commandBuffer = impl != nullptr ? impl->buffer : vk::CommandBuffer{} };
 		}
-	} // namespace native
+	}
 
-} // namespace azo::rhi
+}

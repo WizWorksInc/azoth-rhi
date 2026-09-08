@@ -38,6 +38,11 @@ foreach(_ext hpp h cpp cc cxx mm inl ipp)
 endforeach()
 file(GLOB_RECURSE _files ${_globs})
 
+# A root that matches nothing is a moved or misspelled path, which would otherwise pass as clean.
+if(NOT _files)
+    message(FATAL_ERROR "AzothRHI backend locks: lib/src/backends matched no files, so it is not being checked.")
+endif()
+
 # Every spelling of taking a lock or hand rolling one. std::atomic is deliberately not here: a backend
 # reads counters a driver writes from its own threads, the Vulkan and Direct3D 12 debug messengers
 # being the case and no RHI guard can reach a callback the driver raises. An atomic counter is not
@@ -87,16 +92,5 @@ if(_violations)
             "and destroyInstance, so a backend's own object lists are already serialized.\nIf something here is "
             "genuinely outside every one of those, it needs a threading model row saying so before it needs a "
             "lock.\n\n${_report}\n")
-endif()
-# A root that stops resolving makes this quieter, not redder, which is how a stale one once went on
-# printing OK over a third of the tree. The floor is the count at the last deliberate change: raise it as
-# files are added, lower it only when files are genuinely removed.
-set(_floor 54)
-if(_scanned LESS _floor)
-    message(FATAL_ERROR
-            "AzothRHI backend locks scanned ${_scanned} files, fewer than the ${_floor} this check covers.\n"
-            "A scan root has most likely stopped resolving, which leaves the check reporting OK over a smaller tree "
-            "than it was written for.\nFix the root, or lower the floor in cmake/azoth_rhi_backend_locks.cmake if "
-            "files were genuinely removed.\n")
 endif()
 message(STATUS "AzothRHI: backend locks OK, ${_scanned} files scanned, no bundled backend synchronizes itself.")

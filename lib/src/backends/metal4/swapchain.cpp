@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -33,24 +28,11 @@ namespace azo::rhi::metal4
 
 		swapchain->currentDrawable = NS::RetainPtr(drawable);
 
-		/*
-		 * The first of the three steps Metal 4 replaced presentDrawable with: wait, commit, signal, present.
-		 *
-		 * The wait is what makes sure the display has finished with this drawable before anything renders into it. Metal 3 folded that into presentDrawable on
-		 * a command buffer, which a queue with no command buffer of its own has no equivalent of, so it is stated here and the signal is stated at present.
-		 */
 		if (MTL4::CommandQueue * queue = device->CommandQueueFor(QueueType::eGraphics); queue != nullptr)
 		{
 			queue->wait(drawable);
 		}
 
-		/*
-		 * Re-point the persistent back-buffer handle at this frame's drawable texture so recording and barriers resolve it. The drawable owns the texture so retain
-		 * it for as long as the slot holds it.
-		 *
-		 * The slots were claimed once when the swapchain was created and are written in place here, not stored afresh, which is what keeps the handle the caller
-		 * holds naming the same slot every frame. Nothing else writes them and acquire belongs to the one thread driving presentation.
-		 */
 		{
 			NS::SharedPtr<MTL::Texture> texture = NS::RetainPtr(drawable->texture());
 
@@ -92,13 +74,6 @@ namespace azo::rhi::metal4
 			return PresentResult{ .status = SwapchainStatus::eError };
 		}
 
-		/*
-		 * The other two steps, and then the present itself.
-		 *
-		 * Metal 3 builds a command buffer that waits on the render-finished event and calls presentDrawable on it. Here the queue takes the wait directly,
-		 * signalDrawable says every command targeting this drawable has been committed, and present hands it to the compositor. No command buffer is built at
-		 * all, which is one fewer allocation per frame than the other generation needs.
-		 */
 		MTL4::CommandQueue * presentQueue = device->CommandQueueFor(QueueType::eGraphics);
 		if (presentQueue == nullptr)
 		{
@@ -133,7 +108,6 @@ namespace azo::rhi::metal4
 	{
 		auto * swapchain = static_cast<Metal4Swapchain *>(impl);
 
-		// Creation makes one per image and never fewer than one, so this only keeps the wrap below from dividing by zero on a swapchain that failed part way.
 		if (swapchain->presentSemaphores.empty())
 		{
 			return {};
@@ -150,7 +124,6 @@ namespace azo::rhi::metal4
 
 	bool Metal4SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept
 	{
-		// The layer is created with framebufferOnly off so drawable textures can be copied for capture.
 		return true;
 	}
 
@@ -180,8 +153,6 @@ namespace azo::rhi::metal4
 
 	namespace
 	{
-		// Metal presentation sync is a single layer property so the modes that describe how frames queue up have no equivalent here. Mailbox and relaxed FIFO both
-		// collapse to plain FIFO and only immediate turns display sync off.
 		[[nodiscard]] PresentMode EffectivePresentMode(PresentMode mode) noexcept
 		{
 			return mode == PresentMode::eImmediate ? PresentMode::eImmediate : PresentMode::eFifo;
@@ -191,7 +162,7 @@ namespace azo::rhi::metal4
 		{
 			return static_cast<Metal4Swapchain *>(impl)->presentMode;
 		}
-	} // namespace
+	}
 
 	bool Metal4SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept
 	{
@@ -241,22 +212,19 @@ namespace azo::rhi::metal4
 		layer->setDevice(device->device.get());
 		layer->setPixelFormat(MetalPixelFormat(desc.preferredFormat));
 		layer->setDrawableSize(CGSize{ static_cast<CGFloat>(desc.width), static_cast<CGFloat>(desc.height) });
-		// Drawables default to framebuffer-only, which blocks frame-capture copies. Allow copying out.
 		layer->setFramebufferOnly(false);
 		const PresentMode presentMode = EffectivePresentMode(desc.presentMode);
 		layer->setDisplaySyncEnabled(presentMode != PresentMode::eImmediate);
 
-		auto swapchain		   = HostNew<Metal4Swapchain>();
-		swapchain->object	   = PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
-		swapchain->owner	   = device;
-		swapchain->layer	   = layer;
-		swapchain->format	   = desc.preferredFormat;
-		swapchain->presentMode = presentMode;
-		swapchain->width	   = desc.width;
-		swapchain->height	   = desc.height;
-		swapchain->imageCount  = imageCount;
-		// Claimed from the tables that hold them so acquire has a slot to write each frame and a caller holding one of these handles resolves it the same way it
-		// resolves any other texture.
+		auto swapchain			  = HostNew<Metal4Swapchain>();
+		swapchain->object		  = PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
+		swapchain->owner		  = device;
+		swapchain->layer		  = layer;
+		swapchain->format		  = desc.preferredFormat;
+		swapchain->presentMode	  = presentMode;
+		swapchain->width		  = desc.width;
+		swapchain->height		  = desc.height;
+		swapchain->imageCount	  = imageCount;
 		swapchain->backBuffer	  = device->textures.Store(Metal4TextureSlot{ .format = swapchain->format, .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->backBufferView = device->textureViews.Store(Metal4TextureViewSlot{ .lifetime = SlotLifetime::eSwapchainBorrowed });
 		swapchain->imageAvailable = Metal4CreateBinarySemaphore(device, BinarySemaphoreDesc{}, nullptr);
@@ -273,4 +241,4 @@ namespace azo::rhi::metal4
 		return ReturnValue<void *>(raw, error);
 	}
 
-} // namespace azo::rhi::metal4
+}

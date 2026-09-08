@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -40,7 +35,6 @@ namespace deccer
 	namespace
 	{
 
-		// What each backend wants its shaders in. A backend of your own joins this table and not the registration code.
 		struct Target final
 		{
 			rhi::GraphicsApiId api{};
@@ -48,10 +42,6 @@ namespace deccer
 			const char * profile				 = "";
 			rhi::ShaderBinaryFormat binaryFormat = rhi::ShaderBinaryFormat::eBackendNative;
 
-			/*
-			 * Whether Slang keeps the entry point's name for this target or renames it. It renames to main for SPIR-V and DXIL, where the container carries one entry
-			 * point. It keeps the name for a Metal library. The RHI selects by name everywhere and needs the name the compiler emitted.
-			 */
 			bool keepsEntryPointName = false;
 		};
 
@@ -69,17 +59,13 @@ namespace deccer
 
 			// NOLINTNEXTLINE(readability-qualified-auto): libc++ makes this array iterator a raw pointer and MSVC does not, so auto * here builds on one and not the other.
 
-			/*
-			 * Both Metal backends take the same binary, so Metal 4 looks its target up under the Metal 3 id instead of duplicating the row. The binding ABI
-			 * does not change with the generation: a metallib compiled once is bound the same way whether an encoder or an argument table does the binding.
-			 */
 			const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
 
 			const auto found = std::ranges::find(targets, target, &Target::api);
 			return found != targets.end() ? &*found : nullptr;
 		}
 
-	} // namespace
+	}
 
 	bool CanCompileFor(const rhi::GraphicsApiId api)
 	{
@@ -91,7 +77,6 @@ namespace deccer
 		Slang::ComPtr<slang::IGlobalSession> global;
 		Slang::ComPtr<slang::ISession> session;
 
-		// Every blob this compiler handed out, held because a ShaderBinary only borrows the bytes.
 		std::vector<Slang::ComPtr<slang::IBlob>> blobs;
 	};
 
@@ -152,7 +137,6 @@ namespace deccer
 			return {};
 		}
 
-		// The module goes in beside the entry point, which on its own does not carry the file's constants.
 		const std::array<slang::IComponentType *, 2> parts{ module, entry.get() };
 
 		Slang::ComPtr<slang::IComponentType> composed;
@@ -167,17 +151,11 @@ namespace deccer
 			return {};
 		}
 
-		/*
-		 * The threadgroup size travels beside the binary, not inside it. Slang drops the HLSL numthreads attribute from its MSL output and no backend can recover it
-		 * from a compiled binary, so every one of them requires it stated here. Passing it on every target, not only on Metal is what keeps a run on Vulkan from
-		 * hiding a size this example forgot to give.
-		 */
 		const rhi::ShaderBinary binary{
-			.stage	= stage,
-			.format = m_format,
-			.data	= code->getBufferPointer(),
-			.size	= code->getBufferSize(),
-			// The caller's own literal, which outlives the binary. A backend selecting by name needs this and the default of "main" is never right here.
+			.stage			 = stage,
+			.format			 = m_format,
+			.data			 = code->getBufferPointer(),
+			.size			 = code->getBufferSize(),
 			.entryPoint		 = m_keepsEntryPointName ? entryPoint : "main",
 			.threadgroupSize = stage == rhi::ShaderStage::eCompute ? rhi::ThreadgroupSize{ .x = threadgroup.x, .y = threadgroup.y, .z = threadgroup.z }
 																   : rhi::ThreadgroupSize{},
@@ -187,4 +165,4 @@ namespace deccer
 		return binary;
 	}
 
-} // namespace deccer
+}

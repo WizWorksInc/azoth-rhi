@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -29,8 +24,6 @@ namespace azo::rhi::d3d12
 		return D3D12_COMMAND_LIST_TYPE_DIRECT;
 	}
 
-	// Blocks until a fence reaches value: WAIT_OBJECT_0 done, WAIT_TIMEOUT expired, WAIT_FAILED setup error. Nanosecond timeouts round down to whole
-	// milliseconds and the sentinel waits forever.
 	[[nodiscard]] DWORD WaitFenceHost(ID3D12Fence * fence, std::uint64_t value, std::uint64_t timeoutNanoseconds) noexcept
 	{
 		if (fence->GetCompletedValue() >= value)
@@ -81,13 +74,13 @@ namespace azo::rhi::d3d12
 
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		// A fence takes the shared flag at creation and cannot gain it later, which is the same rule the resource declarations carry.
 		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.Empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
 
 		ComPtr<ID3D12Fence> fence;
-		if (FAILED(device->device->CreateFence(desc.initialValue, flags, IID_PPV_ARGS(fence.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateFence(desc.initialValue, flags, IID_PPV_ARGS(fence.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateFence failed for a timeline");
+			return FailValueNative<TimelineHandle>(error, hr, "ID3D12Device::CreateFence failed for a timeline");
 		}
 
 		return ReturnValue(device->timelineSlots.Store(TimelineSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
@@ -126,9 +119,10 @@ namespace azo::rhi::d3d12
 		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.Empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
 
 		ComPtr<ID3D12Fence> fence;
-		if (FAILED(device->device->CreateFence(0, flags, IID_PPV_ARGS(fence.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateFence(0, flags, IID_PPV_ARGS(fence.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateFence failed for a binary semaphore");
+			return FailValueNative<BinarySemaphoreHandle>(error, hr, "ID3D12Device::CreateFence failed for a binary semaphore");
 		}
 
 		return ReturnValue(
@@ -159,10 +153,18 @@ namespace azo::rhi::d3d12
 		auto * device					   = static_cast<D3D12Device *>(impl);
 		const D3D12_COMMAND_LIST_TYPE type = MapCommandListType(desc.queueType);
 
-		ComPtr<ID3D12CommandAllocator> allocator;
-		if (FAILED(device->device->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf()))))
+		if (desc.reuse == ListReuse::ePerListReset)
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateCommandAllocator failed");
+			return FailValue<void *>(error,
+				ErrorCode::eUnsupportedFeature,
+				"D3D12 command pools recycle every list through one allocator, so a single list cannot be begun again on its own");
+		}
+
+		ComPtr<ID3D12CommandAllocator> allocator;
+		const HRESULT hr = device->device->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf()));
+		if (FAILED(hr))
+		{
+			return FailValueNative<void *>(error, hr, "ID3D12Device::CreateCommandAllocator failed");
 		}
 
 		auto pool		= HostNew<D3D12CommandPool>();
@@ -185,8 +187,6 @@ namespace azo::rhi::d3d12
 		auto * pool			 = static_cast<D3D12CommandPool *>(impl);
 		D3D12Device * device = pool->owner;
 
-		// A list this pool built before and has since taken back. Begin resets it onto the allocator this pool already reset, which is all that stood between the
-		// previous recording and this one.
 		if (pool->handedOut < pool->lists.size())
 		{
 			D3D12CommandList * recycled = pool->lists[pool->handedOut];
@@ -197,12 +197,18 @@ namespace azo::rhi::d3d12
 		}
 
 		ComPtr<ID3D12GraphicsCommandList> list;
-		if (FAILED(device->device->CreateCommandList(0, pool->type, pool->allocator.Get(), nullptr, IID_PPV_ARGS(list.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateCommandList(0, pool->type, pool->allocator.Get(), nullptr, IID_PPV_ARGS(list.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateCommandList failed");
+			return FailValueNative<void *>(error, hr, "ID3D12Device::CreateCommandList failed");
 		}
-		// CreateCommandList returns a list in the recording state. Close it so Begin can reset it.
 		list->Close();
+
+		ComPtr<ID3D12GraphicsCommandList7> list7;
+		if (FAILED(list.As(&list7)))
+		{
+			return FailValue<void *>(error, ErrorCode::eUnsupportedFeature, "recording barriers requires ID3D12GraphicsCommandList7");
+		}
 
 		auto cmd	   = HostNew<D3D12CommandList>();
 		cmd->object	   = PublishingObject<Published<RenderCommandApi, &RenderCommandBlock>,
@@ -213,6 +219,7 @@ namespace azo::rhi::d3d12
 			Published<NativeEscapeApi, &NativeEscapeBlock>>();
 		cmd->owner	   = device;
 		cmd->list	   = std::move(list);
+		cmd->list7	   = std::move(list7);
 		cmd->allocator = pool->allocator.Get();
 		cmd->pool	   = pool;
 		cmd->type	   = pool->type;
@@ -223,8 +230,6 @@ namespace azo::rhi::d3d12
 		D3D12CommandList * raw = cmd.get();
 		device->commandLists.push_back(std::move(cmd));
 
-		// The device owns the record from here, so a pool that cannot remember it still has to refuse: handing it out unrecorded would build a second list for it on
-		// the next frame and neither would ever be recycled.
 		if (!detail::TryPushBack(pool->lists, raw))
 		{
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "D3D12 command list allocation failed");
@@ -239,13 +244,13 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.commandPool.reset");
 
-		auto * pool = static_cast<D3D12CommandPool *>(impl);
-		if (FAILED(pool->allocator->Reset()))
+		auto * pool		 = static_cast<D3D12CommandPool *>(impl);
+		const HRESULT hr = pool->allocator->Reset();
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandAllocator::Reset failed");
+			return FailNative(error, hr, "ID3D12CommandAllocator::Reset failed");
 		}
 
-		// The allocator's memory is back, so the lists recorded onto it are the ones the next frame is handed.
 		pool->handedOut = 0;
 
 		return Succeed(error);
@@ -253,13 +258,13 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CommandListBegin(void * impl, Error * error) noexcept
 	{
-		auto * list = static_cast<D3D12CommandList *>(impl);
-		if (FAILED(list->list->Reset(list->allocator, nullptr)))
+		auto * list		 = static_cast<D3D12CommandList *>(impl);
+		const HRESULT hr = list->list->Reset(list->allocator, nullptr);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12GraphicsCommandList::Reset failed");
+			return FailNative(error, hr, "ID3D12GraphicsCommandList::Reset failed");
 		}
 
-		// The pool reset means the prior recording's GPU work is done so its transient clear descriptors go back and the cursor rewinds.
 		if (!list->transientRtvs.empty() || !list->transientDsvs.empty())
 		{
 			D3D12Device * device = list->owner;
@@ -288,16 +293,15 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CommandListEnd(void * impl, Error * error) noexcept
 	{
-		auto * list = static_cast<D3D12CommandList *>(impl);
-		if (FAILED(list->list->Close()))
+		auto * list		 = static_cast<D3D12CommandList *>(impl);
+		const HRESULT hr = list->list->Close();
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12GraphicsCommandList::Close failed");
+			return FailNative(error, hr, "ID3D12GraphicsCommandList::Close failed");
 		}
 		return Succeed(error);
 	}
 
-	// UPLOAD heaps sit in GENERIC_READ, READBACK in COPY_DEST and a DEFAULT buffer in COMMON is implicitly promoted on a copy so the usual upload and readback
-	// need no barrier here.
 	bool D3D12CmdCopyBuffer(
 		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
 	{
@@ -317,8 +321,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Lowers a submit to GPU waits, ExecuteCommandLists, then GPU signals. Binary semaphores resolve to their fence at the last signal.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

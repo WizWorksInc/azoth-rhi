@@ -17,9 +17,8 @@ Every option below is a CMake cache variable. The default is given after the nam
 ON where the platform can build them.
 
 Whether that backend is compiled into the library. A backend that is OFF is absent from what AvailableBackends reports.
-Its API tag and its typed entry point are declared either way so a
-backend of your own can fill them. Asking for a backend the host cannot build is a configure error
-instead of a silent OFF.
+Its API tag and its typed entry point are declared either way so a backend of your own can fill them. Asking for a
+backend the host cannot build is a configure error instead of a silent OFF.
 
 ```bash
 cmake -B build -DAZOTH_RHI_BACKEND_VULKAN=OFF
@@ -38,13 +37,11 @@ naming the pinned tag. A quiet downgrade would leave AvailableBackends missing a
 
 ### AZOTH_RHI_DEFAULT_BACKEND
 
-metal4 on Apple where that backend is built, metal on Apple otherwise, d3d12 on Windows, vulkan
-everywhere else.
+metal4 on Apple where that backend is built, metal on Apple otherwise, d3d12 on Windows, vulkan everywhere else.
 
 The backend chosen when nothing overrides it at runtime. The platform's own API is the default because Apple ships Metal
-and the Vulkan beside it is MoltenVK. That is Vulkan translated onto
-Metal so defaulting there would charge every caller for a translation the platform does not need.
-The AZOTH\_RHI\_BACKEND environment variable still wins at runtime.
+and the Vulkan beside it is MoltenVK. That is Vulkan translated onto Metal so defaulting there would charge every caller
+for a translation the platform does not need. The AZOTH\_RHI\_BACKEND environment variable still wins at runtime.
 
 Naming metal4 on a machine that cannot run it costs one refused device creation and then falls back to Metal 3.
 Selection walks the preferred order and a backend that cannot create a device falls through to the next.
@@ -53,8 +50,8 @@ Selection walks the preferred order and a backend that cannot create a device fa
 
 ON.
 
-Check at configure time that each enabled backend's SDK is installed so a missing SDK is a
-configure error and not a wall of compile errors.
+Check at configure time that each enabled backend's SDK is installed so a missing SDK is a configure error and not a
+wall of compile errors.
 
 ## Build contents
 
@@ -74,8 +71,7 @@ Build the per-module unit suites. They carry the ctest label unit.
 
 ON.
 
-Build the conformance and cross-backend suites. They carry the ctest labels conformance and
-rigorous.
+Build the conformance and cross-backend suites. They carry the ctest labels conformance and rigorous.
 
 ### AZOTH_RHI_BUILD_STRESS_TESTS
 
@@ -108,9 +104,9 @@ Generate the install and export rules.
 
 ON.
 
-Compile in the profiler instrumentation points. With it off every instrumentation point expands to
-nothing so an installed sink is never consulted and the calls are not there to consult it. Debug
-labels are separate and stay on either way.
+Compile in the profiler instrumentation points. With it off every instrumentation point expands to nothing so an
+installed sink is never consulted and the calls are not there to consult it. Debug labels are separate and stay on
+either way.
 
 ### AZOTH_RHI_TRACY_TARGET
 
@@ -131,8 +127,8 @@ is a configure error.
 
 winpix.
 
-The target providing WinPixEventRuntime and pix3.h when PIX is on. It has to put pix3.h on the
-include search list and link the runtime.
+The target providing WinPixEventRuntime and pix3.h when PIX is on. It has to put pix3.h on the include search list and
+link the runtime.
 
 ### AZOTH_RHI_TESTS_FETCH_TRACY, AZOTH_RHI_TESTS_FETCH_PIX
 
@@ -148,23 +144,35 @@ build.
 
 OFF.
 
-Build azoth::rhi-imgui, the Dear ImGui renderer. Off by default because ImGui is a dependency the
-library does not otherwise have and a consumer that wants no interface should not be made to carry
-one.
+Build azoth::rhi-imgui, the Dear ImGui renderer. Off by default because ImGui is a dependency the library does not
+otherwise have and a consumer that wants no interface should not be made to carry one.
 
 ### AZOTH_RHI_IMGUI_TARGET
 
 imgui::imgui.
 
 The Dear ImGui target azoth::rhi-imgui links. Point it at yours if it is called something else. The ImGui is yours on
-purpose because a second copy in the same process is a second context and a
-second font atlas.
+purpose because a second copy in the same process is a second context and a second font atlas.
 
 ### AZOTH_RHI_FETCH_IMGUI
 
 OFF.
 
 Fetch Dear ImGui when the host provides none. Off so a consumer never ends up with two.
+
+### AZOTH_RHI_FETCH_SDL3
+
+ON.
+
+Fetch SDL3 when the host has none, so the samples that open a window are the same set everywhere rather than a set that
+varies with what happens to be installed.
+
+### AZOTH_RHI_FETCH_SLANG
+
+ON.
+
+Fetch a prebuilt Slang when the host has none. This supplies the slangc that compiles shaders at build time, which is
+wanted by more than the samples.
 
 ## Build behavior
 
@@ -191,8 +199,8 @@ Route compiles through ccache or sccache when one is installed.
 
 ## Dependency versions
 
-Each of these pins a fetched dependency. They exist so a build can be reproduced or moved forward
-deliberately and the defaults are what CI builds against.
+Each of these pins a fetched dependency. They exist so a build can be reproduced or moved forward deliberately and the
+defaults are what CI builds against.
 
 | Option                      | Pins                                                       |
 |-----------------------------|------------------------------------------------------------|
@@ -202,7 +210,8 @@ deliberately and the defaults are what CI builds against.
 | AZOTH_RHI_TRACY_TAG         | the Tracy AZOTH_RHI_TESTS_FETCH_TRACY brings in            |
 | AZOTH_RHI_WINPIX_VERSION    | the WinPixEventRuntime AZOTH_RHI_TESTS_FETCH_PIX brings in |
 | AZOTH_RHI_IMGUI_TAG         | the Dear ImGui AZOTH_RHI_FETCH_IMGUI brings in             |
-| AZOTH_RHI_SLANG_TAG         | Slang, for the samples that compile shaders               |
+| AZOTH_RHI_SLANG_TAG         | the Slang AZOTH_RHI_FETCH_SLANG brings in                 |
+| AZOTH_RHI_SDL3_TAG          | the SDL3 AZOTH_RHI_FETCH_SDL3 brings in                   |
 | AZOTH_RHI_GLM_TAG           | glm, for the samples that need matrices                   |
 | AZOTH_RHI_FASTGLTF_TAG      | fastgltf, for the scene loader in deccer_cubes            |
 | AZOTH_RHI_STB_TAG           | stb, for image decoding in the samples                    |
@@ -210,8 +219,8 @@ deliberately and the defaults are what CI builds against.
 
 ## Test environment variables
 
-The first two are read at runtime by the test suite, not at configure time. AZOTH\_RHI\_BACKEND is read by the library
-itself and not only by the suite.
+AZOTH\_RHI\_TEST\_BACKENDS and AZOTH\_RHI\_TEST\_REQUIRE\_BACKENDS are read at runtime by the test suite, not at
+configure time. AZOTH\_RHI\_BACKEND is read by the library itself and not only by the suite.
 
 ### AZOTH_RHI_TEST_BACKENDS
 
@@ -223,8 +232,8 @@ AZOTH_RHI_TEST_BACKENDS=vulkan,null ctest --test-dir build
 
 ### AZOTH_RHI_TEST_REQUIRE_BACKENDS
 
-Turns a skipped backend into a failure. CI sets it so a driver that does not come up fails the job
-instead of passing with everything skipped.
+Turns a skipped backend into a failure. CI sets it so a driver that does not come up fails the job instead of passing
+with everything skipped.
 
 ```bash
 AZOTH_RHI_TEST_REQUIRE_BACKENDS=metal ctest --test-dir build
@@ -232,6 +241,5 @@ AZOTH_RHI_TEST_REQUIRE_BACKENDS=metal ctest --test-dir build
 
 ### AZOTH_RHI_BACKEND
 
-Names the backend a program prefers at runtime ahead of the configure-time
-AZOTH\_RHI\_DEFAULT\_BACKEND. An empty value counts as nothing set. See [picking a
-backend](guides.md#picking-a-backend).
+Names the backend a program prefers at runtime ahead of the configure-time AZOTH\_RHI\_DEFAULT\_BACKEND. An empty value
+counts as nothing set. See [picking a backend](guides.md#picking-a-backend).

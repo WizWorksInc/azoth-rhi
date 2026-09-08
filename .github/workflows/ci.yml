@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,17 +12,13 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build-and-test:
     name: ${{ matrix.target.name }} ${{ matrix.target.backend }} ${{ matrix.build_type }} ${{ matrix.validation }}
     runs-on: ${{ matrix.target.os }}
     timeout-minutes: 60
-
-    # A backend the runner cannot bring up reports rather than gating, since the run is pinned to it and would otherwise hold every merge on hardware nobody
-    # here controls. Everything else fails the job as usual.
-    continue-on-error: ${{ matrix.target.optional == true }}
 
     strategy:
       fail-fast: false
@@ -39,9 +35,7 @@ jobs:
           - { name: linux-clang18, os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, backend: vulkan, vulkan_driver: "true" }
           - { name: linux-clang18, os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, backend: "null" }
           - { name: macos-appleclang, os: macos-latest, backend: metal }
-          # The hosted macOS runner is a virtual machine and the adapter its guest sees does not report the Metal 4 family, so this one cannot come up there
-          # yet. Pinned and optional rather than dropped, so the day those runners expose it the job turns green on its own and says so.
-          - { name: macos-appleclang, os: macos-latest, backend: metal4, optional: true }
+          - { name: macos-appleclang, os: macos-latest, backend: metal4 }
           - { name: macos-appleclang, os: macos-latest, backend: "null" }
           - { name: windows-msvc, os: windows-2025, backend: d3d12 }
           - { name: windows-msvc, os: windows-2025, backend: vulkan, vulkan_driver: "true" }

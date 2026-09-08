@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -45,11 +40,6 @@ namespace fw::scene
 			return found != mesh.attributes.end() ? &found->second : nullptr;
 		}
 
-		/*
-		 * Per vertex tangents for a mesh that arrived without any, accumulated over the triangles sharing each vertex. The w component is the handedness a shader
-		 * multiplies cross(normal, tangent) by to recover the bitangent, which tells the two apart on a mesh whose texture coordinates are mirrored across a seam.
-		 * Empty when the mesh lacks positions, normals, texture coordinates or indices.
-		 */
 		[[nodiscard]] std::vector<glm::vec4> GenerateTangents(const MeshPrimitive & mesh)
 		{
 			const Accessor * positions = FindAttribute(mesh, AttributeType::ePosition);
@@ -62,8 +52,6 @@ namespace fw::scene
 				return {};
 			}
 
-			// Reading through the accessors without casting the buffer view keeps this honest about stride, and lets a mesh whose normals or texture coordinates run
-			// shorter than its positions fall through to the bounds check inside GetElement.
 			const std::size_t vertexCount = std::min({ positions->count, normals->count, uvs->count });
 			if (vertexCount == 0)
 			{
@@ -112,7 +100,6 @@ namespace fw::scene
 				const glm::vec2 delta1 = uv1 - uv0;
 				const glm::vec2 delta2 = uv2 - uv0;
 
-				// A degenerate texture triangle has no direction to hand back, so it contributes nothing and not a division by nearly zero.
 				const float determinant = (delta1.x * delta2.y) - (delta2.x * delta1.y);
 				if (std::abs(determinant) < 1e-8f)
 				{
@@ -139,7 +126,6 @@ namespace fw::scene
 					continue;
 				}
 
-				// Gram-Schmidt against the normal, so the tangent ends up in the surface plane, not wherever the averaging left it.
 				const glm::vec3 accumulated = accumulatedTangents[vertex] - (normal * glm::dot(normal, accumulatedTangents[vertex]));
 				if (glm::dot(accumulated, accumulated) < 1e-16f)
 				{
@@ -153,7 +139,7 @@ namespace fw::scene
 
 			return result;
 		}
-	} // namespace
+	}
 
 	SceneGpuBufferStorage::SceneGpuBufferStorage(SceneConfig sceneConfig) : m_config(std::move(sceneConfig))
 	{
@@ -175,8 +161,6 @@ namespace fw::scene
 			return;
 		}
 
-		// A config enabling no material components serializes to nothing, and a zero sized buffer is not a thing any backend will create. The buffer is still made,
-		// one stride wide, so the handle a pipeline binds stays valid and every write lands out of range and is refused.
 		if (!CreateMappedBuffer(m_materials,
 				std::max<std::uint64_t>(m_config.objectCapacity * m_materialStride, 1),
 				azo::rhi::BufferUsage::eStorage,
@@ -203,7 +187,6 @@ namespace fw::scene
 
 	MeshGpu SceneGpuBufferStorage::AllocateBuiltinMesh(const BuiltinMeshType builtinMeshType)
 	{
-		// Checked before the mesh is generated, so a second object asking for the same shape does not pay to build it again.
 		if (const auto cached = m_meshCache.find(std::string{ GetBuiltinMeshName(builtinMeshType) }); cached != m_meshCache.end())
 		{
 			return cached->second;
@@ -255,7 +238,6 @@ namespace fw::scene
 		std::vector<azo::rhi::VertexAttributeDesc> result;
 		result.reserve(m_config.attributeLayout.size());
 
-		// Each attribute has a binding to itself, so the location and the binding are the same number and the offset inside that binding is always zero.
 		for (std::uint32_t binding = 0; const auto & [attributeType, accessorType] : m_config.attributeLayout)
 		{
 			result.push_back(azo::rhi::VertexAttributeDesc{
@@ -277,10 +259,9 @@ namespace fw::scene
 
 		buffer.handle = m_config.device.CreateBuffer(
 			azo::rhi::BufferDesc{
-				.size	= sizeBytes,
-				.stride = stride,
-				.usage	= usage,
-				// eCpuToGpu, not eCpuUpload because these are written again and again over the scene's life, not staged once and copied out.
+				.size		   = sizeBytes,
+				.stride		   = stride,
+				.usage		   = usage,
 				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
 				.persistentMap = true,
 				.debugName	   = debugName,
@@ -314,7 +295,6 @@ namespace fw::scene
 			return false;
 		}
 
-		// Written before the addition so a caller passing an object id past the capacity cannot wrap the sum back inside the buffer.
 		if (offset > buffer.sizeBytes || sizeBytes > buffer.sizeBytes - offset)
 		{
 			LOG_INFO(fw::Log(), "scene storage: a write of {} bytes at {} is outside a buffer of {}", sizeBytes, offset, buffer.sizeBytes);
@@ -333,7 +313,6 @@ namespace fw::scene
 			return true;
 		}
 
-		// The device view is a handle and not something this object owns, so a copy of it is what lets a const update reach a non const RHI call.
 		azo::rhi::Device device = m_config.device;
 
 		azo::rhi::Error error{};
@@ -375,7 +354,6 @@ namespace fw::scene
 			return {};
 		}
 
-		// Every attribute and the indices land in one run, so a mesh that fails part way through gives its bytes back without leaving a hole.
 		const std::uint64_t cursorBeforeMesh = m_geometryCursor;
 
 		const Accessor * positions	  = FindAttribute(meshPrimitive, AttributeType::ePosition);
@@ -415,7 +393,6 @@ namespace fw::scene
 			return Reserve(accessor->count * elementSize, outOffset) && WriteAttribute(outOffset, *accessor, elementSize);
 		}
 
-		// Tangents are the one attribute worth deriving, since a mesh without them still carries everything a tangent is made of.
 		if (attributeType == AttributeType::eTangent)
 		{
 			if (const std::vector<glm::vec4> tangents = GenerateTangents(meshPrimitive); !tangents.empty())
@@ -438,8 +415,6 @@ namespace fw::scene
 			}
 		}
 
-		// Anything still missing is filled with zeroes, which keeps the binding a shader declares pointing at something of the right length, not at whatever the next
-		// mesh put there.
 		const std::vector<std::uint8_t> zeroes(vertexCount * elementSize, 0);
 
 		return Reserve(zeroes.size(), outOffset) && Write(m_geometry, outOffset, zeroes.data(), zeroes.size());
@@ -447,8 +422,6 @@ namespace fw::scene
 
 	bool SceneGpuBufferStorage::AllocateIndices(const Accessor & indices, MeshGpu & meshGpu)
 	{
-		// Decided by the largest index and not by the width the mesh was authored at, so a small mesh carrying 32 bit indices, which is what a glTF exporter tends to
-		// write whatever the vertex count, is stored at half the size.
 		std::uint32_t largest = 0;
 		for (std::size_t index = 0; index < indices.count; ++index)
 		{
@@ -463,7 +436,6 @@ namespace fw::scene
 			return false;
 		}
 
-		// One index at a time, because a mesh is authored at whichever of four widths its vertex count needed and only two of those can be drawn from.
 		for (std::size_t index = 0; index < indices.count; ++index)
 		{
 			const std::uint32_t value = ReadIndex(indices, index);
@@ -511,8 +483,6 @@ namespace fw::scene
 			return true;
 		}
 
-		// The common case: the mesh stores this attribute at exactly the width the layout asks for and packed tightly, so it goes in as one copy. Both ends of the
-		// run are resolved, since tight packing makes those two enough to put the whole of it inside the source.
 		if (sourceSize == elementSize && sourceStride == elementSize)
 		{
 			const std::uint8_t * first = GetElement(accessor, 0);
@@ -521,8 +491,6 @@ namespace fw::scene
 			return first != nullptr && last != nullptr && Write(m_geometry, offset, first, accessor.count * elementSize);
 		}
 
-		// Otherwise the run is zeroed and then filled element by element with whichever of the two widths is narrower. A wider source is truncated, and a narrower
-		// one leaves the rest of each destination element at the zero just written, which is what a vec3 read as a vec4 wants.
 		const std::vector<std::uint8_t> zeroes(accessor.count * elementSize, 0);
 		if (!Write(m_geometry, offset, zeroes.data(), zeroes.size()))
 		{
@@ -541,4 +509,4 @@ namespace fw::scene
 
 		return true;
 	}
-} // namespace fw::scene
+}

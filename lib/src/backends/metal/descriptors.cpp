@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,23 +11,25 @@
 
 namespace azo::rhi::metal
 {
-	void EnsureComputeEncoder(MetalObject * object)
+	bool EnsureComputeEncoder(MetalObject * object, Error * error) noexcept
 	{
 		if (object->list == nullptr || object->list->commandBuffer.get() == nullptr)
 		{
-			return;
+			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 		if (object->list->renderEncoder.get() != nullptr)
 		{
-			object->list->renderEncoder->endEncoding();
-			object->list->renderEncoder.reset();
+			return Fail(error, ErrorCode::eInvalidState, "a compute command cannot be recorded inside a rendering scope, so record it between passes");
 		}
 		if (object->list->computeEncoder.get() == nullptr)
 		{
 			const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 			object->list->computeEncoder				  = NS::RetainPtr(object->list->commandBuffer->computeCommandEncoder());
+			++object->list->encoderEpoch;
 			ConsumeAliasWait(object->list, object->list->computeEncoder.get());
 		}
+
+		return Succeed(error);
 	}
 
 	bool MetalSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
@@ -51,7 +48,11 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidHandle, "setComputePipeline names a pipeline this device never created");
 		}
 
-		EnsureComputeEncoder(object);
+		if (!EnsureComputeEncoder(object, error))
+		{
+			return false;
+		}
+
 		object->list->computeEncoder->setComputePipelineState(tracked->state.get());
 		object->list->boundThreadGroup = tracked->threadsPerThreadgroup;
 		return Succeed(error);
@@ -59,40 +60,21 @@ namespace azo::rhi::metal
 
 	namespace
 	{
-		/*
-		 * How many members of the argument buffer one layout entry takes.
-		 *
-		 * An array binding is count of them and not one, because slangc lowers an array inside a ParameterBlock to that many consecutive words. A combined
-		 * binding doubles it, Metal having no combined type so the texture and the sampler are a word each.
-		 */
 		[[nodiscard]] constexpr std::uint32_t MembersFor(const DescriptorBinding & entry) noexcept
 		{
 			return (entry.type == DescriptorType::eCombinedImageSampler ? 2u : 1u) * std::max(entry.count, 1u);
 		}
 
-		/*
-		 * The key one descriptor is held under, which is its binding and its index within it.
-		 *
-		 * An array binding holds count descriptors and a write names which one, so the binding number alone cannot be the key: every element would overwrite
-		 * the last and a bindless set would resolve to one texture.
-		 */
 		[[nodiscard]] constexpr std::uint64_t DescriptorKey(const std::uint32_t binding, const std::uint32_t arrayIndex) noexcept
 		{
 			return (static_cast<std::uint64_t>(binding) << 32u) | arrayIndex;
 		}
 
-		// The binding number a packed descriptor key names.
 		[[nodiscard]] constexpr std::uint32_t BindingOf(const std::uint64_t key) noexcept
 		{
 			return static_cast<std::uint32_t>(key >> 32u);
 		}
 
-		/*
-		 * Where one binding's eight bytes sit inside the set's argument buffer.
-		 *
-		 * The position in the layout's binding list and not the binding number, because that is what slangc lays a struct out by, and a combined binding takes two
-		 * members since Metal has no combined type. Mirrors NativeBindingFor's tier 2 answer, which is what the agreement test holds it to.
-		 */
 		[[nodiscard]] bool MetalArgumentMemberIndex(
 			const MetalDescriptorSetLayout & layout, const std::uint32_t binding, std::uint32_t & outMember, std::uint32_t & outCount) noexcept
 		{
@@ -113,13 +95,11 @@ namespace azo::rhi::metal
 			return found;
 		}
 
-		// Every member is one 64 bit word, a resource id or a GPU address, so the struct is this many bytes whatever it holds.
 		[[nodiscard]] constexpr std::uint64_t MetalArgumentBufferBytes(const std::uint32_t memberCount) noexcept
 		{
 			return static_cast<std::uint64_t>(memberCount) * sizeof(std::uint64_t);
 		}
 
-		// Writes one member. Out of range is a caller error the layout already refused, so this only guards the buffer being absent below the tier.
 		void MetalWriteArgumentMember(const MetalDescriptorSet & set, const std::uint32_t member, const std::uint64_t value) noexcept
 		{
 			if (set.argumentBuffer.get() == nullptr)
@@ -135,12 +115,6 @@ namespace azo::rhi::metal
 			}
 		}
 
-		/*
-		 * Fills the argument buffer from what the set already holds.
-		 *
-		 * Done on every write, not incrementally because a combined binding fills two members and a write may replace a binding's kind, so recomputing the whole
-		 * struct is both shorter and impossible to get half right.
-		 */
 		void MetalEncodeArgumentBuffer(MetalDevice * device, MetalDescriptorSet & set) noexcept
 		{
 			if (set.argumentBuffer.get() == nullptr)
@@ -159,8 +133,6 @@ namespace azo::rhi::metal
 			{
 				const std::uint32_t stride = entry.type == DescriptorType::eCombinedImageSampler ? 2u : 1u;
 
-				// Every element of the binding, since an array holds one descriptor per index and each takes its own word. A partially bound array leaves the
-				// elements nothing was written to as the zeros the buffer was created with, which is what ePartiallyBound means.
 				for (std::uint32_t element = 0; element < std::max(entry.count, 1u); ++element)
 				{
 					const auto found = set.bindings.find(DescriptorKey(entry.binding, element));
@@ -184,7 +156,6 @@ namespace azo::rhi::metal
 						MetalWriteArgumentMember(set, at, descriptor.sampler->gpuResourceID()._impl);
 					}
 
-					// The texture half took the member above, so the sampler half takes the one after it.
 					if (entry.type == DescriptorType::eCombinedImageSampler && descriptor.sampler != nullptr)
 					{
 						MetalWriteArgumentMember(set, at + 1, descriptor.sampler->gpuResourceID()._impl);
@@ -194,7 +165,7 @@ namespace azo::rhi::metal
 				member += MembersFor(entry);
 			}
 		}
-	} // namespace
+	}
 
 	bool MetalBindDescriptorSet(void * impl, [[maybe_unused]] PipelineLayoutHandle layout, const std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
@@ -211,9 +182,9 @@ namespace azo::rhi::metal
 		}
 
 		const bool graphics = object->list != nullptr && object->list->renderEncoder.get() != nullptr;
-		if (!graphics)
+		if (!graphics && !EnsureComputeEncoder(object, error))
 		{
-			EnsureComputeEncoder(object);
+			return false;
 		}
 		MTL::RenderCommandEncoder * render	 = graphics ? object->list->renderEncoder.get() : nullptr;
 		MTL::ComputeCommandEncoder * compute = graphics ? nullptr : object->list->computeEncoder.get();
@@ -222,10 +193,6 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidState, "bindDescriptorSet outside a render or compute scope");
 		}
 
-		/*
-		 * A set is an argument buffer where the device has them, which is the struct a ParameterBlock lowers to, bound at the buffer index equal to the set index.
-		 * Everything it names has to be made resident by hand: the encoder sees a buffer of addresses and cannot tell what they reach.
-		 */
 		if (tracked->argumentBuffer.get() != nullptr)
 		{
 			if (render != nullptr)
@@ -247,8 +214,6 @@ namespace azo::rhi::metal
 					continue;
 				}
 
-				// Storage bindings are written as well as read, and a resource made resident read only that a shader writes is undefined, not refused, so the write kinds
-				// ask for both.
 				const bool writes = descriptor.type == DescriptorType::eTextureUAV || descriptor.type == DescriptorType::eBufferUAV ||
 									descriptor.type == DescriptorType::eStorageBuffer || descriptor.type == DescriptorType::eDynamicStorageBuffer ||
 									descriptor.type == DescriptorType::eTexelBufferUAV;
@@ -269,8 +234,6 @@ namespace azo::rhi::metal
 
 		for (const auto & [key, descriptor] : tracked->bindings)
 		{
-			// Below the argument buffer tier a set goes into the three discrete tables addressed by binding number, which has no room for an array index, so an
-			// array binding reaches its first element and no further.
 			const std::uint32_t binding = BindingOf(key);
 
 			std::uint64_t bufferOffset = descriptor.offset;
@@ -407,8 +370,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	// The threadgroup size still comes from the bound pipeline, since Metal takes only the group counts from the buffer. Those three uints are laid out the same
-	// way the RHI documents them so the caller's buffer is read as is.
 	bool MetalDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
@@ -497,12 +458,6 @@ namespace azo::rhi::metal
 			return FailValue<DescriptorSetHandle>(error, ErrorCode::eInvalidHandle, "descriptor set allocated from an invalid or stale layout handle");
 		}
 
-		/*
-		 * The argument buffer this set is, sized from its layout.
-		 *
-		 * Made here and not at the first write because a set that is bound before anything is written to it still has to bind something, and a null buffer at a slot
-		 * the shader declares is a fault and not an empty read.
-		 */
 		NS::SharedPtr<MTL::Buffer> argumentBuffer;
 		if (device->caps.bindingTier >= BindingTier::eUnbounded)
 		{
@@ -526,7 +481,6 @@ namespace azo::rhi::metal
 				argumentBuffer = NS::TransferPtr(raw);
 				std::memset(argumentBuffer->contents(), 0, argumentBuffer->length());
 
-				// The set is itself a buffer the GPU dereferences, so it has to be resident like anything it names.
 				device->NoteAllocation(MetalDevice::Residency::eDescriptorSets, argumentBuffer.get());
 			}
 		}
@@ -550,15 +504,11 @@ namespace azo::rhi::metal
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.descriptorArena.reset");
 
-		// A Metal descriptor set is a plain table of resolved bindings with no pool memory to hand back so the reset bumps the epoch that makes every set allocated
-		// before it stale, then drops those sets.
 		auto * arena		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = arena->owner;
 
 		const std::uint64_t bumped = arena->arenaEpoch.fetch_add(1, std::memory_order_release) + 1;
 
-		// Retiring without erasing so the slots go back to the free list and a set allocated after this reset can take one. Bumping alone would leave every set alive
-		// for the life of the device, which for the arena-per-frame pattern this serves means growing by a frame's worth each frame.
 		device->descriptorSets.RetireIf(
 			[arena, bumped](const MetalDescriptorSet & set)
 			{
@@ -568,4 +518,4 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal
+}

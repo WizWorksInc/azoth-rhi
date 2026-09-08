@@ -188,6 +188,9 @@ if(AZOTH_RHI_INSTALL)
     if(TARGET AzothRHI-native-vulkan)
         list(APPEND AZOTH_RHI_INSTALL_TARGETS AzothRHI-native-vulkan)
     endif()
+    if(TARGET AzothRHI-native-metal)
+        list(APPEND AZOTH_RHI_INSTALL_TARGETS AzothRHI-native-metal)
+    endif()
 
     install(TARGETS ${AZOTH_RHI_INSTALL_TARGETS}
             EXPORT AzothRHITargets

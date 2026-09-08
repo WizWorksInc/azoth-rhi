@@ -1,24 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-/*
- * What one recorded command costs before it reaches a driver. The workload is dynamic state inside a rendering scope, five entries a batch, so every backend
- * takes the identical workload.
- *
- * One iteration is one recorded command, run a pass at a time: a fresh list opened, timed, closed, submitted and waited on, with only the recording loop timed.
- * See shared/pass_plan.hpp. A run that spreads wider than the tolerance exits non-zero.
- */
 
 #include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/commands/render.hpp"
@@ -52,35 +39,18 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-	// SetViewport, SetScissor, SetBlendConstants, SetStencilReference, SetDepthBias.
 	constexpr std::size_t kCommandsPerBatch = 5;
 
 	constexpr std::uint32_t kTargetExtent = 64;
 
-	/*
-	 * How long a pass may wait on the GPU before the run gives up on the machine.
-	 *
-	 * The recorded work still has to run and a driver that has stopped making progress leaves the wait spinning with nothing to report. An unbounded wait would
-	 * just look hung and the timeout is here so it gets reported instead.
-	 */
 	constexpr std::uint64_t kPassTimeoutNanoseconds = 30'000'000'000;
 
-	// High enough that the pass budget is what decides the size of a pass on any machine that can afford it and low enough that a driver is not asked to hold a
-	// gigabyte of recorded commands.
 	constexpr std::size_t kCommandCeiling = 10'000'000;
 
-	// A regression this is meant to see is a couple of percent, which asks for a repetition long enough to average a scheduler over. The run budget cuts it down
-	// where the machine cannot afford it.
 	constexpr double kPreferredMinTimeSeconds = 0.5;
 
 	constexpr double kMaxSpreadPercent = 2.0;
 
-	/*
-	 * One timed pass, in nanoseconds, leaving in accepted the number of entries the list took.
-	 *
-	 * Every entry reports a bool and the caller checks the count against what it asked for, which catches a refused command before it is reported as a cheap one
-	 * and keeps a compiler that can see through the calls from dropping them.
-	 */
 	[[nodiscard]] std::uint64_t RecordPass(rhi::CommandList & list, const std::size_t batches, std::uint64_t & accepted)
 	{
 		const rhi::Viewport viewport{
@@ -106,16 +76,14 @@ namespace
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
-	// A default put in front of what the caller wrote. It is still a flag the command line overrides. The warm-up is this benchmark's own, see --warmup.
 	std::array<std::string, 1> flagDefaults{ "--benchmark_repetitions=9" };
 
 	std::vector<char *> args = bench::WithFlagDefaults(argc, argv, flagDefaults);
 
-	// Read before Initialize, which takes the flags it recognises back out of the line as it parses them.
 	const std::size_t repetitions = bench::FlagValue(args, "--benchmark_repetitions", 1);
 	const bool ownMinTime		  = !bench::NamesFlag(args, "--benchmark_min_time");
 
@@ -174,15 +142,14 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// The before state is undefined every pass, since each pass clears the target anyway and a benchmark target has no contents worth keeping.
 	const std::array toAttachment{ rhi::TextureBarrier{
 		.texture = target,
-		.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-		.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.before	 = { .use = rhi::ResourceUse::eDiscard },
+		.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 	} };
 	const std::array colors{ rhi::RenderingAttachment{
 		.view		= view,
-		.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		.load		= rhi::LoadOp::eClear,
 		.store		= rhi::StoreOp::eStore,
 		.clearColor = { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
@@ -195,20 +162,12 @@ int main(int argc, char ** argv)
 
 	std::uint64_t submitted = 0;
 
-	/*
-	 * One pass: a fresh list out of a reset pool, opened, timed, closed, submitted and waited on. The whole of it is the wall time and the recording loop inside
-	 * it is the timed one so the submit is not in the number.
-	 *
-	 * The submit is here because a driver holds a bounded set of command buffers. Recording without ever submitting exhausts that set and the next allocation
-	 * blocks forever, which Metal does after sixty-four passes.
-	 */
 	const auto onePass = [&](const std::size_t commands, std::uint64_t & wallNanoseconds, std::uint64_t & timedNanoseconds) -> bool
 	{
 		const std::size_t batches = std::max<std::size_t>(commands / kCommandsPerBatch, 1);
 
 		const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 
-		// Nothing is in flight past the point the last pass waited for so the pool is free to reset.
 		if (!pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = submitted }, error))
 		{
 			bench::ReportError("failed to reset the command pool", error);
@@ -273,7 +232,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// A whole number of batches so what the pass records is what Google Benchmark is told an iteration of it was.
 	const std::size_t commandsAPass = std::max<std::size_t>(plan.commands / kCommandsPerBatch, 1) * kCommandsPerBatch;
 
 	benchmark::AddCustomContext("backend", std::string(dev.GetGraphicsApiName()));
@@ -303,7 +261,6 @@ int main(int argc, char ** argv)
 
 	registered->UseManualTime()->Unit(benchmark::kNanosecond);
 
-	// A minimum time named on the command line is one Google Benchmark cannot see past a benchmark that names its own so the plan gives way to it.
 	if (ownMinTime)
 	{
 		registered->MinTime(plan.minTimeSeconds);
@@ -313,7 +270,6 @@ int main(int argc, char ** argv)
 	benchmark::RunSpecifiedBenchmarks(&gate);
 	benchmark::Shutdown();
 
-	// Every pass waited for its own submission so nothing is in flight to defer around.
 	const rhi::DestroyDesc idle{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle };
 	dev.Destroy(view, idle, error);
 	dev.Destroy(target, idle, error);

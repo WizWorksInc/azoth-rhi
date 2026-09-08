@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -32,7 +27,6 @@ namespace fw::scene
 	{
 		constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
 
-		// What a copy's buffer offset is aligned to when a device reports no requirement of its own.
 		constexpr std::uint64_t kFallbackCopyAlignment = 4;
 
 		void ReportError(const std::string_view what, const azo::rhi::Error & error)
@@ -44,7 +38,7 @@ namespace fw::scene
 		{
 			return (value + alignment - 1) & ~(alignment - 1);
 		}
-	} // namespace
+	}
 
 	SceneGpuImageStorage::SceneGpuImageStorage(const SceneConfig & sceneConfig)
 		: m_config(sceneConfig),
@@ -53,11 +47,9 @@ namespace fw::scene
 	{
 		if (!m_config.device.IsValid() || !m_pool.IsValid() || !m_queue.IsValid())
 		{
-			// Not an error. A scene with no textures has no reason to hand over a transfer queue, and every store below refuses without crashing.
 			return;
 		}
 
-		// Asked of the device, not assumed, since a number chosen here would only be one that happened to suit today's backends.
 		const std::uint64_t reported = m_config.device.GetCaps().optimalBufferCopyOffsetAlignment;
 		m_copyAlignment				 = reported != 0 ? reported : kFallbackCopyAlignment;
 
@@ -70,8 +62,6 @@ namespace fw::scene
 			return;
 		}
 
-		// One sampler for the whole table. Anisotropy is asked for only where the device reports it, since a sampler asking for what is not there is a
-		// creation failure and not a silent downgrade.
 		const bool anisotropy = m_config.device.GetCaps().supportsAnisotropy;
 
 		m_sampler = m_config.device.CreateSampler(
@@ -93,7 +83,6 @@ namespace fw::scene
 
 	SceneGpuImageStorage::~SceneGpuImageStorage()
 	{
-		// The resampler holds views of its own and has to go before the textures they name.
 		m_resampler = {};
 
 		for (Entry & entry : m_textures)
@@ -120,8 +109,6 @@ namespace fw::scene
 			return kNoTexture;
 		}
 
-		// Mips off for a cube. The resampler filters each array layer on its own, so a texel at a face edge is averaged with the opposite edge of the same
-		// face instead of with the neighbouring face it actually touches, and the seam shows.
 		return Upload(std::move(name), faces, azo::rhi::TextureType::eTexCube, srgb, false);
 	}
 
@@ -182,7 +169,6 @@ namespace fw::scene
 			return kNoTexture;
 		}
 
-		// Every layer feeds one subresource of one texture, so a layer of a different size or a different kind has nowhere to go.
 		for (const assets::ImageAsset & layer : layers)
 		{
 			if (layer.width != first.width || layer.height != first.height || layer.isFloat != first.isFloat || !layer.IsValid())
@@ -198,8 +184,6 @@ namespace fw::scene
 
 		azo::rhi::Error error{};
 
-		// eCopySrc and eStorage as well as the obvious two because the resampler picks its path from what the device supports: the hardware one reads
-		// each level back to blit the next, the compute one writes each level through a storage view. Which one runs is its decision, not ours.
 		azo::rhi::Flags<azo::rhi::TextureUsage> usage =
 			azo::rhi::Flags<azo::rhi::TextureUsage>(azo::rhi::TextureUsage::eSampled) | azo::rhi::TextureUsage::eCopyDst;
 		if (mips > 1)
@@ -209,15 +193,13 @@ namespace fw::scene
 
 		const azo::rhi::TextureHandle texture = m_config.device.CreateTexture(
 			azo::rhi::TextureDesc{
-				.type		 = type,
-				.format		 = format,
-				.width		 = first.width,
-				.height		 = first.height,
-				.mipLevels	 = mips,
-				.arrayLayers = layerCount,
-				.usage		 = usage,
-				// No API allows an sRGB storage image, so the compute path writes through a linear view of the same memory and encodes itself. Declaring
-				// this is what makes that view legal.
+				.type			  = type,
+				.format			  = format,
+				.width			  = first.width,
+				.height			  = first.height,
+				.mipLevels		  = mips,
+				.arrayLayers	  = layerCount,
+				.usage			  = usage,
 				.allowFormatViews = mips > 1,
 				.debugName		  = name.c_str(),
 			},
@@ -239,7 +221,6 @@ namespace fw::scene
 			return kNoTexture;
 		}
 
-		// One staging buffer for every layer, each starting at an offset a copy can name.
 		std::vector<std::uint64_t> layerOffsets(layers.size());
 		std::uint64_t stagingBytes = 0;
 		for (std::size_t index = 0; index < layers.size(); ++index)
@@ -319,8 +300,8 @@ namespace fw::scene
 		const std::array toCopyDst{
 			azo::rhi::TextureBarrier{
 				.texture = texture,
-				.before	 = { .stages = azo::rhi::PipelineStage::eNone, .access = azo::rhi::Access::eNone, .layout = azo::rhi::TextureLayout::eUndefined },
-				.after	 = { .stages = azo::rhi::PipelineStage::eCopy, .access = azo::rhi::Access::eCopyWrite, .layout = azo::rhi::TextureLayout::eCopyDst },
+				.before	 = { .use = azo::rhi::ResourceUse::eDiscard },
+				.after	 = { .use = azo::rhi::ResourceUse::eCopyDst, .stages = azo::rhi::Stage::eCopy },
 				.range	 = whole,
 			},
 		};
@@ -336,22 +317,18 @@ namespace fw::scene
 			});
 		}
 
-		// Mip zero is left readable either way. The resampler takes it from there and states where it leaves every level, which is also readable, so a
-		// caller never has to know which of its two paths ran.
 		const std::array toRead{
 			azo::rhi::TextureBarrier{
 				.texture = texture,
-				.before	 = { .stages = azo::rhi::PipelineStage::eCopy, .access = azo::rhi::Access::eCopyWrite, .layout = azo::rhi::TextureLayout::eCopyDst },
-				.after	 = { .stages = azo::rhi::PipelineStage::eFragmentShader,
-					.access		   = azo::rhi::Access::eShaderRead,
-					.layout		   = azo::rhi::TextureLayout::eShaderReadOnly },
+				.before	 = { .use = azo::rhi::ResourceUse::eCopyDst, .stages = azo::rhi::Stage::eCopy },
+				.after	 = { .use = azo::rhi::ResourceUse::eSampledRead, .stages = azo::rhi::Stage::eFragmentShading },
 				.range	 = whole,
 			},
 		};
 
 		const bool recorded =
 			list.Barriers(azo::rhi::BarrierBatch{ .textures = toCopyDst }, error) && list.CopyBufferToTexture(texture, staging, regions, error) &&
-			list.Barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) && (plan.mips == 1 || GenerateMips(list, texture, error)) && list.End(error);
+			(plan.mips == 1 ? list.Barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) : GenerateMips(list, texture, error)) && list.End(error);
 
 		if (!recorded)
 		{
@@ -368,8 +345,6 @@ namespace fw::scene
 			return false;
 		}
 
-		// The wait above is what makes this retire point one the GPU has already passed, so the list, and the views and sets the resampler took, go back
-		// now without piling up across every texture a scene loads.
 		const azo::rhi::RetirePoint retired{ .timeline = m_timeline, .value = signalValue };
 		static_cast<void>(m_pool.Reset(retired, error));
 
@@ -384,14 +359,11 @@ namespace fw::scene
 
 	bool SceneGpuImageStorage::GenerateMips(azo::rhi::CommandList & list, const azo::rhi::TextureHandle texture, azo::rhi::Error & error)
 	{
-		// Built on the first texture that asks for mips and not in the constructor, so a scene whose textures are all single level never pays for the
-		// compute pipeline the resampler compiles.
 		if (!m_resampler.IsValid())
 		{
 			m_resampleArena = m_config.device.CreateDescriptorArena(
 				azo::rhi::DescriptorArenaDesc{
-					.type = azo::rhi::DescriptorArenaType::ePersistent,
-					// One set per level below the top, and the arena is reset after every upload, so this only has to cover the deepest single chain.
+					.type			= azo::rhi::DescriptorArenaType::ePersistent,
 					.maxSets		= kResampleSets,
 					.maxDescriptors = kResampleSets * 3,
 					.debugName		= "fw.scene.resampleArena",
@@ -418,4 +390,4 @@ namespace fw::scene
 
 		return m_resampler.GenerateMips(list, texture, error);
 	}
-} // namespace fw::scene
+}

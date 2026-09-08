@@ -97,30 +97,19 @@ macro(azoth_rhi_fetch_test_sinks)
     endif()
 endmacro()
 
-# Windows resolves a DLL from the directory the executable is in. An imported sink sits wherever it was
-# fetched and a shared AzothRHI sits in the library's own output directory, so neither is there. Without
-# this a suite cannot start, which PRE_TEST discovery hits before any case runs and reports as a CMake
-# error out of DiscoverTests rather than as a test failure.
-#
-# Elsewhere the loader finds both through the rpath a target already carries, so this is Windows only.
+# Windows resolves a DLL from the directory the executable is in. Without this a suite cannot start,
+# which PRE_TEST discovery hits before any case runs and reports as a CMake error out of DiscoverTests
+# rather than as a test failure.
 function(azoth_rhi_stage_test_runtime target)
     if(NOT WIN32)
         return()
     endif()
 
-    if(AZOTH_RHI_TESTS_FETCH_PIX)
-        add_custom_command(TARGET ${target} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "$<TARGET_FILE:winpix>" "$<TARGET_FILE_DIR:${target}>"
-                VERBATIM
-        )
-    endif()
-
-    if(BUILD_SHARED_LIBS)
-        add_custom_command(TARGET ${target} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "$<TARGET_FILE:AzothRHI>" "$<TARGET_FILE_DIR:${target}>"
-                VERBATIM
-        )
-    endif()
+    add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E
+            $<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:${target}>>,copy_if_different,true>
+            "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
+            COMMAND_EXPAND_LISTS
+            VERBATIM
+    )
 endfunction()

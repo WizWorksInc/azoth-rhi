@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -17,7 +12,6 @@
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/subresource.hpp"
 
-// newLibrary takes a dispatch_data_t for a compiled library, which metal-cpp declares without including this itself.
 #include <dispatch/dispatch.h>
 
 #include <algorithm>
@@ -61,47 +55,44 @@ namespace azo::rhi::metal_common
 	{
 		switch (format)
 		{
-		case Format::eR8UNorm:		  return MTL::PixelFormatR8Unorm;
-		case Format::eR8UInt:		  return MTL::PixelFormatR8Uint;
-		case Format::eR8SInt:		  return MTL::PixelFormatR8Sint;
-		case Format::eRG8UNorm:		  return MTL::PixelFormatRG8Unorm;
-		case Format::eRGBA8UNorm:	  return MTL::PixelFormatRGBA8Unorm;
-		case Format::eRGBA8Srgb:	  return MTL::PixelFormatRGBA8Unorm_sRGB;
-		case Format::eBGRA8UNorm:	  return MTL::PixelFormatBGRA8Unorm;
-		case Format::eBGRA8Srgb:	  return MTL::PixelFormatBGRA8Unorm_sRGB;
-		case Format::eR16UInt:		  return MTL::PixelFormatR16Uint;
-		case Format::eR16SInt:		  return MTL::PixelFormatR16Sint;
-		case Format::eR16Float:		  return MTL::PixelFormatR16Float;
-		case Format::eRG16Float:	  return MTL::PixelFormatRG16Float;
-		case Format::eRGBA16Float:	  return MTL::PixelFormatRGBA16Float;
-		case Format::eR11G11B10Float: return MTL::PixelFormatRG11B10Float;
-		case Format::eRGB10A2UNorm:	  return MTL::PixelFormatRGB10A2Unorm;
-		case Format::eRGB9E5Float:	  return MTL::PixelFormatRGB9E5Float;
-		case Format::eR32UInt:		  return MTL::PixelFormatR32Uint;
-		case Format::eR32SInt:		  return MTL::PixelFormatR32Sint;
-		case Format::eR32Float:		  return MTL::PixelFormatR32Float;
-		case Format::eRG32Float:	  return MTL::PixelFormatRG32Float;
-		case Format::eRGBA32Float:	  return MTL::PixelFormatRGBA32Float;
-		case Format::eD16UNorm:		  return MTL::PixelFormatDepth16Unorm;
-		case Format::eD24UNormS8UInt: return MTL::PixelFormatDepth24Unorm_Stencil8;
-		case Format::eD32Float:		  return MTL::PixelFormatDepth32Float;
-		case Format::eD32FloatS8UInt: return MTL::PixelFormatDepth32Float_Stencil8;
-		case Format::eBC1RGBAUNorm:	  return MTL::PixelFormatBC1_RGBA;
-		case Format::eBC1RGBASrgb:	  return MTL::PixelFormatBC1_RGBA_sRGB;
-		case Format::eBC3UNorm:		  return MTL::PixelFormatBC3_RGBA;
-		case Format::eBC3Srgb:		  return MTL::PixelFormatBC3_RGBA_sRGB;
-		case Format::eBC5UNorm:		  return MTL::PixelFormatBC5_RGUnorm;
-		case Format::eBC5SNorm:		  return MTL::PixelFormatBC5_RGSnorm;
-		case Format::eBC7UNorm:		  return MTL::PixelFormatBC7_RGBAUnorm;
-		case Format::eBC7Srgb:		  return MTL::PixelFormatBC7_RGBAUnorm_sRGB;
-		case Format::eBC6HUFloat:	  return MTL::PixelFormatBC6H_RGBUfloat;
-		case Format::eBC6HSFloat:	  return MTL::PixelFormatBC6H_RGBFloat;
+		case Format::eR8UNorm:					 return MTL::PixelFormatR8Unorm;
+		case Format::eR8UInt:					 return MTL::PixelFormatR8Uint;
+		case Format::eR8SInt:					 return MTL::PixelFormatR8Sint;
+		case Format::eRG8UNorm:					 return MTL::PixelFormatRG8Unorm;
+		case Format::eRGBA8UNorm:				 return MTL::PixelFormatRGBA8Unorm;
+		case Format::eRGBA8Srgb:				 return MTL::PixelFormatRGBA8Unorm_sRGB;
+		case Format::eBGRA8UNorm:				 return MTL::PixelFormatBGRA8Unorm;
+		case Format::eBGRA8Srgb:				 return MTL::PixelFormatBGRA8Unorm_sRGB;
+		case Format::eR16UInt:					 return MTL::PixelFormatR16Uint;
+		case Format::eR16SInt:					 return MTL::PixelFormatR16Sint;
+		case Format::eR16Float:					 return MTL::PixelFormatR16Float;
+		case Format::eRG16Float:				 return MTL::PixelFormatRG16Float;
+		case Format::eRGBA16Float:				 return MTL::PixelFormatRGBA16Float;
+		case Format::eR11G11B10Float:			 return MTL::PixelFormatRG11B10Float;
+		case Format::eRGB10A2UNorm:				 return MTL::PixelFormatRGB10A2Unorm;
+		case Format::eRGB9E5Float:				 return MTL::PixelFormatRGB9E5Float;
+		case Format::eR32UInt:					 return MTL::PixelFormatR32Uint;
+		case Format::eR32SInt:					 return MTL::PixelFormatR32Sint;
+		case Format::eR32Float:					 return MTL::PixelFormatR32Float;
+		case Format::eRG32Float:				 return MTL::PixelFormatRG32Float;
+		case Format::eRGBA32Float:				 return MTL::PixelFormatRGBA32Float;
+		case Format::eD16UNorm:					 return MTL::PixelFormatDepth16Unorm;
+		case Format::eD24UNormS8UInt:			 return MTL::PixelFormatDepth24Unorm_Stencil8;
+		case Format::eD32Float:					 return MTL::PixelFormatDepth32Float;
+		case Format::eD32FloatS8UInt:			 return MTL::PixelFormatDepth32Float_Stencil8;
+		case Format::eBC1RGBAUNorm:				 return MTL::PixelFormatBC1_RGBA;
+		case Format::eBC1RGBASrgb:				 return MTL::PixelFormatBC1_RGBA_sRGB;
+		case Format::eBC3UNorm:					 return MTL::PixelFormatBC3_RGBA;
+		case Format::eBC3Srgb:					 return MTL::PixelFormatBC3_RGBA_sRGB;
+		case Format::eBC5UNorm:					 return MTL::PixelFormatBC5_RGUnorm;
+		case Format::eBC5SNorm:					 return MTL::PixelFormatBC5_RGSnorm;
+		case Format::eBC7UNorm:					 return MTL::PixelFormatBC7_RGBAUnorm;
+		case Format::eBC7Srgb:					 return MTL::PixelFormatBC7_RGBAUnorm_sRGB;
+		case Format::eBC6HUFloat:				 return MTL::PixelFormatBC6H_RGBUfloat;
+		case Format::eBC6HSFloat:				 return MTL::PixelFormatBC6H_RGBFloat;
 		case Format::eUndefined:
 		case Format::eRGB32Float:
-		// Metal has no pure 24-bit depth format so eX8D24UNorm reports invalid here.
 		case Format::eX8D24UNorm:
-		// MTLPixelFormat has no multi-planar member. These reach Metal only on a texture wrapping an IOSurface, never from a descriptor, which is what
-		// supportsMultiPlanarFormats reports false for.
 		case Format::eG8B8R8Biplanar420UNorm:
 		case Format::eG8B8R8Triplanar420UNorm:
 		case Format::eG10B10R10Biplanar420UNorm: return MTL::PixelFormatInvalid;
@@ -114,24 +105,28 @@ namespace azo::rhi::metal_common
 	{
 		switch (format)
 		{
-		case Format::eR32Float:	   return MTL::VertexFormatFloat;
-		case Format::eRG32Float:   return MTL::VertexFormatFloat2;
-		case Format::eRGB32Float:  return MTL::VertexFormatFloat3;
-		case Format::eRGBA32Float: return MTL::VertexFormatFloat4;
-		case Format::eRG16Float:   return MTL::VertexFormatHalf2;
-		case Format::eRGBA16Float: return MTL::VertexFormatHalf4;
-		case Format::eRGBA8UNorm:  return MTL::VertexFormatUChar4Normalized;
-		case Format::eRG8UNorm:	   return MTL::VertexFormatUChar2Normalized;
-		case Format::eR32UInt:	   return MTL::VertexFormatUInt;
-		default:				   return MTL::VertexFormatInvalid;
+		case Format::eR32Float:		return MTL::VertexFormatFloat;
+		case Format::eRG32Float:	return MTL::VertexFormatFloat2;
+		case Format::eRGB32Float:	return MTL::VertexFormatFloat3;
+		case Format::eRGBA32Float:	return MTL::VertexFormatFloat4;
+		case Format::eRG16Float:	return MTL::VertexFormatHalf2;
+		case Format::eRGBA16Float:	return MTL::VertexFormatHalf4;
+		case Format::eRGBA8UNorm:	return MTL::VertexFormatUChar4Normalized;
+		case Format::eRG8UNorm:		return MTL::VertexFormatUChar2Normalized;
+		case Format::eR32UInt:		return MTL::VertexFormatUInt;
+		case Format::eR32SInt:		return MTL::VertexFormatInt;
+		case Format::eR16Float:		return MTL::VertexFormatHalf;
+		case Format::eR16UInt:		return MTL::VertexFormatUShort;
+		case Format::eR16SInt:		return MTL::VertexFormatShort;
+		case Format::eR8UNorm:		return MTL::VertexFormatUCharNormalized;
+		case Format::eR8UInt:		return MTL::VertexFormatUChar;
+		case Format::eR8SInt:		return MTL::VertexFormatChar;
+		case Format::eBGRA8UNorm:	return MTL::VertexFormatUChar4Normalized_BGRA;
+		case Format::eRGB10A2UNorm: return MTL::VertexFormatUInt1010102Normalized;
+		default:					return MTL::VertexFormatInvalid;
 		}
 	}
 
-	/*
-	 * Maps a portability memory hint to a Metal storage mode. Every CPU-visible hint takes shared storage, which is coherent on all Metal devices. Managed storage
-	 * would be faster on a discrete GPU, where shared reaches the device over PCIe, but it publishes a CPU write only on a didModifyRange and both backends answer
-	 * flushMappedRange and invalidateMappedRange with no-ops. Selecting it without adding those first would leave writes the GPU never sees.
-	 */
 	MTL::ResourceOptions MetalBufferStorage(const MemoryUsage usage) noexcept
 	{
 		switch (usage)
@@ -204,9 +199,8 @@ namespace azo::rhi::metal_common
 
 			return self;
 		}
-	} // namespace
+	}
 
-	// Metal has no identity enumerant, each channel naming a concrete source, so eIdentity resolves to the channel's own position.
 	MTL::TextureSwizzleChannels MetalSwizzleChannels(const ComponentMapping mapping) noexcept
 	{
 		return MTL::TextureSwizzleChannels{ MetalSwizzle(mapping.r, MTL::TextureSwizzleRed),
@@ -279,10 +273,6 @@ namespace azo::rhi::metal_common
 			return {};
 		}
 
-		/*
-		 * Checked here rather than left to Metal, which does not refuse a zero extent, it asserts inside validateWithDevice and takes the process with it. An
-		 * abort is worse than the throw the API already rules out, since a caller cannot catch it either. Vulkan refuses the same descriptor by hand.
-		 */
 		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
 		{
 			Fail(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
@@ -368,12 +358,37 @@ namespace azo::rhi::metal_common
 		return descriptor;
 	}
 
+	bool ViewRangeFitsTexture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept
+	{
+		if (range.mipCount == kAllMips || range.layerCount == kAllLayers)
+		{
+			return Fail(error,
+				ErrorCode::eInvalidArgument,
+				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+		}
+
+		const auto mips				= static_cast<std::uint32_t>(texture->mipmapLevelCount());
+		const MTL::TextureType type = texture->textureType();
+		const bool cube				= type == MTL::TextureTypeCube || type == MTL::TextureTypeCubeArray;
+		const auto slices			= static_cast<std::uint32_t>(texture->arrayLength()) * (cube ? 6u : 1u);
+
+		if (range.baseMip >= mips || range.mipCount > mips - range.baseMip)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+		}
+
+		if (range.baseLayer >= slices || range.layerCount > slices - range.baseLayer)
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
+		}
+
+		return true;
+	}
+
 	NS::SharedPtr<MTL::SamplerDescriptor> BuildSamplerDescriptor(const SamplerDesc & desc) noexcept
 	{
 		NS::SharedPtr<MTL::SamplerDescriptor> descriptor = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
 
-		// Without this a sampler has no resource id, so it cannot be named from an argument buffer, which is what a descriptor set is on a device that has them. Set
-		// unconditionally because the cost is a sampler that can also be used the discrete way and nothing else.
 		descriptor->setSupportArgumentBuffers(true);
 		descriptor->setMinFilter(MetalMinMagFilter(desc.minFilter));
 		descriptor->setMagFilter(MetalMinMagFilter(desc.magFilter));
@@ -383,6 +398,7 @@ namespace azo::rhi::metal_common
 		descriptor->setRAddressMode(MetalAddressMode(desc.addressW));
 		descriptor->setLodMinClamp(desc.minLod);
 		descriptor->setLodMaxClamp(desc.maxLod);
+		descriptor->setLodBias(desc.mipLodBias);
 		descriptor->setMaxAnisotropy(desc.anisotropyEnable ? static_cast<NS::UInteger>(std::max(1.0f, desc.maxAnisotropy)) : 1);
 		if (desc.compareEnable)
 		{
@@ -406,9 +422,7 @@ namespace azo::rhi::metal_common
 		case PrimitiveTopology::eLineStrip:		return MTL::PrimitiveTypeLineStrip;
 		case PrimitiveTopology::eTriangleList:	return MTL::PrimitiveTypeTriangle;
 		case PrimitiveTopology::eTriangleStrip: return MTL::PrimitiveTypeTriangleStrip;
-		// No MTLPrimitiveType for patches. Metal tessellates through a compute pre-pass instead, which neither backend builds, so creation refuses before
-		// reaching here and this only has to return something.
-		case PrimitiveTopology::ePatchList: return MTL::PrimitiveTypeTriangle;
+		case PrimitiveTopology::ePatchList:		return MTL::PrimitiveTypeTriangle;
 		}
 		return MTL::PrimitiveTypeTriangle;
 	}
@@ -525,12 +539,6 @@ namespace azo::rhi::metal_common
 
 	namespace
 	{
-		/*
-		 * Loads a compiled Metal library, which is what eBackendNative means here.
-		 *
-		 * dispatch_data_t is what newLibrary takes and it does not copy, so the block is created over the caller's bytes with a destructor that does nothing.
-		 * ShaderBinary borrows its data for the duration of creation, which outlives this call, and the library owns its own copy afterwards.
-		 */
 		[[nodiscard]] NS::SharedPtr<MTL::Library> LoadLibrary(MTL::Device * device, const ShaderBinary & shader, Error * error)
 		{
 			dispatch_data_t blob = dispatch_data_create(shader.data, shader.size, nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
@@ -553,11 +561,6 @@ namespace azo::rhi::metal_common
 			return NS::TransferPtr(rawLibrary);
 		}
 
-		/*
-		 * Compiles Metal Shading Language source, which is what isSource means and which a caller has to ask for.
-		 *
-		 * No cache: this runs once per stage per pipeline. That is the cost the format's documentation warns about and the reason it is not the default.
-		 */
 		[[nodiscard]] NS::SharedPtr<MTL::Library> CompileSource(MTL::Device * device, const ShaderBinary & shader, Error * error)
 		{
 			const detail::HostString sourceText(static_cast<const char *>(shader.data), shader.size);
@@ -573,7 +576,7 @@ namespace azo::rhi::metal_common
 
 			return NS::TransferPtr(rawLibrary);
 		}
-	} // namespace
+	}
 
 	NS::SharedPtr<MTL::Library> MetalCompileLibrary(MTL::Device * device, const ShaderBinary & shader, Error * error)
 	{
@@ -600,6 +603,51 @@ namespace azo::rhi::metal_common
 		}
 	}
 
+	bool MetalRefuseUnblendableAttachment(const Format format, Error * error)
+	{
+		if (IsBlendableFormat(format))
+		{
+			return true;
+		}
+
+		Fail(error, ErrorCode::eInvalidArgument, "a colour attachment enables blending on a format Metal cannot blend");
+		return false;
+	}
+
+	bool MetalRefuseUnrenderableAttachment(const Format format, Error * error)
+	{
+		if (IsColorRenderableFormat(format))
+		{
+			return true;
+		}
+
+		Fail(error, ErrorCode::eInvalidArgument, "a graphics pipeline writes a colour attachment in a format Metal cannot render to");
+		return false;
+	}
+
+	bool MetalRefuseUnbuildableGraphicsStage(const ShaderStage stage, Error * error)
+	{
+		if (stage == ShaderStage::eVertex || stage == ShaderStage::eFragment)
+		{
+			return true;
+		}
+
+		if (stage == ShaderStage::eTessellationControl || stage == ShaderStage::eTessellationEvaluation)
+		{
+			Fail(error, ErrorCode::eUnsupportedFeature, "Metal tessellates through a compute pre-pass, which this backend does not build");
+			return false;
+		}
+
+		if (stage == ShaderStage::eGeometry)
+		{
+			Fail(error, ErrorCode::eUnsupportedFeature, "Metal has no geometry shader stage");
+			return false;
+		}
+
+		Fail(error, ErrorCode::eInvalidArgument, "a graphics pipeline names a shader stage that is not part of one");
+		return false;
+	}
+
 	NS::SharedPtr<MTL::Function> CompileFunction(MTL::Device * device, const ShaderBinary & shader, Error * error)
 	{
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -607,6 +655,12 @@ namespace azo::rhi::metal_common
 		NS::SharedPtr<MTL::Library> library = MetalCompileLibrary(device, shader, error);
 		if (library.get() == nullptr)
 		{
+			return {};
+		}
+
+		if (shader.stage != ShaderStage::eVertex && shader.stage != ShaderStage::eFragment && shader.stage != ShaderStage::eCompute)
+		{
+			Fail(error, ErrorCode::eUnsupportedFeature, "the shader binary declares a stage this backend has no Metal function type for");
 			return {};
 		}
 
@@ -619,7 +673,6 @@ namespace azo::rhi::metal_common
 			return {};
 		}
 
-		// Naming a function of the wrong stage would bind it where the pipeline expects another, so it is refused, not trusted.
 		if (function->functionType() != MetalFunctionType(shader.stage))
 		{
 			Fail(error, ErrorCode::eInvalidArgument, "the named Metal function is not of the stage the shader binary declared");
@@ -629,6 +682,38 @@ namespace azo::rhi::metal_common
 		Succeed(error);
 		return function;
 	}
+
+	MTL::StencilOperation MetalStencilOp(const StencilOp op) noexcept
+	{
+		switch (op)
+		{
+		case StencilOp::eKeep:			 return MTL::StencilOperationKeep;
+		case StencilOp::eZero:			 return MTL::StencilOperationZero;
+		case StencilOp::eReplace:		 return MTL::StencilOperationReplace;
+		case StencilOp::eIncrementClamp: return MTL::StencilOperationIncrementClamp;
+		case StencilOp::eDecrementClamp: return MTL::StencilOperationDecrementClamp;
+		case StencilOp::eInvert:		 return MTL::StencilOperationInvert;
+		case StencilOp::eIncrementWrap:	 return MTL::StencilOperationIncrementWrap;
+		case StencilOp::eDecrementWrap:	 return MTL::StencilOperationDecrementWrap;
+		}
+
+		return MTL::StencilOperationKeep;
+	}
+
+	namespace
+	{
+		NS::SharedPtr<MTL::StencilDescriptor> BuildStencilFace(const StencilFaceDesc & face)
+		{
+			NS::SharedPtr<MTL::StencilDescriptor> stencil = NS::TransferPtr(MTL::StencilDescriptor::alloc()->init());
+			stencil->setStencilCompareFunction(MetalCompareFunction(face.compareOp));
+			stencil->setStencilFailureOperation(MetalStencilOp(face.failOp));
+			stencil->setDepthFailureOperation(MetalStencilOp(face.depthFailOp));
+			stencil->setDepthStencilPassOperation(MetalStencilOp(face.passOp));
+			stencil->setReadMask(face.compareMask);
+			stencil->setWriteMask(face.writeMask);
+			return stencil;
+		}
+	} // namespace
 
 	NS::SharedPtr<MTL::DepthStencilState> BuildDepthStencilState(MTL::Device * device, const DepthStencilStateDesc & desc)
 	{
@@ -640,7 +725,16 @@ namespace azo::rhi::metal_common
 		NS::SharedPtr<MTL::DepthStencilDescriptor> descriptor = NS::TransferPtr(MTL::DepthStencilDescriptor::alloc()->init());
 		descriptor->setDepthCompareFunction(desc.depthTestEnable ? MetalCompareFunction(desc.depthCompareOp) : MTL::CompareFunctionAlways);
 		descriptor->setDepthWriteEnabled(desc.depthWriteEnable);
+
+		if (desc.stencilTestEnable)
+		{
+			const NS::SharedPtr<MTL::StencilDescriptor> front = BuildStencilFace(desc.front);
+			const NS::SharedPtr<MTL::StencilDescriptor> back  = BuildStencilFace(desc.back);
+			descriptor->setFrontFaceStencil(front.get());
+			descriptor->setBackFaceStencil(back.get());
+		}
+
 		return NS::TransferPtr(device->newDepthStencilState(descriptor.get()));
 	}
 
-} // namespace azo::rhi::metal_common
+}

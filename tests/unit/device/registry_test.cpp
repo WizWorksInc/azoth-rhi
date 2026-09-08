@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -48,7 +43,6 @@ namespace
 		return info;
 	}
 
-	// Register takes exactly two allocations from an empty registry, one per vector, so the count is what picks which of them is refused.
 	class AllocatorRefusingAfter final : public rhi::HostAllocator
 	{
 	public:
@@ -64,7 +58,6 @@ namespace
 			return ::operator new(size, std::align_val_t{ alignment });
 		}
 
-		// Storage outlives the scope this allocator is installed for, so it frees the way an uninstalled seam would.
 		void Free(void * memory, std::size_t, const std::size_t alignment) override
 		{
 			::operator delete(memory, std::align_val_t{ alignment });
@@ -110,8 +103,6 @@ namespace
 
 	TEST(GraphicsApiRegistry, RefusesToRegisterTheSameApiTwice)
 	{
-		// Silently overwriting would make the winner depend on initialization order, which is the kind of difference that only shows up on someone else's
-		// machine.
 		rhi::GraphicsApiRegistry registry;
 
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("first"))));
@@ -156,14 +147,12 @@ namespace
 			EXPECT_TRUE(test::Failed(registry.Register<rhi::VulkanApi>(StubBackend("refused")), rhi::ErrorCode::eOutOfHostMemory));
 		}
 
-		// IsRegistered reads the info list, so an entry the info list never learned about would be invisible to the duplicate check and register twice.
 		EXPECT_TRUE(registry.EnumerateBackends().empty());
 		EXPECT_FALSE(registry.IsRegistered(rhi::VulkanApi::id));
 
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("retry"))));
 		EXPECT_EQ(registry.EnumerateBackends().size(), 1u);
 
-		// Creation walks the create-info list and takes the first entry under the id, so a refused registration left in it would be the one a device came up on.
 		const rhi::BackendCreateInfo * entry = rhi::detail::RegistryAccess::Find(registry, rhi::VulkanApi::id);
 		ASSERT_NE(entry, nullptr);
 		EXPECT_EQ(entry->info.displayName, "retry");
@@ -253,7 +242,7 @@ namespace
 			const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, desc);
 			if (!instance)
 			{
-				continue; // no driver for this backend on this machine
+				continue;
 			}
 
 			++created;
@@ -371,7 +360,7 @@ namespace
 			return info;
 		}
 
-	} // namespace holed
+	}
 
 	TEST(CreateInstance, RejectsABackendThatLeftADispatchEntryUnsetRatherThanCallingThroughIt)
 	{
@@ -419,10 +408,6 @@ namespace
 		EXPECT_EQ(holed::g_destroyCalls, 0u);
 	}
 
-	/*
-	 * The order is a list of candidates and not a single pick. A backend can be registered, bring its instance up and still have no device to give, which is what
-	 * a Mac carrying the Metal 4 backend on an adapter that does not report the family does, and the generation behind it is the one that machine can take.
-	 */
 	TEST(CreateDevice, MovesOnToTheNextBackendWhenOneComesUpWithNoDeviceToGive)
 	{
 		const test::Backend * null = test::FindBackend(rhi::NullApi::id);
@@ -499,4 +484,4 @@ namespace
 		EXPECT_EQ(holed::g_destroyCalls, 1u) << "the owner released it on the way out";
 	}
 
-} // namespace
+}

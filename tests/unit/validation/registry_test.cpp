@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -147,13 +142,13 @@ namespace
 		ResourceRecord * record = registry.Lookup(buffer);
 		ASSERT_NE(record, nullptr);
 
-		record->access.store(0x24, std::memory_order_relaxed);
+		record->use.store(0x24, std::memory_order_relaxed);
 		record->owned.store(true, std::memory_order_relaxed);
 		record->owner.store(2, std::memory_order_relaxed);
 
 		const ResourceRecord * again = registry.Lookup(buffer);
 		ASSERT_EQ(again, record) << "the same handle resolved to a different record";
-		EXPECT_EQ(again->access.load(std::memory_order_relaxed), 0x24u);
+		EXPECT_EQ(again->use.load(std::memory_order_relaxed), 0x24u);
 		EXPECT_TRUE(again->owned.load(std::memory_order_relaxed));
 	}
 
@@ -163,7 +158,7 @@ namespace
 
 		const RegisteredHandle first = Buffer(1, 6, 1);
 		ASSERT_TRUE(registry.Record(first));
-		registry.Lookup(first)->access.store(0x99, std::memory_order_relaxed);
+		registry.Lookup(first)->use.store(0x99, std::memory_order_relaxed);
 		registry.Lookup(first)->owned.store(true, std::memory_order_relaxed);
 		ASSERT_TRUE(registry.Retire(first));
 
@@ -172,7 +167,7 @@ namespace
 
 		const ResourceRecord * record = registry.Lookup(reused);
 		ASSERT_NE(record, nullptr);
-		EXPECT_EQ(record->access.load(std::memory_order_relaxed), 0u) << "a new resource inherited its predecessor's state";
+		EXPECT_EQ(record->use.load(std::memory_order_relaxed), 0u) << "a new resource inherited its predecessor's state";
 		EXPECT_FALSE(record->owned.load(std::memory_order_relaxed));
 	}
 
@@ -187,14 +182,14 @@ namespace
 
 		ResourceRecord * held = registry.Lookup(early);
 		ASSERT_NE(held, nullptr);
-		held->access.store(0x1234, std::memory_order_relaxed);
+		held->use.store(0x1234, std::memory_order_relaxed);
 
 		for (std::uint32_t slot = 1; slot <= kFarPastTheFirstChunk; ++slot)
 		{
 			ASSERT_TRUE(registry.Record(Buffer(1, slot))) << "the registry refused to grow at slot " << slot;
 		}
 
-		EXPECT_EQ(held->access.load(std::memory_order_relaxed), 0x1234u) << "growth moved a record a caller was already holding";
+		EXPECT_EQ(held->use.load(std::memory_order_relaxed), 0x1234u) << "growth moved a record a caller was already holding";
 		EXPECT_EQ(registry.Lookup(early), held) << "the same handle resolved somewhere else after growth";
 		EXPECT_EQ(registry.LiveCount(), kFarPastTheFirstChunk + 1u);
 	}
@@ -208,7 +203,7 @@ namespace
 
 		const RegisteredHandle held = Buffer(1, 0);
 		ASSERT_TRUE(registry.Record(held));
-		registry.Lookup(held)->access.store(0xABCD, std::memory_order_relaxed);
+		registry.Lookup(held)->use.store(0xABCD, std::memory_order_relaxed);
 
 		std::atomic<bool> writing{ true };
 		std::atomic<std::size_t> reads{ 0 };
@@ -220,7 +215,7 @@ namespace
 				while (writing.load(std::memory_order_relaxed))
 				{
 					const ResourceRecord * record = registry.Lookup(held);
-					if (record == nullptr || record->access.load(std::memory_order_relaxed) != 0xABCDu)
+					if (record == nullptr || record->use.load(std::memory_order_relaxed) != 0xABCDu)
 					{
 						wrongAnswers.fetch_add(1, std::memory_order_relaxed);
 					}
@@ -267,4 +262,4 @@ namespace
 		EXPECT_EQ(registry.LiveCount(), 8u) << "retiring the buffers took the textures with them";
 	}
 
-} // namespace
+}

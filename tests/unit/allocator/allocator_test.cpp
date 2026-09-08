@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -195,8 +190,6 @@ namespace
 	TEST_F(AllocatorSeamTest, TheAdapterRefusesAnAllocationThatWouldOverflowItsSizeComputation)
 	{
 #ifdef AZOTH_RHI_NO_EXCEPTIONS
-		// RefuseAllocation aborts and does not throw in this build, which a case cannot observe and go on running. The refusal itself is the same either
-		// way, so what is skipped here is how it gets reported and not whether the overflow is caught.
 		GTEST_SKIP() << "the adapter aborts and does not throw under AZOTH_RHI_NO_EXCEPTIONS";
 #else
 		rhi::HostAllocatorAdapter<double> adapter;
@@ -465,4 +458,4 @@ namespace
 		EXPECT_EQ(allocator.OutstandingSpans(), 0u) << "a span the allocator granted was never handed back";
 	}
 
-} // namespace
+}

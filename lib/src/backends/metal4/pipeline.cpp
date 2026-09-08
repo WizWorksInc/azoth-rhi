@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -24,12 +19,6 @@ namespace azo::rhi::metal4
 
 	namespace
 	{
-		/*
-		 * Refuses a pipeline whose shaders claim their bindings landed at argument-table indices other than the ones this backend binds them at.
-		 *
-		 * Metal has no layout object to disagree with, so the disagreement is between what the binary says and what Metal4CmdBindDescriptorSet will do. Nothing
-		 * here changes where anything is bound. It changes reading a stale texture at the wrong index into a refusal that names the binding.
-		 */
 		[[nodiscard]] bool BindingMapsAgreeImpl(
 			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 		{
@@ -84,7 +73,6 @@ namespace azo::rhi::metal4
 
 				if (bad.unknownToLayout)
 				{
-					// Also what a set above zero looks like here, the ABI addressing only set zero on this backend.
 					return Fail(error, ErrorCode::eInvalidArgument, "a shader binary claims a binding this backend does not bind for that pipeline layout");
 				}
 
@@ -95,14 +83,6 @@ namespace azo::rhi::metal4
 			return true;
 		}
 
-		/*
-		 * Every buffer the compiled function reads, against every index this backend will write one to.
-		 *
-		 * BindingMapsAgree above answers the same question, but only for a caller who volunteered a map, and one who knew enough to write a correct one was not
-		 * going to be caught out. Metal says what the function actually asks for.
-		 *
-		 * What this catches is a Slang shader declaring no push constant, whose first set wants the index below where this binds it.
-		 */
 		[[nodiscard]] bool FunctionBuffersAreBoundImpl(
 			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const NS::Array * bindings, Error * error) noexcept
 		{
@@ -121,27 +101,17 @@ namespace azo::rhi::metal4
 			{
 				const auto * binding = static_cast<const MTL::Binding *>(bindings->object(entry));
 
-				// Only buffers, and only the ones the compiler kept. Textures and samplers reach a shader through the argument buffer and not a slot of their own on a
-				// device with argument buffers, and an unused binding is not one anything has to bind.
 				if (binding == nullptr || binding->type() != MTL::BindingTypeBuffer || !binding->isUsed())
 				{
 					continue;
 				}
 
-				// Vertex buffers are bound from their own base, well above where sets go, so they are not a set's index failing to match.
 				const auto index = static_cast<std::uint32_t>(binding->index());
 				if (index >= kMetalVertexBufferBase)
 				{
 					continue;
 				}
 
-				/*
-				 * Buffer 0 only when the layout has a push constant to put there. A layout with none binds nothing at that index, so a shader reading it reads
-				 * something that will never be written, which is exactly the shape of the bug: Slang gave its first set buffer 0 because the shader declared no
-				 * push constant.
-				 *
-				 * The reverse pairing still slips through. Both want buffer 0 and reflection reports a buffer either way.
-				 */
 				if (index == kMetalPushConstantIndex && layout->hasPushConstants)
 				{
 					continue;
@@ -164,14 +134,8 @@ namespace azo::rhi::metal4
 
 			return true;
 		}
-	} // namespace
+	}
 
-	/*
-	 * The two checks above, out of the anonymous namespace so the pipeline creation below can reach them.
-	 *
-	 * The second is the one that matters more: without it the pipeline builds, the dispatch runs, and the shader reads zeros from a buffer index nothing was
-	 * ever put at, which is the failure the reserved push constant slot makes easy to hit and impossible to see.
-	 */
 	bool BindingMapsAgree(Metal4Device * device, const PipelineLayoutHandle layout, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 	{
 		return BindingMapsAgreeImpl(device, layout, shaders, error);
@@ -208,24 +172,8 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-	/*
-	 * Pipelines, which fork for a reason that is easy to miss.
-	 *
-	 * MTL4Compiler::newComputePipelineState hands back an MTL::ComputePipelineState, the same type the other generation builds, so reading the signatures says
-	 * pipelines are shared. They are not.
-	 *
-	 * What differs is how the state was compiled. A pipeline built the classic way expects its buffers bound by setBuffer on the encoder, so an argument table
-	 * binds nothing it is looking for and the dispatch reads whatever was already there. It does not fail.
-	 */
-
 	namespace
 	{
-		/*
-		 * A function descriptor naming one entry point of a library.
-		 *
-		 * Where the other generation makes an MTLFunction. The library underneath is the same object built by the same shared code, so a metallib does not have
-		 * to be compiled twice to serve both paths.
-		 */
 		[[nodiscard]] NS::SharedPtr<MTL4::LibraryFunctionDescriptor> FunctionDescriptorFor(Metal4Device * device, const ShaderBinary & shader, Error * error)
 		{
 			NS::SharedPtr<MTL::Library> library = MetalCompileLibrary(device->device.get(), shader, error);
@@ -240,20 +188,14 @@ namespace azo::rhi::metal4
 			descriptor->setLibrary(library.get());
 			descriptor->setName(name.get());
 
-			/*
-			 * The library is referenced by the descriptor and released when this returns, so the pipeline the caller builds has to be built before then. Every
-			 * caller here does, compiling inside the same call.
-			 */
 			return descriptor;
 		}
-	} // namespace
+	}
 
 	ComputePipelineHandle Metal4CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createComputePipeline");
 
-		// The same requirement the other generation states, and for the same reason: Metal takes the threadgroup size at dispatch and MSL has no numthreads
-		// attribute to recover it from.
 		if (!desc.shader.threadgroupSize.IsStated())
 		{
 			return FailValue<ComputePipelineHandle>(error,
@@ -286,7 +228,6 @@ namespace azo::rhi::metal4
 		const NS::SharedPtr<MTL4::ComputePipelineDescriptor> pipelineDesc = NS::TransferPtr(MTL4::ComputePipelineDescriptor::alloc()->init());
 		pipelineDesc->setComputeFunctionDescriptor(function.get());
 
-		// Asked for so the check below has something to read. Metal produces it as part of the same compile.
 		const NS::SharedPtr<MTL4::PipelineOptions> options = NS::TransferPtr(MTL4::PipelineOptions::alloc()->init());
 		options->setShaderReflection(MTL4::ShaderReflectionBindingInfo);
 		pipelineDesc->setOptions(options.get());
@@ -322,8 +263,6 @@ namespace azo::rhi::metal4
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createGraphicsPipeline");
 
-		// The same refusals the other generation makes, on the same grounds. A Metal 4 compiler does not add a mesh stage, conservative rasterization or a
-		// tessellator to a backend that has none of them.
 		if (desc.vertexInput == nullptr)
 		{
 			return FailValue<GraphicsPipelineHandle>(
@@ -362,7 +301,6 @@ namespace azo::rhi::metal4
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
-		// Held past the loop, because the pipeline descriptor references them and the compile happens after it.
 		NS::SharedPtr<MTL4::LibraryFunctionDescriptor> vertex;
 		NS::SharedPtr<MTL4::LibraryFunctionDescriptor> fragment;
 
@@ -374,6 +312,11 @@ namespace azo::rhi::metal4
 
 		for (const ShaderBinary & shader : desc.shaders)
 		{
+			if (!MetalRefuseUnbuildableGraphicsStage(shader.stage, error))
+			{
+				return {};
+			}
+
 			if (shader.stage == ShaderStage::eVertex)
 			{
 				vertex = FunctionDescriptorFor(device, shader, error);
@@ -401,15 +344,20 @@ namespace azo::rhi::metal4
 			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "graphics pipeline requires a vertex shader");
 		}
 
-		// The vertex descriptor is an MTLVertexDescriptor on both generations, and the buffer indices are the same ones setVertexBuffer binds at, so a shader's
-		// stage_in works the same either way.
 		if (!vertexInput.attributes.empty())
 		{
 			const NS::SharedPtr<MTL::VertexDescriptor> vertexDescriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
 			for (const VertexAttributeDesc & attribute : vertexInput.attributes)
 			{
+				const MTL::VertexFormat vertexFormat = MetalVertexFormat(attribute.format);
+				if (vertexFormat == MTL::VertexFormatInvalid)
+				{
+					return FailValue<GraphicsPipelineHandle>(
+						error, ErrorCode::eUnsupportedFeature, "a vertex attribute names a format this backend has no Metal vertex format for");
+				}
+
 				MTL::VertexAttributeDescriptor * attr = vertexDescriptor->attributes()->object(attribute.location);
-				attr->setFormat(MetalVertexFormat(attribute.format));
+				attr->setFormat(vertexFormat);
 				attr->setOffset(attribute.offset);
 				attr->setBufferIndex(kMetalVertexBufferBase + attribute.binding);
 			}
@@ -426,15 +374,21 @@ namespace azo::rhi::metal4
 
 		for (std::uint32_t i = 0; i < desc.renderTarget.colorFormatCount; ++i)
 		{
-			// The attachment descriptor is this generation's own type, unlike the render pass one, so this is the one place the blend state is written against
-			// a different object.
 			MTL4::RenderPipelineColorAttachmentDescriptor * attachment = descriptor->colorAttachments()->object(i);
 
 			// Creation refuses a count past these arrays. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			if (!MetalRefuseUnrenderableAttachment(desc.renderTarget.colorFormats[i], error))
+			{
+				return {};
+			}
 			attachment->setPixelFormat(MetalPixelFormat(desc.renderTarget.colorFormats[i]));
 			if (i < desc.blend.attachmentCount)
 			{
 				const ColorBlendAttachmentDesc & blend = desc.blend.attachments[i];
+				if (blend.blendEnable && !MetalRefuseUnblendableAttachment(desc.renderTarget.colorFormats[i], error))
+				{
+					return {};
+				}
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				attachment->setBlendingState(blend.blendEnable ? MTL4::BlendStateEnabled : MTL4::BlendStateDisabled);
 				attachment->setSourceRGBBlendFactor(MetalBlendFactor(blend.srcColorBlendFactor));
@@ -447,14 +401,6 @@ namespace azo::rhi::metal4
 			}
 		}
 
-		/*
-		 * No depth or stencil attachment format here, and its absence is the API's, not an omission. MTL4RenderPipelineDescriptor carries color formats and not
-		 * depth ones: on this generation the depth format comes from the render pass at encoding time, which is why a pipeline built here is usable against
-		 * more than one depth target.
-		 *
-		 * GraphicsPipelineDesc::renderTarget::depthStencilFormat is therefore read by the other generation and not by this one.
-		 */
-
 		descriptor->setRasterSampleCount(static_cast<NS::UInteger>(desc.renderTarget.samples));
 		descriptor->setAlphaToCoverageState(desc.renderTarget.alphaToCoverageEnable ? MTL4::AlphaToCoverageStateEnabled : MTL4::AlphaToCoverageStateDisabled);
 
@@ -465,7 +411,6 @@ namespace azo::rhi::metal4
 			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Metal 4 render pipeline creation failed");
 		}
 
-		// Both stages, since either can be the one asking for a set the layout does not bind.
 		if (MTL::RenderPipelineReflection * info = rawState->reflection();
 			info != nullptr && !(FunctionBuffersAreBound(device, desc.layout, info->vertexBindings(), error) &&
 								   FunctionBuffersAreBound(device, desc.layout, info->fragmentBindings(), error)))
@@ -474,8 +419,6 @@ namespace azo::rhi::metal4
 			return {};
 		}
 
-		// The rest of a Metal pipeline is state the encoder takes and not the pipeline object, so it is recorded here and applied at bind, exactly as on
-		// the other generation.
 		Metal4GraphicsPipeline pipeline{};
 		pipeline.state			   = NS::TransferPtr(rawState);
 		pipeline.depthStencil	   = BuildDepthStencilState(device->device.get(), desc.depthStencil);
@@ -497,4 +440,4 @@ namespace azo::rhi::metal4
 		return ReturnValue(handle, error);
 	}
 
-} // namespace azo::rhi::metal4
+}

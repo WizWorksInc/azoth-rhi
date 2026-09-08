@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -48,15 +43,13 @@ namespace
 		return value ? "yes" : "no";
 	}
 
-} // namespace
+}
 
 namespace
 {
 
 	constexpr std::uint32_t kExtent = 64;
 
-	// Four bytes a texel and 64 of them a row, which lands on the 256 byte row pitch D3D12 wants from a texture copy. A width that did not would need the
-	// padded pitch spelled out per row.
 	constexpr std::uint64_t kReadbackBytes = static_cast<std::uint64_t>(kExtent) * kExtent * 4;
 	constexpr std::uint64_t kNoTimeout	   = std::numeric_limits<std::uint64_t>::max();
 
@@ -67,14 +60,12 @@ namespace
 		return static_cast<std::uint8_t>(std::lround(channel * 255.0f));
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
 	const char * requested = fw::RequestedBackend(argc, argv);
 
-	// Every backend this build has, registered, with the requested one first. What that set is was settled when the library was compiled so this sample never
-	// has to ask.
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
 	if (requested != nullptr && !backends.HonoredRequest())
 	{
@@ -92,11 +83,10 @@ int main(int argc, char ** argv)
 	}
 
 	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}, dynamic rendering: {}", dev.GetGraphicsApiName(), Yes(dev.GetCaps().supportsDynamicRendering));
+	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
 
 	rhi::Error error{};
 
-	// eRGBA8UNorm and not an sRGB format so the bytes read back are the clear color and not the clear color through a transfer function.
 	const rhi::TextureDesc targetDesc{
 		.type	   = rhi::TextureType::eTex2D,
 		.format	   = rhi::Format::eRGBA8UNorm,
@@ -135,18 +125,18 @@ int main(int argc, char ** argv)
 
 	const std::array toAttachment{ rhi::TextureBarrier{
 		.texture = target,
-		.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-		.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.before	 = { .use = rhi::ResourceUse::eDiscard },
+		.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 	} };
 	const std::array toCopySource{ rhi::TextureBarrier{
 		.texture = target,
-		.before	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
-		.after	 = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyRead, .layout = rhi::TextureLayout::eCopySrc },
+		.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+		.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 	} };
 
 	const std::array colors{ rhi::RenderingAttachment{
 		.view		= view,
-		.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+		.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		.load		= rhi::LoadOp::eClear,
 		.store		= rhi::StoreOp::eStore,
 		.clearColor = kClear,
@@ -174,7 +164,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// Nothing is drawn. The clear is the whole pass, which is exactly what a load op is for.
 	list.EndRendering(error);
 
 	const bool recorded =
@@ -203,7 +192,6 @@ int main(int argc, char ** argv)
 	const rhi::MappedMemory mapped = dev.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 	if (mapped.data == nullptr)
 	{
-		// The Null backend has no host visible memory so the pass ran and there is nothing to look at.
 		LOG_ERROR(fw::Log(), "note: this backend exposes no mappable memory, so the pixels cannot be checked");
 	}
 	else
@@ -232,7 +220,6 @@ int main(int argc, char ** argv)
 			static_cast<int>(texel[2]),
 			static_cast<int>(texel[3]));
 
-		// Within one, since rounding at the edges of a unorm conversion is the backend's business.
 		for (std::size_t channel = 0; channel < texel.size(); ++channel)
 		{
 			const int difference = static_cast<int>(texel[channel]) - static_cast<int>(expected[channel]);

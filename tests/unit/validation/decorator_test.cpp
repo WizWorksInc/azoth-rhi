@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -22,6 +17,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 #include <thread>
 
 namespace rhi  = azo::rhi;
@@ -43,8 +39,9 @@ namespace
 
 	template <class Fn>
 	// NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): check runs once per backend, so forwarding it would move from it on the first one.
-	void ForEachBackendDevice(const rhi::ValidationMode mode, Fn && check)
+	std::size_t ForEachBackendDevice(const rhi::ValidationMode mode, Fn && check)
 	{
+		std::size_t declinedForAnotherReason = 0;
 		for (const test::Backend & backend : test::SelectedBackends())
 		{
 			rhi::DeviceDesc desc = test::DefaultDeviceDesc();
@@ -53,16 +50,14 @@ namespace
 			const test::DeviceHarness device{ backend, desc };
 			if (!device.IsValid())
 			{
-				/*
-				 * Pass over this backend, not the rest of them. GTEST_SKIP expands to a return, so skipping here abandoned every backend after the first one
-				 * without a driver, and the caller's counter stayed at zero. On a macOS runner that is Metal 4, which needs an OS the image does not have, so
-				 * Metal and Null were never reached and the parity checks reported that nothing came up at all.
-				 */
+				declinedForAnotherReason += test::NoAdapterHere(device.GetError()) ? 0 : 1;
 				continue;
 			}
 
 			check(backend, device.Get());
 		}
+
+		return declinedForAnotherReason;
 	}
 
 	TEST_P(DecoratorTest, ADeviceWithValidationOnIsBehindTheLayer)
@@ -105,7 +100,7 @@ namespace
 		const rhi::CoreDeviceApi * shared = nullptr;
 		std::size_t checked				  = 0;
 
-		ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
+		const std::size_t declinedForAnotherReason = ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
 			[&](const test::Backend & backend, const rhi::Device device)
 			{
 				const rhi::CoreDeviceApi * held = rhi::detail::FacadeBuilder::BlocksOf(device)->Device().core;
@@ -119,6 +114,11 @@ namespace
 				EXPECT_EQ(held, shared) << backend.displayName << " is being checked by something other than the one validation layer";
 				++checked;
 			});
+
+		if (checked == 0 && declinedForAnotherReason == 0)
+		{
+			GTEST_SKIP() << "no adapter on this machine can back any selected backend";
+		}
 
 		EXPECT_GT(checked, 0u) << "no backend came up, so this proved nothing";
 	}
@@ -184,7 +184,6 @@ namespace
 				++compared;
 			});
 
-		// A run narrowed to one backend has nothing to disagree with, where one that had two and got one back has a backend that quietly stopped coming up.
 		if (compared == 0 && test::SelectedBackends().size() < 2)
 		{
 			GTEST_SKIP() << "this run selected one backend, so there is no second answer to compare against";
@@ -336,11 +335,6 @@ namespace
 		rhi::CommandList list = pool.Allocate("azoth.rhi.test.unopened", error);
 		ASSERT_TRUE(test::Ok(list.IsValid(), error));
 
-		/*
-		 * A barrier, because it is the entry that reaches the driver with the least standing in its way: it carries no handles when its batch is empty, and the
-		 * state tracking has nothing recorded yet to disagree with. Before Begin the thread rule stands aside as well, no thread having claimed the list, so
-		 * this is the only rule left to speak.
-		 */
 		rhi::Error beforeError{};
 		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{}, beforeError)) << "a barrier was recorded on a list that never opened";
 		EXPECT_EQ(beforeError.code, rhi::ErrorCode::eValidationFailed);
@@ -391,6 +385,85 @@ namespace
 		EXPECT_GT(ValidatorOf(device.Get())->Failures(), 0u);
 	}
 
+	TEST_P(DecoratorTest, ACommandOnAClosedListSaysTheListIsClosedRatherThanNamingItsScope)
+	{
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+
+		rhi::Error error{};
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		const rhi::BufferHandle args = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(args.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.closed", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.End(error), error));
+
+		constexpr std::string_view closed = "a command recorded on a list that is not between Begin and End";
+
+		rhi::Error drawError{};
+		EXPECT_FALSE(list.DrawIndirect(args, 0, 1, 0, drawError)) << "an indirect draw was recorded on a list that had already closed";
+		ASSERT_NE(drawError.message, nullptr);
+		EXPECT_EQ(std::string_view{ drawError.message }, closed) << "the indirect draw reported its rendering scope instead of the closed list";
+
+		rhi::Error dispatchError{};
+		EXPECT_FALSE(list.DispatchIndirect(args, 0, dispatchError)) << "an indirect dispatch was recorded on a list that had already closed";
+		ASSERT_NE(dispatchError.message, nullptr);
+		EXPECT_EQ(std::string_view{ dispatchError.message }, closed) << "the indirect dispatch reported its bound pipeline instead of the closed list";
+
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(args, {}, error), error));
+	}
+
+	TEST_P(DecoratorTest, ATraceIsRefusedUntilARayTracingPipelineIsBound)
+	{
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+
+		if (!device.Get().GetCaps().supportsRayTracing)
+		{
+			GTEST_SKIP() << "this backend registers no ray tracing blocks, so a trace never reaches validation";
+		}
+
+		rhi::Error error{};
+		const rhi::RayTracingPipelineHandle pipeline = device.Get().CreateRayTracingPipeline(rhi::RayTracingPipelineDesc{}, error);
+		ASSERT_TRUE(test::Ok(pipeline.IsValid(), error));
+
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.trace", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+
+		rhi::Error unboundError{};
+		EXPECT_FALSE(list.TraceRays(rhi::ShaderBindingTableDesc{}, 1, 1, 1, unboundError)) << "a trace with no ray tracing pipeline bound was accepted";
+		EXPECT_EQ(unboundError.code, rhi::ErrorCode::eValidationFailed);
+
+		ASSERT_TRUE(test::Ok(list.SetRayTracingPipeline(pipeline, error), error));
+		EXPECT_TRUE(test::Ok(list.TraceRays(rhi::ShaderBindingTableDesc{}, 1, 1, 1, error), error))
+			<< "a trace was refused after its pipeline was bound, so the refusal above proves nothing";
+
+		EXPECT_TRUE(test::Ok(list.End(error), error));
+
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+
+		rhi::Error rerecordedError{};
+		EXPECT_FALSE(list.TraceRays(rhi::ShaderBindingTableDesc{}, 1, 1, 1, rerecordedError))
+			<< "the binding survived Begin, so a re-recorded list traced with whatever the last recording left bound";
+		EXPECT_EQ(rerecordedError.code, rhi::ErrorCode::eValidationFailed);
+
+		EXPECT_TRUE(test::Ok(list.End(error), error));
+	}
+
 	TEST_P(DecoratorTest, ABarrierReleasingFromAQueueThatDoesNotOwnTheResourceIsRefused)
 	{
 		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
@@ -410,26 +483,152 @@ namespace
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		constexpr rhi::ResourceState untouched{};
+		constexpr rhi::ResourceState acquired{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		const std::array released{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 0, .dst = 1 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } },
 		};
 		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = released }, error), error));
 
 		const std::array wrong{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 2, .dst = 0 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCopy } },
 		};
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a release from a family that does not own the resource was accepted";
+		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a release from a queue that does not own the resource was accepted";
 		EXPECT_EQ(wrongError.code, rhi::ErrorCode::eValidationFailed);
 
 		const std::array back{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 1, .dst = 0 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= acquired,
+				.ownership				= { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
 		};
 		EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = back }, error), error));
 
 		static_cast<void>(list.End(error));
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(DecoratorTest, AQueueOwnershipReleaseMovesNothingUntilItsListIsSubmitted)
+	{
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		constexpr rhi::ResourceState untouched{};
+		const std::array toCompute{
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } },
+		};
+
+		rhi::CommandList discarded = pool.Allocate("azoth.rhi.test.discarded", error);
+		ASSERT_TRUE(test::Ok(discarded.IsValid(), error));
+		ASSERT_TRUE(test::Ok(discarded.Begin(error), error));
+		ASSERT_TRUE(test::Ok(discarded.Barriers(rhi::BarrierBatch{ .buffers = toCompute }, error), error));
+		ASSERT_TRUE(test::Ok(discarded.End(error), error));
+
+		rhi::CommandList submitted = pool.Allocate("azoth.rhi.test.submitted", error);
+		ASSERT_TRUE(test::Ok(submitted.IsValid(), error));
+		ASSERT_TRUE(test::Ok(submitted.Begin(error), error));
+		EXPECT_TRUE(test::Ok(submitted.Barriers(rhi::BarrierBatch{ .buffers = toCompute }, error), error))
+			<< "a list that was never submitted moved the buffer to the compute queue, so this release read as coming from a queue that does not own it";
+		ASSERT_TRUE(test::Ok(submitted.End(error), error));
+
+		const rhi::TimelineHandle done = device.Get().CreateTimeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(done.IsValid(), error));
+
+		rhi::Queue queue = device.Get().GetQueue(rhi::QueueType::eGraphics);
+		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+
+		std::array<const rhi::CommandList *, 1> lists{ &submitted };
+		const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = lists, .signals = signals, .debugName = "azoth.rhi.test.ownership" }, error), error));
+		ASSERT_TRUE(test::Ok(queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error), error));
+
+		rhi::CommandList after = pool.Allocate("azoth.rhi.test.after", error);
+		ASSERT_TRUE(test::Ok(after.IsValid(), error));
+		ASSERT_TRUE(test::Ok(after.Begin(error), error));
+
+		rhi::Error afterError{};
+		EXPECT_FALSE(after.Barriers(rhi::BarrierBatch{ .buffers = toCompute }, afterError))
+			<< "the submitted release never reached the device record, so the compute queue's ownership was forgotten";
+		EXPECT_EQ(afterError.code, rhi::ErrorCode::eValidationFailed);
+
+		static_cast<void>(after.End(error));
+
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(done, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(DecoratorTest, ASecondReleaseOfAResourceAlreadyHandedAwayIsRefusedAtSubmit)
+	{
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		constexpr rhi::ResourceState untouched{};
+		const std::array toCompute{
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } },
+		};
+
+		const auto record = [&](const char * name)
+		{
+			rhi::CommandList list = pool.Allocate(name, error);
+			EXPECT_TRUE(test::Ok(list.IsValid(), error));
+			EXPECT_TRUE(test::Ok(list.Begin(error), error));
+			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = toCompute }, error), error));
+			EXPECT_TRUE(test::Ok(list.End(error), error));
+			return list;
+		};
+
+		rhi::CommandList first	= record("azoth.rhi.test.release.first");
+		rhi::CommandList second = record("azoth.rhi.test.release.second");
+
+		rhi::Queue queue = device.Get().GetQueue(rhi::QueueType::eGraphics);
+		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+
+		std::array<const rhi::CommandList *, 1> firstOnly{ &first };
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = firstOnly, .debugName = "azoth.rhi.test.firstRelease" }, error), error))
+			<< "the first release was refused, so the refusal below would prove nothing";
+
+		std::array<const rhi::CommandList *, 1> secondOnly{ &second };
+
+		rhi::Error secondError{};
+		EXPECT_FALSE(queue.Submit({ .commandLists = secondOnly, .debugName = "azoth.rhi.test.secondRelease" }, secondError))
+			<< "the buffer was already handed to the compute queue, so releasing it again from graphics is not a transfer anyone can honour";
+		EXPECT_EQ(secondError.code, rhi::ErrorCode::eValidationFailed);
+
+		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
 	}
 
@@ -633,7 +832,7 @@ namespace
 		EXPECT_EQ(submitError.code, rhi::ErrorCode::eValidationFailed);
 	}
 
-	TEST_P(DecoratorTest, AQueueFamilyTransferThatNamesOnlyOneEndIsRefused)
+	TEST_P(DecoratorTest, AnOwnershipTransferBetweenOneQueueAndItselfIsRefused)
 	{
 		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
 		desc.validation		 = rhi::ValidationMode::eDeveloper;
@@ -647,35 +846,26 @@ namespace
 
 		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.halfTransfer", error);
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.selfTransfer", error);
 		ASSERT_TRUE(test::Ok(list.IsValid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		constexpr rhi::ResourceState untouched{};
-
-		const std::array halfFilled{
-			rhi::BufferBarrier{
-				.buffer	   = buffer,
-				.before	   = untouched,
-				.after	   = untouched,
-				.ownership = { .src = 0, .dst = rhi::kIgnoreQueueFamily },
-			},
-		};
-
-		rhi::Error halfError{};
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = halfFilled }, halfError)) << "a transfer naming one end and ignoring the other was accepted";
-		EXPECT_EQ(halfError.code, rhi::ErrorCode::eValidationFailed);
+		constexpr rhi::ResourceState settled{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		const std::array toItself{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched, .ownership = { .src = 1, .dst = 1 } },
+			rhi::BufferBarrier{ .buffer = buffer,
+				.before					= untouched,
+				.after					= untouched,
+				.ownership				= { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eGraphics } },
 		};
 
 		rhi::Error selfError{};
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = toItself }, selfError)) << "a transfer from a family to itself was accepted";
+		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .buffers = toItself }, selfError)) << "a transfer between one queue and itself was accepted";
 		EXPECT_EQ(selfError.code, rhi::ErrorCode::eValidationFailed);
 
 		const std::array neither{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = untouched },
+			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = settled },
 		};
 		EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = neither }, error), error));
 
@@ -683,4 +873,4 @@ namespace
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
 	}
 
-} // namespace
+}

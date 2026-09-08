@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -49,13 +44,12 @@ namespace
 		return backends;
 	}
 
-	TEST(MinimalBackend, TheRequiredBlocksComeToSeventySevenEntries)
+	TEST(MinimalBackend, TheRequiredBlocksComeToSeventySixEntries)
 	{
-		// A ratchet: this is what an out-of-tree backend must fill and it is not allowed to grow. A later capability goes in a new block.
-		EXPECT_EQ(minimal::HeadlessEntryCount(), 77u);
+		EXPECT_EQ(minimal::HeadlessEntryCount(), 76u);
 		EXPECT_LE(minimal::HeadlessEntryCount(), 80u) << "the required set grew past the ratchet";
 
-		EXPECT_EQ(minimal::PresentingEntryCount(), 91u);
+		EXPECT_EQ(minimal::PresentingEntryCount(), 90u);
 	}
 
 	TEST(MinimalBackend, gate_MinimalBackendFixture)
@@ -213,24 +207,15 @@ namespace
 			const std::array<rhi::TextureBarrier, 1> toAttachment{ rhi::TextureBarrier{
 				.texture = backBuffer,
 				.before	 = {},
-				.after =
-					{
-						.stages = rhi::PipelineStage::eColorOutput,
-						.access = rhi::Access::eColorWrite,
-						.layout = rhi::TextureLayout::eColorAttachment,
-					},
-				.range = test::samples::WholeColorRange(),
+				.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.range	 = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error), error))
 				<< "barriering the acquired back buffer was refused";
 
 			const std::array<rhi::RenderingAttachment, 1> colors{ rhi::RenderingAttachment{
 				.view  = view,
-				.state = {
-					.stages = rhi::PipelineStage::eColorOutput,
-					.access = rhi::Access::eColorWrite,
-					.layout = rhi::TextureLayout::eColorAttachment,
-				},
+				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				.load  = rhi::LoadOp::eClear,
 				.store = rhi::StoreOp::eStore,
 			} };
@@ -240,18 +225,9 @@ namespace
 
 			const std::array<rhi::TextureBarrier, 1> toPresent{ rhi::TextureBarrier{
 				.texture = backBuffer,
-				.before =
-					{
-						.stages = rhi::PipelineStage::eColorOutput,
-						.access = rhi::Access::eColorWrite,
-						.layout = rhi::TextureLayout::eColorAttachment,
-					},
-				.after = {
-					.stages = rhi::PipelineStage::eNone,
-					.access = rhi::Access::eNone,
-					.layout = rhi::TextureLayout::ePresent,
-				},
-				.range = test::samples::WholeColorRange(),
+				.before	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.after	 = { .use = rhi::ResourceUse::ePresent },
+				.range	 = test::samples::WholeColorRange(),
 			} };
 			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error), error));
 
@@ -308,7 +284,7 @@ namespace
 			rhi::TextureBarrier{
 				.texture = backBuffer,
 				.before	 = {},
-				.after	 = { .layout = rhi::TextureLayout::eColorAttachment },
+				.after	 = { .use = rhi::ResourceUse::eColorTarget },
 			},
 		};
 
@@ -324,6 +300,61 @@ namespace
 
 		static_cast<void>(list.EndRendering(error));
 		static_cast<void>(list.End(error));
+	}
+
+	TEST(MinimalBackend, gate_ABackBufferViewCarriesTheSwapchainFormatIntoTheAttachmentCheck)
+	{
+		const auto openAScope = [](const rhi::ValidationMode validation) noexcept
+		{
+			rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
+			EXPECT_TRUE(test::Ok(backends.Add(rhi::BackendEntry{
+				.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimalPresenting"),
+				.canonicalName = "azoth.rhi.test.minimalPresenting",
+				.displayName   = "Minimal presenting fixture",
+				.Register	   = &minimal::RegisterPresenting,
+			})));
+
+			const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .validation = validation });
+			EXPECT_TRUE(test::Ok(owner));
+			if (!owner)
+			{
+				return false;
+			}
+
+			rhi::Device device = owner.Value().Get();
+			rhi::Error error{};
+
+			rhi::Swapchain swapchain = device.CreateSwapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
+			EXPECT_TRUE(test::Ok(swapchain.IsValid(), error));
+
+			const rhi::AcquireResult acquired = swapchain.AcquireNextImage(std::numeric_limits<std::uint64_t>::max(), error);
+			EXPECT_EQ(acquired.status, rhi::SwapchainStatus::eOk);
+
+			const rhi::TextureViewHandle view = swapchain.GetBackBufferView(acquired.imageIndex);
+			EXPECT_TRUE(view.IsValid());
+
+			rhi::CommandPool pool = device.CreateCommandPool(rhi::CommandPoolDesc{}, error);
+			EXPECT_TRUE(test::Ok(pool.IsValid(), error));
+			rhi::CommandList list = pool.Allocate("azoth.rhi.test.backBufferFormat", error);
+			EXPECT_TRUE(test::Ok(list.IsValid(), error));
+			EXPECT_TRUE(test::Ok(list.Begin(error), error));
+
+			const std::array attachments{ rhi::RenderingAttachment{ .view = view } };
+			const bool opened = list.BeginRendering(rhi::BeginRenderingDesc{ .colors = attachments, .width = 64, .height = 64 }, error);
+			if (opened)
+			{
+				static_cast<void>(list.EndRendering(error));
+			}
+
+			static_cast<void>(list.End(error));
+			return opened;
+		};
+
+		EXPECT_TRUE(openAScope(rhi::ValidationMode::eReleaseLight))
+			<< "the fixture itself refused a rendering scope, so the developer-mode refusal below would prove nothing";
+
+		EXPECT_FALSE(openAScope(rhi::ValidationMode::eDeveloper))
+			<< "the fixture advertises no colour attachment support at all, so the format the swapchain vended never reached the check";
 	}
 
 	TEST(MinimalBackend, EveryCategoricalCapabilityComesOffTheBlocksRatherThanAField)
@@ -374,7 +405,7 @@ namespace
 			const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
 			if (!owner)
 			{
-				continue; // No driver on this machine for that one.
+				continue;
 			}
 
 			rhi::Device device				 = owner.Value().Get();
@@ -455,4 +486,4 @@ namespace
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 	}
 
-} // namespace
+}

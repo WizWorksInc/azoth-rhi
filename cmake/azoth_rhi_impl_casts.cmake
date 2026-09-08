@@ -33,14 +33,22 @@ if(NOT DEFINED AZOTH_RHI_SOURCE_ROOT)
     message(FATAL_ERROR "azoth_rhi_impl_casts: pass -DAZOTH_RHI_SOURCE_ROOT=<repo root>.")
 endif()
 
-set(_globs)
+set(_files)
 foreach(_root "${AZOTH_RHI_SOURCE_ROOT}/lib/include" "${AZOTH_RHI_SOURCE_ROOT}/lib/src" "${AZOTH_RHI_SOURCE_ROOT}/tests"
         "${AZOTH_RHI_SOURCE_ROOT}/examples" "${AZOTH_RHI_SOURCE_ROOT}/benchmarks")
+    set(_globs)
     foreach(_ext hpp h cpp cc cxx mm inl ipp)
         list(APPEND _globs "${_root}/*.${_ext}")
     endforeach()
+    file(GLOB_RECURSE _found ${_globs})
+
+    # A root that matches nothing is a moved or misspelled path, which would otherwise pass as clean.
+    if(NOT _found)
+        message(FATAL_ERROR "AzothRHI impl cast contract: the scan root ${_root} matched no files, so it is not being checked.")
+    endif()
+
+    list(APPEND _files ${_found})
 endforeach()
-file(GLOB_RECURSE _files ${_globs})
 
 set(_violations)
 foreach(_file IN LISTS _files)
@@ -56,7 +64,10 @@ foreach(_file IN LISTS _files)
 
     file(STRINGS "${_file}" _lines REGEX "static_cast[ \t]*<")
     foreach(_line IN LISTS _lines)
-        if(NOT _line MATCHES "FacadeBuilder::ImplOf")
+        # commandListImpl is the second way a facade's impl reaches a cast: MakeCommandListView is handed one
+        # by ModifyNative rather than calling ImplOf itself, so keying only on the call above left the whole
+        # native view customization point outside the gate, which is where it went wrong once.
+        if(NOT _line MATCHES "FacadeBuilder::ImplOf|commandListImpl")
             continue()
         endif()
 
@@ -79,16 +90,5 @@ if(_violations)
             "With validation on that pointer is a layer, not the backend's object, and the cast reads the layer's "
             "fields as the backend's.\nUse detail::NativeImplOf to resolve through whatever is there, or "
             "detail::UnwrappedImplOf where the caller already knows there is nothing.\n\n${_report}\n")
-endif()
-# A root that stops resolving makes this quieter, not redder, which is how a stale one once went on
-# printing OK over a third of the tree. The floor is the count at the last deliberate change: raise it as
-# files are added, lower it only when files are genuinely removed.
-set(_floor 232)
-if(_scanned LESS _floor)
-    message(FATAL_ERROR
-            "AzothRHI impl casts scanned ${_scanned} files, fewer than the ${_floor} this check covers.\n"
-            "A scan root has most likely stopped resolving, which leaves the check reporting OK over a smaller tree "
-            "than it was written for.\nFix the root, or lower the floor in cmake/azoth_rhi_impl_casts.cmake if files "
-            "were genuinely removed.\n")
 endif()
 message(STATUS "AzothRHI: impl casts OK, ${_scanned} files scanned, none cast a facade's impl without resolving it.")

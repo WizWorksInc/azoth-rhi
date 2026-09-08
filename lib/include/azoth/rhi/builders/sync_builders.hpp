@@ -1,27 +1,16 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
-/**
- * \file
- * \brief Builders for synchronization and submission descriptions.
- */
-
 #include "azoth/rhi/commands/sync.hpp"
 
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <span>
 #include <string>
@@ -30,9 +19,6 @@
 
 namespace azo::rhi
 {
-	/**
-	 * \brief Builds timeline descriptions backed by owned debug-name storage.
-	 */
 	class TimelineBuilder final
 	{
 	public:
@@ -48,11 +34,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a timeline description that borrows this builder's debug-name storage.
-		 *
-		 * \attention The returned debugName pointer stays valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] TimelineDesc Build() const noexcept
 		{
 			TimelineDesc desc = m_desc;
@@ -65,9 +46,6 @@ namespace azo::rhi
 		std::string m_debugName;
 	};
 
-	/**
-	 * \brief Builds binary-semaphore descriptions backed by owned debug-name storage.
-	 */
 	class BinarySemaphoreBuilder final
 	{
 	public:
@@ -77,11 +55,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a binary-semaphore description that borrows this builder's debug-name storage.
-		 *
-		 * \attention The returned debugName pointer stays valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] BinarySemaphoreDesc Build() const noexcept
 		{
 			BinarySemaphoreDesc desc{};
@@ -93,11 +66,6 @@ namespace azo::rhi
 		std::string m_debugName;
 	};
 
-	/**
-	 * \brief Builds timeline points used by submit waits and signals.
-	 *
-	 * \note waitStages is consumed only for waits. Timeline signals use only timeline and value.
-	 */
 	class TimelinePointBuilder final
 	{
 	public:
@@ -113,10 +81,7 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets the pipeline stages blocked by this timeline point when it is used as a submit wait.
-		 */
-		TimelinePointBuilder & WaitStages(Flags<PipelineStage> stages) noexcept
+		TimelinePointBuilder & WaitStages(Flags<Stage> stages) noexcept
 		{
 			m_desc.waitStages = stages;
 			return *this;
@@ -131,9 +96,6 @@ namespace azo::rhi
 		TimelinePoint m_desc{};
 	};
 
-	/**
-	 * \brief Builds the acquire and present semaphore pair one surface contributes to a submission.
-	 */
 	class SwapchainSyncBuilder final
 	{
 	public:
@@ -149,10 +111,7 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets the pipeline stages blocked by the acquire wait. Defaults to the color-attachment stage.
-		 */
-		SwapchainSyncBuilder & WaitStages(Flags<PipelineStage> stages) noexcept
+		SwapchainSyncBuilder & WaitStages(Flags<Stage> stages) noexcept
 		{
 			m_desc.waitStages = stages;
 			return *this;
@@ -167,27 +126,18 @@ namespace azo::rhi
 		SwapchainSync m_desc{};
 	};
 
-	/**
-	 * \brief Builds resource states used by barriers and rendering attachments.
-	 */
 	class ResourceStateBuilder final
 	{
 	public:
-		ResourceStateBuilder & Stages(Flags<PipelineStage> stages) noexcept
+		ResourceStateBuilder & Use(Flags<ResourceUse> use) noexcept
+		{
+			m_desc.use = use;
+			return *this;
+		}
+
+		ResourceStateBuilder & Stages(Flags<Stage> stages) noexcept
 		{
 			m_desc.stages = stages;
-			return *this;
-		}
-
-		ResourceStateBuilder & Access(Flags<Access> access) noexcept
-		{
-			m_desc.access = access;
-			return *this;
-		}
-
-		ResourceStateBuilder & Layout(TextureLayout layout) noexcept
-		{
-			m_desc.layout = layout;
 			return *this;
 		}
 
@@ -200,9 +150,6 @@ namespace azo::rhi
 		ResourceState m_desc{};
 	};
 
-	/**
-	 * \brief Builds barrier batches backed by owned barrier-list storage.
-	 */
 	class BarrierBatchBuilder final
 	{
 	public:
@@ -232,11 +179,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a barrier batch that borrows this builder's barrier-list storage.
-		 *
-		 * \attention The returned spans stay valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] BarrierBatch Build() const noexcept
 		{
 			return BarrierBatch{ .memory = std::span<const MemoryBarrier>{ m_memory.data(), m_memory.size() },
@@ -250,11 +192,6 @@ namespace azo::rhi
 		std::vector<TextureBarrier> m_textures;
 	};
 
-	/**
-	 * \brief Builds submit descriptions backed by owned dependency, signal, command-list pointer, and debug-name storage.
-	 *
-	 * \attention Command-list pointers are borrowed. The pointed command lists must remain valid through queue submission.
-	 */
 	class SubmitBuilder final
 	{
 	public:
@@ -264,11 +201,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Copies command-list pointers into the submit list.
-		 *
-		 * \attention The pointed command lists are borrowed and must remain valid through queue submission.
-		 */
 		SubmitBuilder & CommandLists(std::span<const CommandList *> commandLists)
 		{
 			m_commandLists.assign(commandLists.begin(), commandLists.end());
@@ -281,18 +213,12 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Adds a timeline signal. The signal point uses timeline and value, not waitStages.
-		 */
 		SubmitBuilder & AddSignal(TimelinePoint signal)
 		{
 			m_signals.push_back(signal);
 			return *this;
 		}
 
-		/**
-		 * \brief Adds the acquire and present semaphores of one surface this submission renders to.
-		 */
 		SubmitBuilder & AddSwapchain(SwapchainSync sync)
 		{
 			m_swapchains.push_back(sync);
@@ -305,11 +231,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a submit description that borrows this builder's storage.
-		 *
-		 * \attention The returned spans and debugName pointer stay valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] SubmitDesc Build() noexcept
 		{
 			return SubmitDesc{ .commandLists = std::span{ m_commandLists.data(), m_commandLists.size() },
@@ -326,4 +247,4 @@ namespace azo::rhi
 		std::vector<SwapchainSync> m_swapchains;
 		std::string m_debugName;
 	};
-} // namespace azo::rhi
+}

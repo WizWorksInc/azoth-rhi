@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -46,7 +41,6 @@ namespace
 		return std::bit_cast<Table>(words);
 	}
 
-	// Nulls one entry by name and reports whether it found it so a renamed entry fails the case, not silently testing a whole table.
 	template <typename Table>
 	[[nodiscard]] bool ClearEntry(Table & table, const std::string_view name) noexcept
 	{
@@ -127,7 +121,7 @@ namespace
 			rhi::detail::BlockEntries<rhi::InstanceApi>::kNames.size() + rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size() +
 			rhi::detail::BlockEntries<rhi::QueueApi>::kNames.size() + rhi::detail::BlockEntries<rhi::CommandPoolApi>::kNames.size() +
 			rhi::detail::BlockEntries<rhi::DescriptorArenaApi>::kNames.size() + rhi::detail::BlockEntries<rhi::RenderCommandApi>::kNames.size();
-		static_assert(required == 77);
+		static_assert(required == 76);
 
 		constexpr std::size_t declinable =
 			rhi::detail::BlockEntries<rhi::PresentApi>::kNames.size() + rhi::detail::BlockEntries<rhi::SwapchainApi>::kNames.size() +
@@ -143,7 +137,7 @@ namespace
 
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::InstanceApi>::kNames.size(), 4u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size(), 30u);
-		EXPECT_EQ(rhi::detail::BlockEntries<rhi::QueueApi>::kNames.size(), 9u);
+		EXPECT_EQ(rhi::detail::BlockEntries<rhi::QueueApi>::kNames.size(), 8u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::CommandPoolApi>::kNames.size(), 2u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::DescriptorArenaApi>::kNames.size(), 2u);
 		EXPECT_EQ(rhi::detail::BlockEntries<rhi::RenderCommandApi>::kNames.size(), 30u);
@@ -186,4 +180,4 @@ namespace
 		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&table, nullptr));
 	}
 
-} // namespace
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -49,10 +44,8 @@ namespace
 	constexpr std::uint32_t kThreads   = 4096;
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
 
-	// Enough that the dispatch is milliseconds and not a handful of ticks, which is what keeps the measurement above the cost of taking it.
 	constexpr std::uint32_t kIterations = 20000;
 
-	// What the shader's push constant holds.
 	struct Params final
 	{
 		std::uint32_t iterations = kIterations;
@@ -79,16 +72,11 @@ namespace
 		return results[static_cast<std::uint32_t>(slot)];
 	}
 
-	/*
-	 * A sample that was never taken resolves to a sentinel and not to zero, Metal writing MTLCounterErrorValue for one. Left as it arrives by the backend so
-	 * a caller can tell it from a plausible time, and tested for here so a difference taken across one is reported as missing instead of printed as a duration.
-	 */
 	[[nodiscard]] bool Taken(const std::uint64_t tick)
 	{
 		return tick != std::numeric_limits<std::uint64_t>::max();
 	}
 
-	// Turns a tick difference into milliseconds through the period the device reported.
 	[[nodiscard]] double Milliseconds(const std::uint64_t from, const std::uint64_t to, const float periodNanoseconds)
 	{
 		if (!Taken(from) || !Taken(to) || to < from)
@@ -110,20 +98,14 @@ namespace
 		LOG_INFO(fw::Log(), "  {:<22} {:.3f} ms", what, milliseconds);
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
 	const char * requested = fw::RequestedBackend(argc, argv);
 
-	// No Null backend: it reports no timestamp support and a timing sample against it would measure nothing.
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
 
-	/*
-	 * Asked for, not assumed. Queries are an opt-in device feature: an adapter that could time a frame still comes up unable to when nothing requested it, and
-	 * DeviceCaps then honestly reports no. Preferred, not required, so a device still comes up on an adapter that cannot, and the caps test below is what
-	 * decides whether there is anything to measure with.
-	 */
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
 													  .DebugName("gpu_timing")
 													  .Headless()
@@ -171,7 +153,6 @@ int main(int argc, char ** argv)
 
 	rhi::Error error{};
 
-	// The compute half: one storage buffer the kernel writes, bound through a set, with the loop count arriving as a push constant.
 	const std::array workBindings{
 		rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eStorageBuffer, .stages = rhi::ShaderStage::eCompute },
 	};
@@ -197,7 +178,6 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	// The graphics half, drawing a triangle over the whole target so the occlusion count is the pixel count.
 	const rhi::TextureHandle target = dev.CreateTexture(
 		rhi::TextureDesc{
 			.type	   = rhi::TextureType::eTex2D,
@@ -253,10 +233,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * Three pools, asked for one at a time so a backend that has only the first still runs the rest of the sample. An invalid handle here is a decline and not a
-	 * fault: the create call reported why, and everything below tests the handle before recording against it.
-	 */
 	const rhi::QueryPoolHandle timestamps =
 		dev.CreateQueryPool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kTimestampCount, .debugName = "timing.timestamps" }, error);
 	if (!timestamps.IsValid())
@@ -273,10 +249,6 @@ int main(int argc, char ** argv)
 		LOG_INFO(fw::Log(), "no occlusion pool: {}", occlusionError.message != nullptr ? occlusionError.message : "no diagnostic");
 	}
 
-	/*
-	 * One counter and not several. A statistics query with N counters enabled writes N values per query, which a resolve packing one 64-bit value per query has
-	 * nowhere to put. Asking for exactly one keeps the destination layout the same as the other two pools'.
-	 */
 	rhi::Error statisticsError{};
 	rhi::QueryPoolHandle statistics{};
 	if (caps.supportsPipelineStatisticsQueries)
@@ -319,15 +291,15 @@ int main(int argc, char ** argv)
 	const std::array intoShaderWrite{
 		rhi::BufferBarrier{
 			.buffer = accumulator,
-			.before = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone },
-			.after	= { .stages = rhi::PipelineStage::eComputeShader, .access = rhi::Access::eShaderWrite },
+			.before = { .use = rhi::ResourceUse::eDiscard },
+			.after	= { .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute },
 		},
 	};
 	const std::array intoAttachment{
 		rhi::TextureBarrier{
 			.texture = target,
-			.before	 = { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined },
-			.after	 = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.before	 = { .use = rhi::ResourceUse::eDiscard },
+			.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 		},
 	};
 
@@ -341,23 +313,14 @@ int main(int argc, char ** argv)
 		recorded = recorded && list.ResetQueryPool(statistics, 0, 1, error);
 	}
 
-	/*
-	 * The dispatch, bracketed only where a loose write is legal around one.
-	 *
-	 * This is the asymmetry the sample exists to show. A rendering scope can always be timed, because BeginRenderingDesc::timestamps records on the sample
-	 * points the hardware fixes when the scope opens. A dispatch has no equivalent, and a device reporting supportsTimestampWritesInScope false refuses loose
-	 * writes inside one.
-	 *
-	 * Nor can the scope be closed early: Metal tracks its own hazards, so a barrier leaves the encoder open.
-	 */
 	const bool timeTheDispatch = caps.supportsTimestampWritesInScope;
 
-	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitBegin), rhi::PipelineStage::eAllCommands, error) &&
+	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitBegin), rhi::Stage::eAllCommands, error) &&
 			   list.Barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error);
 
 	if (timeTheDispatch)
 	{
-		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeBegin), rhi::PipelineStage::eAllCommands, error);
+		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeBegin), rhi::Stage::eAllCommands, error);
 	}
 
 	recorded = recorded && list.SetComputePipeline(computePipeline, error) && list.BindDescriptorSet(computeLayout, 0, workSet, {}, error) &&
@@ -366,7 +329,7 @@ int main(int argc, char ** argv)
 
 	if (timeTheDispatch)
 	{
-		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeEnd), rhi::PipelineStage::eComputeShader, error);
+		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeEnd), rhi::Stage::eCompute, error);
 	}
 
 	recorded = recorded && list.Barriers(rhi::BarrierBatch{ .textures = intoAttachment }, error);
@@ -377,10 +340,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	/*
-	 * The render pass, timed through the scope's own slots, not by two more loose writes. This is the portable form: it records on the sample points the
-	 * hardware fixes when the scope opens, so it works whether or not this device would have taken a write inside.
-	 */
 	const rhi::RenderingTimestampWrites scopeTimestamps{
 		.pool		= timestamps,
 		.beginQuery = static_cast<std::uint32_t>(Slot::eRenderBegin),
@@ -390,7 +349,7 @@ int main(int argc, char ** argv)
 	const std::array colors{
 		rhi::RenderingAttachment{
 			.view  = targetView,
-			.state = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment },
+			.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 			.load  = rhi::LoadOp::eClear,
 			.store = rhi::StoreOp::eStore,
 		},
@@ -434,7 +393,7 @@ int main(int argc, char ** argv)
 
 	list.EndRendering(error);
 
-	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitEnd), rhi::PipelineStage::eAllCommands, error) &&
+	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitEnd), rhi::Stage::eAllCommands, error) &&
 			   list.ResolveQueryData(timestamps, 0, kTimestampCount, results, 0, error);
 
 	if (occlusion.IsValid())
@@ -453,7 +412,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	// The wall clock around the submission, which is the number a timestamp difference should be checked against and is never the same number.
 	fw::util::Timer wall;
 	wall.Start();
 
@@ -485,10 +443,6 @@ int main(int argc, char ** argv)
 	std::memcpy(raw.data(), mapped.data, kResultBytes);
 	static_cast<void>(dev.Unmap(results, error));
 
-	/*
-	 * A tick is not a nanosecond. The period converts one to the other, and the calibrated pair beside it is what a CPU timeline and a GPU one have to be lined
-	 * up through: subtracting a GPU timestamp from a CPU one without it subtracts unrelated clocks.
-	 */
 	rhi::TimestampCalibration calibration{};
 	if (!dev.CalibrateTimestamp(rhi::QueueType::eGraphics, calibration, error))
 	{
@@ -514,11 +468,6 @@ int main(int argc, char ** argv)
 
 	int status = 0;
 
-	/*
-	 * The triangle covered every pixel, so a precise count would be the pixel count. Only non-zero is checked because that is all the RHI promises: nothing in
-	 * QueryPoolDesc or BeginQuery asks for a precise occlusion count, and Vulkan without VK_QUERY_CONTROL_PRECISE_BIT is free to answer any non-zero value for
-	 * "something passed". MoltenVK answers 1. A caller wanting the count occlusion culling needs cannot ask for it yet.
-	 */
 	if (occlusion.IsValid())
 	{
 		const std::uint64_t visible = raw.at(kOcclusionByte / sizeof(std::uint64_t));
@@ -536,7 +485,6 @@ int main(int argc, char ** argv)
 		LOG_INFO(fw::Log(), "  {:<22} {} invocations", "fragment shader", raw.at(kStatisticByte / sizeof(std::uint64_t)));
 	}
 
-	// Every timestamp the sample recorded has to have been taken, or the numbers above are differences across a sentinel.
 	for (std::uint32_t slot = 0; slot < kTimestampCount; ++slot)
 	{
 		const bool skipped =

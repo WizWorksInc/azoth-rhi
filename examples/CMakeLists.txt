@@ -24,13 +24,19 @@
 set(AZOTH_RHI_EXAMPLES_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 include(azoth_rhi_examples)
 
+# One target that builds the lot, for checking that a public API change did not leave a sample behind.
+add_custom_target(rhi_examples)
+
+if (NOT TARGET azoth::rhi-utils)
+    message(STATUS "AzothRHI examples: skipping the examples, azoth::rhi-utils is not in this build")
+    return()
+endif ()
+
 # Ahead of the samples, not beside them, so it is defined before the first one asks for it.
 add_subdirectory(lib)
 add_subdirectory(samples)
 
-# One target that builds the lot, for checking that a public API change did not leave a sample behind.
 get_property(_example_targets GLOBAL PROPERTY AZOTH_RHI_EXAMPLE_TARGETS)
-if(_example_targets)
-    add_custom_target(rhi_examples)
+if (_example_targets)
     add_dependencies(rhi_examples ${_example_targets})
-endif()
+endif ()

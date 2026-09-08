@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -31,15 +26,12 @@
 namespace azo::rhi::test
 {
 
-	// One backend the suite can be pointed at. Trivially copyable on purpose, since GoogleTest stores parameters by value.
 	struct Backend final
 	{
 		GraphicsApiId id{};
 
-		// The globally namespaced name, for example azoth.rhi.vulkan.
 		CString canonicalName = nullptr;
 
-		// The last component, for example vulkan. Used in ctest case names and in AZOTH_RHI_TEST_BACKENDS.
 		CString shortName = nullptr;
 
 		CString displayName = nullptr;
@@ -52,11 +44,6 @@ namespace azo::rhi::test
 		}
 	};
 
-	/*
-	 * GoogleTest records PrintToString of the parameter alongside each test, and CMake's gtest discovery substitutes that string for whatever follows the last
-	 * slash in the test name. Without this the ctest name of every parameterized case is a byte dump of this struct, carrying the pointers it was holding when
-	 * discovery ran, so ctest -R cannot select a backend and the names change from one configure to the next.
-	 */
 	inline void PrintTo(const Backend & backend, std::ostream * out)
 	{
 		*out << (backend.shortName != nullptr ? backend.shortName : "unknown");
@@ -70,11 +57,19 @@ namespace azo::rhi::test
 
 	[[nodiscard]] bool BackendIsRequired(std::string_view shortName);
 
+	[[nodiscard]] bool BackendIsSelected(std::string_view shortName);
+
 	[[nodiscard]] const Backend * FindBackend(GraphicsApiId id) noexcept;
 
 	[[nodiscard]] std::string BackendParamName(const ::testing::TestParamInfo<Backend> & info);
 
 	[[nodiscard]] DeviceDesc DefaultDeviceDesc() noexcept;
+
+	void RecordValidationMessage(ValidationMessageSeverity severity, const char * message, void * userData) noexcept;
+
+	[[nodiscard]] std::string ValidationMessageLog();
+
+	void ClearValidationMessageLog();
 
 	class DeviceHarness final
 	{
@@ -171,12 +166,12 @@ namespace azo::rhi::test
 		std::unique_ptr<DeviceHarness> m_harness;
 	};
 
-} // namespace azo::rhi::test
+}
 
 #define AZO_RHI_BACKEND_SUITE(suite)                                                                                                                           \
 	INSTANTIATE_TEST_SUITE_P(Backends,                                                                                                                         \
 		suite,                                                                                                                                                 \
-		::testing::ValuesIn(::azo::rhi::test::SelectedBackends().begin(), ::azo::rhi::test::SelectedBackends().end()),                                         \
+		::testing::ValuesIn(::azo::rhi::test::AvailableBackends().begin(), ::azo::rhi::test::AvailableBackends().end()),                                       \
 		::azo::rhi::test::BackendParamName)
 
 #define AZO_RHI_REQUIRE_CAP(supported, capability)                                                                                                             \
@@ -193,7 +188,7 @@ namespace azo::rhi::test
 	{                                                                                                                                                          \
 		if ((device).GetCaps().reportsValidationMessageCounts)                                                                                                 \
 		{                                                                                                                                                      \
-			EXPECT_EQ((device).GetValidationMessageCounts().errors, 0u) << what;                                                                               \
+			EXPECT_EQ((device).GetValidationMessageCounts().errors, 0u) << what << ::azo::rhi::test::ValidationMessageLog();                                   \
 		}                                                                                                                                                      \
 	} while (false)
 

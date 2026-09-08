@@ -1,37 +1,20 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
-/**
- * \file
- * \brief Texture-format block metadata used by buffer-texture copy pitch calculations.
- */
-
 #include "azoth/rhi/core/enums.hpp"
 
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 
 namespace azo::rhi::detail
 {
-	/**
-	 * \brief Linear-copy block layout for one texture format.
-	 *
-	 * Copy row and slice pitches are measured in blocks. Uncompressed formats use one texel per block, while block-compressed formats use multi-texel blocks.
-	 * \note bytesPerBlock is zero when this helper cannot express the format as one linear copy block.
-	 */
 	struct FormatBlockInfo final
 	{
 		std::uint32_t blockWidth	= 1;
@@ -39,11 +22,6 @@ namespace azo::rhi::detail
 		std::uint32_t bytesPerBlock = 0;
 	};
 
-	/**
-	 * \brief Returns block layout metadata for linear copy pitch math.
-	 *
-	 * \note Undefined and combined depth-stencil formats return bytesPerBlock zero because one byte stride cannot describe their copy layout here.
-	 */
 	[[nodiscard]] constexpr FormatBlockInfo BlockInfoOf(Format format) noexcept
 	{
 		switch (format)
@@ -93,8 +71,6 @@ namespace azo::rhi::detail
 
 		case Format::eD24UNormS8UInt:
 		case Format::eD32FloatS8UInt:
-		// A multi-planar format has no single block: each plane has its own element size and extent, so copies address one plane at a time and take their block
-		// layout from PlaneFormatOf instead.
 		case Format::eG8B8R8Biplanar420UNorm:
 		case Format::eG8B8R8Triplanar420UNorm:
 		case Format::eG10B10R10Biplanar420UNorm:
@@ -104,57 +80,49 @@ namespace azo::rhi::detail
 		return {};
 	}
 
-	/**
-	 * \brief Returns true when copy pitches advance in multi-texel blocks instead of individual texels.
-	 */
 	[[nodiscard]] constexpr bool IsCompressedFormat(Format format) noexcept
 	{
 		return BlockInfoOf(format).blockWidth > 1;
 	}
 
-	/**
-	 * \brief Returns true when this helper can express the format with one byte count per linear copy block.
-	 */
+	[[nodiscard]] constexpr bool IsIntegerFormat(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::eR8UInt:
+		case Format::eR8SInt:
+		case Format::eR16UInt:
+		case Format::eR16SInt:
+		case Format::eR32UInt:
+		case Format::eR32SInt: return true;
+		default:			   return false;
+		}
+	}
+
 	[[nodiscard]] constexpr bool HasLinearLayout(Format format) noexcept
 	{
 		return BlockInfoOf(format).bytesPerBlock != 0;
 	}
 
-	/**
-	 * \brief Rounds a texel width up to the number of copy blocks needed, including a partial edge block.
-	 */
 	[[nodiscard]] constexpr std::uint32_t BlockColumns(Format format, std::uint32_t widthTexels) noexcept
 	{
 		const std::uint32_t blockWidth = BlockInfoOf(format).blockWidth;
 		return (widthTexels + blockWidth - 1) / blockWidth;
 	}
 
-	/**
-	 * \brief Rounds a texel height up to the number of copy block rows needed, including a partial edge block.
-	 */
 	[[nodiscard]] constexpr std::uint32_t BlockRows(Format format, std::uint32_t heightTexels) noexcept
 	{
 		const std::uint32_t blockHeight = BlockInfoOf(format).blockHeight;
 		return (heightTexels + blockHeight - 1) / blockHeight;
 	}
 
-	/**
-	 * \brief Returns the unaligned byte pitch for one tightly packed row of copy blocks.
-	 *
-	 * \attention Unsupported formats return zero through bytesPerBlock. Call HasLinearLayout first when zero is not a valid pitch.
-	 */
 	[[nodiscard]] constexpr std::uint64_t TightRowPitch(Format format, std::uint32_t widthTexels) noexcept
 	{
 		return static_cast<std::uint64_t>(BlockColumns(format, widthTexels)) * BlockInfoOf(format).bytesPerBlock;
 	}
 
-	/**
-	 * \brief Returns the unaligned byte pitch for one tightly packed 2D slice of copy blocks.
-	 *
-	 * \attention Unsupported formats return zero through bytesPerBlock. Call HasLinearLayout first when zero is not a valid pitch.
-	 */
 	[[nodiscard]] constexpr std::uint64_t TightSlicePitch(Format format, std::uint32_t widthTexels, std::uint32_t heightTexels) noexcept
 	{
 		return TightRowPitch(format, widthTexels) * BlockRows(format, heightTexels);
 	}
-} // namespace azo::rhi::detail
+}

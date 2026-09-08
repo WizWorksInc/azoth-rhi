@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -41,10 +36,6 @@ namespace
 		EXPECT_EQ(MakeDeviceDesc().validation, test::kValidationMode);
 	}
 
-	/*
-	 * Refused in every mode, though not by the same thing. Off, the decorator is not installed and the backend's own slot map answers, which it resolves anyway
-	 * to find the object to free. In the other modes the registry catches it first. What the mode buys is where the answer comes from, not whether there is one.
-	 */
 	TEST_P(ValidationModeTest, RefusesADoubleDestroyInEveryMode)
 	{
 		rhi::Error error{};
@@ -57,6 +48,19 @@ namespace
 		EXPECT_TRUE(test::ErrorIsPopulated(secondError));
 	}
 
+	TEST_P(ValidationModeTest, RefusesAZeroCountQueryPoolInEveryMode)
+	{
+		rhi::Error error{};
+		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(0), error);
+		EXPECT_FALSE(pool.IsValid()) << "a query pool that asked for no queries was created";
+		EXPECT_TRUE(test::ErrorIsPopulated(error));
+
+		if (pool.IsValid())
+		{
+			EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		}
+	}
+
 	TEST_P(ValidationModeTest, TracksResourceStateOnlyWhenTheModeSaysItWill)
 	{
 		rhi::Error error{};
@@ -66,21 +70,9 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		constexpr rhi::ResourceState untouched{
-			.stages = rhi::PipelineStage::eNone,
-			.access = rhi::Access::eNone,
-			.layout = rhi::TextureLayout::eUndefined,
-		};
-		constexpr rhi::ResourceState copyDst{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
-		constexpr rhi::ResourceState shaderRead{
-			.stages = rhi::PipelineStage::eFragmentShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		constexpr rhi::ResourceState untouched{ .use = rhi::ResourceUse::eDiscard };
+		constexpr rhi::ResourceState copyDst{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
+		constexpr rhi::ResourceState shaderRead{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 
 		const std::array first{
 			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = copyDst },
@@ -106,6 +98,46 @@ namespace
 
 		static_cast<void>(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(ValidationModeTest, RefusesAnAliasBarrierNamingAnUnresolvableHandleInEveryMode)
+	{
+		AZO_RHI_REQUIRE_CAP(Caps().supportsPlacedResources || IsNullBackend(), "placed resources");
+
+		rhi::Error error{};
+		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(), error);
+		if (!heap.IsValid())
+		{
+			GTEST_SKIP() << "this backend refused a heap to place over: " << test::Describe(error);
+		}
+
+		const rhi::PlacedBufferDesc placed{ .buffer = test::samples::StorageBuffer(), .heap = heap, .offset = 0 };
+		const rhi::BufferHandle before = Dev().CreatePlacedBuffer(placed, error);
+		const rhi::BufferHandle after  = Dev().CreatePlacedBuffer(placed, error);
+		if (!before.IsValid() || !after.IsValid())
+		{
+			static_cast<void>(Dev().Destroy(heap, {}, error));
+			GTEST_SKIP() << "this backend refused an aliased placed pair: " << test::Describe(error);
+		}
+
+		ASSERT_TRUE(test::Ok(Dev().Destroy(after, {}, error), error));
+		ASSERT_TRUE(after.IsValid()) << "the handle stopped reading as valid, so nothing below reaches the resolve";
+
+		{
+			test::Recording recording(Dev());
+			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = before, .afterBuffer = after } };
+
+			rhi::Error aliasError{};
+			EXPECT_FALSE(recording.List().AliasBarriers(barriers, aliasError)) << "an alias barrier naming a destroyed buffer was swallowed";
+			EXPECT_TRUE(test::ErrorIsPopulated(aliasError));
+
+			static_cast<void>(recording.End());
+		}
+
+		static_cast<void>(Dev().Destroy(before, {}, error));
+		static_cast<void>(Dev().Destroy(heap, {}, error));
 	}
 
 	TEST_P(ValidationModeTest, ChecksTheCommandListLifecycleOnlyWhenTheModeSaysItWill)
@@ -165,4 +197,4 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a clean run under " << AZOTH_RHI_TEST_CONFIGURATION_NAME << " still produced errors");
 	}
 
-} // namespace
+}

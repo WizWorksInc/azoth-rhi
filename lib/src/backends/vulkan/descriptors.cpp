@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -20,11 +15,10 @@ namespace azo::rhi::vulkan
 	{
 		switch (type)
 		{
-		case DescriptorType::eSampler:				return vk::DescriptorType::eSampler;
-		case DescriptorType::eCombinedImageSampler: return vk::DescriptorType::eCombinedImageSampler;
-		case DescriptorType::eTextureSRV:			return vk::DescriptorType::eSampledImage;
-		case DescriptorType::eTextureUAV:			return vk::DescriptorType::eStorageImage;
-		// All three lower to the same Vulkan type: the RHI distinguishes them for validation and for what the other backends need and Vulkan does not.
+		case DescriptorType::eSampler:				 return vk::DescriptorType::eSampler;
+		case DescriptorType::eCombinedImageSampler:	 return vk::DescriptorType::eCombinedImageSampler;
+		case DescriptorType::eTextureSRV:			 return vk::DescriptorType::eSampledImage;
+		case DescriptorType::eTextureUAV:			 return vk::DescriptorType::eStorageImage;
 		case DescriptorType::eBufferSRV:
 		case DescriptorType::eBufferUAV:
 		case DescriptorType::eStorageBuffer:		 return vk::DescriptorType::eStorageBuffer;
@@ -67,11 +61,6 @@ namespace azo::rhi::vulkan
 			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set layout binding storage allocation failed");
 		}
 
-		/*
-		 * Immutable samplers are baked into the layout, so the VkSampler handles have to outlive this call. They are resolved into one flat vector that lives until
-		 * the layout is created, each binding pointing at its own run. A sampler carrying a Y'CbCr conversion is only bindable this way, which is what makes this the
-		 * path video sampling goes through.
-		 */
 		detail::HostVector<vk::Sampler> immutableSamplers;
 		std::size_t immutableTotal = 0;
 		for (const DescriptorBinding & b : desc.bindings)
@@ -83,7 +72,6 @@ namespace azo::rhi::vulkan
 			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan immutable sampler storage allocation failed");
 		}
 
-		// Both hold exactly one entry per binding and both were reserved for that many above, so the appends below cannot grow either one.
 		bool anyBindingFlags = false;
 		for (const DescriptorBinding & b : desc.bindings)
 		{
@@ -111,8 +99,6 @@ namespace azo::rhi::vulkan
 
 			bindings.emplace_back(b.binding, MapDescriptorType(b.type), b.count, MapShaderStages(b.stages), immutable);
 
-			// Map the RHI binding flags to Vulkan descriptor-indexing flags. eBindless is the umbrella for a large indexed array, which in Vulkan means at least
-			// partially-bound (unfilled slots are legal).
 			vk::DescriptorBindingFlags f{};
 			if (b.flags.Contains(DescriptorBindingFlag::ePartiallyBound) || b.flags.Contains(DescriptorBindingFlag::eBindless))
 			{
@@ -136,7 +122,6 @@ namespace azo::rhi::vulkan
 		{
 			flagsInfo.setBindingFlags(bindingFlags);
 			layoutInfo.pNext = &flagsInfo;
-			// An update-after-bind binding requires the matching layout create flag (and a pool that opts in).
 			for (const vk::DescriptorBindingFlags & bf : bindingFlags)
 			{
 				if (bf & vk::DescriptorBindingFlagBits::eUpdateAfterBind)
@@ -150,7 +135,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createDescriptorSetLayout(layoutInfo, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eNativeApiError, "Vulkan descriptor set layout creation failed");
+			return FailNativeValue<DescriptorSetLayoutHandle>(error, "Vulkan descriptor set layout creation failed", created.result);
 		}
 
 		DescriptorSetLayoutSlot slot{ .layout = created.value };
@@ -173,9 +158,7 @@ namespace azo::rhi::vulkan
 	void * VulkanCreateDescriptorArena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createDescriptorArena");
-		auto * device = static_cast<VulkanDevice *>(impl);
-		// The RHI gives a total descriptor budget: reserve that many of each Vulkan type so any layout the arena allocates fits. A unified pool is simpler than
-		// tracking per-type counts up front.
+		auto * device				= static_cast<VulkanDevice *>(impl);
 		const std::uint32_t perType = desc.maxDescriptors > 0 ? desc.maxDescriptors : 1;
 		const std::array<vk::DescriptorPoolSize, 10> poolSizes{ { { vk::DescriptorType::eUniformBuffer, perType },
 			{ vk::DescriptorType::eStorageBuffer, perType },
@@ -189,8 +172,6 @@ namespace azo::rhi::vulkan
 			{ vk::DescriptorType::eStorageTexelBuffer, perType } } };
 		const std::uint32_t maxSets = desc.maxSets > 0 ? desc.maxSets : 1;
 
-		// A layout with an update-after-bind binding sets eUpdateAfterBindPool so the pool it is allocated from must opt in too or the allocation fails with
-		// VK_ERROR_OUT_OF_POOL_MEMORY. Gate on the cap so this stays valid on adapters that do not support the feature.
 		vk::DescriptorPoolCreateFlags poolFlags{};
 		if (device->caps.supportsUpdateAfterBind)
 		{
@@ -199,7 +180,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createDescriptorPool(vk::DescriptorPoolCreateInfo(poolFlags, maxSets, poolSizes), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "Vulkan descriptor arena creation failed");
+			return FailNativeValue<void *>(error, "Vulkan descriptor arena creation failed", created.result);
 		}
 
 		auto arena = HostNew<VulkanDescriptorArena>();
@@ -237,7 +218,6 @@ namespace azo::rhi::vulkan
 		const vk::DescriptorSetAllocateInfo info(arena->pool, layout);
 		const auto allocated = device->device.allocateDescriptorSets<HostAllocatorAdapter<vk::DescriptorSet>>(info, device->dispatch);
 
-		// One layout was asked for, so a success that handed back nothing would leave front() reading an empty vector.
 		if (allocated.result != vk::Result::eSuccess || allocated.value.empty())
 		{
 			return FailValue<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set allocation failed");
@@ -257,18 +237,11 @@ namespace azo::rhi::vulkan
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.descriptorArena.reset");
 		auto * arena = static_cast<VulkanDescriptorArena *>(impl);
-		if (arena->owner->device.resetDescriptorPool(arena->pool, {}, arena->owner->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result reset = arena->owner->device.resetDescriptorPool(arena->pool, {}, arena->owner->dispatch); reset != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan descriptor pool reset failed");
+			return FailNative(error, "Vulkan descriptor pool reset failed", reset);
 		}
 
-		/*
-		 * The slots go back with the sets the pool just freed. Reset is the only way a set is reclaimed here, destroy of one being unsupported, so without this
-		 * every allocate takes a slot index for the life of the device: a per-frame arena walks through the twenty-four bit index space and then fails every
-		 * allocation from there on.
-		 *
-		 * Under the descriptor-set guard, which the facade takes around reset for exactly this walk.
-		 */
 		static_cast<void>(arena->owner->descriptorSetSlots.RetireIf(
 			[arena](const DescriptorSetSlot & slot) noexcept
 			{
@@ -304,7 +277,6 @@ namespace azo::rhi::vulkan
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsBuffer with an invalid set or buffer handle");
 			}
-			// The default range sentinel (uint64 max) is VK_WHOLE_SIZE so it passes through unchanged.
 			bufferInfos.emplace_back(vk::Buffer(buffer->buffer), w.offset, w.range);
 			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, MapDescriptorType(w.type), nullptr, &bufferInfos.back());
 		}
@@ -330,7 +302,7 @@ namespace azo::rhi::vulkan
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsTexture with an invalid set or view handle");
 			}
 			const vk::Sampler sampler = w.sampler.IsValid() ? ResolveSampler(device, w.sampler) : vk::Sampler{};
-			imageInfos.emplace_back(sampler, view, MapTextureLayout(w.expectedLayout));
+			imageInfos.emplace_back(sampler, view, LayoutForUse(w.expectedUse, device->unifiedImageLayouts));
 			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, MapDescriptorType(w.type), &imageInfos.back());
 		}
 
@@ -362,8 +334,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	// Binds a descriptor set. The RHI bind carries no pipeline bind point so the set is bound for both graphics and compute (binding is independent of the bound
-	// pipeline so the unused point is harmless).
 	bool VulkanCmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
 	{
@@ -376,12 +346,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet with an invalid layout or set handle");
 		}
 
-		/*
-		 * pDynamicOffsets is a flat array Vulkan reads in binding order, then array element within a binding. The caller's array order is not the order it goes in.
-		 * Forwarding their list untouched applies each offset to whichever dynamic binding sits at that index, reading the wrong part of the right buffer.
-		 *
-		 * Walked off the layout, not sorted, because the array needs one entry per dynamic descriptor the set declares. A binding the caller left out takes zero.
-		 */
 		const DescriptorSetSlot * const slot = device->descriptorSetSlots.Resolve(set, kHandleAlreadyChecked);
 		const DescriptorSetLayoutSlot * const setLayout =
 			slot != nullptr ? device->descriptorSetLayoutSlots.Resolve(slot->layout, kHandleAlreadyChecked) : nullptr;
@@ -390,12 +354,6 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet cannot resolve the layout the set was allocated from");
 		}
 
-		/*
-		 * The dynamic bindings this set declares, ascending, which is the order Vulkan reads pDynamicOffsets in.
-		 *
-		 * Collected, not taken from the caller's list because the array has to hold one entry per dynamic descriptor the layout declares whether or not they named
-		 * it, and because their order is theirs and not the layout's.
-		 */
 		detail::HostVector<const DescriptorBinding *> dynamics;
 		for (const DescriptorBinding & entry : setLayout->bindings)
 		{
@@ -416,14 +374,11 @@ namespace azo::rhi::vulkan
 		{
 			for (std::uint32_t element = 0; element < dynamic->count; ++element)
 			{
-				// Unnamed is zero, which is what an offset a caller did not state means.
 				std::uint32_t chosen = 0;
 				for (const DynamicDescriptorOffset & offset : dynamicOffsets)
 				{
 					if (offset.binding == dynamic->binding && offset.arrayIndex == element)
 					{
-						// Vulkan states a dynamic offset in 32 bits, so one that does not fit cannot be bound at all. Refused rather than truncated, which would
-						// bind a perfectly legal looking offset into the wrong part of a buffer with nothing anywhere reporting it.
 						if (offset.offset > std::numeric_limits<std::uint32_t>::max())
 						{
 							return Fail(error, ErrorCode::eInvalidArgument, "a dynamic descriptor offset does not fit the 32 bits Vulkan binds it in");
@@ -443,4 +398,4 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::vulkan
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -49,24 +44,19 @@ namespace
 	constexpr std::uint64_t kScratchBytes = 4096;
 	constexpr std::uint64_t kNoTimeout	  = std::numeric_limits<std::uint64_t>::max();
 
-	// Paced, not run flat out. Clearing a buffer six hundred times finishes in about the time Tracy takes to draw one frame, and a timeline where every frame
-	// landed in the same millisecond has nothing in it to read.
 	constexpr std::uint64_t kFrameCount			  = 600;
 	constexpr std::chrono::milliseconds kInterval = std::chrono::milliseconds(16);
 
-	// One slot of the ring: the pool a frame records from and the timeline value that retires it.
 	struct FrameSlot final
 	{
 		rhi::CommandPool pool;
 		std::uint64_t submitted = 0;
 	};
 
-	// The second sink, so the fan-out below is doing something visible. It counts what it is handed and stops there, which is enough to show that installing
-	// Tracy's sink did not cost the application its own.
 	class ZoneCounter final : public rhi::Profiler
 	{
 	public:
-		void BeginZone(const rhi::ZoneLocation & /*location*/) override
+		void BeginZone(const rhi::ZoneLocation &) override
 		{
 			m_zones.fetch_add(1, std::memory_order_relaxed);
 		}
@@ -77,12 +67,9 @@ namespace
 		}
 
 	private:
-		// Calls arrive from whichever thread is recording, so the counter is atomic. A sink that is not thread safe is a data race waiting for a second thread.
 		std::atomic<std::uint64_t> m_zones{ 0 };
 	};
 
-	// The RHI owns none of these so they have to outlive every device that might report into them, which is what puts all four here and not in main. The profiler
-	// slot holds one sink, so wanting the RHI's events in Tracy and somewhere else as well is a fan-out and not a choice.
 	rhi::TracyProfiler g_tracy;
 	ZoneCounter g_counter;
 	std::array<rhi::Profiler *, 2> g_sinks{ &g_tracy, &g_counter };
@@ -90,8 +77,6 @@ namespace
 
 #ifdef TRACY_ON_DEMAND
 
-	// An on-demand client records nothing until a server connects, so a run that starts first and finishes first hands over an empty capture. Waiting is what
-	// keeps the reader from having to race the sample to its own profiler.
 	bool WaitForServer()
 	{
 		constexpr std::chrono::milliseconds kPollInterval = std::chrono::milliseconds(100);
@@ -107,20 +92,17 @@ namespace
 		return TracyIsConnected;
 	}
 
-#endif // TRACY_ON_DEMAND
+#endif
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
-	// Installed before the device exists so bring-up is instrumented along with the frames, which is where the expensive part of a backend usually is.
 	rhi::SetProfiler(&g_broadcast);
 
 	constexpr rhi::BuildInfo build = rhi::GetBuildInfo();
 	if (!build.profilingEnabled)
 	{
-		// With AZOTH_RHI_ENABLE_PROFILING off every instrumentation point in the library compiles to nothing, so the capture holds this sample's own zones and none
-		// of the RHI's. Said here, not left to look like a Tracy problem.
 		LOG_INFO(fw::Log(), "note: this build has profiling compiled out, so the RHI will report nothing");
 	}
 
@@ -184,12 +166,8 @@ int main(int argc, char ** argv)
 
 	for (std::uint64_t frame = 1; frame <= kFrameCount; ++frame)
 	{
-		// At the top of the loop and not the bottom, which puts it between the zone below and the frame mark that closed the last one. The frame zone is then
-		// measuring the frame's work instead of the wait that paced it.
 		std::this_thread::sleep_for(kInterval);
 
-		// The sample's own zone, opened with Tracy's macro, not through the sink. Everything the RHI reports between here and the closing brace nests inside it,
-		// which is what handing the library the application's own client buys.
 		ZoneScopedN("frame");
 
 		FrameSlot & slot = slots[(frame - 1) % kFramesInFlight];
@@ -261,7 +239,6 @@ int main(int argc, char ** argv)
 		dev.Destroy(scratch, retired, error);
 		dev.CollectGarbage(timeline, completed, error);
 
-		// What turns a run of zones into frames Tracy can slice on, and the reason its frame time graph has anything in it.
 		FrameMark;
 	}
 
@@ -276,7 +253,6 @@ int main(int argc, char ** argv)
 
 	LOG_INFO(fw::Log(), "{} frames, {} RHI zones through both sinks", kFrameCount, g_counter.Zones());
 
-	// Cleared before the sinks go away at exit, since the library holds the pointer and not a reference to something it owns.
 	rhi::SetProfiler(nullptr);
 	return 0;
 }

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -109,7 +104,7 @@ namespace azo::rhi::test::minimal
 			return Succeed(error);
 		}
 
-	} // namespace
+	}
 
 	namespace
 	{
@@ -360,11 +355,6 @@ namespace azo::rhi::test::minimal
 					[](void * impl) noexcept
 				{
 					return static_cast<Object *>(impl)->queueType;
-				},
-				.getFamilyIndex =
-					[](void *) noexcept
-				{
-					return std::uint32_t{ 0 };
 				},
 				.submit =
 					[](void *, const SubmitDesc &, Error * error) noexcept
@@ -717,13 +707,12 @@ namespace azo::rhi::test::minimal
 			Object * device	 = New(Presenting ? PresentingDeviceObject() : HeadlessDeviceObject(), Presenting);
 			device->instance = static_cast<Object *>(instanceImpl);
 
-			device->caps.apiId					  = Presenting ? PresentingApi::id : HeadlessApi::id;
-			device->caps.graphicsQueueCount		  = 1;
-			device->caps.computeQueueCount		  = 1;
-			device->caps.copyQueueCount			  = 1;
-			device->caps.supportsDynamicRendering = true;
-			device->adapter.apiId				  = device->caps.apiId;
-			device->adapter.name				  = Presenting ? "Minimal presenting fixture" : "Minimal headless fixture";
+			device->caps.apiId				= Presenting ? PresentingApi::id : HeadlessApi::id;
+			device->caps.graphicsQueueCount = 1;
+			device->caps.computeQueueCount	= 1;
+			device->caps.copyQueueCount		= 1;
+			device->adapter.apiId			= device->caps.apiId;
+			device->adapter.name			= Presenting ? "Minimal presenting fixture" : "Minimal headless fixture";
 
 			return device;
 		}
@@ -764,7 +753,7 @@ namespace azo::rhi::test::minimal
 			return New(PublishingObject<Published<InstanceApi, &InstanceBlock<Presenting>>>(), Presenting);
 		}
 
-	} // namespace
+	}
 
 	Result<void> RegisterHeadless(GraphicsApiRegistry & registry)
 	{
@@ -802,4 +791,4 @@ namespace azo::rhi::test::minimal
 		return g_live.load(std::memory_order_relaxed);
 	}
 
-} // namespace azo::rhi::test::minimal
+}

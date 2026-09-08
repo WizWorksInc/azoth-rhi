@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -130,7 +125,6 @@ namespace
 		EXPECT_EQ(desc.arrayLayers, 1u);
 		EXPECT_EQ(desc.samples, rhi::SampleCount::e1);
 		EXPECT_TRUE(desc.usage.Empty());
-		EXPECT_EQ(desc.initialLayout, rhi::TextureLayout::eUndefined);
 	}
 
 	TEST(TextureBuilder, ExtentDefaultsTheDimensionsATwoDimensionalTextureDoesNotUse)
@@ -157,7 +151,6 @@ namespace
 										  .Samples(rhi::SampleCount::e4)
 										  .AddUsage(rhi::TextureUsage::eSampled)
 										  .AddUsage(rhi::TextureUsage::eColorAttachment)
-										  .InitialLayout(rhi::TextureLayout::eShaderReadOnly)
 										  .Memory(rhi::MemoryUsage::eGpuOnly)
 										  .Build();
 
@@ -168,7 +161,6 @@ namespace
 		EXPECT_EQ(desc.samples, rhi::SampleCount::e4);
 		EXPECT_TRUE(desc.usage.Contains(rhi::TextureUsage::eSampled));
 		EXPECT_TRUE(desc.usage.Contains(rhi::TextureUsage::eColorAttachment));
-		EXPECT_EQ(desc.initialLayout, rhi::TextureLayout::eShaderReadOnly);
 	}
 
 	TEST(MapBuilder, DefaultsToWritingTheWholeBuffer)
@@ -262,4 +254,4 @@ namespace
 		EXPECT_EQ(asTexture.priority, rhi::ResidencyPriority::eNormal);
 	}
 
-} // namespace
+}

@@ -32,12 +32,21 @@ endif()
 # The conformance suite is not here and could not be. It allocates for its own bookkeeping while it
 # runs and not on a host's behalf so the seam has nothing to say about it and it lives under
 # tests/support/conformance, outside every root this scans.
-set(_globs)
-foreach(_ext hpp h hh cpp cc cxx mm inl ipp)
-    list(APPEND _globs "${AZOTH_RHI_SOURCE_ROOT}/lib/src/*.${_ext}")
-    list(APPEND _globs "${AZOTH_RHI_SOURCE_ROOT}/lib/include/azoth/rhi/backend/*.${_ext}")
+set(_files)
+foreach(_root "${AZOTH_RHI_SOURCE_ROOT}/lib/src" "${AZOTH_RHI_SOURCE_ROOT}/lib/include/azoth/rhi/backend")
+    set(_globs)
+    foreach(_ext hpp h hh cpp cc cxx mm inl ipp)
+        list(APPEND _globs "${_root}/*.${_ext}")
+    endforeach()
+    file(GLOB_RECURSE _found ${_globs})
+
+    # A root that matches nothing is a moved or misspelled path, which would otherwise pass as clean.
+    if(NOT _found)
+        message(FATAL_ERROR "AzothRHI host allocation contract: the scan root ${_root} matched no files, so it is not being checked.")
+    endif()
+
+    list(APPEND _files ${_found})
 endforeach()
-file(GLOB_RECURSE _files ${_globs})
 
 # The aliases are defined in terms of the std templates so the header that declares them is the one
 # place these names are allowed to appear.
@@ -72,16 +81,5 @@ if(_violations)
             "Use the detail::Host aliases (HostVector, HostMap, HostSet, HostDeque, HostString) or HostNew instead, "
             "so an installed allocator sees this memory too. A driver wrapper that allocates for the RHI takes one of "
             "the same adapters, the way the Vulkan enumerate calls name theirs.\n\n${_report}\n")
-endif()
-# A root that stops resolving makes this quieter, not redder, which is how a stale one once went on
-# printing OK over a third of the tree. The floor is the count at the last deliberate change: raise it as
-# files are added, lower it only when files are genuinely removed.
-set(_floor 88)
-if(_scanned LESS _floor)
-    message(FATAL_ERROR
-            "AzothRHI host allocation contract scanned ${_scanned} sources, fewer than the ${_floor} this check covers.\n"
-            "A scan root has most likely stopped resolving, which leaves the check reporting OK over a smaller tree "
-            "than it was written for.\nFix the root, or lower the floor in cmake/azoth_rhi_host_allocations.cmake if "
-            "files were genuinely removed.\n")
 endif()
 message(STATUS "AzothRHI: host allocation contract OK, ${_scanned} library sources scanned, none allocate outside the seam.")

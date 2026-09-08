@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -36,7 +31,7 @@ namespace azo::rhi::d3d12
 		ComPtr<D3D12MA::Allocation> allocation;
 		ComPtr<ID3D12Resource> resource;
 		if (FAILED(device->allocator->CreateResource(
-				&allocationDesc, &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()))))
+				&allocationDesc, &bufferDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()))))
 		{
 			return nullptr;
 		}
@@ -46,13 +41,25 @@ namespace azo::rhi::d3d12
 		return raw;
 	}
 
-	/*
-	 * The footprint of one copy region, not of the whole subresource.
-	 *
-	 * GetCopyableFootprints describes an entire mip so asking it about a texture the size of the region instead keeps the block-format and row-alignment math
-	 * in the runtime without repeating it here. Mips is 1 because the synthetic desc has only the one level the region lives on and depth carries the
-	 * region extent only for 3D, since a region on an array texture is a single slice.
-	 */
+	void BarrierScratchToSource(D3D12CommandList * list, ID3D12Resource * scratch) noexcept
+	{
+		const D3D12_BUFFER_BARRIER toSource{
+			.SyncBefore	  = D3D12_BARRIER_SYNC_COPY,
+			.SyncAfter	  = D3D12_BARRIER_SYNC_COPY,
+			.AccessBefore = D3D12_BARRIER_ACCESS_COPY_DEST,
+			.AccessAfter  = D3D12_BARRIER_ACCESS_COPY_SOURCE,
+			.pResource	  = scratch,
+			.Offset		  = 0,
+			.Size		  = std::numeric_limits<UINT64>::max(),
+		};
+
+		D3D12_BARRIER_GROUP group{};
+		group.Type			  = D3D12_BARRIER_TYPE_BUFFER;
+		group.NumBarriers	  = 1;
+		group.pBufferBarriers = &toSource;
+		list->list7->Barrier(1, &group);
+	}
+
 	[[nodiscard]] D3D12_RESOURCE_DESC RegionFootprintDesc(const D3D12_RESOURCE_DESC & texDesc, const Extent3D & extent) noexcept
 	{
 		D3D12_RESOURCE_DESC regionDesc = texDesc;
@@ -63,7 +70,6 @@ namespace azo::rhi::d3d12
 		return regionDesc;
 	}
 
-	// The source box a region names on the texture side, for the copies that read from a texture.
 	[[nodiscard]] D3D12_BOX RegionSourceBox(const Offset3D & offset, const Extent3D & extent) noexcept
 	{
 		D3D12_BOX box{};
@@ -76,7 +82,6 @@ namespace azo::rhi::d3d12
 		return box;
 	}
 
-	// A region with no volume copies nothing. Skipping keeps a zero out of the synthetic desc, which the runtime would reject.
 	[[nodiscard]] bool RegionIsEmpty(const Extent3D & extent) noexcept
 	{
 		return extent.width == 0 || extent.height == 0 || extent.depth == 0;
@@ -105,7 +110,6 @@ namespace azo::rhi::d3d12
 
 			const UINT subresource = SubresourceIndex(region.subresource, dstSlot->mipLevels);
 
-			// Footprint of the region, not of the whole mip so the copy honors textureExtent as the other backends do.
 			const D3D12_RESOURCE_DESC regionDesc = RegionFootprintDesc(texDesc, region.textureExtent);
 
 			D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
@@ -113,7 +117,6 @@ namespace azo::rhi::d3d12
 			UINT64 rowSizeInBytes = 0;
 			device->device->GetCopyableFootprints(&regionDesc, 0, 1, region.bufferOffset, &footprint, &numRows, &rowSizeInBytes, nullptr);
 
-			// A zero bufferRowLength means tightly packed, here and in the other backends so the stride is that or the explicit length.
 			const std::uint64_t srcRowPitch =
 				region.bufferRowLength != 0 ? static_cast<std::uint64_t>(region.bufferRowLength) * rowSizeInBytes / footprint.Footprint.Width : rowSizeInBytes;
 
@@ -124,7 +127,6 @@ namespace azo::rhi::d3d12
 
 			if (srcRowPitch != footprint.Footprint.RowPitch)
 			{
-				// An unaligned source pitch cannot be read directly so repack each row into aligned scratch first. The aligned case skips this.
 				const UINT64 alignedPitch = footprint.Footprint.RowPitch;
 				const UINT slices		  = footprint.Footprint.Depth;
 				ID3D12Resource * scratch  = AllocateCopyScratch(device, list, alignedPitch * numRows * slices);
@@ -141,13 +143,7 @@ namespace azo::rhi::d3d12
 						list->list->CopyBufferRegion(scratch, scratchOff, srcSlot->resource.Get(), srcOff, rowSizeInBytes);
 					}
 				}
-				D3D12_RESOURCE_BARRIER toSource{};
-				toSource.Type					= D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				toSource.Transition.pResource	= scratch;
-				toSource.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				toSource.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-				toSource.Transition.StateAfter	= D3D12_RESOURCE_STATE_COPY_SOURCE;
-				list->list->ResourceBarrier(1, &toSource);
+				BarrierScratchToSource(list, scratch);
 
 				D3D12_PLACED_SUBRESOURCE_FOOTPRINT scratchFootprint = footprint;
 				scratchFootprint.Offset								= 0;
@@ -201,7 +197,6 @@ namespace azo::rhi::d3d12
 
 			const UINT subresource = SubresourceIndex(region.subresource, srcSlot->mipLevels);
 
-			// Footprint of the region, not of the whole mip so the buffer layout matches what the source box below actually reads.
 			const D3D12_RESOURCE_DESC regionDesc = RegionFootprintDesc(texDesc, region.textureExtent);
 			const D3D12_BOX srcBox				 = RegionSourceBox(region.textureOffset, region.textureExtent);
 
@@ -210,7 +205,6 @@ namespace azo::rhi::d3d12
 			UINT64 rowSizeInBytes = 0;
 			device->device->GetCopyableFootprints(&regionDesc, 0, 1, region.bufferOffset, &footprint, &numRows, &rowSizeInBytes, nullptr);
 
-			// A zero bufferRowLength means the destination buffer is tightly packed (Vulkan/Metal semantics).
 			const std::uint64_t dstRowPitch =
 				region.bufferRowLength != 0 ? static_cast<std::uint64_t>(region.bufferRowLength) * rowSizeInBytes / footprint.Footprint.Width : rowSizeInBytes;
 
@@ -221,7 +215,6 @@ namespace azo::rhi::d3d12
 
 			if (dstRowPitch != footprint.Footprint.RowPitch)
 			{
-				// D3D12 writes with an aligned pitch into a tightly packed buffer so stage through aligned scratch and repack each row.
 				const UINT64 alignedPitch = footprint.Footprint.RowPitch;
 				const UINT slices		  = footprint.Footprint.Depth;
 				ID3D12Resource * scratch  = AllocateCopyScratch(device, list, alignedPitch * numRows * slices);
@@ -237,13 +230,7 @@ namespace azo::rhi::d3d12
 				scratchDst.PlacedFootprint = scratchFootprint;
 				list->list->CopyTextureRegion(&scratchDst, 0, 0, 0, &srcLoc, &srcBox);
 
-				D3D12_RESOURCE_BARRIER toSource{};
-				toSource.Type					= D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				toSource.Transition.pResource	= scratch;
-				toSource.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				toSource.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-				toSource.Transition.StateAfter	= D3D12_RESOURCE_STATE_COPY_SOURCE;
-				list->list->ResourceBarrier(1, &toSource);
+				BarrierScratchToSource(list, scratch);
 
 				for (UINT slice = 0; slice < slices; ++slice)
 				{
@@ -317,14 +304,12 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// Block-compressed formats can be neither a UAV target nor linearly resampled so full validation rejects them as Vulkan does.
 	[[nodiscard]] bool IsBlockCompressedDxgiFormat(DXGI_FORMAT format) noexcept
 	{
 		return (format >= DXGI_FORMAT_BC1_TYPELESS && format <= DXGI_FORMAT_BC5_SNORM) ||
 			   (format >= DXGI_FORMAT_BC6H_TYPELESS && format <= DXGI_FORMAT_BC7_UNORM_SRGB);
 	}
 
-	// Integer formats cannot be linearly filtered by a sampler so full validation rejects them for a linear filter, as Vulkan does.
 	[[nodiscard]] bool IsIntegerDxgiFormat(DXGI_FORMAT format) noexcept
 	{
 		switch (format)
@@ -339,12 +324,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	/*
-	 * Clears a range to a repeated 32-bit value through ClearUnorderedAccessViewUint. The buffer needs eStorage for its UAV and must be in UNORDERED_ACCESS.
-	 * D3D12 wants that UAV in both a CPU heap and a bound shader-visible one so a per-list pair is created on first use. Binding the shader-visible one
-	 * clobbers the app's heaps, forcing the next bindDescriptorSet to rebind.
-	 */
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

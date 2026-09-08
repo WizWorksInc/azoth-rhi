@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -70,15 +65,11 @@ namespace azo::rhi
 			return threading.GetError();
 		}
 
-		// No instance in the static form so the device has none to retire when it goes.
-		const char * refusedReason	= nullptr;
-		metal::MetalDevice * device = metal::MakeOwnedDevice(nullptr, desc, refusedReason);
+		Error refusal{};
+		metal::MetalDevice * device = metal::MakeOwnedDevice(nullptr, desc, refusal);
 		if (device == nullptr)
 		{
-			return Error{
-				.code	 = refusedReason != nullptr ? ErrorCode::eUnsupportedFeature : ErrorCode::eNativeApiError,
-				.message = refusedReason != nullptr ? refusedReason : "no Metal device available",
-			};
+			return refusal.code != ErrorCode::eOk ? refusal : Error{ .code = ErrorCode::eNativeApiError, .message = "no Metal device available" };
 		}
 
 		Error error{};
@@ -96,9 +87,10 @@ namespace azo::rhi
 	{
 		MetalCommandListView NativeAccess<MetalApi>::MakeCommandListView(void * commandListImpl) noexcept
 		{
-			return MetalCommandListView{ .commandBuffer = CmdBufferOf(static_cast<metal::MetalObject *>(commandListImpl)) };
+			auto * object = static_cast<metal::MetalObject *>(detail::NativeImplOf(commandListImpl, metal::RenderCommandBlock()));
+			return MetalCommandListView{ .commandBuffer = object != nullptr ? CmdBufferOf(object) : nullptr };
 		}
-	} // namespace native
+	}
 
 	Result<MetalNativeDevice> GetMetalNativeDevice(Device device)
 	{
@@ -125,6 +117,20 @@ namespace azo::rhi
 		};
 	}
 
+	Result<native::MetalQueueView> GetMetalQueueView(Queue queue)
+	{
+		const auto * object = static_cast<metal::MetalObject *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), metal::QueueBlock()));
+		if (object == nullptr)
+		{
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "GetMetalQueueView called on a queue that is not a Metal 3 one",
+			};
+		}
+
+		return native::MetalQueueView{ .queue = object->owner->CommandQueueFor(object->queueType) };
+	}
+
 	MTL::CommandBuffer * GetMetalCommandBuffer(CommandList commandList)
 	{
 		auto * object = static_cast<metal::MetalObject *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandList), metal::RenderCommandBlock()));
@@ -137,6 +143,6 @@ namespace azo::rhi
 		return object != nullptr && object->list != nullptr ? object->list->renderEncoder.get() : nullptr;
 	}
 
-} // namespace azo::rhi
+}
 
-#endif // __APPLE__
+#endif

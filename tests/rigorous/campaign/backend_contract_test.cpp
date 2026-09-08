@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -104,16 +99,20 @@ namespace
 		ASSERT_TRUE(test::Ok(list.IsValid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
-		const std::array toCopy{ rhi::BufferBarrier{ .buffer = target,
-			.before										= { .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined, },
-			.after = { .stages = rhi::PipelineStage::eCopy, .access = rhi::Access::eCopyWrite, .layout = rhi::TextureLayout::eUndefined } } };
+		const std::array toCopy{
+			rhi::BufferBarrier{
+				.buffer = target,
+				.before = { .use = rhi::ResourceUse::eDiscard },
+				.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+			},
+		};
 		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 		ASSERT_TRUE(test::Ok(list.CopyBuffer(target, 0, upload, 0, test::samples::kBufferSize, error), error));
 		ASSERT_TRUE(test::Ok(list.End(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{
-			rhi::TimelinePoint{ .timeline = frameTimeline, .value = 1, .waitStages = rhi::PipelineStage::eAllCommands },
+			rhi::TimelinePoint{ .timeline = frameTimeline, .value = 1, .waitStages = rhi::Stage::eAllCommands },
 		};
 
 		const rhi::SubmitDesc submit{
@@ -163,7 +162,7 @@ namespace
 
 			std::array<const rhi::CommandList *, 1> lists{ &list };
 			const std::array signals{
-				rhi::TimelinePoint{ .timeline = timeline, .value = frame, .waitStages = rhi::PipelineStage::eAllCommands },
+				rhi::TimelinePoint{ .timeline = timeline, .value = frame, .waitStages = rhi::Stage::eAllCommands },
 			};
 			ASSERT_TRUE(test::Ok(queue.Submit(
 									 rhi::SubmitDesc{
@@ -209,4 +208,4 @@ namespace
 		test::oracle::CheckResourceLifecycle(Dev());
 	}
 
-} // namespace
+}

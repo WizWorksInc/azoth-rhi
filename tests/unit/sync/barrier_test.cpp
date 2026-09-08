@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -41,29 +36,17 @@ namespace
 
 	[[nodiscard]] rhi::ResourceState UntouchedState() noexcept
 	{
-		return rhi::ResourceState{
-			.stages = rhi::PipelineStage::eNone,
-			.access = rhi::Access::eNone,
-			.layout = rhi::TextureLayout::eUndefined,
-		};
+		return rhi::ResourceState{ .use = rhi::ResourceUse::eDiscard };
 	}
 
 	[[nodiscard]] rhi::ResourceState CopyDestinationState() noexcept
 	{
-		return rhi::ResourceState{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
+		return rhi::ResourceState{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 	}
 
 	[[nodiscard]] rhi::ResourceState ShaderReadState() noexcept
 	{
-		return rhi::ResourceState{
-			.stages = rhi::PipelineStage::eFragmentShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		return rhi::ResourceState{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 	}
 
 	TEST_P(BarrierTest, RecordsAnEmptyBarrierBatch)
@@ -81,9 +64,8 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		const std::array memory{ rhi::MemoryBarrier{
-			.before = { .stages = rhi::PipelineStage::eComputeShader, .access = rhi::Access::eShaderWrite, .layout = {} },
-			.after	= { .stages = rhi::PipelineStage::eFragmentShader, .access = rhi::Access::eShaderRead, .layout = {} } } };
+		const std::array memory{ rhi::MemoryBarrier{ .before = { .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute },
+			.after											 = { .use = rhi::ResourceUse::eStorageRead, .stages = rhi::Stage::eFragmentShading } } };
 
 		rhi::Error error{};
 		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .memory = memory }, error), error));
@@ -248,7 +230,7 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	TEST_P(BarrierTest, AcceptsAQueueFamilyTransferThatTransfersNothing)
+	TEST_P(BarrierTest, AcceptsAnOwnershipFieldThatTransfersNothing)
 	{
 		rhi::Error error{};
 		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
@@ -260,7 +242,7 @@ namespace
 		const std::array barriers{ rhi::BufferBarrier{ .buffer = buffer,
 			.before											   = UntouchedState(),
 			.after											   = CopyDestinationState(),
-			.ownership										   = rhi::QueueFamilyTransfer{ .src = rhi::kIgnoreQueueFamily, .dst = rhi::kIgnoreQueueFamily } } };
+			.ownership										   = rhi::QueueOwnership{ .op = rhi::OwnershipOp::eNone } } };
 
 		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = barriers }, error), error));
 
@@ -268,4 +250,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-} // namespace
+}

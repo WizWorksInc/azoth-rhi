@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -64,13 +59,6 @@ namespace azo::rhi::metal
 			depth->setClearDepth(desc.depthStencil->clearDepthStencil.depth);
 		}
 
-		/*
-		 * The scope's timestamps, which is the portable way to time one because both sample points are where Metal fixes them anyway. Two paths, chosen by what
-		 * the adapter samples at and not by preference.
-		 *
-		 * Where it samples at a stage boundary the points are named on the pass descriptor here and Metal writes them itself. Where it samples at a draw
-		 * boundary the encoder takes each sample by command. The begin is recorded below and the end by MetalEndRendering.
-		 */
 		MetalQueryPool * timestamps = nullptr;
 		if (desc.timestamps != nullptr)
 		{
@@ -90,13 +78,6 @@ namespace azo::rhi::metal
 				const NS::UInteger begin = desc.timestamps->beginQuery != kInvalidIndex ? desc.timestamps->beginQuery : MTL::CounterDontSample;
 				const NS::UInteger end	 = desc.timestamps->endQuery != kInvalidIndex ? desc.timestamps->endQuery : MTL::CounterDontSample;
 
-				/*
-				 * The end is both stage ends aimed at one slot, which is deliberate and not a duplicate. A pass with no fragment work has no fragment stage
-				 * boundary and end-of-fragment alone would leave the slot unwritten. Measured on an Apple part, a clear-and-store pass with no draws wrote both
-				 * vertex boundaries and neither fragment one.
-				 *
-				 * Both ends together resolve to whichever the GPU reaches last. The slot always holds the end of the pass.
-				 */
 				MTL::RenderPassSampleBufferAttachmentDescriptor * attachment = pass->sampleBufferAttachments()->object(0);
 				attachment->setSampleBuffer(timestamps->sampleBuffer.get());
 				attachment->setStartOfVertexSampleIndex(begin);
@@ -114,6 +95,7 @@ namespace azo::rhi::metal
 		}
 		ConsumeAliasWait(object->list, encoder);
 		object->list->renderEncoder = NS::RetainPtr(encoder);
+		++object->list->encoderEpoch;
 
 		if (timestamps != nullptr && !device->samplesAtStageBoundary && device->samplesAtDrawBoundary)
 		{
@@ -135,14 +117,13 @@ namespace azo::rhi::metal
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list != nullptr && object->list->renderEncoder.get() != nullptr)
 		{
-			// The scope's end timestamp on an adapter that samples by command, left here by MetalBeginRendering because this is the last point the encoder is
-			// still open. The stage-boundary path has nothing to do, Metal having written the sample from the pass descriptor.
 			if (object->list->pendingEndTimestamp.get() != nullptr)
 			{
 				object->list->renderEncoder->sampleCountersInBuffer(object->list->pendingEndTimestamp.get(), object->list->pendingEndQuery, false);
 				object->list->pendingEndTimestamp.reset();
 			}
 
+			PopEncoderDebugGroups(object->list, object->list->renderEncoder.get());
 			object->list->renderEncoder->endEncoding();
 			object->list->renderEncoder.reset();
 		}
@@ -189,8 +170,6 @@ namespace azo::rhi::metal
 		{
 			return Fail(error, ErrorCode::eInvalidState, "setViewport outside a rendering scope");
 		}
-		// Metal's own NDC runs Y up so eYUp needs nothing done. Presenting eYDown means flipping: origin to the bottom edge, height negated. Winding is
-		// left as authored either way.
 		double originY = viewport.y;
 		double height  = viewport.height;
 		if (GetClipSpace() == ClipSpaceConvention::eYDown)
@@ -294,18 +273,11 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidState, "pushConstants outside a recording scope");
 		}
 
-		/*
-		 * setVertexBytes, setFragmentBytes and setBytes upload the whole block at buffer 0 with no destination offset so a partial update would write the
-		 * sub-range to the start of the block and corrupt the earlier fields. Only a full-block push from offset 0 can be honored faithfully without a shadow
-		 * copy.
-		 */
 		if (offset != 0)
 		{
 			return Fail(error, ErrorCode::eUnsupportedFeature, "Metal pushConstants only supports a full update from offset 0");
 		}
 
-		// Slang lowers push constants to a small Metal buffer set inline, whichever kind of encoder is open. Buffer 0 is reserved for it, which is what
-		// keeps MetalArgumentBufferIndexForSet from having to know whether a layout has one.
 		constexpr std::uint32_t index = kMetalPushConstantIndex;
 		if (MTL::RenderCommandEncoder * render = object->list->renderEncoder.get(); render != nullptr)
 		{
@@ -320,9 +292,11 @@ namespace azo::rhi::metal
 			return Succeed(error);
 		}
 
-		// Outside a rendering scope this is a compute push, which is the same block on the same index of the compute encoder. Opened here the way binding a
-		// descriptor set opens one, so the order of the two against a dispatch does not matter.
-		EnsureComputeEncoder(object);
+		if (!EnsureComputeEncoder(object, error))
+		{
+			return false;
+		}
+
 		MTL::ComputeCommandEncoder * compute = object->list->computeEncoder.get();
 		if (compute == nullptr)
 		{
@@ -365,11 +339,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	/*
-	 * Metal takes one indirect draw per call so a batch is drawCount calls walking the buffer by stride. MTLDrawPrimitivesIndirectArguments holds the same four
-	 * uints the RHI documents so the caller's buffer needs no fixup. A zero stride means tightly packed, since a buffer built for one draw is the common way to
-	 * reach this.
-	 */
 	bool MetalDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
@@ -385,7 +354,7 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidHandle, "drawIndirect names a buffer this device never created");
 		}
 
-		constexpr std::uint32_t kIndirectArgsSize = 16; // four uints
+		constexpr std::uint32_t kIndirectArgsSize = 16;
 		const std::uint64_t step				  = stride != 0 ? stride : kIndirectArgsSize;
 		MTL::RenderCommandEncoder * encoder		  = object->list->renderEncoder.get();
 		for (std::uint32_t draw = 0; draw < drawCount; ++draw)
@@ -415,7 +384,6 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirect names a buffer this device never created");
 		}
 
-		// MTLDrawIndexedPrimitivesIndirectArguments is five words: indexCount, instanceCount, indexStart, baseVertex, baseInstance.
 		constexpr std::uint32_t kIndexedIndirectArgsSize = 20;
 		const std::uint64_t step						 = stride != 0 ? stride : kIndexedIndirectArgsSize;
 		for (std::uint32_t draw = 0; draw < drawCount; ++draw)
@@ -430,6 +398,4 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	// Lazily opens the compute encoder. bindDescriptorSet can run before setComputePipeline so both ensure the encoder exists first.
-
-} // namespace azo::rhi::metal
+}

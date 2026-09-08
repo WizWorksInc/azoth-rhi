@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -20,6 +15,7 @@
 
 #include <gtest/gtest.h>
 
+#include <format>
 #include <ostream>
 #include <string_view>
 
@@ -51,6 +47,7 @@ namespace azo::rhi::test
 		case ErrorCode::ePipelineCacheIncompatible: return "ePipelineCacheIncompatible";
 		case ErrorCode::eNativeApiError:			return "eNativeApiError";
 		case ErrorCode::eIncompatibleAbi:			return "eIncompatibleAbi";
+		case ErrorCode::eNoCompatibleAdapter:		return "eNoCompatibleAdapter";
 		}
 		return "<unnamed ErrorCode>";
 	}
@@ -60,6 +57,11 @@ namespace azo::rhi::test
 		std::string text{ ErrorCodeName(error.code) };
 		text += " (";
 		text += error.message != nullptr ? error.message : "no diagnostic";
+		if (error.nativeCode != 0)
+		{
+			// Both forms, because an HRESULT is read as hex and a VkResult as a small signed integer.
+			text += std::format(", native 0x{:08x} / {}", static_cast<unsigned>(error.nativeCode), error.nativeCode);
+		}
 		text += ')';
 		return text;
 	}
@@ -123,6 +125,11 @@ namespace azo::rhi::test
 		return ::testing::AssertionSuccess();
 	}
 
+	[[nodiscard]] constexpr bool NoAdapterHere(const Error & error) noexcept
+	{
+		return error.code == ErrorCode::eNoCompatibleAdapter;
+	}
+
 	template <class T>
 	[[nodiscard]] ::testing::AssertionResult IsResetOnFailure(const T & value, const T & fresh)
 	{
@@ -133,12 +140,10 @@ namespace azo::rhi::test
 		return ::testing::AssertionFailure() << "a failed call left its output modified";
 	}
 
-} // namespace azo::rhi::test
+}
 
 namespace azo::rhi
 {
-
-	// Found by argument-dependent lookup, which is the only place GoogleTest looks.
 
 	inline void PrintTo(const ErrorCode code, std::ostream * out)
 	{
@@ -166,4 +171,4 @@ namespace azo::rhi
 		*out << "Handle{index=" << handle.index << ", generation=" << handle.generation << '}';
 	}
 
-} // namespace azo::rhi
+}

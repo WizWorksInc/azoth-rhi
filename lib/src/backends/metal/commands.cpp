@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -21,8 +16,6 @@ namespace azo::rhi::metal
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 
-		// Metal command buffers are single use so each Begin starts a fresh one. The caller has already waited for this slot's previous submission to finish so last
-		// frame's staging buffers can drop. The buffer comes from the list's pool type queue so it runs on that type's command queue.
 		MTL::CommandQueue * commandQueue = object->owner->CommandQueueFor(object->queueType);
 		if (commandQueue == nullptr)
 		{
@@ -42,14 +35,37 @@ namespace azo::rhi::metal
 		}
 		rec->keepAlive.clear();
 
-		// The recorded scopes start clean. A wait left pending, a label left open or a timestamp left owing by the previous recording belongs to a command buffer
-		// that is gone.
 		rec->aliasWaitPending = false;
 		rec->debugLabelScopes.clear();
 		rec->pendingEndTimestamp.reset();
 
+		rec->boundIndexBuffer = nullptr;
+		rec->boundIndexOffset = 0;
+		rec->boundIndexType	  = MTL::IndexTypeUInt32;
+		rec->boundPrimitive	  = MTL::PrimitiveTypeTriangle;
+		rec->boundThreadGroup = MTL::Size{ 1, 1, 1 };
+
 		rec->lifecycle = 1;
 		return Succeed(error);
+	}
+
+	void PopEncoderDebugGroups(MetalCmdList * rec, MTL::CommandEncoder * encoder) noexcept
+	{
+		if (encoder == nullptr)
+		{
+			return;
+		}
+
+		for (std::size_t index = rec->debugLabelScopes.size(); index-- > 0;)
+		{
+			if (rec->debugLabelScopes[index] != rec->encoderEpoch)
+			{
+				break;
+			}
+
+			encoder->popDebugGroup();
+			rec->debugLabelScopes[index] = kDebugScopeClosed;
+		}
 	}
 
 	bool MetalCmdEnd(void * impl, Error * error) noexcept
@@ -57,14 +73,21 @@ namespace azo::rhi::metal
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 
-		// Close any encoder left open by the recorded scope before the command buffer is committed.
 		if (rec->renderEncoder.get() != nullptr)
 		{
+			PopEncoderDebugGroups(rec, rec->renderEncoder.get());
+			if (rec->pendingEndTimestamp.get() != nullptr)
+			{
+				rec->renderEncoder->sampleCountersInBuffer(rec->pendingEndTimestamp.get(), rec->pendingEndQuery, false);
+				rec->pendingEndTimestamp.reset();
+			}
+
 			rec->renderEncoder->endEncoding();
 			rec->renderEncoder.reset();
 		}
 		if (rec->computeEncoder.get() != nullptr)
 		{
+			PopEncoderDebugGroups(rec, rec->computeEncoder.get());
 			rec->computeEncoder->endEncoding();
 			rec->computeEncoder.reset();
 		}
@@ -73,24 +96,18 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	// Metal tracks hazards between the commands of one command buffer itself so there is no native barrier for the batch to lower to. What the batch claims about
-	// each resource's state is checked above this, where every backend gets the same answer.
 	bool MetalCmdBarriers([[maybe_unused]] void * impl, [[maybe_unused]] const BarrierBatch & barriers, Error * error) noexcept
 	{
 		return Succeed(error);
 	}
 
-	/*
-	 * Aliasing is the one hazard Metal will not track here. Heaps are MTLHeapTypePlacement so the RHI can place resources at the offsets the caller picked and a
-	 * placement heap gives up hazard tracking for that control. Two resources over the same bytes are ordered only by fences the backend records. So the barrier
-	 * closes the encoder reading the before-resource, updates a fence and leaves a wait for the next encoder to open.
-	 */
 	bool MetalCmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.aliasBarriers");
 
-		auto * object	   = static_cast<MetalObject *>(impl);
-		MetalCmdList * rec = object->list;
+		auto * object		 = static_cast<MetalObject *>(impl);
+		MetalDevice * device = object->owner;
+		MetalCmdList * rec	 = object->list;
 		if (rec == nullptr || rec->commandBuffer.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
@@ -98,6 +115,21 @@ namespace azo::rhi::metal
 		if (barriers.empty())
 		{
 			return Succeed(error);
+		}
+		if (rec->renderEncoder.get() != nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
+		}
+
+		for (const AliasBarrier & barrier : barriers)
+		{
+			if ((barrier.beforeBuffer.IsValid() && device->buffers.Resolve(barrier.beforeBuffer, true) == nullptr) ||
+				(barrier.afterBuffer.IsValid() && device->buffers.Resolve(barrier.afterBuffer, true) == nullptr) ||
+				(barrier.beforeTexture.IsValid() && device->textures.Resolve(barrier.beforeTexture, true) == nullptr) ||
+				(barrier.afterTexture.IsValid() && device->textures.Resolve(barrier.afterTexture, true) == nullptr))
+			{
+				return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
+			}
 		}
 
 		if (rec->aliasFence.get() == nullptr)
@@ -110,21 +142,15 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		if (rec->renderEncoder.get() != nullptr)
+		if (rec->computeEncoder.get() != nullptr)
 		{
-			rec->renderEncoder->updateFence(rec->aliasFence.get(), MTL::RenderStageFragment);
-			rec->renderEncoder->endEncoding();
-			rec->renderEncoder.reset();
-		}
-		else if (rec->computeEncoder.get() != nullptr)
-		{
+			PopEncoderDebugGroups(rec, rec->computeEncoder.get());
 			rec->computeEncoder->updateFence(rec->aliasFence.get());
 			rec->computeEncoder->endEncoding();
 			rec->computeEncoder.reset();
 		}
 		else
 		{
-			// Nothing is open so the update needs an encoder of its own. An empty blit encoder is the cheapest one that can carry a fence.
 			MTL::BlitCommandEncoder * encoder = rec->commandBuffer->blitCommandEncoder();
 			if (encoder == nullptr)
 			{
@@ -138,13 +164,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	/*
-	 * A label opened inside a rendering or dispatch scope goes on the open encoder, since Metal refuses a command-buffer group while an encoder is live. One
-	 * opened between scopes goes on the command buffer. Which one it was is remembered so the pop reaches the same object.
-	 *
-	 * Labels turned off in the DeviceDesc leave both ends doing nothing, tracking stack included. Pushing a scope nothing opened would make the pop balance
-	 * against an entry that was never a group.
-	 */
 	bool MetalCmdBeginDebugLabel(void * impl, CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 		auto * object	   = static_cast<MetalObject *>(impl);
@@ -164,7 +183,7 @@ namespace azo::rhi::metal
 
 		MTL::CommandEncoder * encoder = rec->renderEncoder.get() != nullptr ? static_cast<MTL::CommandEncoder *>(rec->renderEncoder.get())
 																			: static_cast<MTL::CommandEncoder *>(rec->computeEncoder.get());
-		if (!detail::TryPushBack(rec->debugLabelScopes, encoder))
+		if (!detail::TryPushBack(rec->debugLabelScopes, encoder != nullptr ? rec->encoderEpoch : kDebugScopeCommandBuffer))
 		{
 			return Fail(error, ErrorCode::eOutOfHostMemory, "Metal debug label tracking allocation failed");
 		}
@@ -199,20 +218,23 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eValidationFailed, "endDebugLabel without a matching beginDebugLabel");
 		}
 
-		MTL::CommandEncoder * opened = rec->debugLabelScopes.back();
+		const std::uint64_t opened = rec->debugLabelScopes.back();
 		rec->debugLabelScopes.pop_back();
 
-		if (opened == nullptr)
+		if (opened == kDebugScopeClosed)
+		{
+			return Succeed(error);
+		}
+
+		if (opened == kDebugScopeCommandBuffer)
 		{
 			rec->commandBuffer->popDebugGroup();
 			return Succeed(error);
 		}
 
-		// The encoder the label was pushed on may have ended since, which already closed the group with it. Only pop when that same encoder is still live, since
-		// whatever is open now is a different encoder that never saw this label.
 		MTL::CommandEncoder * live = rec->renderEncoder.get() != nullptr ? static_cast<MTL::CommandEncoder *>(rec->renderEncoder.get())
 																		 : static_cast<MTL::CommandEncoder *>(rec->computeEncoder.get());
-		if (opened == live)
+		if (live != nullptr && opened == rec->encoderEpoch)
 		{
 			live->popDebugGroup();
 		}
@@ -240,7 +262,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		encoder->copyFromBuffer(source, srcOffset, destination, dstOffset, size);
 		encoder->endEncoding();
 		return Succeed(error);
@@ -272,11 +298,13 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		for (const BufferTextureCopy & region : regions)
 		{
-			// Block arithmetic, not texel arithmetic. A row length is given in texels so it converts through the block grid and the image height counts block rows, not
-			// texel rows, which for a compressed format differ by the block height.
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
 			const NS::UInteger bytesPerRow	 = static_cast<NS::UInteger>(detail::TightRowPitch(format, rowTexels));
@@ -323,10 +351,13 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		for (const BufferTextureCopy & region : regions)
 		{
-			// Block arithmetic, not texel arithmetic. See the matching comment in the buffer-to-texture direction.
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
 			const NS::UInteger bytesPerRow	 = static_cast<NS::UInteger>(detail::TightRowPitch(format, rowTexels));
@@ -367,7 +398,11 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		for (const TextureCopy & region : regions)
 		{
 			encoder->copyFromTexture(source,
@@ -388,8 +423,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	// Metal has no scaled image copy in the blit encoder so an explicit Blit is unsupported. Mip generation goes through the native generateMipmaps below and
-	// arbitrary downsamples through a compute pass.
 	bool MetalBlit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src, [[maybe_unused]] std::span<const TextureBlit> regions,
 		[[maybe_unused]] Filter filter, Error * error) noexcept
 	{
@@ -420,16 +453,19 @@ namespace azo::rhi::metal
 			return Succeed(error);
 		}
 
-		// generateMipmaps cannot filter block-compressed formats. Metal's own limit and not a rule the RHI imposes so it is asked whatever the mode and refused here
-		// without recording a blit Metal refuses at commit.
 		auto * const tracked = device->textures.Resolve(texture, kHandleAlreadyChecked);
-		if (tracked != nullptr && IsCompressedFormat(tracked->format))
+		if (tracked != nullptr && (IsCompressedFormat(tracked->format) || IsIntegerFormat(tracked->format) || IsDepthFormat(tracked->format)))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips cannot filter a block-compressed format on Metal");
+			return Fail(
+				error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		encoder->generateMipmaps(tex);
 		encoder->endEncoding();
 		return Succeed(error);
@@ -453,7 +489,6 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidHandle, "clearBuffer names a buffer this device never created");
 		}
 
-		// Metal blit fill is byte granular so a 32-bit pattern is staged in a shared buffer and copied in.
 		NS::SharedPtr<MTL::Buffer> staging = NS::TransferPtr(device->device->newBuffer(size, MTL::ResourceStorageModeShared));
 		if (staging.get() == nullptr)
 		{
@@ -467,15 +502,17 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object);
+		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		if (encoder == nullptr)
+		{
+			return false;
+		}
 		encoder->copyFromBuffer(staging.get(), 0, destination, offset, wordCount * 4);
 		encoder->endEncoding();
 		object->list->keepAlive.push_back(std::move(staging));
 		return Succeed(error);
 	}
 
-	// Metal has no standalone texture clear in the blit encoder. The load action does it instead. Each subresource gets a render pass attaching that one slice,
-	// clearing on load and storing, ended with no draw. One encoder per mip and layer is the price.
 	bool MetalClearTexture(
 		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
@@ -497,12 +534,6 @@ namespace azo::rhi::metal
 
 		MTL::Texture * tex = slot->texture.get();
 
-		/*
-		 * Metal clears a color texture by opening a render pass over it, which a texture created without MTLTextureUsageRenderTarget cannot be an attachment
-		 * of. Refused here with a reason instead of left to the validation layer, which traps in a debug build and reads back nothing at all in a release one.
-		 *
-		 * The same refusal Direct3D 12 makes, for the same reason: it clears through a render target view.
-		 */
 		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
@@ -513,8 +544,6 @@ namespace azo::rhi::metal
 
 		for (const TextureSubresourceRange & range : ranges)
 		{
-			// The clear value arrives as a color and a depth or stencil slice would need the depth attachment and a different clear value so a range naming one is
-			// refused, not cleared to something the caller did not ask for.
 			if (range.aspects.Contains(TextureAspect::eDepth) || range.aspects.Contains(TextureAspect::eStencil))
 			{
 				return Fail(error, ErrorCode::eUnsupportedFeature, "Metal clearTexture clears color aspects only");
@@ -559,8 +588,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	// Metal resolves through the store action and not a copy: the multisampled source is attached, the single-sample destination is named as its resolve target
-	// and ending the encoder with no draw performs the resolve.
 	bool MetalResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.resolveTexture");
@@ -585,8 +612,6 @@ namespace azo::rhi::metal
 
 		for (const TextureResolve & region : regions)
 		{
-			// A store-action resolve covers the whole attachment. A region naming a sub-rectangle cannot be honored and resolving everything instead would write outside
-			// what the caller asked for so it is refused.
 			const bool wholeSlice = region.srcOffset.x == 0 && region.srcOffset.y == 0 && region.srcOffset.z == 0 && region.dstOffset.x == 0 &&
 									region.dstOffset.y == 0 && region.dstOffset.z == 0 &&
 									region.extent.width == static_cast<std::uint32_t>(source->width() >> region.srcSubresource.mip) &&
@@ -621,4 +646,4 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal
+}

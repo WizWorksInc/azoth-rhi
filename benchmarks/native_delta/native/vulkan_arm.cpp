@@ -1,18 +1,12 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Ensure that a result cannot throw across a noexcept boundary.
 #ifndef VULKAN_HPP_NO_EXCEPTIONS
 	#define VULKAN_HPP_NO_EXCEPTIONS
 #endif
@@ -28,7 +22,6 @@
 
 #include <chrono>
 #include <cstddef>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <print>
 #include <string_view>
@@ -76,7 +69,6 @@ namespace bench::native
 			}
 			g_arm.image = image.image;
 
-			// Which barrier entry point to record is the same question the backend answers and it answers it from the device's API version.
 			g_arm.core13 = native.Value().physicalDevice.getProperties(*g_arm.dispatch).apiVersion >= VK_API_VERSION_1_3;
 
 			constexpr vk::DescriptorSetLayoutBinding binding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eAllGraphics);
@@ -153,7 +145,6 @@ namespace bench::native
 			}
 		}
 
-		// What VulkanCmd* records for the same shape, with the handle resolution and the argument translation taken out because they have already happened.
 		[[nodiscard]] std::uint64_t RecordShape(const Kind kind, const vk::CommandBuffer buffer, const Workload & work, const std::size_t commands)
 		{
 			const vk::detail::DispatchLoaderDynamic & dispatch = *g_arm.dispatch;
@@ -224,7 +215,6 @@ namespace bench::native
 				}
 				break;
 
-			// Left to VulkanGap, this backend having no pipeline the benchmark can build without a shader toolchain.
 			case Kind::eSetGraphicsPipeline: break;
 
 			case Kind::eBarrier:
@@ -249,7 +239,7 @@ namespace bench::native
 			return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 		}
 
-	} // namespace
+	}
 
 	bool PrepareVulkan(rhi::Device device, const Workload & work)
 	{
@@ -263,8 +253,6 @@ namespace bench::native
 
 	std::string_view VulkanGap(const Kind kind)
 	{
-		// This backend has no pipeline the benchmark can build, the only shader here being Metal source and a SPIR-V toolchain being a dependency a benchmark
-		// should not put between a caller and a number.
 		if (NeedsPipeline(kind))
 		{
 			return "no pipeline: this device takes compiled binaries and the only shader here is Metal source";
@@ -292,4 +280,4 @@ namespace bench::native
 		return recorded;
 	}
 
-} // namespace bench::native
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -38,7 +33,6 @@ namespace langs
 			return fw::util::LoadTextAsset(std::filesystem::path("shader_languages/shaders") / name, error);
 		}
 
-		// What each backend wants its bytecode in. A backend of your own joins this table and not the code below.
 		struct Target final
 		{
 			rhi::GraphicsApiId api{};
@@ -46,7 +40,6 @@ namespace langs
 			const char * profile	 = nullptr;
 			rhi::ShaderBinaryFormat binaryFormat{};
 
-			// What dxc, glslc or metal write for this backend, which is the extension a prebuilt kernel is looked for under.
 			const char * binaryExtension = nullptr;
 
 			bool keepsEntryPointName = false;
@@ -73,27 +66,21 @@ namespace langs
 					.keepsEntryPointName = true },
 			};
 
-			/*
-			 * Both Metal backends take the same binary, so Metal 4 looks its target up under the Metal 3 id instead of duplicating the row. The binding ABI
-			 * does not change with the generation: a metallib compiled once is bound the same way whether an encoder or an argument table does the binding.
-			 */
 			const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
 
 			const auto found = std::ranges::find(targets, target, &Target::api);
 			return found != targets.end() ? &*found : nullptr;
 		}
 
-	} // namespace
+	}
 
 	struct ShaderCompiler::Session final
 	{
 		Slang::ComPtr<slang::IGlobalSession> global;
 		Slang::ComPtr<slang::ISession> session;
 
-		// Every blob this compiler handed out, held because a ShaderBinary only borrows the bytes.
 		std::vector<Slang::ComPtr<slang::IBlob>> blobs;
 
-		// The same, for the containers read off disk, not compiled here.
 		std::vector<std::vector<std::uint8_t>> files;
 	};
 
@@ -109,10 +96,6 @@ namespace langs
 			return false;
 		}
 
-		/*
-		 * GLSL support is a property of the global session, not of a compile, because it decides whether the glsl module is there to import at all. A session without
-		 * it reads a GLSL file as Slang and fails on vec2.
-		 */
 		const SlangGlobalSessionDesc globalDesc{ .enableGLSL = true };
 
 		auto session = std::make_unique<Session>();
@@ -147,7 +130,6 @@ namespace langs
 	{
 		const std::string container = std::format("{}.{}", fileName, m_binaryExtension);
 
-		// An empty path is the compiler for that language not being installed, or having no way to reach this backend. Either way the build skipped it.
 		const std::filesystem::path path = fw::util::AssetPath(std::filesystem::path("shader_languages/bin") / container);
 		if (path.empty())
 		{
@@ -166,11 +148,10 @@ namespace langs
 		const std::vector<std::uint8_t> & stored = m_session->files.back();
 
 		return rhi::ShaderBinary{
-			.stage	= rhi::ShaderStage::eCompute,
-			.format = m_format,
-			.data	= stored.data(),
-			.size	= stored.size(),
-			// What the ahead-of-time compiler was told to call it, which for glslc is main because GLSL has no way to say otherwise.
+			.stage			 = rhi::ShaderStage::eCompute,
+			.format			 = m_format,
+			.data			 = stored.data(),
+			.size			 = stored.size(),
 			.entryPoint		 = entryPoint,
 			.threadgroupSize = rhi::ThreadgroupSize{ .x = threadgroup.x, .y = threadgroup.y, .z = threadgroup.z },
 		};
@@ -190,7 +171,6 @@ namespace langs
 			return {};
 		}
 
-		// The path carries the extension, which is what Slang reads the front end off. Nothing else here selects the language.
 		Slang::ComPtr<slang::IBlob> diagnostics;
 		slang::IModule * module = m_session->session->loadModuleFromSourceString(fileName, fileName, source.c_str(), diagnostics.writeRef());
 		if (module == nullptr)
@@ -199,12 +179,6 @@ namespace langs
 			return {};
 		}
 
-		/*
-		 * Whatever the module declared, before anything asked by name.
-		 *
-		 * GLSL carries no attribute saying what main is, so a by-name lookup misses it, and asking with the stage forced synthesizes an entry point that has lost the
-		 * file's local_size qualifier and dispatches one thread. Taking what the module defines keeps the size the shader asked for.
-		 */
 		Slang::ComPtr<slang::IEntryPoint> entry;
 		const bool found = (module->getDefinedEntryPointCount() > 0 && SLANG_SUCCEEDED(module->getDefinedEntryPoint(0, entry.writeRef()))) ||
 						   SLANG_SUCCEEDED(module->findEntryPointByName(entryPoint, entry.writeRef())) ||
@@ -215,7 +189,6 @@ namespace langs
 			return {};
 		}
 
-		// The module goes in beside the entry point, which on its own does not carry the file's constants.
 		const std::array<slang::IComponentType *, 2> parts{ module, entry.get() };
 
 		Slang::ComPtr<slang::IComponentType> composed;
@@ -231,12 +204,10 @@ namespace langs
 		}
 
 		const rhi::ShaderBinary binary{
-			.stage	= rhi::ShaderStage::eCompute,
-			.format = m_format,
-			.data	= code->getBufferPointer(),
-			.size	= code->getBufferSize(),
-			// The caller's own literal, which outlives the binary. Slang renames on the way to some targets, so a backend selecting by name is given what it emitted,
-			// not what was asked for.
+			.stage			 = rhi::ShaderStage::eCompute,
+			.format			 = m_format,
+			.data			 = code->getBufferPointer(),
+			.size			 = code->getBufferSize(),
 			.entryPoint		 = m_keepsEntryPointName ? entryPoint : "main",
 			.threadgroupSize = rhi::ThreadgroupSize{ .x = threadgroup.x, .y = threadgroup.y, .z = threadgroup.z },
 		};
@@ -245,4 +216,4 @@ namespace langs
 		return binary;
 	}
 
-} // namespace langs
+}

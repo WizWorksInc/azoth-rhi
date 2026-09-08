@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -75,11 +70,6 @@ namespace azo::rhi::metal
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal texture export is not implemented yet");
 	}
 
-	/*
-	 * This backend builds and traces nothing and DeviceCaps says so with supportsRayTracing false. A handle minted here would leave a caller that read the caps
-	 * bit and branched anyway holding an object that can never be built or traced with so both calls are refused instead. Refusing one and minting the other would
-	 * be worse than minting both, since whichever call the caller reaches first would decide whether they find out.
-	 */
 	AccelerationStructureHandle MetalCreateAccelerationStructure(
 		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept
 	{
@@ -102,13 +92,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	/*
-	 * Metal views and samplers are objects, so both adopt naturally. A view is an MTLTexture over another texture's storage, which is the same thing this
-	 * backend's own texture views already are, and a sampler is an MTLSamplerState.
-	 *
-	 * Reference counting settles the lifetime question that the other two backends have to declare: the slot takes its own reference and the caller keeps its own,
-	 * so neither frees the other's out from under it whichever AdoptedLifetime the caller named.
-	 */
 	TextureViewHandle MetalAdoptTextureView(
 		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
@@ -199,13 +182,6 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-	/*
-	 * Metal has one MTLSharedEvent behind both kinds, so both adopt.
-	 *
-	 * The binary semaphore's counter starts at zero here without being read off the event, which is the same thing creating one does. That is right for the case
-	 * adoption serves, an event a producer hands over and then signals, and it is the assumption worth stating: a caller adopting an event already part way
-	 * through a sequence gets a counter that disagrees with it.
-	 */
 	TimelineHandle MetalAdoptTimeline(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
 		if (api != MetalApi::id)
@@ -292,4 +268,4 @@ namespace azo::rhi::metal
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal
+}

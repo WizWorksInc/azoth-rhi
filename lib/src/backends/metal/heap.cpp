@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -24,7 +19,6 @@ namespace azo::rhi::metal
 
 	HeapHandle MetalCreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
 	{
-		// Metal has no shared heap, so any declaration is refused, the same way a buffer is.
 		if (!MetalRefuseUnexportable(desc.exportableHandleTypes, {}, "Metal exports no heaps, so a heap cannot be created exportable", error))
 		{
 			return HeapHandle{};
@@ -32,8 +26,6 @@ namespace azo::rhi::metal
 
 		AZO_RHI_PROFILE_ZONE("rhi.metal.createHeap");
 
-		// Metal traps on a heap with no size instead of answering null, so this is refused here and not there. The same refusal a zero-sized buffer already
-		// gets, for the same reason.
 		if (desc.size == 0)
 		{
 			return FailValue<HeapHandle>(error, ErrorCode::eInvalidArgument, "heap size must be non-zero");
@@ -42,7 +34,6 @@ namespace azo::rhi::metal
 		auto * device = static_cast<MetalDevice *>(impl);
 
 		NS::SharedPtr<MTL::HeapDescriptor> descriptor = NS::TransferPtr(MTL::HeapDescriptor::alloc()->init());
-		// Placement heaps let the RHI place resources at explicit offsets, matching the desc contract.
 		descriptor->setType(MTL::HeapTypePlacement);
 		descriptor->setStorageMode(MetalHeapStorage(desc.type));
 		descriptor->setSize(desc.size);
@@ -52,7 +43,6 @@ namespace azo::rhi::metal
 		{
 			return FailValue<HeapHandle>(error, ErrorCode::eOutOfDeviceMemory, "Metal heap allocation failed");
 		}
-		// MTLHeap is not an MTLResource so it carries its own label setter without going through SetMetalLabel.
 		if (desc.debugName != nullptr)
 		{
 			const NS::SharedPtr<NS::AutoreleasePool> labelPool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -60,7 +50,6 @@ namespace azo::rhi::metal
 		}
 		NS::SharedPtr<MTL::Heap> heap = NS::TransferPtr(raw);
 
-		// A heap is an MTLAllocation, so making the heap resident covers everything placed in it.
 		device->NoteAllocation(MetalDevice::Residency::eHeaps, heap.get());
 
 		const HeapHandle handle = device->heaps.Store(std::move(heap));
@@ -123,7 +112,6 @@ namespace azo::rhi::metal
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eInvalidHandle, "placed texture names a heap this device never created");
 		}
-		// A placed texture inherits its heap's storage mode.
 		descriptor->setStorageMode(heap->storageMode());
 
 		MTL::Texture * raw = heap->newTexture(descriptor.get(), desc.offset);
@@ -147,4 +135,4 @@ namespace azo::rhi::metal
 		return ReturnValue(handle, error);
 	}
 
-} // namespace azo::rhi::metal
+}

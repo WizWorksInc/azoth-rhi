@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -28,6 +23,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 namespace rhi  = azo::rhi;
 namespace test = azo::rhi::test;
@@ -125,13 +121,6 @@ namespace
 
 	TEST_P(PipelineTest, TheReportedShaderFormatIsTheOneItActuallyTakes)
 	{
-		/*
-		 * A caller compiles for whatever the device says it takes, so the answer has to be the truth and not a default nobody set. Before this, picking a
-		 * target meant a table of backend to format outside the RHI.
-		 *
-		 * Four bytes are not a shader in any encoding, so no device builds one from this. What is checked is that the refusal is about the bytes and not the
-		 * format, and that a device turns source down without reading it.
-		 */
 		constexpr std::array<std::byte, 4> notAShader{};
 
 		rhi::Error error{};
@@ -150,15 +139,12 @@ namespace
 		const rhi::ComputePipelineHandle pipeline =
 			Dev().CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "azoth.rhi.test.format" }, shaderError);
 
-		// The Null backend hands the bytes to nobody, so malformed ones are not wrong there and it builds a pipeline from them. Every backend that reaches a
-		// driver refuses.
 		if (!IsNullBackend())
 		{
 			EXPECT_FALSE(pipeline.IsValid());
 			EXPECT_TRUE(test::ErrorIsPopulated(shaderError)) << "malformed bytes were refused with no diagnostic";
 		}
 
-		// And the other half: a device that says it cannot compile source has to refuse source, not read it as compiled bytes.
 		if (!Caps().supportsShaderSource)
 		{
 			rhi::ShaderBinary asSource = shader;
@@ -416,6 +402,78 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
 	}
 
+	TEST_P(PipelineTest, RefusesAStageItCannotBuildRatherThanBuildingTheRestWithoutIt)
+	{
+		if (Caps().apiId != rhi::MetalApi::id && Caps().apiId != rhi::Metal4Api::id)
+		{
+			GTEST_SKIP() << "this is the Metal pipeline's stage handling, and other backends build these stages";
+		}
+
+		constexpr std::string_view source = R"(
+			#include <metal_stdlib>
+			using namespace metal;
+			vertex float4 vertexMain() { return float4(0.0, 0.0, 0.0, 1.0); }
+		)";
+
+		rhi::Error error{};
+		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+
+		rhi::ShaderBinary vertex{};
+		vertex.stage	  = rhi::ShaderStage::eVertex;
+		vertex.format	  = rhi::ShaderBinaryFormat::eBackendNative;
+		vertex.isSource	  = true;
+		vertex.entryPoint = "vertexMain";
+		vertex.data		  = source.data();
+		vertex.size		  = source.size();
+
+		const rhi::VertexInputDesc vertexInput{};
+
+		const std::array vertexOnly{ vertex };
+		rhi::GraphicsPipelineDesc alone{};
+		alone.layout	  = layout;
+		alone.vertexInput = &vertexInput;
+		alone.shaders	  = vertexOnly;
+		alone.debugName	  = "azoth.rhi.test.vertexOnly";
+
+		rhi::Error aloneError{};
+		const rhi::GraphicsPipelineHandle built = Dev().CreateGraphicsPipeline(alone, aloneError);
+		ASSERT_TRUE(test::Ok(built.IsValid(), aloneError)) << "the vertex shader alone was refused, so the refusal below would prove nothing";
+
+		struct Unbuildable final
+		{
+			rhi::ShaderStage stage;
+			rhi::ErrorCode code;
+		};
+
+		constexpr std::array unbuildable{
+			Unbuildable{ rhi::ShaderStage::eGeometry, rhi::ErrorCode::eUnsupportedFeature },
+			Unbuildable{ rhi::ShaderStage::eTessellationControl, rhi::ErrorCode::eUnsupportedFeature },
+			Unbuildable{ rhi::ShaderStage::eTessellationEvaluation, rhi::ErrorCode::eUnsupportedFeature },
+			Unbuildable{ rhi::ShaderStage::eCompute, rhi::ErrorCode::eInvalidArgument },
+		};
+
+		for (const Unbuildable & unbuilt : unbuildable)
+		{
+			rhi::ShaderBinary extra = vertex;
+			extra.stage				= unbuilt.stage;
+
+			const std::array stages{ vertex, extra };
+			rhi::GraphicsPipelineDesc dropped = alone;
+			dropped.shaders					  = stages;
+			dropped.debugName				  = "azoth.rhi.test.unbuildableStage";
+
+			rhi::Error droppedError{};
+			const rhi::GraphicsPipelineHandle silent = Dev().CreateGraphicsPipeline(dropped, droppedError);
+
+			EXPECT_FALSE(silent.IsValid()) << "a stage Metal cannot build was dropped and the pipeline handed back as if it had been honoured";
+			EXPECT_EQ(droppedError.code, unbuilt.code) << "refused, but not with the code that says why";
+		}
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(built, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+	}
+
 	TEST_P(PipelineTest, RefusesAGraphicsPipelineWithNoVertexInputByName)
 	{
 		rhi::Error error{};
@@ -533,4 +591,4 @@ namespace
 		SUCCEED();
 	}
 
-} // namespace
+}

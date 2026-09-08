@@ -16,10 +16,10 @@ include(azoth_rhi_shader_tools)
 
 azoth_rhi_provide_slang()
 
-if(NOT slang_FOUND)
+if (NOT slang_FOUND)
     message(STATUS "AzothRHI examples: skipping shader_languages, Slang was not found")
     return()
-endif()
+endif ()
 
 azoth_rhi_add_example(shader_languages
         SOURCES main.cpp compiler.cpp
@@ -41,9 +41,9 @@ set(_build_dir ${CMAKE_CURRENT_BINARY_DIR}/bin)
 # outflag because dxc spells its output -Fo where the other two spell it -o, these being three compilers
 # from three vendors and not one with three front ends.
 function(_shader_languages_compile source output tool outflag)
-    if(NOT ${tool})
+    if (NOT ${tool})
         return()
-    endif()
+    endif ()
 
     add_custom_command(OUTPUT ${_build_dir}/${output}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${_build_dir}
@@ -74,20 +74,20 @@ mark_as_advanced(AZOTH_RHI_DXC_SPIRV)
 # it instead of only that one language. Asking its help does not settle it: the option is listed either way.
 #
 # Not cached, so a machine that grows a Vulkan SDK later is asked again, not held to the old answer.
-if(AZOTH_RHI_DXC_SPIRV)
+if (AZOTH_RHI_DXC_SPIRV)
     execute_process(
             COMMAND ${AZOTH_RHI_DXC_SPIRV} -T cs_6_0 -E computeMain -spirv
-                    -Fo ${CMAKE_CURRENT_BINARY_DIR}/dxc-spirv-probe.spv
-                    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/reduce.hlsl
+            -Fo ${CMAKE_CURRENT_BINARY_DIR}/dxc-spirv-probe.spv
+            ${CMAKE_CURRENT_SOURCE_DIR}/shaders/reduce.hlsl
             RESULT_VARIABLE _dxc_spirv_result
             OUTPUT_QUIET
             ERROR_QUIET)
 
-    if(NOT _dxc_spirv_result EQUAL 0)
+    if (NOT _dxc_spirv_result EQUAL 0)
         message(STATUS "AzothRHI examples: shader_languages has no HLSL on Vulkan, ${AZOTH_RHI_DXC_SPIRV} emits DXIL only")
         set(AZOTH_RHI_DXC_SPIRV "")
-    endif()
-endif()
+    endif ()
+endif ()
 
 # -fspv-entrypoint-name so the SPIR-V names the entry point the sample asks for. Without it dxc renames it
 # to main, and the sample would have to know that dxc had been the one to compile it.
@@ -96,22 +96,22 @@ _shader_languages_compile(reduce.hlsl reduce.hlsl.spv AZOTH_RHI_DXC_SPIRV -Fo
 
 # DXIL only where dxc can sign it. An unsigned container is refused by Direct3D 12 outside developer mode,
 # and dxil.dll ships with the Windows SDK and not with dxc.
-if(WIN32)
+if (WIN32)
     _shader_languages_compile(reduce.hlsl reduce.hlsl.dxil AZOTH_RHI_DXC -Fo -T cs_6_0 -E computeMain)
-endif()
+endif ()
 
 # glslc names every entry point main, GLSL having no way to say otherwise, which is what the sample reads
 # back when it asks this kernel for its entry point.
 _shader_languages_compile(pattern.glsl pattern.glsl.spv AZOTH_RHI_GLSLC -o -fshader-stage=compute --target-env=vulkan1.2)
 
 # MSL is compiled by the platform's own toolchain or not at all, there being no cross compiler for it.
-if(APPLE)
+if (APPLE)
     find_program(AZOTH_RHI_XCRUN NAMES xcrun DOC "Used to reach Apple's metal compiler for this sample's MSL")
     mark_as_advanced(AZOTH_RHI_XCRUN)
     _shader_languages_compile(simd.metal simd.metal.metallib AZOTH_RHI_XCRUN -o -sdk macosx metal -std=metal3.0)
-endif()
+endif ()
 
-if(_binaries)
+if (_binaries)
     # Staged the way the sample's other assets are, through a stamp, since the destination is only reachable
     # through a generator expression and one naming a target cannot be a custom command's OUTPUT.
     set(_stamp ${CMAKE_CURRENT_BINARY_DIR}/rhi_shader_languages-bin.stamp)
@@ -127,4 +127,4 @@ if(_binaries)
 
     add_custom_target(rhi_shader_languages-binaries DEPENDS ${_stamp})
     add_dependencies(rhi_shader_languages rhi_shader_languages-binaries)
-endif()
+endif ()

@@ -68,19 +68,19 @@ target_compile_features(AzothRHIExamplesLib PUBLIC cxx_std_23)
 # metal_native.hpp forward declares the MTL types and cannot be called through on its own.
 #
 # Either Metal backend will do. MTLCaptureManager captures an MTLDevice, which both of them have.
-if(AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
     target_link_libraries(AzothRHIExamplesLib PRIVATE azoth::rhi-native-metal)
     target_compile_definitions(AzothRHIExamplesLib PRIVATE AZOTH_RHI_EXAMPLES_HAVE_METAL)
 
     # One define per backend as well, because the two native accessors are separate entry points and each
     # is only linkable when its own backend compiled.
-    if(AZOTH_RHI_BACKEND_METAL)
+    if (AZOTH_RHI_BACKEND_METAL)
         target_compile_definitions(AzothRHIExamplesLib PRIVATE AZOTH_RHI_EXAMPLES_HAVE_METAL3)
-    endif()
-    if(AZOTH_RHI_BACKEND_METAL4)
+    endif ()
+    if (AZOTH_RHI_BACKEND_METAL4)
         target_compile_definitions(AzothRHIExamplesLib PRIVATE AZOTH_RHI_EXAMPLES_HAVE_METAL4)
-    endif()
-endif()
+    endif ()
+endif ()
 
 set_target_properties(AzothRHIExamplesLib PROPERTIES FOLDER examples)
 
@@ -91,7 +91,7 @@ set_target_properties(AzothRHIExamplesLib PROPERTIES FOLDER examples)
 # window library still builds the headless samples that compile a shader.
 azoth_rhi_provide_slang()
 
-if(slang_FOUND)
+if (slang_FOUND)
     add_library(AzothRHIExamplesSlang STATIC src/shader/SlangCompiler.cpp)
     add_library(azoth::rhi-examples-slang ALIAS AzothRHIExamplesSlang)
 
@@ -106,18 +106,16 @@ if(slang_FOUND)
     target_compile_features(AzothRHIExamplesSlang PUBLIC cxx_std_23)
 
     set_target_properties(AzothRHIExamplesSlang PROPERTIES FOLDER examples)
-endif()
+endif ()
 
 # The SDL3 window, skipped when SDL3 is not installed the same way the samples that need it are, so a
 # host without it still configures and builds the rest of the tree.
 azoth_rhi_provide_sdl3()
 
-if(NOT SDL3_FOUND)
+if (NOT SDL3_FOUND)
     return()
-endif()
+endif ()
 
-# Creating the Vulkan surface is the one part that cannot be written without naming Vulkan's types, so
-# it sits under a native/ directory, which is where the API boundary check permits them.
 add_library(AzothRHIExamplesSdl3 STATIC
         src/platform/Sdl3Window.cpp
         src/platform/native/Sdl3Natives.cpp)

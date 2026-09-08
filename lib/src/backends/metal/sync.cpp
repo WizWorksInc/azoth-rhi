@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -71,8 +66,6 @@ namespace azo::rhi::metal
 		return (object->list != nullptr) ? object->list->commandBuffer.get() : nullptr;
 	}
 
-	// Ends any open render or compute encoder. Metal allows only one encoder open at a time so a blit or a new rendering scope must close the previous one
-	// first.
 	void EndActiveEncoders(MetalObject * object) noexcept
 	{
 		if (object->list == nullptr)
@@ -81,18 +74,18 @@ namespace azo::rhi::metal
 		}
 		if (object->list->renderEncoder.get() != nullptr)
 		{
+			PopEncoderDebugGroups(object->list, object->list->renderEncoder.get());
 			object->list->renderEncoder->endEncoding();
 			object->list->renderEncoder.reset();
 		}
 		if (object->list->computeEncoder.get() != nullptr)
 		{
+			PopEncoderDebugGroups(object->list, object->list->computeEncoder.get());
 			object->list->computeEncoder->endEncoding();
 			object->list->computeEncoder.reset();
 		}
 	}
 
-	// Takes the wait an alias barrier left behind so the first encoder opened after one is ordered against the encoder that ran before it. Clearing the flag on
-	// the way through means only that encoder pays for it: a barrier orders the next scope, not every scope after it.
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::RenderCommandEncoder * encoder) noexcept
 	{
 		if (rec->aliasWaitPending && encoder != nullptr)
@@ -120,11 +113,21 @@ namespace azo::rhi::metal
 		}
 	}
 
-	// Closes any open encoder and opens a fresh blit encoder for a copy or clear command.
-	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object) noexcept
+	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object, Error * error) noexcept
 	{
+		if (object->list->renderEncoder.get() != nullptr)
+		{
+			return FailValue<MTL::BlitCommandEncoder *>(
+				error, ErrorCode::eInvalidState, "a transfer command cannot be recorded inside a rendering scope, so record it between passes");
+		}
+
 		EndActiveEncoders(object);
 		MTL::BlitCommandEncoder * encoder = object->list->commandBuffer->blitCommandEncoder();
+		if (encoder == nullptr)
+		{
+			return FailValue<MTL::BlitCommandEncoder *>(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
+		}
+
 		ConsumeAliasWait(object->list, encoder);
 		return encoder;
 	}
@@ -190,4 +193,4 @@ namespace azo::rhi::metal
 		return ReturnValue(handle, error);
 	}
 
-} // namespace azo::rhi::metal
+}

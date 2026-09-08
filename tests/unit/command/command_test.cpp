@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -192,8 +187,6 @@ namespace
 
 	TEST_P(CommandTest, RecordsDynamicStateInsideARenderingScope)
 	{
-		// Dynamic state belongs to a rendering scope, not the whole list. Vulkan happens to accept vkCmdSetViewport outside a render pass, but Metal has
-		// nowhere to put it until an encoder exists. The portable rule is the stricter one so the scope opens first.
 		rhi::Error error{};
 		const rhi::TextureHandle target = Dev().CreateTexture(test::samples::ColorTarget2D(), error);
 		ASSERT_TRUE(test::Ok(target.IsValid(), error));
@@ -201,10 +194,14 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state = { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
-			.load  = rhi::LoadOp::eClear,
-			.store = rhi::StoreOp::eStore } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view  = view,
+				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load  = rhi::LoadOp::eClear,
+				.store = rhi::StoreOp::eStore,
+			},
+		};
 		const rhi::BeginRenderingDesc rendering{
 			.colors		  = colors,
 			.depthStencil = nullptr,
@@ -358,7 +355,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, 8, error), error));
-		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::PipelineStage::eAllCommands, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eAllCommands, error), error));
 
 		EXPECT_TRUE(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
@@ -373,11 +370,15 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
-			.load		= rhi::LoadOp::eClear,
-			.store		= rhi::StoreOp::eStore,
-			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view		= view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
+				.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
+			},
+		};
 
 		const rhi::BeginRenderingDesc rendering{
 			.colors		  = colors,
@@ -413,4 +414,4 @@ namespace
 		EXPECT_FALSE(rhi::CommandList{}.IsValid());
 	}
 
-} // namespace
+}

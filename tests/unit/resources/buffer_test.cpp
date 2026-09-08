@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -38,10 +33,6 @@ namespace
 
 	AZO_RHI_BACKEND_SUITE(BufferTest);
 
-	/*
-	 * Metal used to map a device-local buffer where Vulkan and Null refused, since one shared pool leaves contents() non-null for private storage. Every
-	 * backend gives the same answer now unless the device was created asking for the other one.
-	 */
 	class DeviceLocalMappingTest : public test::BackendTest
 	{
 	protected:
@@ -73,7 +64,6 @@ namespace
 
 	TEST_P(DeviceLocalMappingTest, ReportsWhetherDeviceLocalMemoryCouldBeMappedAtAll)
 	{
-		// The capability is the device's own answer, so it is only asserted to be reachable and consistent, never assumed true or false for a given backend.
 		const bool unified = Caps().deviceLocalMemoryIsHostVisible;
 		EXPECT_EQ(unified, Dev().GetCaps().deviceLocalMemoryIsHostVisible);
 
@@ -158,8 +148,6 @@ namespace
 
 	TEST_P(BufferTest, ReusesSlotsAfterDestructionWithoutReusingHandles)
 	{
-		// A frame allocator creates and destroys resources constantly. The index may come back, but the generation has to move or a handle held across a frame
-		// boundary would silently name someone else's buffer.
 		rhi::Error error{};
 
 		const rhi::BufferHandle first = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
@@ -273,4 +261,4 @@ namespace
 		SUCCEED();
 	}
 
-} // namespace
+}

@@ -1,27 +1,16 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
-/**
- * \file
- * \brief Builders for descriptor and pipeline-layout descriptions.
- */
-
 #include "azoth/rhi/resources/descriptors.hpp"
 
-// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <span>
 #include <string>
@@ -78,9 +67,6 @@ namespace azo::rhi
 		DescriptorBinding m_desc{};
 	};
 
-	/**
-	 * \brief Builds descriptor-set-layout descriptions backed by owned binding and debug-name storage.
-	 */
 	class DescriptorSetLayoutBuilder final
 	{
 	public:
@@ -108,11 +94,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a descriptor-set-layout description that borrows this builder's storage.
-		 *
-		 * \attention The returned bindings span and debugName pointer stay valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] DescriptorSetLayoutDesc Build() const noexcept
 		{
 			return DescriptorSetLayoutDesc{ .bindings = std::span<const DescriptorBinding>{ m_bindings.data(), m_bindings.size() },
@@ -124,9 +105,6 @@ namespace azo::rhi
 		std::string m_debugName;
 	};
 
-	/**
-	 * \brief Builds pipeline-layout descriptions backed by owned set, push-constant, and debug-name storage.
-	 */
 	class PipelineLayoutBuilder final
 	{
 	public:
@@ -148,12 +126,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Adds one push-constant range.
-		 *
-		 * \param offset Byte offset from the start of the push-constant storage visible to the selected stages.
-		 * \param size Byte size of the range visible to the selected stages.
-		 */
 		PipelineLayoutBuilder & PushConstant(Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size)
 		{
 			m_pushConstants.push_back(PushConstantRange{
@@ -188,11 +160,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a pipeline-layout description that borrows this builder's storage.
-		 *
-		 * \attention The returned sets span, pushConstants span, and debugName pointer stay valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] PipelineLayoutDesc Build() const noexcept
 		{
 			return PipelineLayoutDesc{ .sets = std::span<const DescriptorSetLayoutHandle>{ m_sets.data(), m_sets.size() },
@@ -206,9 +173,6 @@ namespace azo::rhi
 		std::string m_debugName;
 	};
 
-	/**
-	 * \brief Builds descriptor-arena descriptions backed by owned debug-name storage.
-	 */
 	class DescriptorArenaBuilder final
 	{
 	public:
@@ -252,11 +216,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a descriptor-arena description that borrows this builder's debug-name storage.
-		 *
-		 * \attention The returned debugName pointer stays valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] DescriptorArenaDesc Build() const noexcept
 		{
 			DescriptorArenaDesc desc = m_desc;
@@ -269,9 +228,6 @@ namespace azo::rhi
 		std::string m_debugName;
 	};
 
-	/**
-	 * \brief Builds descriptor-set allocation descriptions backed by owned debug-name storage.
-	 */
 	class DescriptorSetAllocBuilder final
 	{
 	public:
@@ -293,11 +249,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Builds a descriptor-set allocation description that borrows this builder's debug-name storage.
-		 *
-		 * \attention The returned debugName pointer stays valid only until this builder is modified or destroyed.
-		 */
 		[[nodiscard]] DescriptorSetAllocDesc Build() const noexcept
 		{
 			DescriptorSetAllocDesc desc = m_desc;
@@ -319,11 +270,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Selects the target binding and array element inside the descriptor set.
-		 *
-		 * \param arrayIndex First array element to update within the binding.
-		 */
 		DescriptorWriteBufferBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
@@ -343,12 +289,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Sets the byte range of the buffer exposed by the descriptor.
-		 *
-		 * \param offset Byte offset from the start of the buffer.
-		 * \param range Byte count exposed by the descriptor.
-		 */
 		DescriptorWriteBufferBuilder & Range(std::uint64_t offset, std::uint64_t range) noexcept
 		{
 			m_desc.offset = offset;
@@ -374,11 +314,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Selects the target binding and array element inside the descriptor set.
-		 *
-		 * \param arrayIndex First array element to update within the binding.
-		 */
 		DescriptorWriteTextureBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
@@ -404,12 +339,9 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Records the layout expected when the texture descriptor is consumed.
-		 */
-		DescriptorWriteTextureBuilder & ExpectedLayout(TextureLayout layout) noexcept
+		DescriptorWriteTextureBuilder & ExpectedUse(Flags<ResourceUse> use) noexcept
 		{
-			m_desc.expectedLayout = layout;
+			m_desc.expectedUse = use;
 			return *this;
 		}
 
@@ -431,11 +363,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Selects the target binding and array element inside the descriptor set.
-		 *
-		 * \param arrayIndex First array element to update within the binding.
-		 */
 		DescriptorWriteSamplerBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
@@ -467,11 +394,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		/**
-		 * \brief Selects the target binding and array element inside the descriptor set.
-		 *
-		 * \param arrayIndex First array element to update within the binding.
-		 */
 		DescriptorWriteAccelerationStructureBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
@@ -493,4 +415,4 @@ namespace azo::rhi
 	private:
 		DescriptorWriteAccelerationStructure m_desc{};
 	};
-} // namespace azo::rhi
+}

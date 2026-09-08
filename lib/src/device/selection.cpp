@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -31,10 +26,6 @@ namespace azo::rhi
 	namespace
 	{
 
-		/*
-		 * Vulkan, Direct3D 12, the two Metal generations and Null. Sizes this table only, which is what the RHI itself compiled in and is therefore known here. What a
-		 * run can choose between is not bounded at all, since backends of your own join the same order and a module can bring one while the run is going.
-		 */
 		constexpr std::size_t kMaxAvailableBackends = 5;
 
 		struct AvailableTable final
@@ -49,12 +40,6 @@ namespace azo::rhi
 				++count;
 			}
 
-			/*
-			 * Insertion sort by rank, which is stable so backends of the same rank keep the order they were added in.
-			 *
-			 * Written out, not reached for because std::stable_sort is not usable in a constant expression until C++26 and a plain sort would let two hardware backends
-			 * swap places between toolchains.
-			 */
 			constexpr void SortByRank() noexcept
 			{
 				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index, cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -75,24 +60,10 @@ namespace azo::rhi
 			}
 		};
 
-		/*
-		 * The one place a build's backend configuration is read. The order comes off the rank and not the order they are added in. A build that has a driver
-		 * therefore reports it and not the backend that draws nothing. Identity comes off the API tag through MakeBackendEntry so a backend cannot end up listed
-		 * under a name that disagrees with the one it registers.
-		 */
 		[[nodiscard]] consteval AvailableTable MakeAvailableTable()
 		{
 			AvailableTable table;
 
-			/*
-			 * The platform's own API first, then Vulkan. The sort below is stable and every hardware backend shares one rank, so this order decides the
-			 * default.
-			 *
-			 * On Apple the Vulkan beside Metal is MoltenVK, which reaches the same driver through an extra layer. On Windows both are native and Direct3D 12 is
-			 * the one the platform ships.
-			 *
-			 * Metal 4 goes ahead of Metal 3 because creating a device on it fails cleanly where it does not exist.
-			 */
 #ifdef AZOTH_RHI_BACKEND_METAL4
 			table.Add(MakeBackendEntry<Metal4Api>(&RegisterMetal4Backend));
 #endif
@@ -109,7 +80,6 @@ namespace azo::rhi
 			table.Add(MakeBackendEntry<VulkanApi>(&RegisterVulkanBackend));
 #endif
 
-			// Always compiled in so there is no configuration to consult and no build where this list comes out empty.
 			table.Add(MakeBackendEntry<NullApi>(&RegisterNullBackend, BackendRank::eFallback));
 
 			table.SortByRank();
@@ -122,15 +92,9 @@ namespace azo::rhi
 		{
 			std::string_view name;
 
-			// Somebody named this backend and the build did not just fall back to it.
 			bool asked = false;
 		};
 
-		/*
-		 * Precedence matches SelectGraphicsApi: an explicit request, then the environment, then what the build defaulted to.
-		 *
-		 * An empty string counts as nothing set so AZOTH_RHI_BACKEND= behaves like an unset variable without naming a backend that cannot exist.
-		 */
 		[[nodiscard]] ResolvedRequest ResolveRequestedName(const BackendPreference & preference)
 		{
 			if (preference.requested != nullptr && *preference.requested != '\0')
@@ -151,7 +115,6 @@ namespace azo::rhi
 			return ResolvedRequest{ .name = AZOTH_RHI_BACKEND_DEFAULT, .asked = false };
 		}
 
-		// The environment raises eTry to eForce and never the other way, so a host can pin a binary it did not write without being able to unpin one that meant it.
 		[[nodiscard]] BackendRequest ResolveRequest(const BackendPreference & preference)
 		{
 			if (preference.request == BackendRequest::eForce || !preference.consultEnvironment)
@@ -165,28 +128,13 @@ namespace azo::rhi
 			return forced ? BackendRequest::eForce : BackendRequest::eTry;
 		}
 
-		// Either form of the name refers to the backend so a command line can say vulkan and a configuration file azoth.rhi.vulkan.
 		[[nodiscard]] bool NameRefersTo(const std::string_view name, const std::string_view canonicalName) noexcept
 		{
 			return name == canonicalName || name == ShortApiName(canonicalName);
 		}
 
-		/*
-		 * The head of the self-registration list. constinit and not a function-local static so it is a valid empty head before any dynamic initialization anywhere in
-		 * the program. A registrar is a global in someone else's translation unit with no ordering against anything here.
-		 *
-		 * Append only. The entries hold borrowed name views that live as long as the image, which is why module loading is a separate mechanism. Unlinking during
-		 * static destruction would race whatever is still walking it.
-		 */
 		constinit std::atomic<const StaticBackendRegistration *> g_selfRegistered{ nullptr };
 
-		/*
-		 * Rank first, then canonical name.
-		 *
-		 * The walk order of the self-registration list is load order, which no two builds have to agree on and which a linker may change for reasons that have
-		 * nothing to do with this. Sorting by something intrinsic to the backend is what makes the resulting order the same twice and the name is the only total
-		 * ordering available, identity being derived from it.
-		 */
 		void SortForReproducibleOrder(detail::HostVector<BackendEntry> & entries)
 		{
 			std::ranges::sort(entries,
@@ -196,18 +144,12 @@ namespace azo::rhi
 				});
 		}
 
-	} // namespace
+	}
 
 	StaticBackendRegistration::StaticBackendRegistration(const BackendEntry & entry) noexcept
 		: m_entry(entry),
 		  m_next(g_selfRegistered.load(std::memory_order_relaxed))
 	{
-		/*
-		 * Release on the push and acquire on the walk so a reader that sees this node sees the entry inside it too.
-		 *
-		 * Says nothing about unloading, which is a module's problem: a node can never be taken off so the only ordering that has to hold is the one between writing a
-		 * node and another thread reading it.
-		 */
 
 		while (!g_selfRegistered.compare_exchange_weak(m_next, this, std::memory_order_release, std::memory_order_relaxed))
 		{
@@ -255,7 +197,6 @@ namespace azo::rhi
 		const BackendEntry * entry = FindAvailableBackend(id);
 		if (entry == nullptr || entry->Register == nullptr)
 		{
-			// Says nothing about whether the API exists, only that this build has no implementation of it to register.
 			return Error{
 				.code	 = ErrorCode::eUnsupportedApi,
 				.message = "this build compiled no backend in for that graphics API",
@@ -277,18 +218,10 @@ namespace azo::rhi
 		}
 	}
 
-	/*
-	 * The source's guard is taken and the destination's is not because nothing can be reaching a half constructed object or one being assigned into. What has to
-	 * be excluded is a registration arriving on the object being moved out of.
-	 *
-	 * The guard itself does not travel. It is not part of what this holds, it is what keeps what this holds consistent and a fresh one on each side is the correct
-	 * state after the values have separated.
-	 */
 	BackendSelection::BackendSelection(BackendSelection && other) noexcept
 	{
 		const std::scoped_lock guard(other.m_guard);
 
-		// Moved in the body and not the initializer list, which runs before the guard is taken and so would read the vectors while a registration was growing them.
 		m_registry		 = std::move(other.m_registry);
 		m_preferred		 = std::move(other.m_preferred);
 		m_preferredApis	 = std::move(other.m_preferredApis);
@@ -366,22 +299,17 @@ namespace azo::rhi
 
 	void BackendSelection::Take(const BackendEntry & entry, Result<void> & firstFailure)
 	{
-		// Skipped, not reported so this composes with a run that already added one of them by hand.
 		if (m_registry.IsRegistered(entry.id))
 		{
 			return;
 		}
 
-		// A fallback still joins when it is what the name asks for, since pointing a run at Null deliberately is how a host exercises its own fallback handling on a
-		// machine that also has a driver.
 		const bool unwantedFallback = !m_includeNull && entry.rank == BackendRank::eFallback && !NameRefersTo(m_requestedName, entry.canonicalName);
 		if (unwantedFallback)
 		{
 			return;
 		}
 
-		// Creation takes the first backend in the order that hands back a device, so a name somebody asked for has to be the whole order. Leaving the rest behind
-		// it is what lets a run pinned to one backend come up on the next one and read as the pinned one passing.
 		const bool notTheOneAskedFor = m_request == BackendRequest::eForce && m_wasAskedFor && !NameRefersTo(m_requestedName, entry.canonicalName);
 		if (notTheOneAskedFor)
 		{
@@ -394,12 +322,6 @@ namespace azo::rhi
 		}
 	}
 
-	/*
-	 * The named one goes in first without being moved up afterwards.
-	 *
-	 * That is what keeps the build default in its place. It names a backend so it settles the order among the set it came from and ordering it here means it does
-	 * that without stepping in front of a backend the host added by hand. A name somebody actually asked for outranks everything and Record is where that happens.
-	 */
 	Result<void> BackendSelection::AddInOrder(const std::span<const BackendEntry> entries)
 	{
 		Result<void> firstFailure;
@@ -447,7 +369,6 @@ namespace azo::rhi
 	{
 		const std::scoped_lock guard(m_guard);
 
-		// Sorted like every other route so where a module's backends land does not depend on when the host loaded it.
 		detail::HostVector<BackendEntry> fromModule(entries.begin(), entries.end());
 		SortForReproducibleOrder(fromModule);
 		return AddInOrder(fromModule);
@@ -457,11 +378,6 @@ namespace azo::rhi
 	{
 		const std::scoped_lock guard(m_guard);
 
-		/*
-		 * Self-registered entries go in first so that the shadowing below reads the way it is meant to: a backend somebody linked into this image outranks one the
-		 * RHI happens to ship under the same ID. Replacing a bundled backend with your own is the reason to register under its ID at all and the alternative would be
-		 * a registration that silently did nothing.
-		 */
 		detail::HostVector<BackendEntry> catalog;
 		for (const StaticBackendRegistration * node = SelfRegisteredBackends(); node != nullptr; node = node->Next())
 		{
@@ -491,7 +407,6 @@ namespace azo::rhi
 
 	void BackendSelection::RecordFrom(const std::size_t firstNew)
 	{
-		// Read fresh each time around, since registering may have moved the entries.
 		for (std::size_t index = firstNew; index < Registered(); ++index)
 		{
 			Record(m_registry.EnumerateBackends()[index]);
@@ -500,21 +415,14 @@ namespace azo::rhi
 
 	void BackendSelection::Record(const BackendInfo & info)
 	{
-		/*
-		 * No ceiling. It used to stop at sixteen and report the seventeenth as an error, which was defensible only while the count was whatever this build compiled
-		 * in. A module can bring one at runtime so the number is the host's and not ours to cap.
-		 */
 		const bool matchesRequest = !m_honoredRequest && NameRefersTo(m_requestedName, info.canonicalName);
 		if (matchesRequest)
 		{
 			m_honoredRequest = true;
 		}
 
-		// Only a name somebody asked for moves a backend up. The build default is not that and promoting it would put it in front of whatever the host registered
-		// itself, which is the one order a host cannot have meant.
 		if (matchesRequest && m_wasAskedFor)
 		{
-			// Everything already added keeps its order behind it so honoring a late request reorders, not displaces.
 			m_preferred.insert(m_preferred.begin(), info);
 			m_preferredApis.insert(m_preferredApis.begin(), info.id);
 			return;
@@ -524,12 +432,6 @@ namespace azo::rhi
 		m_preferredApis.push_back(info.id);
 	}
 
-	/*
-	 * Both of these take a copy of the order and not the span PreferredApis hands back.
-	 *
-	 * The span points into the vector and a registration on another thread can grow it while a create is walking it. The order is a handful of IDs so copying it
-	 * is nothing next to bringing up a device and it makes creating while a module loads a supported thing and not a race nobody would find.
-	 */
 	Result<UniqueInstance> BackendSelection::CreateInstance(const InstanceDesc & desc)
 	{
 		detail::HostVector<GraphicsApiId> order;
@@ -564,4 +466,4 @@ namespace azo::rhi
 		return azo::rhi::CreateDevice(m_registry, only, desc);
 	}
 
-} // namespace azo::rhi
+}

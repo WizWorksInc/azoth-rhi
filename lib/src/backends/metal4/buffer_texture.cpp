@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -18,7 +13,6 @@ namespace azo::rhi::metal4
 {
 	BufferHandle Metal4CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
 	{
-		// Metal has no shared buffer of any kind, so any declaration at all is refused.
 		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes, {}, "Metal exports no buffers, so a buffer cannot be created exportable", error))
 		{
 			return BufferHandle{};
@@ -33,8 +27,6 @@ namespace azo::rhi::metal4
 
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		// Metal binds no sparse memory, so a buffer asking for it is refused, not handed back dense. Accepting it would mean a caller's later bindSparse had nowhere
-		// to go while the buffer it was meant to fill already worked, which reads as the bind being unnecessary.
 		if (desc.allowSparseBinding)
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedFeature, "Metal cannot bind sparse memory to a buffer");
@@ -49,7 +41,6 @@ namespace azo::rhi::metal4
 
 		NS::SharedPtr<MTL::Buffer> buffer = NS::TransferPtr(raw);
 
-		// There is no per-encoder useResource here, so a resource has to be resident to be reachable at all.
 		device->NoteAllocation(Metal4Device::Residency::eBuffers, buffer.get());
 
 		const BufferHandle handle = device->buffers.Store(Metal4BufferSlot{ .buffer = std::move(buffer), .desc = detail::Recorded(desc) });
@@ -75,7 +66,6 @@ namespace azo::rhi::metal4
 
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		// Refused for the same reason a sparse buffer is: there is no path here that would ever bind its tiles.
 		if (desc.allowSparseBinding)
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal cannot bind sparse memory to a texture");
@@ -87,12 +77,6 @@ namespace azo::rhi::metal4
 			return {};
 		}
 
-		/*
-		 * A texture that will be exported has to be made shared, which is decided here and cannot be changed later.
-		 *
-		 * newSharedTexture is what gives an MTLTexture a handle to hand out. It is a different entry point and not a flag on the descriptor, so a texture created the
-		 * ordinary way has no way to become shareable afterwards, which is the same rule the other two backends carry.
-		 */
 		const bool shared  = !desc.exportableHandleTypes.Empty();
 		MTL::Texture * raw = shared ? device->device->newSharedTexture(descriptor.get()) : device->device->newTexture(descriptor.get());
 		if (raw == nullptr)
@@ -138,8 +122,6 @@ namespace azo::rhi::metal4
 			texUsage	  = tracked->usage;
 		}
 
-		// Metal applies a view's swizzle to sampled reads and ignores it on a render target, so a swizzle reaching one would silently disagree with what the shader
-		// read.
 		if (!desc.swizzle.IsIdentity() && UsageForbidsSwizzle(ResolveViewUsage(desc.usage, texUsage)))
 		{
 			return FailValue<TextureViewHandle>(
@@ -152,19 +134,20 @@ namespace azo::rhi::metal4
 			return FailValue<TextureViewHandle>(error, ErrorCode::eUnsupportedFormat, "texture view format is not supported by Metal");
 		}
 
-		// A view reinterpreting the texels needs PixelFormatView usage on the texture, which it gets from allowFormatViews. Without it newTextureView returns a
-		// texture Metal's validation layer rejects on first use without failing here.
 		if (viewFormat != source->pixelFormat() && !mutableFormat)
 		{
 			return FailValue<TextureViewHandle>(
 				error, ErrorCode::eInvalidArgument, "texture view names a format the source texture was not created with allowFormatViews for");
 		}
 
+		if (!ViewRangeFitsTexture(source, desc.range, error))
+		{
+			return TextureViewHandle{};
+		}
+
 		const NS::Range levels = NS::Range::Make(desc.range.baseMip, desc.range.mipCount);
 		const NS::Range slices = NS::Range::Make(desc.range.baseLayer, desc.range.layerCount);
 
-		// The swizzle overload is the one that takes MTLTextureSwizzleChannels. Kept off the identity path so an ordinary view stays on the call Metal has had since
-		// the start.
 		MTL::Texture * raw = desc.swizzle.IsIdentity()
 								 ? source->newTextureView(viewFormat, MetalViewType(desc.type), levels, slices)
 								 : source->newTextureView(viewFormat, MetalViewType(desc.type), levels, slices, MetalSwizzleChannels(desc.swizzle));
@@ -245,7 +228,6 @@ namespace azo::rhi::metal4
 			return Fail(error, ErrorCode::eInvalidArgument, "buffer memory info output pointer is null");
 		}
 
-		// The same rule creation applies, so a caller cannot size a heap against a description that could never be created.
 		if (desc.size == 0)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
@@ -260,4 +242,4 @@ namespace azo::rhi::metal4
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::metal4
+}

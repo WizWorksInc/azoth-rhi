@@ -1,24 +1,11 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-/*
- * Taking a Vulkan object made on this same VkDevice and reading back what a handle stands for. Nothing here allocates, imports or needs an extension. A VkImage
- * handed over by another layer of the same program is already the object, making adoption a slot recording it.
- *
- * The RHI cannot check that the object came from the VkDevice GetVulkanNativeDevice reports. Vulkan exposes no way to ask a handle which device made it. The
- * validation layers diagnose a violation, not this.
- */
 
 #include "backends/vulkan/internal.hpp"
 
@@ -26,13 +13,11 @@ namespace azo::rhi::vulkan
 {
 	namespace
 	{
-		// What the caller asked for. eRhiOwns is a real case and not a courtesy: a caller that built the object natively and then wants the RHI to free it with
-		// everything else picks it, and the slot owning the object is what delivers that.
 		[[nodiscard]] SlotLifetime LifetimeOf(const AdoptedLifetime lifetime) noexcept
 		{
 			return lifetime == AdoptedLifetime::eRhiOwns ? SlotLifetime::eOwned : SlotLifetime::eAdopted;
 		}
-	} // namespace
+	}
 
 	BufferHandle VulkanAdoptBuffer(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
@@ -50,12 +35,6 @@ namespace azo::rhi::vulkan
 
 		auto * device = static_cast<VulkanDevice *>(impl);
 
-		/*
-		 * No allocation and no placed memory, which are the two ways a slot normally names its backing store.
-		 *
-		 * An adopted buffer's memory belongs to whoever made it, so both stay null and hostVisible stays false. Mapping one is refused for that reason, since the RHI
-		 * does not know whether the memory behind it is host visible and cannot ask the VkBuffer.
-		 */
 		const BufferHandle handle = device->bufferSlots.Store(BufferSlot{
 			.buffer	  = static_cast<VkBuffer>(adopted),
 			.size	  = desc.desc.size,
@@ -91,13 +70,6 @@ namespace azo::rhi::vulkan
 			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "adopted texture: undefined or unsupported format");
 		}
 
-		/*
-		 * No default view, deliberately.
-		 *
-		 * Creating one would mean guessing the aspect and the view type of an image whose creation this RHI did not see, and an adopted image commonly carries a
-		 * Y'CbCr conversion that a view built here could not name. A caller that needs a view adopts the one its producer made. Textures with a usage no view is
-		 * legal on already carry a null default view, so nothing downstream is surprised by its absence.
-		 */
 		const TextureHandle handle = device->textureSlots.Store(TextureSlot{
 			.image		   = static_cast<VkImage>(adopted),
 			.format		   = MapFormat(desc.desc.format),
@@ -158,12 +130,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * A view over a texture this device already knows, which is what makes the source handle required, not optional.
-	 *
-	 * The validator refuses a view whose texture has been retired, and it can only do that if the view names one. A caller that cannot name the texture has no way
-	 * to barrier the image behind the view either, so there is no case that wants the field absent.
-	 */
 	TextureViewHandle VulkanAdoptTextureView(
 		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
@@ -261,12 +227,6 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
-	/*
-	 * A VkSemaphore this device did not create, of whichever type the caller says it is.
-	 *
-	 * Vulkan has one object for both semaphore kinds and this RHI has two handle kinds, so nothing here can catch a binary semaphore handed to the timeline entry.
-	 * The validation layers do, on the first wait or signal against it, and inventing a check that could only guess would be worse than saying so.
-	 */
 	TimelineHandle VulkanAdoptTimeline(
 		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
@@ -316,7 +276,7 @@ namespace azo::rhi::vulkan
 		}
 
 		NameVulkanObject(device, vk::ObjectType::eSemaphore, std::bit_cast<std::uint64_t>(static_cast<VkSemaphore>(adopted)), desc.debugName);
-		handle.index |= kDeviceBinarySemaphoreBit; // the tag every device-created binary semaphore carries, so resolve reads the device registry
+		handle.index |= kDeviceBinarySemaphoreBit;
 		return ReturnValue(handle, error);
 	}
 
@@ -377,4 +337,4 @@ namespace azo::rhi::vulkan
 		return block;
 	}
 
-} // namespace azo::rhi::vulkan
+}

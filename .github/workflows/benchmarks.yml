@@ -2,7 +2,7 @@ name: Benchmarks
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   track:
@@ -89,7 +89,7 @@ jobs:
       # Reporting is the only part the key buys. Without it the benchmarks still build, run and hold to their spread, and the upload is what drops, which is
       # the same shape as the fork pull request below.
       - name: Track the base branch
-        if: github.event_name != 'pull_request' && env.BENCHER_API_KEY != ''
+        if: github.ref == 'refs/heads/main' && env.BENCHER_API_KEY != ''
         env:
           GH_CHECKS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

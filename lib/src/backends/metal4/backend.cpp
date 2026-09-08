@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -70,15 +65,11 @@ namespace azo::rhi
 			return threading.GetError();
 		}
 
-		// No instance in the static form so the device has none to retire when it goes.
-		const char * refusedReason	  = nullptr;
-		metal4::Metal4Device * device = metal4::MakeOwnedDevice(nullptr, desc, refusedReason);
+		Error refusal{};
+		metal4::Metal4Device * device = metal4::MakeOwnedDevice(nullptr, desc, refusal);
 		if (device == nullptr)
 		{
-			return Error{
-				.code	 = refusedReason != nullptr ? ErrorCode::eUnsupportedFeature : ErrorCode::eNativeApiError,
-				.message = refusedReason != nullptr ? refusedReason : "no Metal device available",
-			};
+			return refusal.code != ErrorCode::eOk ? refusal : Error{ .code = ErrorCode::eNativeApiError, .message = "no Metal device available" };
 		}
 
 		Error error{};
@@ -96,10 +87,10 @@ namespace azo::rhi
 	{
 		Metal4CommandListView NativeAccess<Metal4Api>::MakeCommandListView(void * commandListImpl) noexcept
 		{
-			metal4::CmdList * list = metal4::ListOf(static_cast<metal4::Metal4Object *>(commandListImpl));
+			metal4::CmdList * list = metal4::ListOf(static_cast<metal4::Metal4Object *>(detail::NativeImplOf(commandListImpl, metal4::RenderCommandBlock())));
 			return Metal4CommandListView{ .commandBuffer = list != nullptr ? list->commandBuffer.get() : nullptr };
 		}
-	} // namespace native
+	}
 
 	Result<Metal4NativeDevice> GetMetal4NativeDevice(Device device)
 	{
@@ -126,12 +117,19 @@ namespace azo::rhi
 		};
 	}
 
-	/*
-	 * The four Metal 4 command accessors.
-	 *
-	 * Each resolves against this backend's command block, so a list from the other one does not match and the answer is null and not a pointer to the wrong
-	 * kind of object. That is what makes it safe to ask both without first testing which device you have, though Device::GetGraphicsApiId says so directly.
-	 */
+	Result<native::Metal4QueueView> GetMetal4QueueView(Queue queue)
+	{
+		const auto * object = static_cast<metal4::Metal4Object *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), metal4::QueueBlock()));
+		if (object == nullptr)
+		{
+			return Error{
+				.code	 = ErrorCode::eUnsupportedApi,
+				.message = "GetMetal4QueueView called on a queue that is not a Metal 4 one",
+			};
+		}
+
+		return native::Metal4QueueView{ .queue = object->owner->CommandQueueFor(object->queueType) };
+	}
 
 	namespace
 	{
@@ -140,7 +138,7 @@ namespace azo::rhi
 			auto * object = static_cast<metal4::Metal4Object *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandList), metal4::RenderCommandBlock()));
 			return metal4::ListOf(object);
 		}
-	} // namespace
+	}
 
 	MTL4::CommandBuffer * GetMetal4CommandBuffer(CommandList commandList)
 	{
@@ -166,6 +164,6 @@ namespace azo::rhi
 		return list != nullptr ? list->argumentTable.get() : nullptr;
 	}
 
-} // namespace azo::rhi
+}
 
-#endif // __APPLE__
+#endif

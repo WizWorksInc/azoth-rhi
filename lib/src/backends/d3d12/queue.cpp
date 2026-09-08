@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -27,11 +22,6 @@ namespace azo::rhi::d3d12
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			/*
-			 * The flip-model swapchain has no acquire semaphore so a windowed submit's image-available wait arrives empty. Back-buffer reuse is ordered by the
-			 * present queue and the caller's frame fence so an empty handle is a no-op and not a failed submit, which lost the device on the first windowed
-			 * D3D12 frame.
-			 */
 			if (!sync.acquired.IsValid())
 			{
 				continue;
@@ -41,12 +31,11 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid acquire semaphore");
 			}
-			// Target the value the paired signal will produce and not the current one so a wait enqueued first actually blocks. A D3D12 fence does not
-			// auto-reset so waiting on an already-reached value would pass immediately.
 			slot->waitValue += 1;
-			if (FAILED(queue->queue->Wait(slot->fence.Get(), slot->waitValue)))
+			const HRESULT hr = queue->queue->Wait(slot->fence.Get(), slot->waitValue);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Wait failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Wait failed");
 			}
 		}
 		for (const TimelinePoint & wait : desc.waits)
@@ -56,9 +45,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid timeline");
 			}
-			if (FAILED(queue->queue->Wait(slot->fence.Get(), wait.value)))
+			const HRESULT hr = queue->queue->Wait(slot->fence.Get(), wait.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Wait failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Wait failed");
 			}
 		}
 
@@ -75,7 +65,6 @@ namespace azo::rhi::d3d12
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			// Symmetric with the wait above: flip-model present needs no render-finished semaphore so an empty signal handle is a no-op.
 			if (!sync.renderFinished.IsValid())
 			{
 				continue;
@@ -86,9 +75,10 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "submit signals an invalid present semaphore");
 			}
 			slot->signalValue += 1;
-			if (FAILED(queue->queue->Signal(slot->fence.Get(), slot->signalValue)))
+			const HRESULT hr = queue->queue->Signal(slot->fence.Get(), slot->signalValue);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Signal failed");
 			}
 		}
 		for (const TimelinePoint & signal : desc.signals)
@@ -98,23 +88,20 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit signals an invalid timeline");
 			}
-			if (FAILED(queue->queue->Signal(slot->fence.Get(), signal.value)))
+			const HRESULT hr = queue->queue->Signal(slot->fence.Get(), signal.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Signal failed");
 			}
 		}
 
 		return Succeed(error);
 	}
 
-	// A reserved buffer is one linear run of 64 KiB tiles so the byte offset and size translate straight to a start tile and a count, while heap offsets are
-	// already counted in tiles. An invalid page heap unmaps the range.
 	bool BindSparseBuffer(D3D12Device * device, D3D12Queue * queue, const SparseBufferBind & bind, Error * error) noexcept
 	{
 		const bool unbind = !bind.page.heap.IsValid();
 
-		// Tile arithmetic is D3D12's own and not a rule the RHI imposes and UpdateTileMappings given a misaligned run is a device-removal-class mistake so
-		// none of this is gated on a mode.
 		if ((bind.resourceOffset % kD3D12TileSizeBytes) != 0 || (bind.page.size % kD3D12TileSizeBytes) != 0)
 		{
 			return Fail(error, ErrorCode::eValidationFailed, "sparse buffer bind offset and size must be multiples of the 64 KiB tile size");
@@ -124,8 +111,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eValidationFailed, "sparse buffer bind heap offset must be a multiple of the 64 KiB tile size");
 		}
 
-		// Hold refs to the resource and heap across the remap, then drop each registry lock. UpdateTileMappings runs unlocked and never holding two registry
-		// locks at once rules out deadlock.
 		ComPtr<ID3D12Resource> resource;
 		{
 			BufferSlot * slot = ResolveBuffer(device, bind.buffer);
@@ -154,7 +139,7 @@ namespace azo::rhi::d3d12
 		const UINT numTiles = static_cast<UINT>(bind.page.size / kD3D12TileSizeBytes);
 		if (numTiles == 0)
 		{
-			return Succeed(error); // nothing to map or unmap for this bind
+			return Succeed(error);
 		}
 
 		const D3D12_TILED_RESOURCE_COORDINATE coord{
@@ -165,7 +150,7 @@ namespace azo::rhi::d3d12
 		};
 		D3D12_TILE_REGION_SIZE region{};
 		region.NumTiles = numTiles;
-		region.UseBox	= FALSE; // a linear run of NumTiles tiles along the buffer
+		region.UseBox	= FALSE;
 
 		const D3D12_TILE_RANGE_FLAGS rangeFlag = unbind ? D3D12_TILE_RANGE_FLAG_NULL : D3D12_TILE_RANGE_FLAG_NONE;
 		const UINT heapTileOffset			   = unbind ? 0u : static_cast<UINT>(bind.page.heapOffset / kD3D12TileSizeBytes);
@@ -176,8 +161,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// offset and extent are texels translated to whole tiles through the resource's standard tile shape. An invalid page heap unmaps the region and packed mips
-	// have no per-tile coordinates so the validating modes reject them.
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, Error * error) noexcept
 	{
 		const bool unbind = !bind.page.heap.IsValid();
@@ -200,13 +183,11 @@ namespace azo::rhi::d3d12
 			arrayLayers = slot->arrayLayers;
 		}
 
-		// The non-packed tile shape gives texels per tile per dimension and the packed-mip info marks the trailing mips with no tile coords.
 		D3D12_PACKED_MIP_INFO packedMip{};
 		D3D12_TILE_SHAPE tileShape{};
 		UINT numSubresourceTilings = 0;
 		device->device->GetResourceTiling(resource.Get(), nullptr, &packedMip, &tileShape, &numSubresourceTilings, 0, nullptr);
 
-		// Same as the buffer above: what a tile coordinate may be is the resource's own tiling so it is checked whatever the mode.
 		if (bind.subresource.mip >= mipLevels)
 		{
 			return Fail(error, ErrorCode::eValidationFailed, "sparse texture bind names a mip past the texture mip count");
@@ -230,7 +211,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eValidationFailed, "sparse texture bind offset must be tile aligned in texels");
 		}
 
-		// A degenerate tile shape means the resource is not standard-tiled. Guard the divides in every mode.
 		if (tileShape.WidthInTexels == 0 || tileShape.HeightInTexels == 0 || tileShape.DepthInTexels == 0)
 		{
 			return Fail(error, ErrorCode::eNativeApiError, "GetResourceTiling returned no standard tile shape for a sparse texture");
@@ -247,8 +227,6 @@ namespace azo::rhi::d3d12
 			heapRef = heapSlot->heap;
 		}
 
-		// Cube faces already fold into the array-layer count so plane 0 indexes the subresource as mip + layer * mipLevels. Computed inline because
-		// D3D12CalcSubresource is not available in this build.
 		const UINT subresource = static_cast<UINT>(bind.subresource.mip + bind.subresource.layer * mipLevels);
 
 		const auto tilesFor = [](std::uint32_t texels, UINT tileTexels) noexcept -> UINT
@@ -264,7 +242,7 @@ namespace azo::rhi::d3d12
 		region.NumTiles = region.Width * region.Height * region.Depth;
 		if (region.NumTiles == 0)
 		{
-			return Succeed(error); // an empty extent maps nothing
+			return Succeed(error);
 		}
 
 		const D3D12_TILED_RESOURCE_COORDINATE coord{ .X = static_cast<UINT>(bind.offset.x) / tileShape.WidthInTexels,
@@ -281,8 +259,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Binds heap memory to the virtual tiles of reserved resources. A queue-timeline operation like submit: waits go before the remaps and signals after,
-	// taking no new lock. Each bind lowers to UpdateTileMappings against the 64 KiB tile grid.
 	bool D3D12QueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept
 	{
 		auto * queue		 = static_cast<D3D12Queue *>(impl);
@@ -295,9 +271,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind waits on an invalid timeline");
 			}
-			if (FAILED(queue->queue->Wait(slot->fence.Get(), wait.value)))
+			const HRESULT hr = queue->queue->Wait(slot->fence.Get(), wait.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Wait failed for a sparse bind");
+				return FailNative(error, hr, "ID3D12CommandQueue::Wait failed for a sparse bind");
 			}
 		}
 
@@ -324,9 +301,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind signals an invalid timeline");
 			}
-			if (FAILED(queue->queue->Signal(slot->fence.Get(), signal.value)))
+			const HRESULT hr = queue->queue->Signal(slot->fence.Get(), signal.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed for a sparse bind");
+				return FailNative(error, hr, "ID3D12CommandQueue::Signal failed for a sparse bind");
 			}
 		}
 
@@ -344,9 +322,10 @@ namespace azo::rhi::d3d12
 		}
 
 		queue->idleValue += 1;
-		if (FAILED(queue->queue->Signal(queue->idleFence.Get(), queue->idleValue)))
+		const HRESULT hr = queue->queue->Signal(queue->idleFence.Get(), queue->idleValue);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed waiting for idle");
+			return FailNative(error, hr, "ID3D12CommandQueue::Signal failed waiting for idle");
 		}
 		if (WaitFenceHost(queue->idleFence.Get(), queue->idleValue, std::numeric_limits<std::uint64_t>::max()) != WAIT_OBJECT_0)
 		{
@@ -403,13 +382,14 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "signal on an invalid timeline");
 		}
 
-		if (FAILED(slot->fence->Signal(value)))
+		const HRESULT hr = slot->fence->Signal(value);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12Fence::Signal failed");
+			return FailNative(error, hr, "ID3D12Fence::Signal failed");
 		}
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

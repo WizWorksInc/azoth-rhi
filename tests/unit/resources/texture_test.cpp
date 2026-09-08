@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -285,8 +280,6 @@ namespace
 
 	TEST_P(TextureTest, TreatsAnExplicitSelfMappingAsTheIdentitySwizzle)
 	{
-		// Vulkan defines naming a channel's own component as equivalent to the identity enumerant, so this must not be read as a reinterpretation and
-		// must not be refused on a storage texture the way a real swizzle would be.
 		static_assert(rhi::ComponentMapping{}.IsIdentity());
 		static_assert(rhi::ComponentMapping{
 			.r = rhi::ComponentSwizzle::eR, .g = rhi::ComponentSwizzle::eG, .b = rhi::ComponentSwizzle::eB, .a = rhi::ComponentSwizzle::eA }
@@ -411,8 +404,6 @@ namespace
 
 	TEST_P(TextureTest, RefusesAMultiPlanarTextureWhereTheBackendCannotCreateOne)
 	{
-		// Metal builds textures from a descriptor and MTLPixelFormat has no multi-planar member, so the honest answer is a refusal at creation rather
-		// than a texture that cannot be sampled.
 		AZO_RHI_REQUIRE_CAP(!Caps().supportsMultiPlanarFormats, "a backend without multi-planar creation");
 
 		rhi::Error error{};
@@ -447,7 +438,6 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, viewDesc, error);
 		EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "a view carrying a Y'CbCr conversion was refused";
 
-		// Vulkan pins a conversion sampler to edge clamping with no anisotropy and no comparison, so this is the only shape one can take.
 		rhi::SamplerDesc samplerDesc = test::samples::LinearSampler();
 		samplerDesc.addressU		 = rhi::AddressMode::eClampToEdge;
 		samplerDesc.addressV		 = rhi::AddressMode::eClampToEdge;
@@ -513,7 +503,6 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!Caps().supportsSamplerYcbcrConversion, "a backend without sampler Y'CbCr conversion");
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "sampler state (the null backend models none)");
 
-		// Direct3D 12 and Metal have no equivalent object, so asking for one is refused, not quietly sampling the raw planes as if it were RGB.
 		const rhi::SamplerYcbcrConversionDesc conversion{ .format = rhi::Format::eG8B8R8Biplanar420UNorm };
 
 		rhi::SamplerDesc samplerDesc = test::samples::LinearSampler();
@@ -525,11 +514,6 @@ namespace
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature);
 	}
 
-	/*
-	 * Both of these reached a driver assertion before they were checked here. Metal refuses neither by returning an error, it asserts inside validateWithDevice
-	 * and takes the process down, and Vulkan on MoltenVK builds the same descriptor and dies the same way. The Null backend accepted both, which is why a run
-	 * with no GPU never saw it.
-	 */
 	TEST_P(TextureTest, RefusesATextureWithAZeroDimension)
 	{
 		for (const char * axis : { "width", "height", "depth" })
@@ -559,7 +543,6 @@ namespace
 	{
 		rhi::TextureDesc desc = test::samples::SampledTexture2D(16);
 
-		// Sixteen texels give five levels counting the base, so six is the first that cannot exist.
 		desc.mipLevels = 6;
 
 		rhi::Error error{};
@@ -596,6 +579,60 @@ namespace
 		rhi::Error viewError{};
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, test::samples::FullTextureView(), viewError);
 		EXPECT_FALSE(view.IsValid()) << "a view was created over a destroyed texture";
+	}
+
+	TEST_P(TextureTest, RefusesAViewRangePastTheEndOfTheTexture)
+	{
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+
+		rhi::TextureViewDesc pastLastMip = test::samples::FullTextureView();
+		pastLastMip.range.baseMip		 = 4;
+
+		rhi::Error mipError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, pastLastMip, mipError).IsValid()) << "a view based past the last mip was accepted";
+		EXPECT_EQ(mipError.code, rhi::ErrorCode::eInvalidArgument);
+
+		rhi::TextureViewDesc pastLastLayer = test::samples::FullTextureView();
+		pastLastLayer.range.baseLayer	   = 1;
+
+		rhi::Error layerError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, pastLastLayer, layerError).IsValid()) << "a view based past the last layer was accepted";
+		EXPECT_EQ(layerError.code, rhi::ErrorCode::eInvalidArgument);
+
+		rhi::TextureViewDesc pastTheCount = test::samples::FullTextureView();
+		pastTheCount.range.baseMip		  = 3;
+		pastTheCount.range.mipCount		  = 2;
+
+		rhi::Error countError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, pastTheCount, countError).IsValid()) << "a view taking more mips than remain was accepted";
+		EXPECT_EQ(countError.code, rhi::ErrorCode::eInvalidArgument);
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+	}
+
+	TEST_P(TextureTest, RefusesTheWholeRangeSentinelsInAView)
+	{
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+
+		rhi::TextureViewDesc everyMip = test::samples::FullTextureView();
+		everyMip.range.mipCount		  = rhi::kAllMips;
+
+		rhi::Error mipError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, everyMip, mipError).IsValid()) << "kAllMips was accepted in a texture view";
+		EXPECT_EQ(mipError.code, rhi::ErrorCode::eInvalidArgument);
+
+		rhi::TextureViewDesc everyLayer = test::samples::FullTextureView();
+		everyLayer.range.layerCount		= rhi::kAllLayers;
+
+		rhi::Error layerError{};
+		EXPECT_FALSE(Dev().CreateTextureView(texture, everyLayer, layerError).IsValid()) << "kAllLayers was accepted in a texture view";
+		EXPECT_EQ(layerError.code, rhi::ErrorCode::eInvalidArgument);
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, CreatesAndDestroysASampler)
@@ -657,4 +694,4 @@ namespace
 		SUCCEED();
 	}
 
-} // namespace
+}

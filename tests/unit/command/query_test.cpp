@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -43,8 +38,6 @@ namespace
 	constexpr std::uint32_t kPoolQueries  = 8;
 	constexpr std::uint64_t kResultStride = sizeof(std::uint64_t);
 
-	// What a backend writes into a slot nothing sampled. Metal resolves MTLCounterErrorValue there, not zero, and a test reading a pair back has to be
-	// able to tell that apart from a plausible time.
 	constexpr std::uint64_t kUnwritten = ~0ull;
 
 	[[nodiscard]] bool SubmitAndWait(rhi::Device device, rhi::CommandList & list, rhi::Error & error)
@@ -104,9 +97,9 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::PipelineStage::eAllCommands, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eAllCommands, error), error));
 			EXPECT_TRUE(test::Ok(recording.List().ClearBuffer(scratch, 0, test::samples::kBufferSize, 0u, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 1, rhi::PipelineStage::eAllCommands, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 1, rhi::Stage::eAllCommands, error), error));
 			EXPECT_TRUE(test::Ok(recording.List().ResolveQueryData(pool, 0, 2, results, 0, error), error));
 
 			ASSERT_TRUE(recording.End());
@@ -151,11 +144,15 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
-			.load		= rhi::LoadOp::eClear,
-			.store		= rhi::StoreOp::eStore,
-			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view		= view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
+				.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
+			},
+		};
 
 		const rhi::RenderingTimestampWrites writes{ .pool = pool, .beginQuery = 0, .endQuery = 1 };
 
@@ -228,11 +225,15 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
-			.load		= rhi::LoadOp::eClear,
-			.store		= rhi::StoreOp::eStore,
-			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view		= view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
+				.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
+			},
+		};
 
 		const rhi::BeginRenderingDesc rendering{
 			.colors		  = colors,
@@ -257,7 +258,7 @@ namespace
 		}
 
 		rhi::Error writeError{};
-		const bool written = recording.List().WriteTimestamp(pool, 2, rhi::PipelineStage::eAllCommands, writeError);
+		const bool written = recording.List().WriteTimestamp(pool, 2, rhi::Stage::eAllCommands, writeError);
 
 		if (Caps().supportsTimestampWritesInScope)
 		{
@@ -291,13 +292,39 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		rhi::Error writeError{};
-		EXPECT_FALSE(recording.List().WriteTimestamp(pool, kPoolQueries, rhi::PipelineStage::eAllCommands, writeError))
+		EXPECT_FALSE(recording.List().WriteTimestamp(pool, kPoolQueries, rhi::Stage::eAllCommands, writeError))
 			<< "a timestamp was written past the end of the pool";
 		EXPECT_TRUE(test::ErrorIsPopulated(writeError));
 
 		rhi::Error resetError{};
 		EXPECT_FALSE(recording.List().ResetQueryPool(pool, kPoolQueries - 1, 2, resetError)) << "a reset ran past the end of the pool";
 		EXPECT_TRUE(test::ErrorIsPopulated(resetError));
+
+		EXPECT_TRUE(recording.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+	}
+
+	TEST_P(QueryTest, RefusesAStageMaskNamingMoreThanOneStage)
+	{
+		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
+
+		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
+
+		rhi::Error error{};
+		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
+
+		rhi::Error maskError{};
+		EXPECT_FALSE(recording.List().WriteTimestamp(pool, 0, rhi::Flags<rhi::Stage>(rhi::Stage::eCompute) | rhi::Stage::eCopy, maskError))
+			<< "a timestamp was written at a mask naming two stages";
+		EXPECT_TRUE(test::ErrorIsPopulated(maskError));
+
+		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eCompute, error), error));
 
 		EXPECT_TRUE(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
@@ -315,11 +342,15 @@ namespace
 		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
 		ASSERT_TRUE(test::Ok(view.IsValid(), error));
 
-		const std::array colors{ rhi::RenderingAttachment{ .view = view,
-			.state		= { .stages = rhi::PipelineStage::eColorOutput, .access = rhi::Access::eColorWrite, .layout = rhi::TextureLayout::eColorAttachment, },
-			.load		= rhi::LoadOp::eClear,
-			.store		= rhi::StoreOp::eStore,
-			.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f } } };
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view		= view,
+				.state		= { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load		= rhi::LoadOp::eClear,
+				.store		= rhi::StoreOp::eStore,
+				.clearColor = rhi::ClearColor{ .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
+			},
+		};
 
 		const rhi::RenderingTimestampWrites writes{ .pool = rhi::QueryPoolHandle{ .index = 9001, .generation = 3 }, .beginQuery = 0, .endQuery = 1 };
 
@@ -368,4 +399,4 @@ namespace
 		}
 	}
 
-} // namespace
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -51,8 +46,6 @@ namespace
 
 	TEST(Fnv1a64, FoldsBytesUnsignedSoThePlatformCharSignDoesNotShow)
 	{
-		// char is signed on x86-64 Linux and macOS and unsigned on arm64 Linux. A hash that sign-extended would give two different ids for the same name
-		// depending on the build machine, which is exactly the failure that makes a serialized rhi::GraphicsApiId unreadable elsewhere.
 		constexpr std::string_view highBit = "\x80\xff";
 
 		std::uint64_t expected = rhi::hash::kFnv1a64OffsetBasis;
@@ -116,4 +109,4 @@ namespace
 		}
 	}
 
-} // namespace
+}

@@ -101,6 +101,7 @@
       "displayName": "No exceptions",
       "description": "Proves the library neither throws nor needs exceptions, which only compiling it that way can show.",
       "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/no-exceptions",
       "cacheVariables": {
         "AZOTH_RHI_NO_EXCEPTIONS": "ON"
       }
@@ -110,6 +111,7 @@
       "displayName": "Shared library",
       "description": "A shared build with hidden visibility, which is what finds a missing AZO_RHI_API without a Windows machine.",
       "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/shared",
       "cacheVariables": {
         "BUILD_SHARED_LIBS": "ON"
       }

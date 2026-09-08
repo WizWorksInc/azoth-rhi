@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -18,13 +13,6 @@
 
 namespace azo::rhi::d3d12
 {
-	/*
-	 * Ray tracing is what is missing from this backend, on both sides: the device entries that would build a ray tracing pipeline or an acceleration structure
-	 * and the recording entries that would bind and trace one. The device ones go to D3D12UnimplementedValue, the recording ones to D3D12Unimplemented.
-	 *
-	 * NegotiateCaps never sets supportsRayTracing so a caller that checks first never reaches these. DXR would be the way in, its tier queryable through
-	 * D3D12_FEATURE_D3D12_OPTIONS5.
-	 */
 	const CoreDeviceApi & CoreDeviceBlock() noexcept
 	{
 		static const CoreDeviceApi block{
@@ -157,7 +145,6 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-	// Declined by a backend that shares nothing, which is how every other optional capability says no. Published here because this one has answers.
 	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept
 	{
 		static const ExternalCapabilityApi block{
@@ -171,7 +158,6 @@ namespace azo::rhi::d3d12
 	{
 		static const QueueApi block{
 			.getType		   = &D3D12QueueType,
-			.getFamilyIndex	   = &D3D12QueueFamilyIndex,
 			.submit			   = &D3D12QueueSubmit,
 			.waitIdle		   = &D3D12QueueWaitIdle,
 			.getCompletedValue = &D3D12QueueGetCompletedValue,
@@ -325,6 +311,6 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -30,13 +25,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "clearBuffer with an invalid buffer handle");
 		}
 
-		/*
-		 * This lowers to ClearUnorderedAccessViewUint, which needs a UAV, which needs the resource to carry ALLOW_UNORDERED_ACCESS. Creating one over a buffer
-		 * without that flag is not diagnosed by the runtime. It builds a descriptor over a resource that cannot back it and the clear hangs the GPU. The failure
-		 * arrives as a device removal on some later call.
-		 *
-		 * Read off the resource and not a copy of the usage flags, since the resource flag is the actual precondition.
-		 */
 		if ((slot->resource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) == 0)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "clearBuffer needs BufferUsage::eStorage, which is what lets Direct3D 12 clear through a UAV");
@@ -44,8 +32,6 @@ namespace azo::rhi::d3d12
 
 		if (list->clearGpuHeap && list->clearHeapNext >= list->clearHeapCapacity)
 		{
-			// The clear heap is full. Retire it (held until the next Begin, once the GPU has consumed it) and take a fresh one so a recording is never capped at a fixed
-			// number of buffer clears.
 			list->retiredClearHeaps.push_back(std::move(list->clearGpuHeap));
 			list->retiredClearHeaps.push_back(std::move(list->clearStagingHeap));
 			list->clearHeapNext = 0;
@@ -57,14 +43,16 @@ namespace azo::rhi::d3d12
 			heapDesc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 			heapDesc.NumDescriptors = kClearHeapSize;
 			heapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			if (FAILED(device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearGpuHeap.GetAddressOf()))))
+			const HRESULT gpuHeapHr = device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearGpuHeap.GetAddressOf()));
+			if (FAILED(gpuHeapHr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "failed to create the clearBuffer shader-visible heap");
+				return FailNative(error, gpuHeapHr, "failed to create the clearBuffer shader-visible heap");
 			}
-			heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-			if (FAILED(device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearStagingHeap.GetAddressOf()))))
+			heapDesc.Flags				= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+			const HRESULT stagingHeapHr = device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearStagingHeap.GetAddressOf()));
+			if (FAILED(stagingHeapHr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "failed to create the clearBuffer staging heap");
+				return FailNative(error, stagingHeapHr, "failed to create the clearBuffer staging heap");
 			}
 			list->clearHeapIncrement = device->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			list->clearHeapCapacity	 = kClearHeapSize;
@@ -95,8 +83,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// Clears a color texture through a transient RTV, which needs the texture in RENDER_TARGET. Depth goes through BeginRendering instead. The RTV returns to the
-	// device heap at the next Begin, since the descriptor is consumed at execute time, not record time.
 	bool D3D12CmdClearTexture(
 		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
@@ -112,8 +98,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture clears color textures; clear depth via BeginRendering");
 		}
 
-		// Direct3D 12 clears a color texture through a render target view, which a resource created without ALLOW_RENDER_TARGET cannot have. Refused here
-		//, not left to CreateRenderTargetView, which raises a debug layer error the caller has no way to read.
 		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
 		{
 			return Fail(
@@ -175,8 +159,6 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveTexture with an invalid handle");
 		}
 
-		// ResolveSubresource takes a whole subresource so a sub-rectangle goes through ResolveSubresourceRegion, not silently resolving everything, matching how
-		// Vulkan honors the region.
 		ComPtr<ID3D12GraphicsCommandList1> list1;
 		const bool haveList1 = SUCCEEDED(list->list.As(&list1));
 		for (const TextureResolve & region : regions)
@@ -214,12 +196,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	/*
-	 * Direct3D 12 has no fixed-function scaled blit and this backend no longer carries a compute shader to stand in for one, and both entries refuse.
-	 * DeviceCaps::supportsScaledBlit reports false to match and FormatSupport says the same per format, letting a caller find out before recording.
-	 *
-	 * Resampling is still reachable in the utility target above the RHI, which owns the shader, the descriptor budget and the choice of filter.
-	 */
 	bool D3D12CmdBlit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src,
 		[[maybe_unused]] std::span<const TextureBlit> regions, [[maybe_unused]] Filter filter, Error * error) noexcept
 	{
@@ -229,17 +205,26 @@ namespace azo::rhi::d3d12
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no scaled blit; resample through azoth::rhi-utils instead");
 	}
 
-	// generateMips is a chain of scaled blits, so it goes the same way and for the same reason.
-	bool D3D12CmdGenerateMips(void * impl, [[maybe_unused]] TextureHandle texture, Error * error) noexcept
+	bool D3D12CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.generateMips");
-		static_cast<void>(impl);
+
+		auto * list				 = static_cast<D3D12CommandList *>(impl);
+		const TextureSlot * slot = ResolveTexture(list->owner, texture);
+		if (slot == nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidHandle, "generateMips with an invalid or stale texture handle");
+		}
+
+		// A chain of one is already whole, so there is nothing to build and nothing to refuse, which is what every other backend answers here.
+		if (slot->mipLevels <= 1)
+		{
+			return Succeed(error);
+		}
 
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no scaled blit to build a mip chain from; use azoth::rhi-utils instead");
 	}
 
-	// D3D12 query heaps have no reset, since each resolve overwrites the destination so this only validates the handle.
+}
 
-} // namespace azo::rhi::d3d12
-
-#endif // _WIN32
+#endif

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -24,12 +19,6 @@ namespace azo::rhi::metal
 
 	namespace
 	{
-		/*
-		 * Refuses a pipeline whose shaders claim their bindings landed at argument-table indices other than the ones this backend binds them at.
-		 *
-		 * Metal has no layout object to disagree with, so the disagreement is between what the binary says and what MetalCmdBindDescriptorSet will do. Nothing here
-		 * changes where anything is bound. It changes reading a stale texture at the wrong index into a refusal that names the binding.
-		 */
 		[[nodiscard]] bool BindingMapsAgreeImpl(
 			MetalDevice * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 		{
@@ -84,7 +73,6 @@ namespace azo::rhi::metal
 
 				if (bad.unknownToLayout)
 				{
-					// Also what a set above zero looks like here, the ABI addressing only set zero on this backend.
 					return Fail(error, ErrorCode::eInvalidArgument, "a shader binary claims a binding this backend does not bind for that pipeline layout");
 				}
 
@@ -95,14 +83,6 @@ namespace azo::rhi::metal
 			return true;
 		}
 
-		/*
-		 * Every buffer the compiled function reads, against every index this backend will write one to.
-		 *
-		 * BindingMapsAgree above answers the same question, but only for a caller who volunteered a map, and one who knew enough to write a correct one was not
-		 * going to be caught out. Metal says what the function actually asks for.
-		 *
-		 * What this catches is a Slang shader declaring no push constant, whose first set wants the index below where this binds it.
-		 */
 		[[nodiscard]] bool FunctionBuffersAreBoundImpl(
 			MetalDevice * device, const PipelineLayoutHandle layoutHandle, const NS::Array * bindings, Error * error) noexcept
 		{
@@ -121,27 +101,17 @@ namespace azo::rhi::metal
 			{
 				const auto * binding = static_cast<const MTL::Binding *>(bindings->object(entry));
 
-				// Only buffers, and only the ones the compiler kept. Textures and samplers reach a shader through the argument buffer and not a slot of their own on a
-				// device with argument buffers, and an unused binding is not one anything has to bind.
 				if (binding == nullptr || binding->type() != MTL::BindingTypeBuffer || !binding->isUsed())
 				{
 					continue;
 				}
 
-				// Vertex buffers are bound from their own base, well above where sets go, so they are not a set's index failing to match.
 				const auto index = static_cast<std::uint32_t>(binding->index());
 				if (index >= kMetalVertexBufferBase)
 				{
 					continue;
 				}
 
-				/*
-				 * Buffer 0 only when the layout has a push constant to put there. A layout with none binds nothing at that index, so a shader reading it reads
-				 * something that will never be written, which is exactly the shape of the bug: Slang gave its first set buffer 0 because the shader declared no
-				 * push constant.
-				 *
-				 * The reverse pairing still slips through. Both want buffer 0 and reflection reports a buffer either way.
-				 */
 				if (index == kMetalPushConstantIndex && layout->hasPushConstants)
 				{
 					continue;
@@ -164,7 +134,7 @@ namespace azo::rhi::metal
 
 			return true;
 		}
-	} // namespace
+	}
 
 	PipelineLayoutHandle MetalCreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 	{
@@ -195,10 +165,6 @@ namespace azo::rhi::metal
 	GraphicsPipelineHandle MetalCreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.createGraphicsPipeline");
-		/*
-		 * A null vertexInput means primitives come from somewhere other than vertex buffers, which is what a mesh pipeline is. No backend here builds one, so it is
-		 * refused by name, not lowered as an empty vertex layout that would draw nothing and report success.
-		 */
 		if (desc.vertexInput == nullptr)
 		{
 			return FailValue<GraphicsPipelineHandle>(
@@ -206,10 +172,6 @@ namespace azo::rhi::metal
 		}
 
 		const VertexInputDesc & vertexInput = *desc.vertexInput;
-		/*
-		 * Both of these change what the rasterizer actually covers, so a backend that cannot do them refuses without lowering the pipeline without them. Dropping
-		 * either one silently produces a pipeline that creates, draws, and covers the wrong pixels.
-		 */
 		if (desc.raster.conservativeRasterEnable)
 		{
 			return FailValue<GraphicsPipelineHandle>(
@@ -221,8 +183,6 @@ namespace azo::rhi::metal
 			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "a patch list needs a non-zero patchControlPoints");
 		}
 
-		// Both counts index arrays of a fixed size, so a desc naming more than those hold is refused here, not read past their end. The same refusal the Vulkan and
-		// Direct3D paths make, so a malformed desc earns one answer, not three.
 		if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 		{
 			return FailValue<GraphicsPipelineHandle>(
@@ -248,6 +208,11 @@ namespace azo::rhi::metal
 		NS::SharedPtr<MTL::Function> fragmentFunction;
 		for (const ShaderBinary & shader : desc.shaders)
 		{
+			if (!MetalRefuseUnbuildableGraphicsStage(shader.stage, error))
+			{
+				return {};
+			}
+
 			if (shader.stage == ShaderStage::eVertex)
 			{
 				vertexFunction = CompileFunction(device->device.get(), shader, error);
@@ -277,15 +242,20 @@ namespace azo::rhi::metal
 			descriptor->setFragmentFunction(fragmentFunction.get());
 		}
 
-		// Build the vertex descriptor so [[stage_in]] shaders fetch attributes. Buffer indices are offset above the resource buffers, matching where setVertexBuffer
-		// binds.
 		if (!vertexInput.attributes.empty())
 		{
 			NS::SharedPtr<MTL::VertexDescriptor> vertexDescriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
 			for (const VertexAttributeDesc & attribute : vertexInput.attributes)
 			{
+				const MTL::VertexFormat vertexFormat = MetalVertexFormat(attribute.format);
+				if (vertexFormat == MTL::VertexFormatInvalid)
+				{
+					return FailValue<GraphicsPipelineHandle>(
+						error, ErrorCode::eUnsupportedFeature, "a vertex attribute names a format this backend has no Metal vertex format for");
+				}
+
 				MTL::VertexAttributeDescriptor * attr = vertexDescriptor->attributes()->object(attribute.location);
-				attr->setFormat(MetalVertexFormat(attribute.format));
+				attr->setFormat(vertexFormat);
 				attr->setOffset(attribute.offset);
 				attr->setBufferIndex(kMetalVertexBufferBase + attribute.binding);
 			}
@@ -303,10 +273,18 @@ namespace azo::rhi::metal
 		{
 			MTL::RenderPipelineColorAttachmentDescriptor * attachment = descriptor->colorAttachments()->object(i);
 			// Creation refuses a count past these arrays. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			if (!MetalRefuseUnrenderableAttachment(desc.renderTarget.colorFormats[i], error))
+			{
+				return {};
+			}
 			attachment->setPixelFormat(MetalPixelFormat(desc.renderTarget.colorFormats[i]));
 			if (i < desc.blend.attachmentCount)
 			{
 				const ColorBlendAttachmentDesc & blend = desc.blend.attachments[i];
+				if (blend.blendEnable && !MetalRefuseUnblendableAttachment(desc.renderTarget.colorFormats[i], error))
+				{
+					return {};
+				}
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				attachment->setBlendingEnabled(blend.blendEnable);
 				attachment->setSourceRGBBlendFactor(MetalBlendFactor(blend.srcColorBlendFactor));
@@ -340,7 +318,6 @@ namespace azo::rhi::metal
 			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Metal render pipeline creation failed");
 		}
 
-		// Both stages, since either can be the one asking for a set the layout does not bind.
 		const bool bound = info == nullptr || (FunctionBuffersAreBoundImpl(device, desc.layout, info->vertexBindings(), error) &&
 												  FunctionBuffersAreBoundImpl(device, desc.layout, info->fragmentBindings(), error));
 		if (!bound)
@@ -374,11 +351,6 @@ namespace azo::rhi::metal
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.createComputePipeline");
 
-		/*
-		 * Required on every backend, not only the one that reads it. SPIR-V and DXIL carry the size inside the binary so Vulkan and Direct3D 12 never look at this
-		 * field, but refusing it here too is what stops a shader developed against one of them reaching Metal with the size forgotten, where the failure would be a
-		 * dispatch that quietly does a fraction of the work.
-		 */
 		if (!desc.shader.threadgroupSize.IsStated())
 		{
 			return FailValue<ComputePipelineHandle>(error,
@@ -402,7 +374,6 @@ namespace azo::rhi::metal
 			return {};
 		}
 
-		// Asked for the binding info the check below reads. Metal produces it as part of the same call, so this costs one flag and not a second compile.
 		NS::Error * pipelineError						= nullptr;
 		MTL::AutoreleasedComputePipelineReflection info = nullptr;
 		MTL::ComputePipelineState * rawState = device->device->newComputePipelineState(function.get(), MTL::PipelineOptionBindingInfo, &info, &pipelineError);
@@ -430,4 +401,4 @@ namespace azo::rhi::metal
 		return ReturnValue(handle, error);
 	}
 
-} // namespace azo::rhi::metal
+}

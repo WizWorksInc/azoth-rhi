@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -63,7 +58,6 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	// Encodes the RHI filter and comparison state into a single D3D12_FILTER value.
 	[[nodiscard]] D3D12_FILTER MapFilter(const SamplerDesc & desc) noexcept
 	{
 		const D3D12_FILTER_REDUCTION_TYPE reduction = desc.compareEnable ? D3D12_FILTER_REDUCTION_TYPE_COMPARISON : D3D12_FILTER_REDUCTION_TYPE_STANDARD;
@@ -156,11 +150,8 @@ namespace azo::rhi::d3d12
 		heapDesc.SizeInBytes	 = desc.size;
 		heapDesc.Properties.Type = MapHeapClass(desc.type);
 		heapDesc.Alignment		 = desc.alignment != 0 ? desc.alignment : D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-		// Resource-heap tier 2 allows buffers and textures in one heap, which the transient allocator needs. Buffer-only heaps narrow it.
-		heapDesc.Flags = desc.allowTextures ? D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES : D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
+		heapDesc.Flags			 = desc.allowTextures ? D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES : D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
 
-		// A shared heap is the granularity a caller placing its own resources shares at, and it is device local only: Direct3D 12 does not share upload
-		// or readback memory.
 		if (!desc.exportableHandleTypes.Empty())
 		{
 			if (heapDesc.Properties.Type != D3D12_HEAP_TYPE_DEFAULT)
@@ -220,19 +211,26 @@ namespace azo::rhi::d3d12
 		resourceDesc.Layout			  = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		resourceDesc.Flags			  = MapBufferResourceFlags(desc.buffer.usage);
 
+		if (desc.buffer.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
+		{
+			return FailValue<BufferHandle>(error,
+				ErrorCode::eInvalidArgument,
+				"an acceleration structure buffer must be placed in a device-local heap, since Direct3D 12 places one only in the default heap");
+		}
+
 		ComPtr<ID3D12Resource> resource;
 		if (FAILED(device->device->CreatePlacedResource(
-				heap.Get(), desc.offset, &resourceDesc, InitialBufferState(heapType), nullptr, IID_PPV_ARGS(resource.GetAddressOf()))))
+				heap.Get(), desc.offset, &resourceDesc, InitialBufferState(heapType, desc.buffer.usage), nullptr, IID_PPV_ARGS(resource.GetAddressOf()))))
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a buffer");
 		}
 
-		// A placed buffer owns no D3D12MA allocation: its memory belongs to the heap. The heap type fixes mappability, ignoring the desc memory hint.
 		const bool hostVisible = heapType == D3D12_HEAP_TYPE_UPLOAD || heapType == D3D12_HEAP_TYPE_READBACK;
 		return ReturnValue(device->bufferSlots.Store(BufferSlot{
 							   .resource	= std::move(resource),
 							   .size		= desc.buffer.size,
 							   .hostVisible = hostVisible,
+							   .heapType	= heapType,
 							   .desc		= detail::Recorded(desc.buffer),
 						   }),
 			error);
@@ -254,7 +252,6 @@ namespace azo::rhi::d3d12
 				error, ErrorCode::eUnsupportedFormat, "allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not");
 		}
 
-		// The same rules the unplaced create applies, so a caller cannot reach an impossible description by routing it through a heap instead.
 		if (desc.texture.width == 0 || desc.texture.height == 0 || desc.texture.depth == 0)
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
@@ -312,6 +309,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-} // namespace azo::rhi::d3d12
+}
 
-#endif // _WIN32
+#endif

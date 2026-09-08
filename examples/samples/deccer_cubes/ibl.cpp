@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -26,7 +21,6 @@
 #include "FW/utility/AssetPath.hpp"
 #include "FW/utility/Log.hpp"
 
-// The implementation lives in scene.cpp, which is linked into this same sample.
 #include <stb_image.h>
 
 #include <array>
@@ -49,20 +43,10 @@ namespace deccer
 		constexpr std::uint32_t kCubeFaces = 6;
 		constexpr std::uint32_t kGroupSize = 8;
 
-		/*
-		 * The cube face size, derived from the photograph, not fixed.
-		 *
-		 * A face covers a quarter of the way around, so a quarter of the source's width is the obvious answer and the wrong one. A face texel at u in [-1, 1]
-		 * points along atan(u), so a face of N covers its middle at N/2 texels a radian where an equirectangular W carries W/2pi. Equal at the centre gives N =
-		 * W/pi.
-		 *
-		 * Rounded to the threadgroup, capped at six faces.
-		 */
 		constexpr std::uint32_t kMaxEnvironmentSize = 2048;
 
 		[[nodiscard]] constexpr std::uint32_t EnvironmentSizeFor(const std::uint32_t sourceWidth) noexcept
 		{
-			// 1/pi in the integer arithmetic a constant expression can do, which is within a texel of the real thing at every source size this will see.
 			const std::uint32_t exact	= ((sourceWidth * 100) + 157) / 314;
 			const std::uint32_t rounded = ((exact + kGroupSize - 1) / kGroupSize) * kGroupSize;
 			return rounded < 256 ? 256 : (rounded > kMaxEnvironmentSize ? kMaxEnvironmentSize : rounded);
@@ -70,28 +54,14 @@ namespace deccer
 
 		static_assert(EnvironmentSizeFor(4096) == 1304, "a 4k photograph wants 1304 per face for one texel per texel at the face centre");
 
-		// Diffuse irradiance is low frequency by construction, the convolution having thrown away everything sharp, so a small cube holds all of it there is.
 		constexpr std::uint32_t kIrradianceSize = 32;
 
-		/*
-		 * The specular chain starts at the environment's own size, because level zero of it is the environment and is what the sky is drawn from.
-		 *
-		 * Half of it was half the sky's resolution, which reads as a soft photograph behind sharp geometry, and the comment above the sky shader claiming level
-		 * zero was the environment untouched had been wrong about that since it was written. The levels below zero are convolutions and lose nothing by
-		 * halving, which they do anyway.
-		 */
 		constexpr std::uint32_t kSpecularMips = 5;
 
-		// Has to match the [numthreads] on all three entry points below, since nothing checks that it does.
 		constexpr Threadgroup kThreadgroup{ .x = kGroupSize, .y = kGroupSize, .z = 1 };
 
 		constexpr rhi::Format kFormat = rhi::Format::eRGBA16Float;
 
-		/*
-		 * Slang numbers Metal's textures and samplers per kind in declaration order and the Metal backend binds a descriptor at its binding number within the
-		 * matching kind. The output has to be the first texture declared and the sampler has to reach Metal at index zero. Vulkan and Direct3D 12 want the
-		 * sampler as a descriptor of its own, which is binding 2.
-		 */
 		constexpr std::uint32_t kOutputBinding		= 0;
 		constexpr std::uint32_t kEnvironmentBinding = 1;
 		constexpr std::uint32_t kSamplerBinding		= 2;
@@ -101,12 +71,9 @@ namespace deccer
 			std::uint32_t size = 0;
 			float roughness	   = 0.0f;
 
-			// The environment cube's face size, which the prefilter needs to know how much of it one texel covers.
 			std::uint32_t sourceSize = 0;
 		};
 
-		// How many levels a cube of this size has, which is what the prefilter reads down when a sample stands for more of the sphere than one texel of the top
-		// level covers.
 		[[nodiscard]] constexpr std::uint32_t MipCountFor(std::uint32_t size) noexcept
 		{
 			std::uint32_t levels = 1;
@@ -123,8 +90,6 @@ namespace deccer
 			return ((size + kGroupSize) - 1) / kGroupSize;
 		}
 
-		// A cube texture that compute writes and the shaders sample which requires one view of each shape such as an array of faces to write through and a cube
-		// to read through.
 		[[nodiscard]] rhi::TextureHandle CreateCube(rhi::Device dev, const std::uint32_t size, const std::uint32_t mips, const char * name, rhi::Error & error)
 		{
 			return dev.CreateTexture(
@@ -176,7 +141,6 @@ namespace deccer
 			};
 		}
 
-		// The same, for a run of levels partway down a chain, which mip generation needs because it leaves the level it read and the levels it wrote in different states.
 		[[nodiscard]] rhi::TextureBarrier CubeLevels(const rhi::TextureHandle texture, const std::uint32_t baseMip, const std::uint32_t mips,
 			const rhi::ResourceState & before, const rhi::ResourceState & after)
 		{
@@ -188,38 +152,17 @@ namespace deccer
 			};
 		}
 
-		constexpr rhi::ResourceState kUndefined{ .stages = rhi::PipelineStage::eNone, .access = rhi::Access::eNone, .layout = rhi::TextureLayout::eUndefined };
-		constexpr rhi::ResourceState kWritten{
-			.stages = rhi::PipelineStage::eComputeShader,
-			.access = rhi::Access::eShaderWrite,
-			.layout = rhi::TextureLayout::eGeneral,
-		};
+		constexpr rhi::ResourceState kUndefined{ .use = rhi::ResourceUse::eDiscard };
+		constexpr rhi::ResourceState kWritten{ .use = rhi::ResourceUse::eStorageWrite, .stages = rhi::Stage::eCompute };
 
-		constexpr rhi::ResourceState kSampled{
-			.stages = rhi::PipelineStage::eComputeShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		constexpr rhi::ResourceState kSampled{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eCompute };
 
-		constexpr rhi::ResourceState kRead{
-			.stages = rhi::PipelineStage::eFragmentShader,
-			.access = rhi::Access::eShaderRead,
-			.layout = rhi::TextureLayout::eShaderReadOnly,
-		};
+		constexpr rhi::ResourceState kRead{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 
-		constexpr rhi::ResourceState kCopyDst{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyWrite,
-			.layout = rhi::TextureLayout::eCopyDst,
-		};
+		constexpr rhi::ResourceState kCopyDst{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
-		constexpr rhi::ResourceState kCopySrc{
-			.stages = rhi::PipelineStage::eCopy,
-			.access = rhi::Access::eCopyRead,
-			.layout = rhi::TextureLayout::eCopySrc,
-		};
+		constexpr rhi::ResourceState kCopySrc{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
 
-		// What an .hdr arrives as. stb decodes one to four floats a texel and offers nothing narrower.
 		constexpr rhi::Format kSourceFormat = rhi::Format::eRGBA32Float;
 		constexpr int kRgba					= 4;
 
@@ -243,10 +186,8 @@ namespace deccer
 			}
 		};
 
-		// The photograph the environment cube is projected from. The build stages it beside the executable, so it is there or the sample has no environment.
 		[[nodiscard]] Equirect LoadEquirect(rhi::Device dev, std::string & error)
 		{
-			// The projection samples between texels, and a nearest read of an equirectangular map bands where the sky should be a gradient.
 			const rhi::FormatSupport support = dev.GetFormatSupport(kSourceFormat);
 			if (!support.sampled || !support.copyDst || !support.linearFiltering)
 			{
@@ -282,7 +223,6 @@ namespace deccer
 			rhi::BufferHandle staging{};
 		};
 
-		// Creates what the photograph lands in and fills the buffer a copy reads it from. The copy goes on the caller's list which allows us to do one submit.
 		[[nodiscard]] bool StageEquirect(rhi::Device dev, const Equirect & photo, Source & out, rhi::Error & error)
 		{
 			out.texture = dev.CreateTexture(
@@ -319,7 +259,7 @@ namespace deccer
 			return (mapped.coherent || dev.FlushMappedRange(out.staging, 0, photo.Bytes(), error)) && dev.Unmap(out.staging, error);
 		}
 
-	} // namespace
+	}
 
 	bool BuildEnvironment(rhi::Device dev, rhi::Queue & queue, const rhi::TimelineHandle timeline, const std::uint64_t signalValue, ShaderCompiler & compiler,
 		Environment & out, std::string & error)
@@ -375,7 +315,6 @@ namespace deccer
 			},
 			rhiError);
 
-		// Longitude wraps and latitude does not, so the seam behind the camera blends without doubling the edge column back on itself.
 		const rhi::SamplerHandle equirectSampler = dev.CreateSampler(
 			rhi::SamplerDesc{
 				.addressU  = rhi::AddressMode::eRepeat,
@@ -400,12 +339,6 @@ namespace deccer
 			return fail("failed to stage the environment source");
 		}
 
-		/*
-		 * One shape for all three passes: an output to write, a texture to read and a sampler.
-		 *
-		 * The projection reads the photograph where the convolutions read the cube it wrote, which is a Texture2D against a TextureCube in the shader and
-		 * nothing a descriptor layout can tell apart, so they share this.
-		 */
 		constexpr std::array convolveBindings{
 			rhi::DescriptorBinding{ .binding = kOutputBinding, .type = rhi::DescriptorType::eTextureUAV, .stages = rhi::ShaderStage::eCompute },
 			rhi::DescriptorBinding{ .binding = kEnvironmentBinding, .type = rhi::DescriptorType::eTextureSRV, .stages = rhi::ShaderStage::eCompute },
@@ -429,13 +362,6 @@ namespace deccer
 			return fail("failed to create the environment pipeline layout");
 		}
 
-		/*
-		 * One block per pipeline, in a source of its own. A descriptor set is a Metal argument buffer and the ABI binds set 0 at buffer 1. Each pipeline's set
-		 * has to be the first block its source declares, since slangc numbers blocks across the whole module and two in one file would put the second at
-		 * buffer 2.
-		 *
-		 * They cannot share one block either. The sky pass writes the environment texture the two convolutions sample.
-		 */
 		const std::string prelude	   = LoadShaderSource("environment.prelude.slang", error);
 		const std::string equirectBody = LoadShaderSource("environment.equirect.slang", error);
 		const std::string convolveBody = LoadShaderSource("environment.convolve.slang", error);
@@ -473,7 +399,6 @@ namespace deccer
 			return fail("failed to create the environment pipelines");
 		}
 
-		// One set for the projection, one for the irradiance and one per specular level, since each writes through a view of its own.
 		constexpr std::uint32_t setCount = 2 + kSpecularMips;
 		rhi::DescriptorArena arena		 = dev.CreateDescriptorArena(
 			rhi::DescriptorArenaDesc{
@@ -489,8 +414,6 @@ namespace deccer
 			return fail("failed to create the environment descriptor arena");
 		}
 
-		// Writes the output view, and with it the sampler Metal reads at that same index. Vulkan and Direct3D 12 take their sampler from the standalone write
-		// that follows.
 		const auto writeSet = [&](const rhi::DescriptorSetHandle set,
 								  const rhi::TextureViewHandle output,
 								  const rhi::TextureViewHandle input,
@@ -498,12 +421,12 @@ namespace deccer
 		{
 			const std::array outputs{
 				rhi::DescriptorWriteTexture{
-					.set			= set,
-					.binding		= kOutputBinding,
-					.type			= rhi::DescriptorType::eTextureUAV,
-					.view			= output,
-					.sampler		= setSampler,
-					.expectedLayout = rhi::TextureLayout::eGeneral,
+					.set		 = set,
+					.binding	 = kOutputBinding,
+					.type		 = rhi::DescriptorType::eTextureUAV,
+					.view		 = output,
+					.sampler	 = setSampler,
+					.expectedUse = rhi::ResourceUse::eStorageWrite,
 				},
 			};
 
@@ -557,21 +480,13 @@ namespace deccer
 			WholeCube(out.specular, kSpecularMips, kUndefined, kWritten),
 		};
 
-		/*
-		 * Mip generation reads level zero and writes every level under it, so the two halves of the chain arrive from different places and leave in different
-		 * states. Naming only level zero, and the compute stage that wrote it and not the copy stage filling the rest, is a barrier that orders nothing.
-		 *
-		 * Metal 3 and Vulkan cover for that. Metal 4 does what it is told and reads the unwritten levels as black, which shows up as specular too dark.
-		 */
 		const std::array toMipSource{
 			CubeLevels(environment, 0, 1, kWritten, kCopySrc),
 			CubeLevels(environment, 1, environmentMips - 1, kUndefined, kCopyDst),
 		};
 
-		// The whole chain, now that every level of it exists, for the convolutions to read down.
 		const std::array toSampled{
-			CubeLevels(environment, 0, 1, kCopySrc, kSampled),
-			CubeLevels(environment, 1, environmentMips - 1, kCopyDst, kSampled),
+			WholeCube(environment, environmentMips, kCopySrc, kSampled),
 		};
 
 		const std::array toRead{
@@ -582,7 +497,6 @@ namespace deccer
 		const Constants equirectConstants{ .size = environmentSize, .sourceSize = environmentSize };
 		const Constants irradianceConstants{ .size = kIrradianceSize, .sourceSize = environmentSize };
 
-		// The photograph goes up on the same list the passes run on, so the whole environment build is still one submit and one wait.
 		const std::array sourceToCopyDst{
 			rhi::TextureBarrier{ .texture = source.texture, .before = kUndefined, .after = kCopyDst },
 		};
@@ -604,10 +518,6 @@ namespace deccer
 			list.Dispatch(GroupCount(environmentSize), GroupCount(environmentSize), kCubeFaces, rhiError) &&
 			list.Barriers(rhi::BarrierBatch{ .textures = toMipSource }, rhiError) &&
 
-			/*
-			 * The chain the prefilter reads down. Level zero is what the projection above wrote and the rest are halvings of it, which is what lets
-			 * 128 samples of a wide lobe come back smooth instead of hitting or missing the sun.
-			 */
 			list.GenerateMips(environment, rhiError) && list.Barriers(rhi::BarrierBatch{ .textures = toSampled }, rhiError) &&
 
 			list.SetComputePipeline(irradiancePipeline, rhiError) && list.BindDescriptorSet(convolveLayout, 0, irradianceDescriptors, {}, rhiError) &&
@@ -615,8 +525,6 @@ namespace deccer
 			list.Dispatch(GroupCount(kIrradianceSize), GroupCount(kIrradianceSize), kCubeFaces, rhiError) &&
 			list.SetComputePipeline(prefilterPipeline, rhiError);
 
-		// One level per roughness, from a mirror at the top to fully rough at the bottom. The levels are separate subresources fed from a texture nothing here
-		// writes, so they need nothing between them.
 		for (std::uint32_t mip = 0; recorded && mip < kSpecularMips; ++mip)
 		{
 			const std::uint32_t size = specularSize >> mip;
@@ -662,4 +570,4 @@ namespace deccer
 		return true;
 	}
 
-} // namespace deccer
+}

@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -19,8 +14,6 @@
 
 namespace azo::rhi::validation
 {
-	// Which inner block an entry reaches through, one per block. The block type says which wrapper the impl pointer is, since only an entry reached through that
-	// wrapper can name the block.
 
 	template <>
 	[[nodiscard]] const CoreDeviceApi * InnerBlock<CoreDeviceApi>(WrappedObject * self) noexcept
@@ -157,7 +150,6 @@ namespace azo::rhi::validation
 	namespace
 	{
 
-		// The entries that hand out another object, declared here because the tables name them and they are defined after the tables they publish through.
 		void * ValidatedGetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 		void * ValidatedCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
 		void * ValidatedCreateDescriptorArena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept;
@@ -167,12 +159,22 @@ namespace azo::rhi::validation
 		void ValidatedDestroyDevice(void * impl) noexcept;
 		bool ValidatedDestroy(void * impl, ResourceType type, RawHandle handle, const DestroyDesc & desc, Error * error) noexcept;
 		bool ValidatedSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
+		void ApplyPendingOwnership(DeviceValidator & validator, const WrappedCommandList & list) noexcept;
+		bool SubmittedOwnershipIsLegal(DeviceValidator & validator, std::span<const CommandList * const> lists, Error * error) noexcept;
 		bool ValidatedBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 		bool ValidatedArenaReset(void * impl, RetirePoint safeAfter, Error * error) noexcept;
 		bool ValidatedBarriers(void * impl, const BarrierBatch & batch, Error * error) noexcept;
+		bool ValidatedGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
+		bool ValidatedAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept;
+		bool ValidatedWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
+		bool ValidatedClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
+		bool ValidatedClearTexture(
+			void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
 		bool ValidatedBuildAccelerationStructures(void * impl, std::span<const AccelerationStructureBuildDesc> builds, Error * error) noexcept;
 		TextureViewHandle ValidatedCreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
+		GraphicsPipelineHandle ValidatedCreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
 		DescriptorSetLayoutHandle ValidatedCreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept;
+		QueryPoolHandle ValidatedCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
 		DescriptorSetHandle ValidatedAllocateDescriptorSet(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept;
 		bool ValidatedBegin(void * impl, Error * error) noexcept;
 		bool ValidatedEnd(void * impl, Error * error) noexcept;
@@ -180,6 +182,7 @@ namespace azo::rhi::validation
 		bool ValidatedEndRendering(void * impl, Error * error) noexcept;
 		bool ValidatedSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
 		bool ValidatedSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
+		bool ValidatedSetRayTracingPipeline(void * impl, RayTracingPipelineHandle pipeline, Error * error) noexcept;
 		bool ValidatedDraw(void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance,
 			Error * error) noexcept;
 		bool ValidatedDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
@@ -188,13 +191,6 @@ namespace azo::rhi::validation
 		bool ValidatedEndNativeMutation(void * impl, const NativeMutationDesc & desc, Error * error) noexcept;
 		PresentResult ValidatedPresent(void * impl, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, void * queueImpl, Error * error) noexcept;
 
-		/*
-		 * Descriptor compatibility needs a layout's binding types, the layout a set came from and the set a write names. Each is recorded in the registry record that
-		 * handle already has, so there is no second table to keep in step.
-		 *
-		 * Bindings pack four bits each, low binding first, holding the type plus one so zero reads as a binding the layout never declared. One word covers sixteen
-		 * bindings and a layout with more is checked only that far.
-		 */
 		constexpr std::uint32_t kPackedBindings	 = 16;
 		constexpr std::uint64_t kBindingTypeMask = 0xFu;
 
@@ -214,10 +210,37 @@ namespace azo::rhi::validation
 			return packed;
 		}
 
-		// A set remembers the layout it was allocated against, both words of the handle so a layout destroyed and its slot reused is not mistaken for it.
 		[[nodiscard]] std::uint64_t PackLayout(const DescriptorSetLayoutHandle layout) noexcept
 		{
 			return static_cast<std::uint64_t>(layout.index) | (static_cast<std::uint64_t>(layout.generation) << 32u);
+		}
+
+		GraphicsPipelineHandle ValidatedCreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedDevice *>(impl);
+
+			if (self->validator->ChecksState())
+			{
+				const std::uint32_t attachments = std::min<std::uint32_t>(desc.blend.attachmentCount, desc.blend.attachments.size());
+				for (std::uint32_t slot = 0; slot < attachments; ++slot)
+				{
+					if (!desc.blend.attachments[slot].blendEnable || slot >= desc.renderTarget.colorFormatCount)
+					{
+						continue;
+					}
+
+					const Format format = desc.renderTarget.colorFormats[slot];
+					if (format == Format::eUndefined || self->blocks.core->getFormatSupport(self->inner, format).blendable)
+					{
+						continue;
+					}
+
+					return self->validator->FailValue<GraphicsPipelineHandle>(
+						error, "a blend enabled on an attachment in a format this device does not advertise as blendable");
+				}
+			}
+
+			return Recording<ResourceType::eGraphicsPipeline, &CoreDeviceApi::createGraphicsPipeline>::Call(impl, desc, error);
 		}
 
 		TextureViewHandle ValidatedCreateTextureView(void * impl, const TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept
@@ -229,14 +252,32 @@ namespace azo::rhi::validation
 				return self->validator->FailValue<TextureViewHandle>(error, "a texture view of a texture this device has already taken back");
 			}
 
+			Format format = desc.format;
+			if (format == Format::eUndefined)
+			{
+				const ResourceRecord * parent = self->validator->Handles().Lookup(RegisteredHandle{
+					.type		= ResourceType::eTexture,
+					.index		= texture.index,
+					.generation = texture.generation,
+				});
+				if (parent != nullptr)
+				{
+					format = static_cast<Format>(parent->format.load(std::memory_order_relaxed));
+				}
+			}
+
 			const TextureViewHandle view = self->blocks.core->createTextureView(self->inner, texture, desc, error);
 			if (view.IsValid())
 			{
-				static_cast<void>(self->validator->Handles().Record(RegisteredHandle{
+				const RegisteredHandle registered{
 					.type		= ResourceType::eTextureView,
 					.index		= view.index,
 					.generation = view.generation,
-				}));
+				};
+				if (self->validator->Handles().Record(registered) && format != Format::eUndefined)
+				{
+					self->validator->Handles().Lookup(registered)->format.store(static_cast<std::uint16_t>(format), std::memory_order_relaxed);
+				}
 			}
 
 			return view;
@@ -271,6 +312,28 @@ namespace azo::rhi::validation
 			return layout;
 		}
 
+		QueryPoolHandle ValidatedCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedDevice *>(impl);
+
+			if (desc.queryCount == 0)
+			{
+				return self->validator->FailValue<QueryPoolHandle>(error, "query pool creation asked for no queries");
+			}
+
+			const QueryPoolHandle pool = self->blocks.query->createQueryPool(self->inner, desc, error);
+			if (pool.IsValid())
+			{
+				static_cast<void>(self->validator->Handles().Record(RegisteredHandle{
+					.type		= ResourceType::eQueryPool,
+					.index		= pool.index,
+					.generation = pool.generation,
+				}));
+			}
+
+			return pool;
+		}
+
 		DescriptorSetHandle ValidatedAllocateDescriptorSet(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedDescriptorArena *>(impl);
@@ -296,19 +359,12 @@ namespace azo::rhi::validation
 				ResourceRecord * record = self->validator->Handles().Lookup(registered);
 				record->detail.store(PackLayout(desc.layout), std::memory_order_relaxed);
 
-				// Stamped with the arena so the reset that frees this set can find it, there being no handle for the reset to name it by.
 				record->origin.store(self->id, std::memory_order_relaxed);
 			}
 
 			return set;
 		}
 
-		/*
-		 * Whether one write names a binding its set's layout declared and declared as this type.
-		 *
-		 * Anything the chain cannot be followed through is passed, not refused: a set this layer never saw, a layout it never saw or a binding past the sixteen a
-		 * word holds. Refusing those would be reporting a gap in what is known as a mistake by the caller.
-		 */
 		[[nodiscard]] bool WriteMatchesLayout(
 			WrappedDevice * self, const DescriptorSetHandle set, const std::uint32_t binding, const DescriptorType type, Error * error) noexcept
 		{
@@ -347,7 +403,6 @@ namespace azo::rhi::validation
 			return true;
 		}
 
-		// A sampler write names no type, there being one kind of sampler binding. The other two carry theirs.
 		[[nodiscard]] DescriptorType WriteType(const DescriptorWriteBuffer & write) noexcept
 		{
 			return write.type;
@@ -363,11 +418,15 @@ namespace azo::rhi::validation
 			return DescriptorType::eSampler;
 		}
 
-		// The three write entries differ only in what they carry alongside the set, the binding and the type, which is all this looks at.
+		[[nodiscard]] DescriptorType WriteType(const DescriptorWriteAccelerationStructure &) noexcept
+		{
+			return DescriptorType::eAccelerationStructure;
+		}
+
 		template <class Write, auto Member>
 		struct ValidatedWrites;
 
-		template <class Write, bool (*CoreDeviceApi::*Member)(void *, std::span<const Write>, Error *) noexcept>
+		template <class Write, class Block, bool (*Block::*Member)(void *, std::span<const Write>, Error *) noexcept>
 		struct ValidatedWrites<Write, Member>
 		{
 			static bool Call(void * impl, std::span<const Write> writes, Error * error) noexcept
@@ -390,17 +449,9 @@ namespace azo::rhi::validation
 					}
 				}
 
-				return (self->blocks.core->*Member)(self->inner, writes, error);
+				return (InnerBlock<Block>(self)->*Member)(self->inner, writes, error);
 			}
 		};
-
-		/*
-		 * The blocks a wrapper publishes.
-		 *
-		 * Every entry is generated from the block's own declaration so nothing here is a signature retyped by hand and an entry that changes shape does not need a
-		 * thunk changed to match. The entries that check something replace themselves below, which keeps what is checked in one list, not scattered through
-		 * twenty tables.
-		 */
 
 		const CoreDeviceApi & ValidatingCoreDeviceApi() noexcept
 		{
@@ -413,7 +464,7 @@ namespace azo::rhi::validation
 				.createSampler				= &Recording<ResourceType::eSampler, &CoreDeviceApi::createSampler>::Call,
 				.createDescriptorSetLayout	= &ValidatedCreateDescriptorSetLayout,
 				.createPipelineLayout		= &Recording<ResourceType::ePipelineLayout, &CoreDeviceApi::createPipelineLayout>::Call,
-				.createGraphicsPipeline		= &Recording<ResourceType::eGraphicsPipeline, &CoreDeviceApi::createGraphicsPipeline>::Call,
+				.createGraphicsPipeline		= &ValidatedCreateGraphicsPipeline,
 				.createComputePipeline		= &Recording<ResourceType::eComputePipeline, &CoreDeviceApi::createComputePipeline>::Call,
 				.createTimeline				= &Recording<ResourceType::eTimeline, &CoreDeviceApi::createTimeline>::Call,
 				.createBinarySemaphore		= &Recording<ResourceType::eBinarySemaphore, &CoreDeviceApi::createBinarySemaphore>::Call,
@@ -465,9 +516,10 @@ namespace azo::rhi::validation
 		const RayTracingApi & ValidatingRayTracingApi() noexcept
 		{
 			static const RayTracingApi block{
-				.createRayTracingPipeline				= &Recording<ResourceType::eRayTracingPipeline, &RayTracingApi::createRayTracingPipeline>::Call,
-				.createAccelerationStructure			= &Recording<ResourceType::eAccelerationStructure, &RayTracingApi::createAccelerationStructure>::Call,
-				.updateDescriptorsAccelerationStructure = &Checked<&RayTracingApi::updateDescriptorsAccelerationStructure>::Call,
+				.createRayTracingPipeline	 = &Recording<ResourceType::eRayTracingPipeline, &RayTracingApi::createRayTracingPipeline>::Call,
+				.createAccelerationStructure = &Recording<ResourceType::eAccelerationStructure, &RayTracingApi::createAccelerationStructure>::Call,
+				.updateDescriptorsAccelerationStructure =
+					&ValidatedWrites<DescriptorWriteAccelerationStructure, &RayTracingApi::updateDescriptorsAccelerationStructure>::Call,
 			};
 
 			return block;
@@ -476,7 +528,7 @@ namespace azo::rhi::validation
 		const QueryApi & ValidatingQueryApi() noexcept
 		{
 			static const QueryApi block{
-				.createQueryPool	= &Recording<ResourceType::eQueryPool, &QueryApi::createQueryPool>::Call,
+				.createQueryPool	= &ValidatedCreateQueryPool,
 				.calibrateTimestamp = &Forward<&QueryApi::calibrateTimestamp>::Call,
 			};
 
@@ -533,10 +585,6 @@ namespace azo::rhi::validation
 			return block;
 		}
 
-		/*
-		 * Every import is a create, so each one writes the handle it produced into the registry the same way an ordinary create does. The exports name a handle this
-		 * device owns and check it. closeExportedHandle names none, its argument being an operating system handle and not an RHI one.
-		 */
 		const ExternalSharingApi & ValidatingExternalSharingApi() noexcept
 		{
 			static const ExternalSharingApi block{
@@ -560,7 +608,6 @@ namespace azo::rhi::validation
 		{
 			static const QueueApi block{
 				.getType		   = &Forward<&QueueApi::getType>::Call,
-				.getFamilyIndex	   = &Forward<&QueueApi::getFamilyIndex>::Call,
 				.submit			   = &ValidatedSubmit,
 				.waitIdle		   = &Forward<&QueueApi::waitIdle>::Call,
 				.getCompletedValue = &Checked<&QueueApi::getCompletedValue>::Call,
@@ -625,15 +672,15 @@ namespace azo::rhi::validation
 				.draw				 = &ValidatedDraw,
 				.drawIndexed		 = &ValidatedDrawIndexed,
 				.dispatch			 = &ValidatedDispatch,
-				.copyBuffer			 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::copyBuffer>::Call,
-				.copyBufferToTexture = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::copyBufferToTexture>::Call,
-				.copyTextureToBuffer = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::copyTextureToBuffer>::Call,
-				.copyTexture		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::copyTexture>::Call,
-				.clearBuffer		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::clearBuffer>::Call,
-				.clearTexture		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::clearTexture>::Call,
-				.resolveTexture		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::resolveTexture>::Call,
-				.blit				 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::blit>::Call,
-				.generateMips		 = &RecordedCheckedEntry<ChecksThread, &RenderCommandApi::generateMips>::Call,
+				.copyBuffer			 = &OutsideRendering<ChecksThread, &RenderCommandApi::copyBuffer>::Call,
+				.copyBufferToTexture = &OutsideRendering<ChecksThread, &RenderCommandApi::copyBufferToTexture>::Call,
+				.copyTextureToBuffer = &OutsideRendering<ChecksThread, &RenderCommandApi::copyTextureToBuffer>::Call,
+				.copyTexture		 = &OutsideRendering<ChecksThread, &RenderCommandApi::copyTexture>::Call,
+				.clearBuffer		 = &ValidatedClearBuffer,
+				.clearTexture		 = &ValidatedClearTexture,
+				.resolveTexture		 = &OutsideRendering<ChecksThread, &RenderCommandApi::resolveTexture>::Call,
+				.blit				 = &OutsideRendering<ChecksThread, &RenderCommandApi::blit>::Call,
+				.generateMips		 = &ValidatedGenerateMips,
 				.beginDebugLabel	 = &RecordedEntry<ChecksThread, &RenderCommandApi::beginDebugLabel>::Call,
 				.endDebugLabel		 = &RecordedEntry<ChecksThread, &RenderCommandApi::endDebugLabel>::Call,
 			};
@@ -645,7 +692,7 @@ namespace azo::rhi::validation
 		const AliasingCommandApi & ValidatingAliasingCommandApi() noexcept
 		{
 			static const AliasingCommandApi block{
-				.aliasBarriers = &RecordedCheckedEntry<ChecksThread, &AliasingCommandApi::aliasBarriers>::Call,
+				.aliasBarriers = &ValidatedAliasBarriers,
 			};
 
 			return block;
@@ -655,11 +702,11 @@ namespace azo::rhi::validation
 		const RayTracingCommandApi & ValidatingRayTracingCommandApi() noexcept
 		{
 			static const RayTracingCommandApi block{
-				.setRayTracingPipeline		  = &RecordedCheckedEntry<ChecksThread, &RayTracingCommandApi::setRayTracingPipeline>::Call,
+				.setRayTracingPipeline		  = &ValidatedSetRayTracingPipeline,
 				.buildAccelerationStructures  = &ValidatedBuildAccelerationStructures,
 				.copyAccelerationStructure	  = &RecordedCheckedEntry<ChecksThread, &RayTracingCommandApi::copyAccelerationStructure>::Call,
 				.compactAccelerationStructure = &RecordedCheckedEntry<ChecksThread, &RayTracingCommandApi::compactAccelerationStructure>::Call,
-				.traceRays					  = &RecordedEntry<ChecksThread, &RayTracingCommandApi::traceRays>::Call,
+				.traceRays					  = &OutsideRenderingWithRayTracing<ChecksThread, &RayTracingCommandApi::traceRays>::Call,
 			};
 
 			return block;
@@ -670,10 +717,10 @@ namespace azo::rhi::validation
 		{
 			static const QueryCommandApi block{
 				.resetQueryPool	  = &RecordedCheckedEntry<ChecksThread, &QueryCommandApi::resetQueryPool>::Call,
-				.writeTimestamp	  = &RecordedCheckedEntry<ChecksThread, &QueryCommandApi::writeTimestamp>::Call,
+				.writeTimestamp	  = &ValidatedWriteTimestamp,
 				.beginQuery		  = &RecordedCheckedEntry<ChecksThread, &QueryCommandApi::beginQuery>::Call,
 				.endQuery		  = &RecordedCheckedEntry<ChecksThread, &QueryCommandApi::endQuery>::Call,
-				.resolveQueryData = &RecordedCheckedEntry<ChecksThread, &QueryCommandApi::resolveQueryData>::Call,
+				.resolveQueryData = &OutsideRendering<ChecksThread, &QueryCommandApi::resolveQueryData>::Call,
 			};
 
 			return block;
@@ -683,9 +730,9 @@ namespace azo::rhi::validation
 		const IndirectApi & ValidatingIndirectApi() noexcept
 		{
 			static const IndirectApi block{
-				.drawIndirect		 = &RecordedCheckedEntry<ChecksThread, &IndirectApi::drawIndirect>::Call,
-				.drawIndexedIndirect = &RecordedCheckedEntry<ChecksThread, &IndirectApi::drawIndexedIndirect>::Call,
-				.dispatchIndirect	 = &RecordedCheckedEntry<ChecksThread, &IndirectApi::dispatchIndirect>::Call,
+				.drawIndirect		 = &InsideRenderingWithGraphics<ChecksThread, &IndirectApi::drawIndirect>::Call,
+				.drawIndexedIndirect = &InsideRenderingWithGraphics<ChecksThread, &IndirectApi::drawIndexedIndirect>::Call,
+				.dispatchIndirect	 = &OutsideRenderingWithCompute<ChecksThread, &IndirectApi::dispatchIndirect>::Call,
 			};
 
 			return block;
@@ -695,8 +742,8 @@ namespace azo::rhi::validation
 		const IndirectCountApi & ValidatingIndirectCountApi() noexcept
 		{
 			static const IndirectCountApi block{
-				.drawIndirectCount		  = &RecordedCheckedEntry<ChecksThread, &IndirectCountApi::drawIndirectCount>::Call,
-				.drawIndexedIndirectCount = &RecordedCheckedEntry<ChecksThread, &IndirectCountApi::drawIndexedIndirectCount>::Call,
+				.drawIndirectCount		  = &InsideRenderingWithGraphics<ChecksThread, &IndirectCountApi::drawIndirectCount>::Call,
+				.drawIndexedIndirectCount = &InsideRenderingWithGraphics<ChecksThread, &IndirectCountApi::drawIndexedIndirectCount>::Call,
 			};
 
 			return block;
@@ -713,13 +760,57 @@ namespace azo::rhi::validation
 			return block;
 		}
 
+		void RecordBackBuffer(WrappedSwapchain * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
+		{
+			const RegisteredHandle registered{
+				.type		= type,
+				.index		= index,
+				.generation = generation,
+			};
+
+			if (self->validator->Handles().Lookup(registered) == nullptr && !self->validator->Handles().Record(registered))
+			{
+				return;
+			}
+
+			const Format format = self->blocks->getFormat(self->inner);
+			if (format != Format::eUndefined)
+			{
+				self->validator->Handles().Lookup(registered)->format.store(static_cast<std::uint16_t>(format), std::memory_order_relaxed);
+			}
+		}
+
+		TextureHandle ValidatedGetBackBuffer(void * impl, const std::uint32_t imageIndex) noexcept
+		{
+			auto * self					= static_cast<WrappedSwapchain *>(impl);
+			const TextureHandle texture = self->blocks->getBackBuffer(self->inner, imageIndex);
+			if (texture.IsValid())
+			{
+				RecordBackBuffer(self, ResourceType::eTexture, texture.index, texture.generation);
+			}
+
+			return texture;
+		}
+
+		TextureViewHandle ValidatedGetBackBufferView(void * impl, const std::uint32_t imageIndex) noexcept
+		{
+			auto * self					 = static_cast<WrappedSwapchain *>(impl);
+			const TextureViewHandle view = self->blocks->getBackBufferView(self->inner, imageIndex);
+			if (view.IsValid())
+			{
+				RecordBackBuffer(self, ResourceType::eTextureView, view.index, view.generation);
+			}
+
+			return view;
+		}
+
 		const SwapchainApi & ValidatingSwapchainApi() noexcept
 		{
 			static const SwapchainApi block{
 				.acquireNextImage			 = &Forward<&SwapchainApi::acquireNextImage>::Call,
 				.present					 = &ValidatedPresent,
-				.getBackBuffer				 = &Vending<ResourceType::eTexture, &SwapchainApi::getBackBuffer>::Call,
-				.getBackBufferView			 = &Vending<ResourceType::eTextureView, &SwapchainApi::getBackBufferView>::Call,
+				.getBackBuffer				 = &ValidatedGetBackBuffer,
+				.getBackBufferView			 = &ValidatedGetBackBufferView,
 				.getPerImagePresentSemaphore = &Vending<ResourceType::eBinarySemaphore, &SwapchainApi::getPerImagePresentSemaphore>::Call,
 				.getFormat					 = &Forward<&SwapchainApi::getFormat>::Call,
 				.getPresentMode				 = &Forward<&SwapchainApi::getPresentMode>::Call,
@@ -734,12 +825,6 @@ namespace azo::rhi::validation
 			return block;
 		}
 
-		/*
-		 * A wrapper publishes exactly what the object behind it published and nothing it did not.
-		 *
-		 * Declining a block is how a caller learns a capability is absent so a wrapper that published one its inner declined would be inventing a capability without
-		 * checking one. That is why this consults the wrapper instead of being the static match the backends use.
-		 */
 		template <class Block, const Block & (*Table)() noexcept>
 		struct WrappedBlock final
 		{
@@ -754,7 +839,6 @@ namespace azo::rhi::validation
 			}
 		};
 
-		// The object a wrapper stands in front of, which is what the native handle accessors resolve through.
 		void * InnerObject(void * impl) noexcept
 		{
 			return static_cast<WrappedObject *>(impl)->inner;
@@ -766,13 +850,6 @@ namespace azo::rhi::validation
 			return block;
 		}
 
-		/*
-		 * The one block a wrapper publishes that the object behind it does not.
-		 *
-		 * Every other block here is published only where the inner object published it because declining is how a caller learns a capability is absent and a wrapper
-		 * inventing one would be answering for a backend. This is the exception and has to be, since what it answers is that there is a layer here at all, which is
-		 * the one thing the object behind it cannot say.
-		 */
 		struct NativeObjectBlock final
 		{
 			[[nodiscard]] static const void * Match(WrappedObject *, const InterfaceId id, const std::uint32_t minVersion) noexcept
@@ -850,43 +927,24 @@ namespace azo::rhi::validation
 			return WrappingObject<NativeObjectBlock, WrappedBlock<SwapchainApi, &ValidatingSwapchainApi>>();
 		}
 
-		/*
-		 * Hands a child wrapper to the device that made it.
-		 *
-		 * Every child outlives its own create and dies with the device because that is when the backend frees the object behind it: a pool, an arena, a swapchain and
-		 * the lists a pool allocates all live until the device goes. Holding them here without inventing a shorter lifetime is what keeps a wrapper from outliving
-		 * its inner object or dying before it.
-		 */
 		template <class Wrapper>
 		[[nodiscard]] Wrapper * Adopt(WrappedDevice * device, HostUniquePtr<Wrapper> child) noexcept
 		{
-			Wrapper * raw = child.get();
-
-			const std::scoped_lock lock(device->childLock);
-			if (!detail::TryPushBack(device->children,
-					WrappedDevice::Child{
-						.wrapper = raw,
-						.release =
-							[](WrappedObject * object) noexcept
-						{
-							HostDeleter{ .size = sizeof(Wrapper), .alignment = alignof(Wrapper) }(static_cast<Wrapper *>(object));
-						},
-					}))
+			Wrapper * raw	  = child.get();
+			raw->releaseChild = [](WrappedObject * object) noexcept
 			{
-				return nullptr;
-			}
+				HostDeleter{ .size = sizeof(Wrapper), .alignment = alignof(Wrapper) }(static_cast<Wrapper *>(object));
+			};
+
+			WrappedObject * head = device->children.load(std::memory_order_relaxed);
+			do
+			{
+				raw->nextChild = head;
+			} while (!device->children.compare_exchange_weak(head, raw, std::memory_order_release, std::memory_order_relaxed));
 
 			static_cast<void>(child.release());
 			return raw;
 		}
-
-		/*
-		 * The entries that hand out another object and not a handle.
-		 *
-		 * Each has to come back wrapped or the caller would hold the backend's object directly and everything reached through it would be unchecked. A wrapper that
-		 * could not be allocated is reported as the create failing, since handing back the bare inner object would silently drop validation for that object and
-		 * everything under it.
-		 */
 
 		void * ValidatedGetQueue(void * impl, const QueueType type, const std::uint32_t index, Error * error) noexcept
 		{
@@ -897,10 +955,6 @@ namespace azo::rhi::validation
 				return nullptr;
 			}
 
-			/*
-			 * One wrapper per call and not one per queue because a backend hands back a fresh object each time this is asked and not the same one twice. Deduplicating
-			 * on the inner pointer would find nothing to match and would cost a scan of every child the device has, which is every command list it ever allocated.
-			 */
 			HostUniquePtr<WrappedQueue> wrapper = HostNew<WrappedQueue>();
 			if (wrapper == nullptr)
 			{
@@ -915,8 +969,7 @@ namespace azo::rhi::validation
 			wrapper->blocks.sparse = detail::QueryBlock<SparseApi>(innerQueue);
 			wrapper->type		   = type;
 
-			void * adopted = Adopt(self, std::move(wrapper));
-			return adopted != nullptr ? adopted : self->validator->FailValue<void *>(error, "the host allocator refused to record a validated queue");
+			return Adopt(self, std::move(wrapper));
 		}
 
 		void * ValidatedCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
@@ -941,8 +994,7 @@ namespace azo::rhi::validation
 			wrapper->blocks	   = detail::QueryBlock<CommandPoolApi>(innerPool);
 			wrapper->queueType = desc.queueType;
 
-			void * adopted = Adopt(self, std::move(wrapper));
-			return adopted != nullptr ? adopted : self->validator->FailValue<void *>(error, "the host allocator refused to record a validated command pool");
+			return Adopt(self, std::move(wrapper));
 		}
 
 		void * ValidatedCreateDescriptorArena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept
@@ -967,9 +1019,7 @@ namespace azo::rhi::validation
 			wrapper->blocks	   = detail::QueryBlock<DescriptorArenaApi>(innerArena);
 			wrapper->id		   = self->nextArenaId.fetch_add(1, std::memory_order_relaxed);
 
-			void * adopted = Adopt(self, std::move(wrapper));
-			return adopted != nullptr ? adopted
-									  : self->validator->FailValue<void *>(error, "the host allocator refused to record a validated descriptor arena");
+			return Adopt(self, std::move(wrapper));
 		}
 
 		void * ValidatedCreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept
@@ -993,16 +1043,9 @@ namespace azo::rhi::validation
 			wrapper->validator = self->validator;
 			wrapper->blocks	   = detail::QueryBlock<SwapchainApi>(innerSwapchain);
 
-			void * adopted = Adopt(self, std::move(wrapper));
-			return adopted != nullptr ? adopted : self->validator->FailValue<void *>(error, "the host allocator refused to record a validated swapchain");
+			return Adopt(self, std::move(wrapper));
 		}
 
-		/*
-		 * A reset ends every recording the pool has out, so the wrappers in front of those lists go back to where End leaves one.
-		 *
-		 * A list is handed out under the wrapper it had the first time, so a recording nothing ever ended would otherwise still read as open on the frame after the
-		 * one that abandoned it, and the next Begin would be refused for a recording that the reset already ended.
-		 */
 		bool ValidatedCommandPoolReset(void * impl, const RetirePoint safeAfter, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandPool *>(impl);
@@ -1020,6 +1063,9 @@ namespace azo::rhi::validation
 			{
 				list->recording = false;
 				list->rendering = false;
+				list->recordedStates.clear();
+				list->pendingOwnership.clear();
+				list->pendingArrivals.clear();
 			}
 
 			return true;
@@ -1034,10 +1080,6 @@ namespace azo::rhi::validation
 				return nullptr;
 			}
 
-			/*
-			 * A list this pool built before and has since taken back, which arrives as the pointer it was handed out under the first time. Its wrapper is still the
-			 * one standing in front of it and everything a recording leaves behind is rewound at Begin, so there is nothing here to remake.
-			 */
 			if (const auto recycled = self->lists.find(innerList); recycled != self->lists.end())
 			{
 				return recycled->second;
@@ -1064,12 +1106,7 @@ namespace azo::rhi::validation
 			wrapper->blocks.nativeEscape  = detail::QueryBlock<NativeEscapeApi>(innerList);
 
 			void * adopted = Adopt(self->device, std::move(wrapper));
-			if (adopted == nullptr)
-			{
-				return self->validator->FailValue<void *>(error, "the host allocator refused to record a validated command list");
-			}
 
-			// The device owns the wrapper from here whether or not this succeeds, so a refusal costs this allocate and leaks nothing.
 			if (!detail::TryInsertOrAssign(self->lists, innerList, static_cast<WrappedCommandList *>(adopted)))
 			{
 				return self->validator->FailValue<void *>(error, "the host allocator refused to record a validated command list");
@@ -1078,30 +1115,21 @@ namespace azo::rhi::validation
 			return adopted;
 		}
 
-		/*
-		 * Teardown. The inner device goes first, since the objects the children stand in front of belong to it and freeing a wrapper while its inner object is still
-		 * live would leave the backend holding something nothing points at.
-		 */
 		void ValidatedDestroyDevice(void * impl) noexcept
 		{
 			auto * self = static_cast<WrappedDevice *>(impl);
 
 			self->blocks.core->destroyDevice(self->inner);
 
-			for (const WrappedDevice::Child & child : self->children)
+			for (WrappedObject * child = self->children.exchange(nullptr, std::memory_order_acquire); child != nullptr;)
 			{
-				child.release(child.wrapper);
+				WrappedObject * next = child->nextChild;
+				child->releaseChild(child);
+				child = next;
 			}
-			self->children.clear();
 
 			HostDeleter{ .size = sizeof(WrappedDevice), .alignment = alignof(WrappedDevice) }(self);
 		}
-
-		/*
-		 * The two entries that receive another object, not only their own. Above this layer a wrapper stands in front of its inner object so what arrives here names
-		 * the wrapper. A backend handed one would read this layer's fields as its own. Both put the inner object back before forwarding. Everything else takes
-		 * handles, which the backend minted and this layer never rewrites.
-		 */
 
 		[[nodiscard]] void * Unwrap(void * impl) noexcept
 		{
@@ -1117,10 +1145,6 @@ namespace azo::rhi::validation
 				return self->validator->Fail(error, "a submit waits on or signals a timeline this device has already taken back");
 			}
 
-			/*
-			 * The lists travel as facades so each one has to be rebuilt naming the object behind it. Allocated, not kept on the stack because the count is the caller's
-			 * and a submit is a per-frame call and not a recorded command, which is the path that may not allocate.
-			 */
 			detail::HostVector<CommandList> unwrapped;
 			detail::HostVector<const CommandList *> pointers;
 			if (!detail::TryReserve(unwrapped, desc.commandLists.size()) || !detail::TryReserve(pointers, desc.commandLists.size()))
@@ -1137,13 +1161,14 @@ namespace azo::rhi::validation
 
 				auto * wrapper = static_cast<WrappedCommandList *>(detail::FacadeBuilder::ImplOf(*list));
 
-				/*
-				 * A list is recorded against the pool's queue type and can only be run on a queue of that type. Backends catch this in their own terms, a family index on
-				 * Vulkan and a list type on D3D12, both of which are the same rule wearing the native spelling.
-				 */
 				if (self->validator->ChecksState() && wrapper->queueType != self->type)
 				{
 					return self->validator->Fail(error, "submit of a command list recorded for a different queue type than the queue it was given to");
+				}
+
+				if (self->validator->ChecksState() && wrapper->recording)
+				{
+					return self->validator->Fail(error, "submit of a command list that is still recording, so End was never called on it");
 				}
 
 				unwrapped.push_back(detail::FacadeBuilder::MakeCommandList(wrapper->inner, &wrapper->blocks));
@@ -1154,16 +1179,26 @@ namespace azo::rhi::validation
 				pointers.push_back(&list);
 			}
 
+			if (self->validator->ChecksState() && !SubmittedOwnershipIsLegal(*self->validator, desc.commandLists, error))
+			{
+				return false;
+			}
+
 			SubmitDesc inner   = desc;
 			inner.commandLists = pointers;
-			return self->blocks.core->submit(self->inner, inner, error);
+			if (!self->blocks.core->submit(self->inner, inner, error))
+			{
+				return false;
+			}
+
+			for (const CommandList * list : desc.commandLists)
+			{
+				ApplyPendingOwnership(*self->validator, *static_cast<const WrappedCommandList *>(detail::FacadeBuilder::ImplOf(*list)));
+			}
+
+			return true;
 		}
 
-		/*
-		 * A sparse bind names memory pages without transitioning anything so the arithmetic is what it gets wrong. Handles are checked as anywhere else. What is left
-		 * is the page itself: a bind that supplies a heap and then binds nothing of it means the caller wanted an unbind and left the heap in. That maps a
-		 * zero-length tile range on backends that take it and is refused on the ones that do not.
-		 */
 		bool ValidatedBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedQueue *>(impl);
@@ -1205,11 +1240,6 @@ namespace azo::rhi::validation
 			return self->blocks.sparse->bindSparse(self->inner, desc, error);
 		}
 
-		/*
-		 * An arena reset is the one place handles stop being live without a destroy naming them. The sets are taken back before the backend frees them so nothing can
-		 * bind one in between. A set bound after this reads as a handle the device already took back, because the descriptor memory behind it belongs to whatever the
-		 * arena hands out next. No native validation layer reports it, since from its side the set was legally recycled.
-		 */
 		bool ValidatedArenaReset(void * impl, const RetirePoint safeAfter, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedDescriptorArena *>(impl);
@@ -1223,12 +1253,102 @@ namespace azo::rhi::validation
 			return self->blocks->reset(self->inner, safeAfter, error);
 		}
 
-		/*
-		 * An acceleration structure build, whose desc carries what it needs without naming it in the signature.
-		 *
-		 * A build with no destination, no scratch or nothing to build from is a desc that was filled in partly and the native APIs answer it with anything from a
-		 * silent no-op to a device loss.
-		 */
+		[[nodiscard]] std::uint64_t DeclaredUsage(
+			DeviceValidator & validator, const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
+		{
+			const ResourceRecord * record = validator.Handles().Lookup(RegisteredHandle{ .type = type, .index = index, .generation = generation });
+			return record != nullptr ? record->detail.load(std::memory_order_relaxed) : 0;
+		}
+
+		template <class Usage>
+		[[nodiscard]] bool DeclaredFor(const std::uint64_t usage, const Usage bit) noexcept
+		{
+			return (usage & kUsageDeclared) == 0 || (usage & static_cast<std::uint64_t>(bit)) != 0;
+		}
+
+		bool ValidatedClearBuffer(
+			void * impl, const BufferHandle buffer, const std::uint64_t offset, const std::uint64_t size, const std::uint32_t value, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			if (!ArgumentIsUsable(*self->validator, buffer))
+			{
+				return self->validator->Fail(error, "clearBuffer names a buffer this device has already taken back");
+			}
+
+			if (self->validator->ChecksState() && self->rendering)
+			{
+				return self->validator->Fail(error, "clearBuffer cannot be recorded inside a rendering scope, so record it between passes");
+			}
+
+			if (!DeclaredFor(DeclaredUsage(*self->validator, ResourceType::eBuffer, buffer.index, buffer.generation), BufferUsage::eStorage))
+			{
+				return self->validator->Fail(error, "clearBuffer needs BufferUsage::eStorage, which is what Direct3D 12 clears through");
+			}
+
+			return self->blocks.render->clearBuffer(self->inner, buffer, offset, size, value, error);
+		}
+
+		bool ValidatedClearTexture(
+			void * impl, const TextureHandle texture, const ClearColor & color, const std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			if (!ArgumentIsUsable(*self->validator, texture))
+			{
+				return self->validator->Fail(error, "clearTexture names a texture this device has already taken back");
+			}
+
+			if (self->validator->ChecksState() && self->rendering)
+			{
+				return self->validator->Fail(error, "clearTexture cannot be recorded inside a rendering scope, so record it between passes");
+			}
+
+			if (!DeclaredFor(DeclaredUsage(*self->validator, ResourceType::eTexture, texture.index, texture.generation), TextureUsage::eColorAttachment))
+			{
+				return self->validator->Fail(error, "clearTexture needs TextureUsage::eColorAttachment, which is what Direct3D 12 and Metal clear through");
+			}
+
+			return self->blocks.render->clearTexture(self->inner, texture, color, ranges, error);
+		}
+
+		bool ValidatedWriteTimestamp(void * impl, const QueryPoolHandle pool, const std::uint32_t query, const Flags<Stage> stage, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			if (!ArgumentIsUsable(*self->validator, pool))
+			{
+				return self->validator->Fail(error, "writeTimestamp names a query pool this device has already taken back");
+			}
+
+			if (!IsOneTimestampStage(stage))
+			{
+				return self->validator->Fail(error, "writeTimestamp takes a single stage and this mask names more than one");
+			}
+
+			if (!QueueCanNameStage(self->queueType, stage))
+			{
+				return self->validator->Fail(error, "writeTimestamp names a stage the queue this list was allocated for cannot reach");
+			}
+
+			return self->blocks.query->writeTimestamp(self->inner, pool, query, stage, error);
+		}
+
 		bool ValidatedBuildAccelerationStructures(void * impl, const std::span<const AccelerationStructureBuildDesc> builds, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
@@ -1285,11 +1405,6 @@ namespace azo::rhi::validation
 			return self->blocks->present(self->inner, imageIndex, renderFinished, Unwrap(queueImpl), error);
 		}
 
-		/*
-		 * Destroy is where a handle stops being one. It catches the three ways a handle goes wrong, for every backend at once: a handle this device never handed out,
-		 * one belonging to another device and one already destroyed. Retire answers no to all three so the retire is the check. It is refused before the backend sees
-		 * it, since a backend handed a stale handle reads whatever moved into the slot.
-		 */
 		bool ValidatedDestroy(void * impl, const ResourceType type, const RawHandle handle, const DestroyDesc & desc, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedDevice *>(impl);
@@ -1313,60 +1428,527 @@ namespace azo::rhi::validation
 
 			if (!self->blocks.core->destroy(self->inner, type, handle, desc, error))
 			{
-				/*
-				 * The backend refused what the registry let through. A swapchain back buffer is that case: the device hands it out and keeps owning it so the backend
-				 * refuses the destroy. Put the handle back or the next frame would be refused for a destroy that never happened. Its tracked state is deliberately not
-				 * restored, since a failed destroy should leave less known about a resource, not more.
-				 */
-				static_cast<void>(self->validator->Handles().Record(registered));
+				static_cast<void>(self->validator->Handles().Restore(registered));
 				return false;
 			}
 
 			return true;
 		}
 
-		/*
-		 * A resource's state, packed into the word the registry keeps for it.
-		 *
-		 * Stages are left out. They say when an access happens, not what state the resource is in and two barriers that agree on the access and the layout describe
-		 * the same state whichever stage each named.
-		 */
 		[[nodiscard]] std::uint32_t PackState(const ResourceState & state) noexcept
 		{
-			return static_cast<std::uint32_t>(state.access.Bits()) | (static_cast<std::uint32_t>(state.layout) << 24u);
+			return state.use.Bits();
 		}
 
-		// One key for a resource within a recording. The generation is in it so a slot reused after a destroy is not the resource that held it before.
-		[[nodiscard]] std::uint64_t StateKey(const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
+		[[nodiscard]] RegisteredHandle TrackedResource(const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
 		{
-			return (static_cast<std::uint64_t>(type) << 56u) ^ (static_cast<std::uint64_t>(index) << 32u) ^ generation;
+			return RegisteredHandle{
+				.type		= type,
+				.index		= index,
+				.generation = generation,
+			};
 		}
 
-		/*
-		 * Queue ownership is declared by a barrier too. Unlike a resource state it is not per recording: a queue that releases a resource stays released from it
-		 * until another queue acquires it. It lives on the registry record where it outlives any one list. A barrier naming no transfer leaves ownership alone. One
-		 * that does has to name the family that actually holds it, since releasing from a family that never had it produces a resource no queue owns.
-		 */
-		[[nodiscard]] bool CheckAndTransferOwnership(WrappedCommandList * self, const ResourceType type, const std::uint32_t index,
-			const std::uint32_t generation, const QueueFamilyTransfer & ownership, Error * error) noexcept
+		[[nodiscard]] std::uint32_t SpanEnd(const std::uint32_t begin, const std::uint32_t count) noexcept
 		{
-			if (ownership.src == kIgnoreQueueFamily && ownership.dst == kIgnoreQueueFamily)
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			return count > unbounded - begin ? unbounded : begin + count;
+		}
+
+		[[nodiscard]] DeclaredExtents ExtentsOf(
+			WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
+		{
+			const ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
+				.type		= type,
+				.index		= index,
+				.generation = generation,
+			});
+			return record != nullptr ? ExtentsFrom(type, record->detail.load(std::memory_order_relaxed)) : DeclaredExtents{};
+		}
+
+		[[nodiscard]] std::uint64_t DeclaredSizeOf(WrappedCommandList * self, const std::uint32_t index, const std::uint32_t generation) noexcept
+		{
+			const ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
+				.type		= ResourceType::eBuffer,
+				.index		= index,
+				.generation = generation,
+			});
+			return record != nullptr ? DeclaredSizeFrom(record->detail.load(std::memory_order_relaxed)) : 0;
+		}
+
+		[[nodiscard]] std::uint32_t BoundOr(const std::uint32_t declared, const std::uint32_t fallback) noexcept
+		{
+			return declared != 0 ? declared : fallback;
+		}
+
+		[[nodiscard]] TrackedSubrange WholeResourceSpan(const DeclaredExtents & extents = {}) noexcept
+		{
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			return TrackedSubrange{
+				.aspects	= BoundOr(extents.aspects, unbounded),
+				.mipBegin	= 0,
+				.mipEnd		= BoundOr(extents.mips, unbounded),
+				.layerBegin = 0,
+				.layerEnd	= BoundOr(extents.layers, unbounded),
+				.byteEnd	= extents.bytes != 0 ? extents.bytes : std::numeric_limits<std::uint64_t>::max(),
+			};
+		}
+
+		[[nodiscard]] TrackedSubrange TextureSpan(const TextureSubresourceRange & range, const DeclaredExtents & extents) noexcept
+		{
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			return TrackedSubrange{
+				.aspects	= static_cast<std::uint32_t>(range.aspects.Bits()) & BoundOr(extents.aspects, unbounded),
+				.mipBegin	= range.baseMip,
+				.mipEnd		= std::min(SpanEnd(range.baseMip, range.mipCount), BoundOr(extents.mips, unbounded)),
+				.layerBegin = range.baseLayer,
+				.layerEnd	= std::min(SpanEnd(range.baseLayer, range.layerCount), BoundOr(extents.layers, unbounded)),
+			};
+		}
+
+		[[nodiscard]] std::uint64_t ByteSpanEnd(const std::uint64_t begin, const std::uint64_t count) noexcept
+		{
+			constexpr std::uint64_t unbounded = std::numeric_limits<std::uint64_t>::max();
+			return count > unbounded - begin ? unbounded : begin + count;
+		}
+
+		[[nodiscard]] TrackedSubrange BufferSpan(const BufferBarrier & barrier, const std::uint64_t declared) noexcept
+		{
+			constexpr std::uint64_t unbounded = std::numeric_limits<std::uint64_t>::max();
+
+			TrackedSubrange span = WholeResourceSpan();
+			span.byteBegin		 = barrier.offset;
+			span.byteEnd		 = std::min(ByteSpanEnd(barrier.offset, barrier.size), declared != 0 ? declared : unbounded);
+			return span;
+		}
+
+		[[nodiscard]] bool CoversWholeResource(const TrackedSubrange & span, const DeclaredExtents & extents) noexcept
+		{
+			constexpr std::uint32_t unbounded = std::numeric_limits<std::uint32_t>::max();
+			const std::uint64_t declaredBytes = extents.bytes != 0 ? extents.bytes : std::numeric_limits<std::uint64_t>::max();
+
+			return (extents.aspects == 0 || (span.aspects & extents.aspects) == extents.aspects) && span.mipBegin == 0 &&
+				   span.mipEnd >= BoundOr(extents.mips, unbounded) && span.layerBegin == 0 && span.layerEnd >= BoundOr(extents.layers, unbounded) &&
+				   span.byteBegin == 0 && span.byteEnd >= declaredBytes;
+		}
+
+		[[nodiscard]] bool Overlaps(const TrackedSubrange & lhs, const TrackedSubrange & rhs) noexcept
+		{
+			return lhs.resource == rhs.resource && (lhs.aspects & rhs.aspects) != 0u && lhs.mipBegin < rhs.mipEnd && rhs.mipBegin < lhs.mipEnd &&
+				   lhs.layerBegin < rhs.layerEnd && rhs.layerBegin < lhs.layerEnd && lhs.byteBegin < rhs.byteEnd && rhs.byteBegin < lhs.byteEnd;
+		}
+
+		[[nodiscard]] bool SubtractInto(detail::HostVector<TrackedSubrange> & into, const TrackedSubrange & from, const TrackedSubrange & cut) noexcept
+		{
+			if (const std::uint32_t untouched = from.aspects & ~cut.aspects; untouched != 0u)
+			{
+				TrackedSubrange piece = from;
+				piece.aspects		  = untouched;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange shared = from;
+			shared.aspects		   = from.aspects & cut.aspects;
+
+			if (shared.mipBegin < cut.mipBegin)
+			{
+				TrackedSubrange piece = shared;
+				piece.mipEnd		  = cut.mipBegin;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			if (shared.mipEnd > cut.mipEnd)
+			{
+				TrackedSubrange piece = shared;
+				piece.mipBegin		  = cut.mipEnd;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange band = shared;
+			band.mipBegin		 = std::max(shared.mipBegin, cut.mipBegin);
+			band.mipEnd			 = std::min(shared.mipEnd, cut.mipEnd);
+
+			if (band.layerBegin < cut.layerBegin)
+			{
+				TrackedSubrange piece = band;
+				piece.layerEnd		  = cut.layerBegin;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			if (band.layerEnd > cut.layerEnd)
+			{
+				TrackedSubrange piece = band;
+				piece.layerBegin	  = cut.layerEnd;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange strip = band;
+			strip.layerBegin	  = std::max(band.layerBegin, cut.layerBegin);
+			strip.layerEnd		  = std::min(band.layerEnd, cut.layerEnd);
+
+			if (strip.byteBegin < cut.byteBegin)
+			{
+				TrackedSubrange piece = strip;
+				piece.byteEnd		  = cut.byteBegin;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			if (strip.byteEnd > cut.byteEnd)
+			{
+				TrackedSubrange piece = strip;
+				piece.byteBegin		  = cut.byteEnd;
+				if (!detail::TryPushBack(into, piece))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		[[nodiscard]] bool StateIsUsableAsAfter(
+			WrappedCommandList * self, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
+		{
+			if (after.use.Contains(ResourceUse::eDiscard))
+			{
+				return self->validator->Fail(
+					error, "a barrier names eDiscard as its after-state, which describes contents arriving at a barrier and not leaving one");
+			}
+
+			const bool releasing = ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eReleaseToExternal;
+
+			if (after.use.Bits() == 0u && !releasing)
+			{
+				return self->validator->Fail(error, "a barrier names no after-state, so it does not say what the resource is being moved into");
+			}
+
+			return true;
+		}
+
+		void Forget(WrappedCommandList * self, const RegisteredHandle resource) noexcept
+		{
+			static_cast<void>(std::erase_if(self->recordedStates,
+				[resource](const TrackedSubrange & entry)
+				{
+					return entry.resource == resource;
+				}));
+		}
+
+		[[nodiscard]] bool MipChainIsReadyToGenerate(WrappedCommandList * self, const TextureHandle texture, Error * error) noexcept
+		{
+			const RegisteredHandle resource = TrackedResource(ResourceType::eTexture, texture.index, texture.generation);
+			const std::uint32_t source		= PackState(ResourceState{ .use = ResourceUse::eCopySrc });
+			const std::uint32_t target		= PackState(ResourceState{ .use = ResourceUse::eCopyDst });
+
+			for (const TrackedSubrange & tracked : self->recordedStates)
+			{
+				if (tracked.resource != resource)
+				{
+					continue;
+				}
+
+				if (tracked.mipBegin == 0 && tracked.state != source)
+				{
+					return self->validator->Fail(error, "generateMips reads level zero as a copy source and this recording left it in another use");
+				}
+
+				if (tracked.mipEnd > 1 && tracked.state != target)
+				{
+					return self->validator->Fail(error, "generateMips writes every level below zero whole and this recording left one of them in another use");
+				}
+			}
+
+			return true;
+		}
+
+		bool ValidatedGenerateMips(void * impl, const TextureHandle texture, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			if (!ArgumentIsUsable(*self->validator, texture))
+			{
+				return self->validator->Fail(error, "generateMips names a texture this device has already taken back");
+			}
+
+			if (self->validator->ChecksState())
+			{
+				if (self->rendering)
+				{
+					return self->validator->Fail(error, "a transfer or dispatch recorded inside a rendering scope, which has to be recorded between passes");
+				}
+
+				if (!MipChainIsReadyToGenerate(self, texture, error))
+				{
+					return false;
+				}
+			}
+
+			if (!self->blocks.render->generateMips(self->inner, texture, error))
+			{
+				return false;
+			}
+
+			if (self->validator->ChecksState())
+			{
+				const RegisteredHandle resource = TrackedResource(ResourceType::eTexture, texture.index, texture.generation);
+				const std::uint32_t exits		= PackState(ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy });
+
+				bool tracked = false;
+				for (TrackedSubrange & span : self->recordedStates)
+				{
+					if (span.resource == resource)
+					{
+						span.state = exits;
+						tracked	   = true;
+					}
+				}
+
+				if (!tracked)
+				{
+					TrackedSubrange written = WholeResourceSpan(ExtentsOf(self, ResourceType::eTexture, texture.index, texture.generation));
+					written.resource		= resource;
+					written.state			= exits;
+					static_cast<void>(detail::TryPushBack(self->recordedStates, written));
+				}
+			}
+
+			return true;
+		}
+
+		[[nodiscard]] bool Retrack(WrappedCommandList * self, const TrackedSubrange & box, const std::uint32_t state) noexcept
+		{
+			const std::size_t existing = self->recordedStates.size();
+			for (std::size_t i = 0; i < existing; ++i)
+			{
+				const TrackedSubrange covered = self->recordedStates[i];
+				if (!Overlaps(covered, box))
+				{
+					continue;
+				}
+
+				self->recordedStates[i].aspects = 0u;
+				if (!SubtractInto(self->recordedStates, covered, box))
+				{
+					return false;
+				}
+			}
+
+			TrackedSubrange written = box;
+			written.state			= state;
+			if (!detail::TryPushBack(self->recordedStates, written))
+			{
+				return false;
+			}
+
+			static_cast<void>(std::erase_if(self->recordedStates,
+				[](const TrackedSubrange & entry)
+				{
+					return entry.aspects == 0u;
+				}));
+			return true;
+		}
+
+		[[nodiscard]] PendingOwnership * PendingOwnershipOf(
+			WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
+		{
+			const RegisteredHandle resource = TrackedResource(type, index, generation);
+			for (PendingOwnership & pending : self->pendingOwnership)
+			{
+				if (pending.resource == resource)
+				{
+					return &pending;
+				}
+			}
+
+			return nullptr;
+		}
+
+		void SetPendingOwnership(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
+			const QueueOwnership & ownership, const std::uint8_t owner, const bool owned) noexcept
+		{
+			if (PendingOwnership * pending = PendingOwnershipOf(self, type, index, generation))
+			{
+				pending->owner = owner;
+				pending->owned = owned;
+				return;
+			}
+
+			static_cast<void>(detail::TryPushBack(self->pendingOwnership,
+				PendingOwnership{
+					.resource		  = TrackedResource(type, index, generation),
+					.firstOp		  = ownership.op,
+					.firstCounterpart = ownership.counterpart,
+					.recordedOn		  = self->queueType,
+					.owner			  = owner,
+					.owned			  = owned,
+				}));
+		}
+
+		[[nodiscard]] bool OwnershipStepIsLegal(
+			const PendingOwnership & pending, const bool owned, const std::uint8_t held, Error * error, DeviceValidator & validator) noexcept
+		{
+			if (!owned)
 			{
 				return true;
 			}
 
-			/*
-			 * A transfer names both ends or neither and the two ends differ. One end named and the other ignored is neither a transfer nor the absence of one. A
-			 * transfer to the family that already holds it asks for a matched release and acquire on one queue. Only Vulkan notices, since the pair goes straight into
-			 * the barrier it builds while the other two do nothing with it. That difference is why this check moved up here.
-			 */
-			if (ownership.src == kIgnoreQueueFamily || ownership.dst == kIgnoreQueueFamily || ownership.src == ownership.dst)
+			const bool releasing = pending.firstOp == OwnershipOp::eRelease || pending.firstOp == OwnershipOp::eReleaseToExternal;
+			if (releasing && held != static_cast<std::uint8_t>(pending.recordedOn))
 			{
-				return self->validator->Fail(
-					error, "a barrier names a queue family ownership transfer that is not one, either half-filled or from a family to itself");
+				return validator.Fail(error, "a submitted barrier releases a resource from a queue that does not own it");
 			}
 
-			ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
+			if (pending.firstOp == OwnershipOp::eAcquire && held != static_cast<std::uint8_t>(pending.firstCounterpart))
+			{
+				return validator.Fail(error, "a submitted barrier acquires a resource from a queue that does not hold it");
+			}
+
+			return true;
+		}
+
+		[[nodiscard]] bool SubmittedOwnershipIsLegal(DeviceValidator & validator, std::span<const CommandList * const> lists, Error * error) noexcept
+		{
+			detail::HostVector<PendingOwnership> staged;
+
+			for (const CommandList * list : lists)
+			{
+				const auto * wrapper = static_cast<const WrappedCommandList *>(detail::FacadeBuilder::ImplOf(*list));
+				for (const PendingOwnership & pending : wrapper->pendingOwnership)
+				{
+					const ResourceRecord * record = validator.Handles().Lookup(pending.resource);
+					if (record == nullptr)
+					{
+						continue;
+					}
+
+					bool owned				   = record->owned.load(std::memory_order_relaxed);
+					std::uint8_t held		   = record->owner.load(std::memory_order_relaxed);
+					PendingOwnership * earlier = nullptr;
+					for (PendingOwnership & seen : staged)
+					{
+						if (seen.resource == pending.resource)
+						{
+							earlier = &seen;
+							owned	= seen.owned;
+							held	= seen.owner;
+							break;
+						}
+					}
+
+					if (!OwnershipStepIsLegal(pending, owned, held, error, validator))
+					{
+						return false;
+					}
+
+					if (earlier != nullptr)
+					{
+						earlier->owner = pending.owner;
+						earlier->owned = pending.owned;
+						continue;
+					}
+
+					if (!detail::TryPushBack(staged, pending))
+					{
+						return validator.Fail(error, "the host allocator refused the storage a validated submit needs to check queue ownership");
+					}
+				}
+			}
+
+			return true;
+		}
+
+		void ApplyPendingOwnership(DeviceValidator & validator, const WrappedCommandList & list) noexcept
+		{
+			for (const PendingOwnership & pending : list.pendingOwnership)
+			{
+				if (ResourceRecord * record = validator.Handles().Lookup(pending.resource))
+				{
+					record->owner.store(pending.owner, std::memory_order_relaxed);
+					record->owned.store(pending.owned, std::memory_order_relaxed);
+				}
+			}
+
+			for (const PendingArrival & pending : list.pendingArrivals)
+			{
+				if (ResourceRecord * record = validator.Handles().Lookup(pending.resource))
+				{
+					record->use.store(pending.use, std::memory_order_relaxed);
+					record->useKnown.store(pending.known, std::memory_order_relaxed);
+				}
+			}
+		}
+
+		[[nodiscard]] const PendingArrival * PendingArrivalOf(const WrappedCommandList * self, const RegisteredHandle resource) noexcept
+		{
+			for (const PendingArrival & pending : self->pendingArrivals)
+			{
+				if (pending.resource == resource)
+				{
+					return &pending;
+				}
+			}
+
+			return nullptr;
+		}
+
+		void SetPendingArrival(WrappedCommandList * self, const RegisteredHandle resource, const std::uint32_t use, const bool known) noexcept
+		{
+			for (PendingArrival & pending : self->pendingArrivals)
+			{
+				if (pending.resource == resource)
+				{
+					pending.use	  = use;
+					pending.known = known;
+					return;
+				}
+			}
+
+			static_cast<void>(detail::TryPushBack(self->pendingArrivals,
+				PendingArrival{
+					.resource = resource,
+					.use	  = use,
+					.known	  = known,
+				}));
+		}
+
+		[[nodiscard]] bool CheckAndTransferOwnership(WrappedCommandList * self, const ResourceType type, const std::uint32_t index,
+			const std::uint32_t generation, const QueueOwnership & ownership, Error * error) noexcept
+		{
+			if (ownership.op == OwnershipOp::eNone)
+			{
+				return true;
+			}
+
+			const bool namesQueue = ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eAcquire;
+			if (namesQueue && ownership.counterpart == self->queueType)
+			{
+				return self->validator->Fail(error, "a barrier transfers queue ownership between one queue and itself, which is not a transfer");
+			}
+
+			const ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
 				.type		= type,
 				.index		= index,
 				.generation = generation,
@@ -1376,50 +1958,74 @@ namespace azo::rhi::validation
 				return true;
 			}
 
-			if (record->owned.load(std::memory_order_relaxed) && record->owner.load(std::memory_order_relaxed) != static_cast<std::uint8_t>(ownership.src))
+			const PendingOwnership * pending = PendingOwnershipOf(self, type, index, generation);
+			const bool owned				 = pending != nullptr ? pending->owned : record->owned.load(std::memory_order_relaxed);
+
+			if (owned)
 			{
-				return self->validator->Fail(error, "a barrier releases a resource from a queue family that does not own it");
+				const std::uint8_t held = pending != nullptr ? pending->owner : record->owner.load(std::memory_order_relaxed);
+				const bool releasing	= ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eReleaseToExternal;
+
+				if (releasing && held != static_cast<std::uint8_t>(self->queueType))
+				{
+					return self->validator->Fail(error, "a barrier releases a resource from a queue that does not own it");
+				}
+				if (ownership.op == OwnershipOp::eAcquire && held != static_cast<std::uint8_t>(ownership.counterpart))
+				{
+					return self->validator->Fail(error, "a barrier acquires a resource from a queue that does not hold it");
+				}
 			}
 
-			record->owner.store(static_cast<std::uint8_t>(ownership.dst), std::memory_order_relaxed);
-			record->owned.store(true, std::memory_order_relaxed);
+			if (ownership.op == OwnershipOp::eReleaseToExternal)
+			{
+				SetPendingOwnership(self, type, index, generation, ownership, 0, false);
+				return true;
+			}
+
+			const QueueType holder = ownership.op == OwnershipOp::eRelease ? ownership.counterpart : self->queueType;
+			SetPendingOwnership(self, type, index, generation, ownership, static_cast<std::uint8_t>(holder), true);
 			return true;
 		}
 
-		/*
-		 * Checks one barrier's before-state against where this recording last left the resource, then records the after-state. A resource not yet touched here is
-		 * taken, not checked, since nothing earlier in the list said what state it was in and the caller is entitled to declare it. An adopted resource is the
-		 * exception: it arrived in a declared state and the first barrier is checked against that declaration. Getting it wrong discards the contents the object was
-		 * adopted for.
-		 */
 		[[nodiscard]] bool CheckAndAdvance(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const ResourceState & before, const ResourceState & after, const QueueFamilyTransfer & ownership, Error * error) noexcept
+			const TrackedSubrange & span, const ResourceState & before, const ResourceState & after, const QueueOwnership & ownership, Error * error) noexcept
 		{
-			const std::uint64_t key = StateKey(type, index, generation);
-			const auto tracked		= self->recordedStates.find(key);
-			const bool trackedHere	= tracked != self->recordedStates.end();
+			TrackedSubrange box		   = span;
+			box.resource			   = TrackedResource(type, index, generation);
+			const std::uint32_t wanted = PackState(before);
 
-			if (trackedHere && tracked->second != PackState(before))
+			bool trackedHere = false;
+			for (const TrackedSubrange & tracked : self->recordedStates)
 			{
-				return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
+				if (tracked.resource != box.resource)
+				{
+					continue;
+				}
+
+				if (!Overlaps(tracked, box))
+				{
+					continue;
+				}
+
+				trackedHere = true;
+				if (tracked.state != wanted)
+				{
+					return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
+				}
 			}
 
-			/*
-			 * The declared arrival state, checked once and then given up.
-			 *
-			 * Consumed, not kept because it stops being true the moment this barrier moves the resource, and because keeping it would mean claiming to track state
-			 * across command lists, which nothing here does. The exchange is what makes exactly one recording consume it when two are running at once.
-			 */
 			if (!trackedHere)
 			{
-				if (ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
-						.type		= type,
-						.index		= index,
-						.generation = generation,
-					}))
+				if (const PendingArrival * pending = PendingArrivalOf(self, box.resource))
 				{
-					if (record->accessKnown.exchange(false, std::memory_order_relaxed) &&
-						record->access.load(std::memory_order_relaxed) != static_cast<std::uint32_t>(before.access.Bits()))
+					if (pending->known && pending->use != before.use.Bits())
+					{
+						return self->validator->Fail(error, "a barrier claims a before-state the adopted resource did not arrive in");
+					}
+				}
+				else if (const ResourceRecord * record = self->validator->Handles().Lookup(box.resource))
+				{
+					if (record->useKnown.load(std::memory_order_relaxed) && record->use.load(std::memory_order_relaxed) != before.use.Bits())
 					{
 						return self->validator->Fail(error, "a barrier claims a before-state the adopted resource did not arrive in");
 					}
@@ -1431,22 +2037,23 @@ namespace azo::rhi::validation
 				return false;
 			}
 
-			if (!detail::TryInsertOrAssign(self->recordedStates, key, PackState(after)))
+			if (!Retrack(self, box, PackState(after)))
 			{
-				// Nothing tracked is better than half tracked: the entry is simply absent so the next barrier naming it is taken, not checked.
-				self->recordedStates.erase(key);
+				Forget(self, box.resource);
+			}
+
+			if (CoversWholeResource(box, ExtentsOf(self, type, index, generation)))
+			{
+				SetPendingArrival(self, box.resource, after.use.Bits(), true);
+			}
+			else
+			{
+				SetPendingArrival(self, box.resource, 0, false);
 			}
 
 			return true;
 		}
 
-		/*
-		 * A barrier declares the state it believes a resource is in. Getting that wrong stays silent on hardware that does not care. Tracking it here, not per
-		 * backend makes every backend answer the same way, including external ones that track nothing.
-		 *
-		 * The first barrier a resource sees is taken as truth, since nothing before it said what state it was created in. An undefined before-state is likewise
-		 * taken, meaning the caller does not care what was there.
-		 */
 		bool ValidatedBarriers(void * impl, const BarrierBatch & batch, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
@@ -1463,12 +2070,47 @@ namespace azo::rhi::validation
 
 			if (self->validator->ChecksState())
 			{
+				if (self->rendering)
+				{
+					return self->validator->Fail(error, "a barrier recorded inside a rendering scope, which has to be recorded between passes");
+				}
+
+				for (const MemoryBarrier & barrier : batch.memory)
+				{
+					if (!StateIsUsableAsAfter(self, barrier.after, QueueOwnership{}, error))
+					{
+						return false;
+					}
+				}
+
 				for (const BufferBarrier & barrier : batch.buffers)
 				{
+					if (!StateIsUsableAsAfter(self, barrier.after, barrier.ownership, error))
+					{
+						return false;
+					}
+
+					if (barrier.size == 0)
+					{
+						return self->validator->Fail(error, "a buffer barrier names no bytes, so it describes no range to transition");
+					}
+
+					const std::uint64_t declared = DeclaredSizeOf(self, barrier.buffer.index, barrier.buffer.generation);
+					if (declared != 0)
+					{
+						const bool wholeBuffer = barrier.size == std::numeric_limits<std::uint64_t>::max();
+
+						if (barrier.offset >= declared || (!wholeBuffer && ByteSpanEnd(barrier.offset, barrier.size) > declared))
+						{
+							return self->validator->Fail(error, "a buffer barrier names bytes past the end of the buffer");
+						}
+					}
+
 					if (!CheckAndAdvance(self,
 							ResourceType::eBuffer,
 							barrier.buffer.index,
 							barrier.buffer.generation,
+							BufferSpan(barrier, declared),
 							barrier.before,
 							barrier.after,
 							barrier.ownership,
@@ -1480,10 +2122,21 @@ namespace azo::rhi::validation
 
 				for (const TextureBarrier & barrier : batch.textures)
 				{
+					if (!StateIsUsableAsAfter(self, barrier.after, barrier.ownership, error))
+					{
+						return false;
+					}
+
+					if (barrier.range.aspects.Bits() == 0u)
+					{
+						return self->validator->Fail(error, "a texture barrier names no aspect, so it describes no subresource to transition");
+					}
+
 					if (!CheckAndAdvance(self,
 							ResourceType::eTexture,
 							barrier.texture.index,
 							barrier.texture.generation,
+							TextureSpan(barrier.range, ExtentsOf(self, ResourceType::eTexture, barrier.texture.index, barrier.texture.generation)),
 							barrier.before,
 							barrier.after,
 							barrier.ownership,
@@ -1497,43 +2150,53 @@ namespace azo::rhi::validation
 			return self->blocks.render->barriers(self->inner, batch, error);
 		}
 
-		/*
-		 * Where one resource a native mutation moved is written back, into both of the places a barrier is checked against.
-		 *
-		 * Both, because which one answers depends on where the next barrier is: this recording's own tracking, and the registry record for the first barrier in
-		 * a list that has not named the resource. Writing one and leaving the other refuses a correct barrier.
-		 *
-		 * Queue ownership is left alone, a touched resource declaring no queue family.
-		 */
-		void ReconcileNativeMutation(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const ResourceState & finalState) noexcept
+		bool ValidatedAliasBarriers(void * impl, const std::span<const AliasBarrier> barriers, Error * error) noexcept
 		{
-			const std::uint64_t key = StateKey(type, index, generation);
-			if (!detail::TryInsertOrAssign(self->recordedStates, key, PackState(finalState)))
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
 			{
-				// The same answer a barrier gives when the map cannot grow: nothing tracked, so the next barrier naming it is taken and not checked.
-				self->recordedStates.erase(key);
+				return false;
 			}
 
-			if (ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
-					.type		= type,
-					.index		= index,
-					.generation = generation,
-				}))
+			if (!ArgumentIsUsable(*self->validator, barriers))
 			{
-				record->access.store(static_cast<std::uint32_t>(finalState.access.Bits()), std::memory_order_relaxed);
-				record->accessKnown.store(true, std::memory_order_relaxed);
+				return self->validator->Fail(error, "an alias barrier names a resource this device has already taken back");
 			}
+
+			if (self->validator->ChecksState() && self->rendering)
+			{
+				return self->validator->Fail(error, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
+			}
+
+			return self->blocks.aliasing->aliasBarriers(self->inner, barriers, error);
 		}
 
-		/*
-		 * The end of a native mutation scope, where the states the caller declared become the states this layer believes.
-		 *
-		 * It belongs here and not in a backend. A backend's own recording already targets the list it was handed, so reconciling against tracking only this
-		 * layer keeps is the whole reason the caller was asked to fill it in.
-		 *
-		 * A read-only touch is skipped, a read leaving the resource where it was.
-		 */
+		void ReconcileNativeMutation(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
+			const TrackedSubrange & span, const ResourceState & finalState) noexcept
+		{
+			TrackedSubrange written = span;
+			written.resource		= TrackedResource(type, index, generation);
+
+			if (!Retrack(self, written, PackState(finalState)))
+			{
+				Forget(self, written.resource);
+			}
+
+			if (self->validator->Handles().Lookup(written.resource) == nullptr)
+			{
+				return;
+			}
+
+			if (!CoversWholeResource(written, ExtentsOf(self, type, index, generation)))
+			{
+				SetPendingArrival(self, written.resource, 0, false);
+				return;
+			}
+
+			SetPendingArrival(self, written.resource, finalState.use.Bits(), true);
+		}
+
 		bool ValidatedEndNativeMutation(void * impl, const NativeMutationDesc & desc, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
@@ -1549,7 +2212,8 @@ namespace azo::rhi::validation
 				{
 					if (touched.access == NativeMutationAccess::eReadWrite)
 					{
-						ReconcileNativeMutation(self, ResourceType::eBuffer, touched.buffer.index, touched.buffer.generation, touched.finalState);
+						const TrackedSubrange span = WholeResourceSpan(ExtentsOf(self, ResourceType::eBuffer, touched.buffer.index, touched.buffer.generation));
+						ReconcileNativeMutation(self, ResourceType::eBuffer, touched.buffer.index, touched.buffer.generation, span, touched.finalState);
 					}
 				}
 
@@ -1557,7 +2221,9 @@ namespace azo::rhi::validation
 				{
 					if (touched.access == NativeMutationAccess::eReadWrite)
 					{
-						ReconcileNativeMutation(self, ResourceType::eTexture, touched.texture.index, touched.texture.generation, touched.finalState);
+						const TrackedSubrange span =
+							TextureSpan(touched.range, ExtentsOf(self, ResourceType::eTexture, touched.texture.index, touched.texture.generation));
+						ReconcileNativeMutation(self, ResourceType::eTexture, touched.texture.index, touched.texture.generation, span, touched.finalState);
 					}
 				}
 			}
@@ -1565,12 +2231,6 @@ namespace azo::rhi::validation
 			return self->blocks.nativeEscape->endNativeMutation(self->inner, desc, error);
 		}
 
-		/*
-		 * A command list is a state machine every backend enforces differently or not at all. Tracking it here gives one answer even on a backend whose native API
-		 * tolerates the mistake. The flags live on the list and not the registry and need no lock, since a list belongs to one thread.
-		 *
-		 * The checks are gated but the bookkeeping is not. Turning validation up mid-run would otherwise start from a lie.
-		 */
 		bool ValidatedBegin(void * impl, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
@@ -1580,13 +2240,14 @@ namespace azo::rhi::validation
 				return self->validator->Fail(error, "Begin on a command list that is already recording");
 			}
 
-			// Cleared before the backend is called so a list whose Begin the backend refuses is still left carrying nothing from a recording that is over.
 			self->recordedStates.clear();
-			self->rendering		= false;
-			self->graphicsBound = false;
-			self->computeBound	= false;
+			self->pendingOwnership.clear();
+			self->pendingArrivals.clear();
+			self->rendering		  = false;
+			self->graphicsBound	  = false;
+			self->computeBound	  = false;
+			self->rayTracingBound = false;
 
-			// Where the list is claimed by a thread. Every command until End has to arrive on this one, in the modes that say they check.
 			self->recordingThread = std::this_thread::get_id();
 			self->checksThread	  = self->validator->ChecksState();
 
@@ -1630,6 +2291,28 @@ namespace azo::rhi::validation
 			return true;
 		}
 
+		[[nodiscard]] bool AttachmentFormatIsRenderable(WrappedCommandList * self, const RenderingAttachment & attachment, const bool depthStencil) noexcept
+		{
+			const ResourceRecord * record = self->validator->Handles().Lookup(RegisteredHandle{
+				.type		= ResourceType::eTextureView,
+				.index		= attachment.view.index,
+				.generation = attachment.view.generation,
+			});
+			if (record == nullptr)
+			{
+				return true;
+			}
+
+			const auto format = static_cast<Format>(record->format.load(std::memory_order_relaxed));
+			if (format == Format::eUndefined || self->device == nullptr || self->device->blocks.core == nullptr)
+			{
+				return true;
+			}
+
+			const FormatSupport support = self->device->blocks.core->getFormatSupport(self->device->inner, format);
+			return depthStencil ? support.depthStencilAttachment : support.colorAttachment;
+		}
+
 		bool ValidatedBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
@@ -1654,6 +2337,19 @@ namespace azo::rhi::validation
 				if (self->rendering)
 				{
 					return self->validator->Fail(error, "a rendering scope opened inside another one, and nothing nests here");
+				}
+
+				for (const RenderingAttachment & color : desc.colors)
+				{
+					if (!AttachmentFormatIsRenderable(self, color, false))
+					{
+						return self->validator->Fail(error, "a colour attachment in a format this device does not advertise as renderable");
+					}
+				}
+
+				if (desc.depthStencil != nullptr && !AttachmentFormatIsRenderable(self, *desc.depthStencil, true))
+				{
+					return self->validator->Fail(error, "a depth stencil attachment in a format this device does not advertise as renderable");
 				}
 			}
 
@@ -1685,7 +2381,6 @@ namespace azo::rhi::validation
 				return false;
 			}
 
-			// A pipeline binding does not outlive the scope it was made in so what was bound stops counting here.
 			self->rendering		= false;
 			self->graphicsBound = false;
 			return true;
@@ -1737,7 +2432,29 @@ namespace azo::rhi::validation
 			return true;
 		}
 
-		// What a draw needs to be legal, shared by both spellings of it.
+		bool ValidatedSetRayTracingPipeline(void * impl, const RayTracingPipelineHandle pipeline, Error * error) noexcept
+		{
+			auto * self = static_cast<WrappedCommandList *>(impl);
+
+			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
+			{
+				return false;
+			}
+
+			if (!AllUsable(*self->validator, pipeline))
+			{
+				return self->validator->Fail(error, "a ray tracing pipeline bound after this device took it back");
+			}
+
+			if (!self->blocks.rayTracing->setRayTracingPipeline(self->inner, pipeline, error))
+			{
+				return false;
+			}
+
+			self->rayTracingBound = true;
+			return true;
+		}
+
 		[[nodiscard]] bool DrawIsLegal(WrappedCommandList * self, Error * error) noexcept
 		{
 			if (!RecordedOnItsOwnThread(self, error) || !RecordedIntoAnOpenList(self, error))
@@ -1800,14 +2517,8 @@ namespace azo::rhi::validation
 			return self->blocks.render->dispatch(self->inner, groupCountX, groupCountY, groupCountZ, error);
 		}
 
-	} // namespace
+	}
 
-	/*
-	 * Puts a device behind a wrapper, which is what installs the layer.
-	 *
-	 * Everything above this holds the wrapper from here on, including the block set the facades resolve so nothing has to know a decorator exists. The inner
-	 * device is handed back if the wrapper cannot be built, since a device that came up is better returned than leaked.
-	 */
 	void * WrapDevice(void * deviceImpl, const ValidationMode mode) noexcept
 	{
 		if (deviceImpl == nullptr || mode == ValidationMode::eOff)
@@ -1824,7 +2535,6 @@ namespace azo::rhi::validation
 		HostUniquePtr<WrappedDevice> wrapper = HostNew<WrappedDevice>();
 		if (wrapper == nullptr)
 		{
-			// Unwrapped, not refused. A device with no validation is worse than one with it and better than none at all.
 			return deviceImpl;
 		}
 
@@ -1859,4 +2569,4 @@ namespace azo::rhi::validation
 		return static_cast<WrappedDevice *>(deviceImpl)->validator;
 	}
 
-} // namespace azo::rhi::validation
+}

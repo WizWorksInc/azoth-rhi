@@ -1,14 +1,9 @@
 // Copyright 2026 Ian Pike
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -22,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -31,7 +27,8 @@ namespace azo::rhi::test
 	DeviceDesc DefaultDeviceDesc() noexcept
 	{
 		DeviceDesc desc{};
-		desc.validation = kValidationMode;
+		desc.validation					= kValidationMode;
+		desc.nativeValidation.onMessage = &RecordValidationMessage;
 
 		desc.requireSwapchain = false;
 
@@ -60,7 +57,7 @@ namespace azo::rhi::test
 		return desc;
 	}
 
-} // namespace azo::rhi::test
+}
 
 namespace
 {
@@ -96,15 +93,19 @@ namespace
 		std::cout << std::flush;
 	}
 
-} // namespace
+}
 
 int main(int argc, char ** argv)
 {
-	// A suite picks its backends through AZOTH_RHI_TEST_BACKENDS, so these would only rewrite the subject of every test that asserts what an order comes out as.
 
 	// NOLINTBEGIN(concurrency-mt-unsafe): startup environment edit, before any test or worker thread exists.
+#ifdef _WIN32
+	static_cast<void>(::_putenv_s("AZOTH_RHI_BACKEND", ""));
+	static_cast<void>(::_putenv_s("AZOTH_RHI_BACKEND_FORCE", ""));
+#else
 	static_cast<void>(::unsetenv("AZOTH_RHI_BACKEND"));
 	static_cast<void>(::unsetenv("AZOTH_RHI_BACKEND_FORCE"));
+#endif
 	// NOLINTEND(concurrency-mt-unsafe)
 
 	::testing::InitGoogleMock(&argc, argv);
