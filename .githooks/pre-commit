@@ -11,13 +11,13 @@
 
 set -uo pipefail
 
-# The Lint workflow pins clang-format 22.1.8. Formatting with a different major version disagrees with it, which turns
+# The Lint workflow pins clang-format 23.1.0. Formatting with a different major version disagrees with it, which turns
 # every commit into churn the next contributor undoes, so that is refused rather than warned about.
-readonly PINNED_MAJOR=22
+readonly PINNED_MAJOR=23
 
 if ! command -v clang-format >/dev/null 2>&1; then
 	echo "pre-commit: clang-format is not on PATH." >&2
-	echo "            Install it, for example 'brew install clang-format' or 'pipx install clang-format==22.1.8'," >&2
+	echo "            Install it, for example 'brew install clang-format' or 'pipx install clang-format==23.1.0'," >&2
 	echo "            or commit with --no-verify to skip this." >&2
 	exit 1
 fi
