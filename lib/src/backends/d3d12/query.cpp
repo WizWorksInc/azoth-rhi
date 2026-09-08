@@ -28,8 +28,7 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	// A copy command list can only emit into a copy queue timestamp heap, and a heap of that type can only be emitted into from a copy list, so which of the
-	// pool's two heaps a timestamp lands in is decided by the list recording it.
+	// A copy list can only emit into a copy heap, so the recording list's type decides which one.
 	[[nodiscard]] ID3D12QueryHeap * TimestampHeapFor(const D3D12CommandList * list, const QueryPoolSlot * slot) noexcept
 	{
 		return list->type == D3D12_COMMAND_LIST_TYPE_COPY ? slot->copyHeap.Get() : slot->heap.Get();

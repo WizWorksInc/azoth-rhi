@@ -237,8 +237,7 @@ namespace azo::rhi::d3d12
 		{
 			sync = sync | D3D12_BARRIER_SYNC_COPY;
 		}
-		// The clear scope rides on the unordered-access one rather than on the copy stage, because the sync bits a barrier names have to be ones its access
-		// bits reach, and a clear through an unordered-access view is the only clear this scope covers.
+		// A barrier's sync bits have to be ones its access bits reach, which is why the clear rides here.
 		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;

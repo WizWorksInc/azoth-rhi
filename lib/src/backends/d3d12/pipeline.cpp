@@ -468,7 +468,7 @@ namespace azo::rhi::d3d12
 		}
 		if (FAILED(hr))
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateGraphicsPipelineState failed");
+			return FailValueNative<GraphicsPipelineHandle>(error, hr, "ID3D12Device::CreateGraphicsPipelineState failed");
 		}
 
 		const Flags<DynamicState> dynamic = desc.dynamicStates;
@@ -552,7 +552,7 @@ namespace azo::rhi::d3d12
 		}
 		if (FAILED(hr))
 		{
-			return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateComputePipelineState failed");
+			return FailValueNative<ComputePipelineHandle>(error, hr, "ID3D12Device::CreateComputePipelineState failed");
 		}
 
 		return ReturnValue(device->computePipelineSlots.Store(ComputePipelineSlot{
@@ -582,7 +582,7 @@ namespace azo::rhi::d3d12
 		}
 		if (FAILED(hr))
 		{
-			return FailValue<PipelineCacheHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device1::CreatePipelineLibrary failed");
+			return FailValueNative<PipelineCacheHandle>(error, hr, "ID3D12Device1::CreatePipelineLibrary failed");
 		}
 
 		return ReturnValue(device->pipelineCacheSlots.Store(PipelineCacheSlot{ .library = std::move(library) }), error);
@@ -601,9 +601,13 @@ namespace azo::rhi::d3d12
 
 		const SIZE_T size = slot->library->GetSerializedSize();
 		slot->data.resize(size);
-		if (size != 0 && FAILED(slot->library->Serialize(slot->data.data(), size)))
+		if (size != 0)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12PipelineLibrary::Serialize failed");
+			const HRESULT hr = slot->library->Serialize(slot->data.data(), size);
+			if (FAILED(hr))
+			{
+				return FailNative(error, hr, "ID3D12PipelineLibrary::Serialize failed");
+			}
 		}
 		if (out != nullptr)
 		{

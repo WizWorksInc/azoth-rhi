@@ -77,9 +77,10 @@ namespace azo::rhi::d3d12
 		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.Empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
 
 		ComPtr<ID3D12Fence> fence;
-		if (FAILED(device->device->CreateFence(desc.initialValue, flags, IID_PPV_ARGS(fence.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateFence(desc.initialValue, flags, IID_PPV_ARGS(fence.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateFence failed for a timeline");
+			return FailValueNative<TimelineHandle>(error, hr, "ID3D12Device::CreateFence failed for a timeline");
 		}
 
 		return ReturnValue(device->timelineSlots.Store(TimelineSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
@@ -118,9 +119,10 @@ namespace azo::rhi::d3d12
 		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.Empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
 
 		ComPtr<ID3D12Fence> fence;
-		if (FAILED(device->device->CreateFence(0, flags, IID_PPV_ARGS(fence.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateFence(0, flags, IID_PPV_ARGS(fence.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateFence failed for a binary semaphore");
+			return FailValueNative<BinarySemaphoreHandle>(error, hr, "ID3D12Device::CreateFence failed for a binary semaphore");
 		}
 
 		return ReturnValue(
@@ -159,9 +161,10 @@ namespace azo::rhi::d3d12
 		}
 
 		ComPtr<ID3D12CommandAllocator> allocator;
-		if (FAILED(device->device->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateCommandAllocator failed");
+			return FailValueNative<void *>(error, hr, "ID3D12Device::CreateCommandAllocator failed");
 		}
 
 		auto pool		= HostNew<D3D12CommandPool>();
@@ -194,9 +197,10 @@ namespace azo::rhi::d3d12
 		}
 
 		ComPtr<ID3D12GraphicsCommandList> list;
-		if (FAILED(device->device->CreateCommandList(0, pool->type, pool->allocator.Get(), nullptr, IID_PPV_ARGS(list.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateCommandList(0, pool->type, pool->allocator.Get(), nullptr, IID_PPV_ARGS(list.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateCommandList failed");
+			return FailValueNative<void *>(error, hr, "ID3D12Device::CreateCommandList failed");
 		}
 		list->Close();
 
@@ -240,10 +244,11 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.commandPool.reset");
 
-		auto * pool = static_cast<D3D12CommandPool *>(impl);
-		if (FAILED(pool->allocator->Reset()))
+		auto * pool		 = static_cast<D3D12CommandPool *>(impl);
+		const HRESULT hr = pool->allocator->Reset();
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandAllocator::Reset failed");
+			return FailNative(error, hr, "ID3D12CommandAllocator::Reset failed");
 		}
 
 		pool->handedOut = 0;
@@ -253,10 +258,11 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CommandListBegin(void * impl, Error * error) noexcept
 	{
-		auto * list = static_cast<D3D12CommandList *>(impl);
-		if (FAILED(list->list->Reset(list->allocator, nullptr)))
+		auto * list		 = static_cast<D3D12CommandList *>(impl);
+		const HRESULT hr = list->list->Reset(list->allocator, nullptr);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12GraphicsCommandList::Reset failed");
+			return FailNative(error, hr, "ID3D12GraphicsCommandList::Reset failed");
 		}
 
 		if (!list->transientRtvs.empty() || !list->transientDsvs.empty())
@@ -287,10 +293,11 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CommandListEnd(void * impl, Error * error) noexcept
 	{
-		auto * list = static_cast<D3D12CommandList *>(impl);
-		if (FAILED(list->list->Close()))
+		auto * list		 = static_cast<D3D12CommandList *>(impl);
+		const HRESULT hr = list->list->Close();
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12GraphicsCommandList::Close failed");
+			return FailNative(error, hr, "ID3D12GraphicsCommandList::Close failed");
 		}
 		return Succeed(error);
 	}

@@ -43,14 +43,16 @@ namespace azo::rhi::d3d12
 			heapDesc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 			heapDesc.NumDescriptors = kClearHeapSize;
 			heapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			if (FAILED(device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearGpuHeap.GetAddressOf()))))
+			const HRESULT gpuHeapHr = device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearGpuHeap.GetAddressOf()));
+			if (FAILED(gpuHeapHr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "failed to create the clearBuffer shader-visible heap");
+				return FailNative(error, gpuHeapHr, "failed to create the clearBuffer shader-visible heap");
 			}
-			heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-			if (FAILED(device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearStagingHeap.GetAddressOf()))))
+			heapDesc.Flags				= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+			const HRESULT stagingHeapHr = device->device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(list->clearStagingHeap.GetAddressOf()));
+			if (FAILED(stagingHeapHr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "failed to create the clearBuffer staging heap");
+				return FailNative(error, stagingHeapHr, "failed to create the clearBuffer staging heap");
 			}
 			list->clearHeapIncrement = device->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			list->clearHeapCapacity	 = kClearHeapSize;

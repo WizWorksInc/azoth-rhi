@@ -50,6 +50,19 @@ namespace azo::rhi::d3d12
 		return false;
 	}
 
+	bool FailNative(Error * error, HRESULT hr, const char * message) noexcept
+	{
+		if (error != nullptr)
+		{
+			*error = Error{
+				.code		= ErrorCode::eNativeApiError,
+				.nativeCode = static_cast<std::int32_t>(hr),
+				.message	= message,
+			};
+		}
+		return false;
+	}
+
 	void NameD3D12Object(ID3D12Object * object, CString name, bool enabled) noexcept
 	{
 		if (!enabled || object == nullptr || name == nullptr || *name == '\0')

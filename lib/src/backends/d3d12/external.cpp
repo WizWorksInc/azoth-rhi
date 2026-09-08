@@ -38,10 +38,11 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 does not name this kind of object under that handle type");
 			}
 
-			HANDLE handle = nullptr;
-			if (FAILED(device->device->CreateSharedHandle(object, nullptr, GENERIC_ALL, nullptr, &handle)))
+			HANDLE handle	 = nullptr;
+			const HRESULT hr = device->device->CreateSharedHandle(object, nullptr, GENERIC_ALL, nullptr, &handle);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateSharedHandle failed");
+				return FailNative(error, hr, "ID3D12Device::CreateSharedHandle failed");
 			}
 
 			*out = ExternalHandle{ .type = type, .handle = handle };
@@ -62,11 +63,11 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Win32 handle");
 			}
 
-			if (FAILED(device->device->OpenSharedHandle(handle.handle, IID_PPV_ARGS(out.GetAddressOf()))))
+			const HRESULT hr = device->device->OpenSharedHandle(handle.handle, IID_PPV_ARGS(out.GetAddressOf()));
+			if (FAILED(hr))
 			{
-				return Fail(error,
-					ErrorCode::eNativeApiError,
-					"the handle names no payload this device can open, which is what a handle from another adapter or a corrupted one reports");
+				return FailNative(
+					error, hr, "the handle names no payload this device can open, which is what a handle from another adapter or a corrupted one reports");
 			}
 
 			return Succeed(error);

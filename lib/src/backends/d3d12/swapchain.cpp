@@ -48,9 +48,10 @@ namespace azo::rhi::d3d12
 		for (std::uint32_t i = 0; i < sc->imageCount; ++i)
 		{
 			ComPtr<ID3D12Resource> resource;
-			if (FAILED(sc->swapchain->GetBuffer(i, IID_PPV_ARGS(resource.GetAddressOf()))))
+			const HRESULT hr = sc->swapchain->GetBuffer(i, IID_PPV_ARGS(resource.GetAddressOf()));
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "IDXGISwapChain::GetBuffer failed");
+				return FailNative(error, hr, "IDXGISwapChain::GetBuffer failed");
 			}
 
 			D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
@@ -154,15 +155,17 @@ namespace azo::rhi::d3d12
 		}
 
 		ComPtr<IDXGISwapChain1> swapchain1;
-		if (FAILED(device->factory->CreateSwapChainForHwnd(
-				device->graphicsQueues.front().queue.Get(), sc->hwnd, &scDesc, nullptr, nullptr, swapchain1.GetAddressOf())))
+		const HRESULT created =
+			device->factory->CreateSwapChainForHwnd(device->graphicsQueues.front().queue.Get(), sc->hwnd, &scDesc, nullptr, nullptr, swapchain1.GetAddressOf());
+		if (FAILED(created))
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "IDXGIFactory::CreateSwapChainForHwnd failed");
+			return FailValueNative<void *>(error, created, "IDXGIFactory::CreateSwapChainForHwnd failed");
 		}
 		device->factory->MakeWindowAssociation(sc->hwnd, DXGI_MWA_NO_ALT_ENTER);
-		if (FAILED(swapchain1.As(&sc->swapchain)))
+		const HRESULT queried = swapchain1.As(&sc->swapchain);
+		if (FAILED(queried))
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "IDXGISwapChain3 is unavailable");
+			return FailValueNative<void *>(error, queried, "IDXGISwapChain3 is unavailable");
 		}
 
 		if (!BuildSwapchainBackBuffers(sc.get(), error))
@@ -199,7 +202,7 @@ namespace azo::rhi::d3d12
 		const SwapchainStatus status = MapPresentStatus(hr);
 		if (status == SwapchainStatus::eDeviceLost || status == SwapchainStatus::eError)
 		{
-			Fail(error, ErrorCode::eNativeApiError, "IDXGISwapChain::Present failed");
+			FailNative(error, hr, "IDXGISwapChain::Present failed");
 		}
 		else
 		{
@@ -233,9 +236,10 @@ namespace azo::rhi::d3d12
 		sc->width		 = std::max<std::uint32_t>(width, 1);
 		sc->height		 = std::max<std::uint32_t>(height, 1);
 		const UINT flags = sc->allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
-		if (FAILED(sc->swapchain->ResizeBuffers(sc->imageCount, sc->width, sc->height, sc->swapchainFormat, flags)))
+		const HRESULT hr = sc->swapchain->ResizeBuffers(sc->imageCount, sc->width, sc->height, sc->swapchainFormat, flags);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "IDXGISwapChain::ResizeBuffers failed");
+			return FailNative(error, hr, "IDXGISwapChain::ResizeBuffers failed");
 		}
 		return BuildSwapchainBackBuffers(sc, error);
 	}

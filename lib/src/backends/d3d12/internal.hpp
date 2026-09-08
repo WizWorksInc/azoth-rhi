@@ -141,20 +141,21 @@ namespace azo::rhi::d3d12
 		std::uint32_t next		= 0;
 		detail::HostVector<std::uint32_t> freeList;
 
-		[[nodiscard]] bool Init(ID3D12Device * device, D3D12_DESCRIPTOR_HEAP_TYPE type, std::uint32_t count)
+		[[nodiscard]] HRESULT Init(ID3D12Device * device, D3D12_DESCRIPTOR_HEAP_TYPE type, std::uint32_t count)
 		{
 			D3D12_DESCRIPTOR_HEAP_DESC desc{};
 			desc.Type			= type;
 			desc.NumDescriptors = count;
 			desc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-			if (FAILED(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(heap.GetAddressOf()))))
+			const HRESULT hr	= device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(heap.GetAddressOf()));
+			if (FAILED(hr))
 			{
-				return false;
+				return hr;
 			}
 			base	  = heap->GetCPUDescriptorHandleForHeapStart();
 			increment = device->GetDescriptorHandleIncrementSize(type);
 			capacity  = count;
-			return true;
+			return S_OK;
 		}
 
 		[[nodiscard]] std::uint32_t Allocate()
@@ -540,6 +541,7 @@ namespace azo::rhi::d3d12
 
 	bool Succeed(Error * error) noexcept;
 	bool Fail(Error * error, ErrorCode code, const char * message) noexcept;
+	bool FailNative(Error * error, HRESULT hr, const char * message) noexcept;
 
 	template <typename T>
 	[[nodiscard]] T ReturnValue(T value, Error * error) noexcept
@@ -552,6 +554,13 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] T FailValue(Error * error, ErrorCode code, const char * message) noexcept
 	{
 		Fail(error, code, message);
+		return {};
+	}
+
+	template <typename T>
+	[[nodiscard]] T FailValueNative(Error * error, HRESULT hr, const char * message) noexcept
+	{
+		FailNative(error, hr, message);
 		return {};
 	}
 
@@ -687,6 +696,9 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] AdapterType ClassifyAdapter(const DXGI_ADAPTER_DESC3 & desc, bool unifiedMemory) noexcept;
 	void FillAdapterInfo(AdapterInfo & info, const DXGI_ADAPTER_DESC3 & desc, std::uint32_t index, bool unifiedMemory) noexcept;
 	[[nodiscard]] D3D12DriverVersion QueryDriverVersion(IDXGIAdapter * adapter) noexcept;
+	[[nodiscard]] bool DeviceHasEnhancedBarriers(ID3D12Device * device) noexcept;
+	[[nodiscard]] bool AdapterHasD3D12(IDXGIAdapter4 * adapter) noexcept;
+	[[nodiscard]] std::uint32_t PresentAdapterCount(D3D12Instance * instance) noexcept;
 	void NegotiateCaps(D3D12Device & dev, D3D_FEATURE_LEVEL level) noexcept;
 	void DestroyDeviceObject(D3D12Device * device) noexcept;
 	GraphicsApiId D3D12DeviceApiId([[maybe_unused]] void * impl) noexcept;
@@ -772,7 +784,8 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept;
 	[[nodiscard]] D3D12_QUERY_HEAP_TYPE MapQueryHeapType(QueryType type) noexcept;
 	[[nodiscard]] UINT SubresourceIndex(const TextureSubresource & sub, std::uint32_t mipLevels) noexcept;
-	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride) noexcept;
+	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(
+		D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, Error * error) noexcept;
 	QueryPoolHandle D3D12CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
 	bool D3D12DestroyQueryPool(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	bool D3D12CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;

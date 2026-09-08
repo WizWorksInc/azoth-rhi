@@ -383,10 +383,10 @@ namespace azo::rhi::d3d12
 			countResource = countSlot->resource.Get();
 		}
 
-		ID3D12CommandSignature * signature = GetCommandSignature(list, type, stride);
+		ID3D12CommandSignature * signature = GetCommandSignature(list, type, stride, error);
 		if (signature == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "failed to create the indirect command signature");
+			return false;
 		}
 		FlushPendingDescriptorSets(list);
 		list->list->ExecuteIndirect(signature, maxCount, argsSlot->resource.Get(), argsOffset, countResource, countOffset);

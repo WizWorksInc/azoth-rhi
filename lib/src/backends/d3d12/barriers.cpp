@@ -54,11 +54,13 @@ namespace azo::rhi::d3d12
 		return sub.mip + sub.layer * mipLevels;
 	}
 
-	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride) noexcept
+	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(
+		D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, Error * error) noexcept
 	{
 		D3D12CommandPool * pool = list->pool;
 		if (pool == nullptr)
 		{
+			Fail(error, ErrorCode::eInvalidState, "an indirect command signature needs the command list's pool, which is gone");
 			return nullptr;
 		}
 
@@ -78,8 +80,10 @@ namespace azo::rhi::d3d12
 		desc.pArgumentDescs	  = &arg;
 
 		ComPtr<ID3D12CommandSignature> signature;
-		if (FAILED(pool->owner->device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()))))
+		const HRESULT hr = pool->owner->device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()));
+		if (FAILED(hr))
 		{
+			FailNative(error, hr, "ID3D12Device::CreateCommandSignature failed");
 			return nullptr;
 		}
 
@@ -90,6 +94,7 @@ namespace azo::rhi::d3d12
 					.signature = signature,
 				}))
 		{
+			Fail(error, ErrorCode::eOutOfHostMemory, "the command pool could not store another indirect command signature");
 			return nullptr;
 		}
 
@@ -110,20 +115,22 @@ namespace azo::rhi::d3d12
 		heapDesc.Type  = MapQueryHeapType(desc.type);
 		heapDesc.Count = desc.queryCount;
 		ComPtr<ID3D12QueryHeap> heap;
-		if (FAILED(device->device->CreateQueryHeap(&heapDesc, IID_PPV_ARGS(heap.GetAddressOf()))))
+		const HRESULT hr = device->device->CreateQueryHeap(&heapDesc, IID_PPV_ARGS(heap.GetAddressOf()));
+		if (FAILED(hr))
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateQueryHeap failed");
+			return FailValueNative<QueryPoolHandle>(error, hr, "ID3D12Device::CreateQueryHeap failed");
 		}
 
 		ComPtr<ID3D12QueryHeap> copyHeap;
 		if (desc.type == QueryType::eTimestamp && device->copyQueueTimestamps)
 		{
 			D3D12_QUERY_HEAP_DESC copyDesc{};
-			copyDesc.Type  = D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP;
-			copyDesc.Count = desc.queryCount;
-			if (FAILED(device->device->CreateQueryHeap(&copyDesc, IID_PPV_ARGS(copyHeap.GetAddressOf()))))
+			copyDesc.Type		 = D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP;
+			copyDesc.Count		 = desc.queryCount;
+			const HRESULT copyHr = device->device->CreateQueryHeap(&copyDesc, IID_PPV_ARGS(copyHeap.GetAddressOf()));
+			if (FAILED(copyHr))
 			{
-				return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateQueryHeap failed for the copy queue timestamp heap");
+				return FailValueNative<QueryPoolHandle>(error, copyHr, "ID3D12Device::CreateQueryHeap failed for the copy queue timestamp heap");
 			}
 		}
 

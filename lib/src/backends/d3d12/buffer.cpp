@@ -207,10 +207,11 @@ namespace azo::rhi::d3d12
 			return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
 		}
 
-		void * mapped = nullptr;
-		if (FAILED(slot->resource->Map(0, nullptr, &mapped)))
+		void * mapped	 = nullptr;
+		const HRESULT hr = slot->resource->Map(0, nullptr, &mapped);
+		if (FAILED(hr))
 		{
-			return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "ID3D12Resource::Map failed");
+			return FailValueNative<MappedMemory>(error, hr, "ID3D12Resource::Map failed");
 		}
 
 		return ReturnValue(

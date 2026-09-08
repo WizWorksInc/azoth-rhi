@@ -32,9 +32,10 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid acquire semaphore");
 			}
 			slot->waitValue += 1;
-			if (FAILED(queue->queue->Wait(slot->fence.Get(), slot->waitValue)))
+			const HRESULT hr = queue->queue->Wait(slot->fence.Get(), slot->waitValue);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Wait failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Wait failed");
 			}
 		}
 		for (const TimelinePoint & wait : desc.waits)
@@ -44,9 +45,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid timeline");
 			}
-			if (FAILED(queue->queue->Wait(slot->fence.Get(), wait.value)))
+			const HRESULT hr = queue->queue->Wait(slot->fence.Get(), wait.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Wait failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Wait failed");
 			}
 		}
 
@@ -73,9 +75,10 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "submit signals an invalid present semaphore");
 			}
 			slot->signalValue += 1;
-			if (FAILED(queue->queue->Signal(slot->fence.Get(), slot->signalValue)))
+			const HRESULT hr = queue->queue->Signal(slot->fence.Get(), slot->signalValue);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Signal failed");
 			}
 		}
 		for (const TimelinePoint & signal : desc.signals)
@@ -85,9 +88,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit signals an invalid timeline");
 			}
-			if (FAILED(queue->queue->Signal(slot->fence.Get(), signal.value)))
+			const HRESULT hr = queue->queue->Signal(slot->fence.Get(), signal.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed");
+				return FailNative(error, hr, "ID3D12CommandQueue::Signal failed");
 			}
 		}
 
@@ -267,9 +271,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind waits on an invalid timeline");
 			}
-			if (FAILED(queue->queue->Wait(slot->fence.Get(), wait.value)))
+			const HRESULT hr = queue->queue->Wait(slot->fence.Get(), wait.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Wait failed for a sparse bind");
+				return FailNative(error, hr, "ID3D12CommandQueue::Wait failed for a sparse bind");
 			}
 		}
 
@@ -296,9 +301,10 @@ namespace azo::rhi::d3d12
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind signals an invalid timeline");
 			}
-			if (FAILED(queue->queue->Signal(slot->fence.Get(), signal.value)))
+			const HRESULT hr = queue->queue->Signal(slot->fence.Get(), signal.value);
+			if (FAILED(hr))
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed for a sparse bind");
+				return FailNative(error, hr, "ID3D12CommandQueue::Signal failed for a sparse bind");
 			}
 		}
 
@@ -316,9 +322,10 @@ namespace azo::rhi::d3d12
 		}
 
 		queue->idleValue += 1;
-		if (FAILED(queue->queue->Signal(queue->idleFence.Get(), queue->idleValue)))
+		const HRESULT hr = queue->queue->Signal(queue->idleFence.Get(), queue->idleValue);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::Signal failed waiting for idle");
+			return FailNative(error, hr, "ID3D12CommandQueue::Signal failed waiting for idle");
 		}
 		if (WaitFenceHost(queue->idleFence.Get(), queue->idleValue, std::numeric_limits<std::uint64_t>::max()) != WAIT_OBJECT_0)
 		{
@@ -375,9 +382,10 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidHandle, "signal on an invalid timeline");
 		}
 
-		if (FAILED(slot->fence->Signal(value)))
+		const HRESULT hr = slot->fence->Signal(value);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12Fence::Signal failed");
+			return FailNative(error, hr, "ID3D12Fence::Signal failed");
 		}
 		return Succeed(error);
 	}

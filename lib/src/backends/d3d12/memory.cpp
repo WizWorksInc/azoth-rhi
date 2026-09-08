@@ -27,11 +27,12 @@ namespace azo::rhi::d3d12
 		}
 		D3D12Queue * queue = &pool.front();
 
-		UINT64 gpu = 0;
-		UINT64 cpu = 0;
-		if (FAILED(queue->queue->GetClockCalibration(&gpu, &cpu)))
+		UINT64 gpu		 = 0;
+		UINT64 cpu		 = 0;
+		const HRESULT hr = queue->queue->GetClockCalibration(&gpu, &cpu);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12CommandQueue::GetClockCalibration failed");
+			return FailNative(error, hr, "ID3D12CommandQueue::GetClockCalibration failed");
 		}
 
 		LARGE_INTEGER frequency{};
@@ -59,9 +60,10 @@ namespace azo::rhi::d3d12
 		const DXGI_MEMORY_SEGMENT_GROUP group =
 			(heap == HeapType::eGpuLocal || heap == HeapType::eTransient) ? DXGI_MEMORY_SEGMENT_GROUP_LOCAL : DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL;
 		DXGI_QUERY_VIDEO_MEMORY_INFO info{};
-		if (FAILED(device->adapter->QueryVideoMemoryInfo(0, group, &info)))
+		const HRESULT hr = device->adapter->QueryVideoMemoryInfo(0, group, &info);
+		if (FAILED(hr))
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "IDXGIAdapter3::QueryVideoMemoryInfo failed");
+			return FailNative(error, hr, "IDXGIAdapter3::QueryVideoMemoryInfo failed");
 		}
 
 		out->heap						  = heap;
@@ -126,9 +128,13 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		if (!objects.empty() && FAILED(device1->SetResidencyPriority(static_cast<UINT>(objects.size()), objects.data(), values.data())))
+		if (!objects.empty())
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "ID3D12Device1::SetResidencyPriority failed");
+			const HRESULT hr = device1->SetResidencyPriority(static_cast<UINT>(objects.size()), objects.data(), values.data());
+			if (FAILED(hr))
+			{
+				return FailNative(error, hr, "ID3D12Device1::SetResidencyPriority failed");
+			}
 		}
 		return Succeed(error);
 	}

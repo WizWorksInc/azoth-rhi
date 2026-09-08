@@ -239,13 +239,16 @@ namespace azo::rhi::d3d12
 
 		ComPtr<ID3DBlob> blob;
 		ComPtr<ID3DBlob> serializeError;
-		if (FAILED(D3D12SerializeVersionedRootSignature(&versioned, blob.GetAddressOf(), serializeError.GetAddressOf())))
+		const HRESULT serialized = D3D12SerializeVersionedRootSignature(&versioned, blob.GetAddressOf(), serializeError.GetAddressOf());
+		if (FAILED(serialized))
 		{
-			return FailValue<PipelineLayoutHandle>(error, ErrorCode::eNativeApiError, "root signature serialization failed");
+			return FailValueNative<PipelineLayoutHandle>(error, serialized, "root signature serialization failed");
 		}
-		if (FAILED(device->device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(slot.rootSignature.GetAddressOf()))))
+		const HRESULT created =
+			device->device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(slot.rootSignature.GetAddressOf()));
+		if (FAILED(created))
 		{
-			return FailValue<PipelineLayoutHandle>(error, ErrorCode::eNativeApiError, "ID3D12Device::CreateRootSignature failed");
+			return FailValueNative<PipelineLayoutHandle>(error, created, "ID3D12Device::CreateRootSignature failed");
 		}
 
 		return ReturnValue(device->pipelineLayoutSlots.Store(std::move(slot)), error);
@@ -311,7 +314,7 @@ namespace azo::rhi::d3d12
 		case ResourceType::eQueryPool:			 return D3D12DestroyQueryPool(device, handle, error);
 		case ResourceType::eTimeline:			 return D3D12DestroyTimeline(device, handle, error);
 		case ResourceType::eBinarySemaphore:	 return D3D12DestroyBinarySemaphore(device, handle, error);
-		default:								 return Fail(error, ErrorCode::eUnsupportedFeature, "D3D12 RHI backend: destroy not implemented for this resource type yet");
+		default: return Fail(error, ErrorCode::eUnsupportedFeature, "D3D12 RHI backend: destroy not implemented for this resource type yet");
 		}
 	}
 

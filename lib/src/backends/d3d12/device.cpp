@@ -59,6 +59,37 @@ namespace azo::rhi::d3d12
 		info.deviceLUIDValid = true;
 	}
 
+	[[nodiscard]] bool DeviceHasEnhancedBarriers(ID3D12Device * device) noexcept
+	{
+		D3D12_FEATURE_DATA_D3D12_OPTIONS12 options12{};
+		return SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12))) &&
+			   options12.EnhancedBarriersSupported != FALSE;
+	}
+
+	[[nodiscard]] bool AdapterHasD3D12(IDXGIAdapter4 * adapter) noexcept
+	{
+		ComPtr<ID3D12Device> device;
+		if (FAILED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device))))
+		{
+			return false;
+		}
+		return DeviceHasEnhancedBarriers(device.Get());
+	}
+
+	[[nodiscard]] std::uint32_t PresentAdapterCount(D3D12Instance * instance) noexcept
+	{
+		UINT present = 0;
+		for (;; ++present)
+		{
+			ComPtr<IDXGIAdapter4> adapter;
+			if (FAILED(instance->factory->EnumAdapterByGpuPreference(present, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter))))
+			{
+				break;
+			}
+		}
+		return present;
+	}
+
 	[[nodiscard]] D3D12DriverVersion QueryDriverVersion(IDXGIAdapter * adapter) noexcept
 	{
 		LARGE_INTEGER umd{};
@@ -320,12 +351,7 @@ namespace azo::rhi::d3d12
 		*out			= {};
 		auto * instance = static_cast<D3D12Instance *>(impl);
 
-		std::uint32_t adapterCount = 0;
-		if (!D3D12EnumerateAdapters(instance, {}, &adapterCount, error))
-		{
-			return false;
-		}
-		if (desc.adapterIndex >= adapterCount)
+		if (desc.adapterIndex >= PresentAdapterCount(instance))
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "external handle support asked about an adapter index this instance does not have");
 		}
@@ -378,10 +404,11 @@ namespace azo::rhi::d3d12
 		instance->driverVersions.clear();
 		detail::HostVector<DXGI_ADAPTER_DESC3> descs;
 		detail::HostVector<std::uint64_t> driverRaws;
+		detail::HostVector<std::uint32_t> dxgiIndices;
 		for (UINT i = 0;; ++i)
 		{
 			ComPtr<IDXGIAdapter4> adapter;
-			if (instance->factory->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter)) == DXGI_ERROR_NOT_FOUND)
+			if (FAILED(instance->factory->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter))))
 			{
 				break;
 			}
@@ -391,7 +418,12 @@ namespace azo::rhi::d3d12
 			{
 				continue;
 			}
+			if (!AdapterHasD3D12(adapter.Get()))
+			{
+				continue;
+			}
 			descs.push_back(desc);
+			dxgiIndices.push_back(i);
 			instance->adapterNames.push_back(NarrowAdapterName(desc.Description));
 			const D3D12DriverVersion dv = QueryDriverVersion(adapter.Get());
 			instance->driverVersions.push_back(dv.text);
@@ -403,7 +435,7 @@ namespace azo::rhi::d3d12
 		const std::size_t count = std::min<std::size_t>(adapters.size(), descs.size());
 		for (std::size_t i = 0; i < count; ++i)
 		{
-			FillAdapterInfo(adapters[i], descs[i], static_cast<std::uint32_t>(i), false);
+			FillAdapterInfo(adapters[i], descs[i], dxgiIndices[i], false);
 			adapters[i].name			 = instance->adapterNames[i].c_str();
 			adapters[i].driverVersionRaw = driverRaws[i];
 			adapters[i].driverVersion	 = instance->driverVersions[i].empty() ? nullptr : instance->driverVersions[i].c_str();
@@ -444,9 +476,10 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		if (FAILED(CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&instance->factory))))
+		const HRESULT hr = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&instance->factory));
+		if (FAILED(hr))
 		{
-			Fail(error, ErrorCode::eNativeApiError, "CreateDXGIFactory2 failed");
+			FailNative(error, hr, "CreateDXGIFactory2 failed");
 			return nullptr;
 		}
 
@@ -454,14 +487,16 @@ namespace azo::rhi::d3d12
 		return instance;
 	}
 
-	[[nodiscard]] ComPtr<ID3D12CommandQueue> CreateQueue(ID3D12Device * device, D3D12_COMMAND_LIST_TYPE type)
+	[[nodiscard]] ComPtr<ID3D12CommandQueue> CreateQueue(ID3D12Device * device, D3D12_COMMAND_LIST_TYPE type, Error * error)
 	{
 		D3D12_COMMAND_QUEUE_DESC queueDesc{};
 		queueDesc.Type	= type;
 		queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 		ComPtr<ID3D12CommandQueue> queue;
-		if (FAILED(device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue))))
+		const HRESULT hr = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue));
+		if (FAILED(hr))
 		{
+			FailNative(error, hr, "ID3D12Device::CreateCommandQueue failed");
 			return nullptr;
 		}
 		return queue;
@@ -483,11 +518,12 @@ namespace azo::rhi::d3d12
 		ComPtr<IDXGIAdapter4> chosenAdapter;
 		ComPtr<ID3D12Device> chosenDevice;
 		DXGI_ADAPTER_DESC3 chosenDesc{};
+		std::uint32_t chosenIndex			   = 0;
 		bool sawAdapterWithoutEnhancedBarriers = false;
 		for (UINT i = 0;; ++i)
 		{
 			ComPtr<IDXGIAdapter4> adapter;
-			if (instance->factory->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter)) == DXGI_ERROR_NOT_FOUND)
+			if (FAILED(instance->factory->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter))))
 			{
 				break;
 			}
@@ -512,9 +548,7 @@ namespace azo::rhi::d3d12
 				continue;
 			}
 
-			D3D12_FEATURE_DATA_D3D12_OPTIONS12 options12{};
-			if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12))) ||
-				options12.EnhancedBarriersSupported == FALSE)
+			if (!DeviceHasEnhancedBarriers(device.Get()))
 			{
 				sawAdapterWithoutEnhancedBarriers = true;
 				continue;
@@ -523,6 +557,7 @@ namespace azo::rhi::d3d12
 			chosenAdapter = adapter;
 			chosenDevice  = device;
 			chosenDesc	  = adapterDesc;
+			chosenIndex	  = i;
 			break;
 		}
 
@@ -530,10 +565,10 @@ namespace azo::rhi::d3d12
 		{
 			if (sawAdapterWithoutEnhancedBarriers)
 			{
-				Fail(error, ErrorCode::eUnsupportedFeature, "no Direct3D 12 adapter supports enhanced barriers");
+				Fail(error, ErrorCode::eNoCompatibleAdapter, "no Direct3D 12 adapter supports enhanced barriers");
 				return nullptr;
 			}
-			Fail(error, ErrorCode::eNativeApiError, "no Direct3D 12 adapter satisfied the requested feature level");
+			Fail(error, ErrorCode::eNoCompatibleAdapter, "no Direct3D 12 adapter satisfied the requested feature level");
 			return nullptr;
 		}
 
@@ -645,7 +680,7 @@ namespace azo::rhi::d3d12
 			{
 				D3D12Queue queue{
 					.object = QueueObject(),
-					.queue	= CreateQueue(chosenDevice.Get(), d3dType),
+					.queue	= CreateQueue(chosenDevice.Get(), d3dType, error),
 					.type	= type,
 					.owner	= dev.get(),
 				};
@@ -664,23 +699,29 @@ namespace azo::rhi::d3d12
 			!makeQueues(dev->computeQueues, QueueType::eCompute, D3D12_COMMAND_LIST_TYPE_COMPUTE, plan.computeCount) ||
 			!makeQueues(dev->copyQueues, QueueType::eCopy, D3D12_COMMAND_LIST_TYPE_COPY, plan.copyCount))
 		{
-			Fail(error, ErrorCode::eNativeApiError, "failed to create a D3D12 command queue");
 			return nullptr;
 		}
 
 		D3D12MA::ALLOCATOR_DESC allocatorDesc{};
-		allocatorDesc.pDevice  = chosenDevice.Get();
-		allocatorDesc.pAdapter = chosenAdapter.Get();
-		if (FAILED(D3D12MA::CreateAllocator(&allocatorDesc, dev->allocator.GetAddressOf())))
+		allocatorDesc.pDevice		  = chosenDevice.Get();
+		allocatorDesc.pAdapter		  = chosenAdapter.Get();
+		const HRESULT allocatorResult = D3D12MA::CreateAllocator(&allocatorDesc, dev->allocator.GetAddressOf());
+		if (FAILED(allocatorResult))
 		{
-			Fail(error, ErrorCode::eNativeApiError, "D3D12MA::CreateAllocator failed");
+			FailNative(error, allocatorResult, "D3D12MA::CreateAllocator failed");
 			return nullptr;
 		}
 
-		if (!dev->rtvHeap.Init(chosenDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256) ||
-			!dev->dsvHeap.Init(chosenDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 64))
+		const HRESULT rtvResult = dev->rtvHeap.Init(chosenDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256);
+		if (FAILED(rtvResult))
 		{
-			Fail(error, ErrorCode::eNativeApiError, "failed to create the D3D12 RTV or DSV descriptor heap");
+			FailNative(error, rtvResult, "failed to create the D3D12 RTV descriptor heap");
+			return nullptr;
+		}
+		const HRESULT dsvResult = dev->dsvHeap.Init(chosenDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 64);
+		if (FAILED(dsvResult))
+		{
+			FailNative(error, dsvResult, "failed to create the D3D12 DSV descriptor heap");
 			return nullptr;
 		}
 
@@ -691,7 +732,13 @@ namespace azo::rhi::d3d12
 				heapDesc.Type			= type;
 				heapDesc.NumDescriptors = count;
 				heapDesc.Flags			= shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-				return SUCCEEDED(chosenDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(out.GetAddressOf())));
+				const HRESULT hr		= chosenDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(out.GetAddressOf()));
+				if (FAILED(hr))
+				{
+					FailNative(error, hr, "failed to create the shared D3D12 descriptor heaps");
+					return false;
+				}
+				return true;
 			};
 			constexpr std::uint32_t kGlobalResourceCapacity = kD3D12GlobalResourceCapacity;
 			constexpr std::uint32_t kGlobalSamplerCapacity	= D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE;
@@ -700,7 +747,6 @@ namespace azo::rhi::d3d12
 				!makeGlobalHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kGlobalResourceCapacity, false, dev->globalResourceStaging) ||
 				!makeGlobalHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, kGlobalSamplerCapacity, false, dev->globalSamplerStaging))
 			{
-				Fail(error, ErrorCode::eNativeApiError, "failed to create the shared D3D12 descriptor heaps");
 				return nullptr;
 			}
 			dev->globalResourceIncrement = chosenDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -714,7 +760,7 @@ namespace azo::rhi::d3d12
 		const bool unifiedMemory = arch.UMA != FALSE;
 
 		dev->adapterName = NarrowAdapterName(chosenDesc.Description);
-		FillAdapterInfo(dev->adapterInfo, chosenDesc, 0, unifiedMemory);
+		FillAdapterInfo(dev->adapterInfo, chosenDesc, chosenIndex, unifiedMemory);
 		dev->adapterInfo.name			  = dev->adapterName.c_str();
 		const D3D12DriverVersion dv		  = QueryDriverVersion(chosenAdapter.Get());
 		dev->driverVersion				  = dv.text;
