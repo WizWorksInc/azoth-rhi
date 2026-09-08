@@ -10,7 +10,6 @@ also decided to make it open source to help out others I know in the graphics sp
 | Vulkan      | Windows, Linux, macOS (MoltenVK) |
 | Direct3D 12 | Windows                          |
 | Metal       | macOS, iOS (Metal 3 and Metal 4) |
-| Null        | everywhere                       |
 
 To learn more about Azoth RHI, how to build it and what it can do, read [the docs](docs/index.md).
 
