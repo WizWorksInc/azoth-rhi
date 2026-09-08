@@ -362,8 +362,9 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	vk::SamplerYcbcrConversion AcquireYcbcrConversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc) noexcept
+	vk::SamplerYcbcrConversion AcquireYcbcrConversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept
 	{
+		outResult = vk::Result::eSuccess;
 		for (const auto & [cached, conversion] : device->ycbcrConversions)
 		{
 			if (cached == desc)
@@ -385,6 +386,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createSamplerYcbcrConversion(info, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
+			outResult = created.result;
 			return {};
 		}
 

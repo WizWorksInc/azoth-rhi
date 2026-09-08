@@ -29,7 +29,7 @@ namespace azo::rhi::vulkan
 		const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 		if (enumerated.result != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan adapter enumeration failed");
+			return FailNative(error, "Vulkan adapter enumeration failed", enumerated.result);
 		}
 
 		const detail::HostVector<vk::PhysicalDevice> & physicals = enumerated.value;
@@ -56,31 +56,42 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		const auto fillCount = static_cast<std::uint32_t>(adapters.size() < physicals.size() ? adapters.size() : physicals.size());
-		for (std::uint32_t i = 0; i < fillCount; ++i)
+		std::uint32_t usable = 0;
+		for (std::uint32_t i = 0; i < physicals.size(); ++i)
 		{
-			const auto chain =
-				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				physicals[i].getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceIDProperties>(
-					instance->dispatch);
+			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			if (VulkanAdapterRefusal(physicals[i], instance->dispatch) != nullptr)
+			{
+				continue;
+			}
+
+			const std::uint32_t slot = usable;
+			++usable;
+			if (slot >= adapters.size())
+			{
+				continue;
+			}
+
+			const auto chain = physicals[i].getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceIDProperties>(
+				instance->dispatch);
 			const vk::PhysicalDeviceProperties & props			   = chain.get<vk::PhysicalDeviceProperties2>().properties;
 			const vk::PhysicalDeviceDriverProperties & driverProps = chain.get<vk::PhysicalDeviceDriverProperties>();
-			adapters[i]											   = AdapterInfo{ .type = MapAdapterType(props.deviceType),
-				.apiId						 = VulkanApi::id,
-				.adapterIndex				 = i,
-				.vendorId					 = props.vendorID,
-				.deviceId					 = props.deviceID,
-				.unifiedMemoryArchitecture	 = props.deviceType == vk::PhysicalDeviceType::eIntegratedGpu || props.deviceType == vk::PhysicalDeviceType::eCpu,
-				.name						 = instance->adapterNames[i].c_str(),
-				.driverId					 = MapDriverId(driverProps.driverID),
-				.driverVersionRaw			 = props.driverVersion,
-				.driverVersion				 = instance->driverVersions[i].c_str(),
-				.driverInfo					 = instance->driverInfos[i].c_str() };
+			adapters[slot]										   = AdapterInfo{ .type = MapAdapterType(props.deviceType),
+				.apiId							= VulkanApi::id,
+				.adapterIndex					= i,
+				.vendorId						= props.vendorID,
+				.deviceId						= props.deviceID,
+				.unifiedMemoryArchitecture = props.deviceType == vk::PhysicalDeviceType::eIntegratedGpu || props.deviceType == vk::PhysicalDeviceType::eCpu,
+				.name					   = instance->adapterNames[i].c_str(),
+				.driverId				   = MapDriverId(driverProps.driverID),
+				.driverVersionRaw		   = props.driverVersion,
+				.driverVersion			   = instance->driverVersions[i].c_str(),
+				.driverInfo				   = instance->driverInfos[i].c_str() };
+			FillAdapterIdentity(adapters[slot], chain.get<vk::PhysicalDeviceIDProperties>());
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			FillAdapterIdentity(adapters[i], chain.get<vk::PhysicalDeviceIDProperties>());
 		}
 
-		return Store(out, static_cast<std::uint32_t>(physicals.size()), error);
+		return Store(out, usable, error);
 	}
 
 	std::optional<vk::ExternalMemoryHandleTypeFlagBits> MapMemoryHandleType(const ExternalHandleType type) noexcept
@@ -280,7 +291,7 @@ namespace azo::rhi::vulkan
 		const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 		if (enumerated.result != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan adapter enumeration failed");
+			return FailNative(error, "Vulkan adapter enumeration failed", enumerated.result);
 		}
 		if (desc.adapterIndex >= enumerated.value.size())
 		{

@@ -166,9 +166,9 @@ namespace azo::rhi::vulkan
 		info.setBufferBinds(bufferInfos);
 		info.setImageBinds(imageInfos);
 
-		if (queue->queue.bindSparse(1, &info, vk::Fence{}, device->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result bound = queue->queue.bindSparse(1, &info, vk::Fence{}, device->dispatch); bound != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkQueueBindSparse failed");
+			return FailNative(error, "vkQueueBindSparse failed", bound);
 		}
 
 		return Succeed(error);
@@ -254,7 +254,7 @@ namespace azo::rhi::vulkan
 			device->coreVk13 ? queue->queue.submit2(submitInfo, nullptr, device->dispatch) : queue->queue.submit2KHR(submitInfo, nullptr, device->dispatch);
 		if (submitted != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkQueueSubmit2 failed");
+			return FailNative(error, "vkQueueSubmit2 failed", submitted);
 		}
 
 		return Succeed(error);
@@ -264,9 +264,9 @@ namespace azo::rhi::vulkan
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.queue.waitIdle");
 		auto * queue = static_cast<VulkanQueue *>(impl);
-		if (queue->queue.waitIdle(queue->owner->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result waited = queue->queue.waitIdle(queue->owner->dispatch); waited != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkQueueWaitIdle failed");
+			return FailNative(error, "vkQueueWaitIdle failed", waited);
 		}
 
 		return Succeed(error);
@@ -290,7 +290,7 @@ namespace azo::rhi::vulkan
 		const auto counter = device->device.getSemaphoreCounterValue(sem, device->dispatch);
 		if (counter.result != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkGetSemaphoreCounterValue failed");
+			return FailNative(error, "vkGetSemaphoreCounterValue failed", counter.result);
 		}
 
 		return Store(out, counter.value, error);
@@ -314,7 +314,7 @@ namespace azo::rhi::vulkan
 
 		if (waited != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkWaitSemaphores failed");
+			return FailNative(error, "vkWaitSemaphores failed", waited);
 		}
 
 		return Succeed(error);
@@ -330,9 +330,9 @@ namespace azo::rhi::vulkan
 			return Fail(error, ErrorCode::eInvalidHandle, "signal on an invalid timeline");
 		}
 
-		if (device->device.signalSemaphore(vk::SemaphoreSignalInfo(sem, value), device->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result signaled = device->device.signalSemaphore(vk::SemaphoreSignalInfo(sem, value), device->dispatch); signaled != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkSignalSemaphore failed");
+			return FailNative(error, "vkSignalSemaphore failed", signaled);
 		}
 
 		return Succeed(error);

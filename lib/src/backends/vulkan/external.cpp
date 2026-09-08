@@ -99,7 +99,7 @@ namespace azo::rhi::vulkan
 				const auto got = device->device.getMemoryFdKHR(vk::MemoryGetFdInfoKHR(memory, *bit), device->dispatch);
 				if (got.result != vk::Result::eSuccess)
 				{
-					return Fail(error, ErrorCode::eNativeApiError, "vkGetMemoryFdKHR failed");
+					return FailNative(error, "vkGetMemoryFdKHR failed", got.result);
 				}
 
 				*out = ExternalHandle{ .type = type, .fd = got.value };
@@ -117,7 +117,7 @@ namespace azo::rhi::vulkan
 				const auto got = device->device.getMemoryWin32HandleKHR(vk::MemoryGetWin32HandleInfoKHR(memory, *bit), device->dispatch);
 				if (got.result != vk::Result::eSuccess)
 				{
-					return Fail(error, ErrorCode::eNativeApiError, "vkGetMemoryWin32HandleKHR failed");
+					return FailNative(error, "vkGetMemoryWin32HandleKHR failed", got.result);
 				}
 
 				*out = ExternalHandle{ .type = type, .handle = got.value };
@@ -165,7 +165,7 @@ namespace azo::rhi::vulkan
 				const auto got = device->device.getSemaphoreFdKHR(vk::SemaphoreGetFdInfoKHR(semaphore, *bit), device->dispatch);
 				if (got.result != vk::Result::eSuccess)
 				{
-					return Fail(error, ErrorCode::eNativeApiError, "vkGetSemaphoreFdKHR failed");
+					return FailNative(error, "vkGetSemaphoreFdKHR failed", got.result);
 				}
 
 				*out = ExternalHandle{ .type = type, .fd = got.value };
@@ -183,7 +183,7 @@ namespace azo::rhi::vulkan
 				const auto got = device->device.getSemaphoreWin32HandleKHR(vk::SemaphoreGetWin32HandleInfoKHR(semaphore, *bit), device->dispatch);
 				if (got.result != vk::Result::eSuccess)
 				{
-					return Fail(error, ErrorCode::eNativeApiError, "vkGetSemaphoreWin32HandleKHR failed");
+					return FailNative(error, "vkGetSemaphoreWin32HandleKHR failed", got.result);
 				}
 
 				*out = ExternalHandle{ .type = type, .handle = got.value };
@@ -410,7 +410,7 @@ namespace azo::rhi::vulkan
 		if (const VkResult result = vmaCreateDedicatedBuffer(device->allocator, &bufferInfo, &allocInfo, chain.head, &raw, &allocation, nullptr);
 			result != VK_SUCCESS)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eNativeApiError, ImportFailure(result));
+			return FailNativeValue<BufferHandle>(error, ImportFailure(result), static_cast<vk::Result>(result));
 		}
 
 		fdGuard.Dismiss();
@@ -485,7 +485,7 @@ namespace azo::rhi::vulkan
 		if (const VkResult result = vmaCreateDedicatedImage(device->allocator, &imageInfo, &allocInfo, chain.head, &image, &allocation, nullptr);
 			result != VK_SUCCESS)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, ImportFailure(result));
+			return FailNativeValue<TextureHandle>(error, ImportFailure(result), static_cast<vk::Result>(result));
 		}
 
 		fdGuard.Dismiss();
@@ -530,7 +530,7 @@ namespace azo::rhi::vulkan
 		const auto allocated = device->device.allocateMemory(allocateInfo, nullptr, device->dispatch);
 		if (allocated.result != vk::Result::eSuccess)
 		{
-			return FailValue<HeapHandle>(error, ErrorCode::eNativeApiError, ImportFailure(static_cast<VkResult>(allocated.result)));
+			return FailNativeValue<HeapHandle>(error, ImportFailure(static_cast<VkResult>(allocated.result)), allocated.result);
 		}
 
 		fdGuard.Dismiss();
@@ -575,11 +575,10 @@ namespace azo::rhi::vulkan
 				info.semaphore	= semaphore;
 				info.handleType = *bit;
 				info.fd			= owned;
-				if (device->device.importSemaphoreFdKHR(info, device->dispatch) != vk::Result::eSuccess)
+				if (const vk::Result imported = device->device.importSemaphoreFdKHR(info, device->dispatch); imported != vk::Result::eSuccess)
 				{
 					ReleaseUnconsumed(owned);
-					return Fail(
-						error, ErrorCode::eNativeApiError, "the imported semaphore payload was refused, which is how a handle from another device fails");
+					return FailNative(error, "the imported semaphore payload was refused, which is how a handle from another device fails", imported);
 				}
 
 				return Succeed(error);
@@ -602,10 +601,9 @@ namespace azo::rhi::vulkan
 				info.semaphore	= semaphore;
 				info.handleType = *bit;
 				info.handle		= handle.handle;
-				if (device->device.importSemaphoreWin32HandleKHR(info, device->dispatch) != vk::Result::eSuccess)
+				if (const vk::Result imported = device->device.importSemaphoreWin32HandleKHR(info, device->dispatch); imported != vk::Result::eSuccess)
 				{
-					return Fail(
-						error, ErrorCode::eNativeApiError, "the imported semaphore payload was refused, which is how a handle from another device fails");
+					return FailNative(error, "the imported semaphore payload was refused, which is how a handle from another device fails", imported);
 				}
 
 				return Succeed(error);
@@ -630,7 +628,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createSemaphore(vk::SemaphoreCreateInfo({}, &typeInfo), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan imported timeline creation failed");
+			return FailNativeValue<TimelineHandle>(error, "Vulkan imported timeline creation failed", created.result);
 		}
 
 		const vk::Semaphore semaphore = created.value;
@@ -664,7 +662,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createSemaphore(vk::SemaphoreCreateInfo{}, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "Vulkan imported binary semaphore creation failed");
+			return FailNativeValue<BinarySemaphoreHandle>(error, "Vulkan imported binary semaphore creation failed", created.result);
 		}
 
 		const vk::Semaphore semaphore = created.value;

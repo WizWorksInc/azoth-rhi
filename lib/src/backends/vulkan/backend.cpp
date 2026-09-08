@@ -255,11 +255,12 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			const auto instanceFail = [error](const char * message) -> HostUniquePtr<VulkanInstance>
+			const auto instanceFail = [error](const char * message, vk::Result result) -> HostUniquePtr<VulkanInstance>
 			{
 				*error = Error{
-					.code	 = ErrorCode::eNativeApiError,
-					.message = message,
+					.code		= ErrorCode::eNativeApiError,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
 				};
 				return nullptr;
 			};
@@ -267,7 +268,7 @@ namespace azo::rhi
 			const auto enumeratedExts = vk::enumerateInstanceExtensionProperties<HostAllocatorAdapter<vk::ExtensionProperties>>(nullptr, owner.dispatch);
 			if (enumeratedExts.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan instance extension enumeration failed");
+				return instanceFail("Vulkan instance extension enumeration failed", enumeratedExts.result);
 			}
 
 			const detail::HostVector<vk::ExtensionProperties> & availExts = enumeratedExts.value;
@@ -311,7 +312,7 @@ namespace azo::rhi
 			const auto enumeratedLayers			= vk::enumerateInstanceLayerProperties<HostAllocatorAdapter<vk::LayerProperties>>(owner.dispatch);
 			if (enumeratedLayers.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan instance layer enumeration failed");
+				return instanceFail("Vulkan instance layer enumeration failed", enumeratedLayers.result);
 			}
 
 			const detail::HostVector<vk::LayerProperties> & availLayers = enumeratedLayers.value;
@@ -377,7 +378,7 @@ namespace azo::rhi
 			const auto loaderApi			 = vk::enumerateInstanceVersion(owner.dispatch);
 			if (loaderApi.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan loader version query failed");
+				return instanceFail("Vulkan loader version query failed", loaderApi.result);
 			}
 
 			if (requestedApi > loaderApi.value)
@@ -422,7 +423,7 @@ namespace azo::rhi
 			const auto created = vk::createInstance(instInfo, nullptr, instance->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return instanceFail("Vulkan instance creation failed");
+				return instanceFail("Vulkan instance creation failed", created.result);
 			}
 
 			instance->instance	 = created.value;
@@ -496,15 +497,77 @@ namespace azo::rhi
 		static_assert(!CanBackGraphicsQueue(vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer), "a graphics family without compute was accepted");
 		static_assert(!CanBackGraphicsQueue(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer), "a family without graphics was accepted");
 
+		[[nodiscard]] const char * VulkanAdapterRefusal(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
+		{
+			const std::uint32_t adapterApi = phys.getProperties(dispatch).apiVersion;
+			if (adapterApi < PackVkApiVersion(1, 2))
+			{
+				return "this adapter reports a Vulkan version below 1.2, which the backend requires";
+			}
+
+			const detail::HostVector<vk::QueueFamilyProperties> qfs = phys.getQueueFamilyProperties<HostAllocatorAdapter<vk::QueueFamilyProperties>>(dispatch);
+			bool anyGraphicsFamily									= false;
+			bool foundGraphics										= false;
+			for (const vk::QueueFamilyProperties & qf : qfs)
+			{
+				if (!static_cast<bool>(qf.queueFlags & vk::QueueFlagBits::eGraphics))
+				{
+					continue;
+				}
+
+				anyGraphicsFamily = true;
+				if (CanBackGraphicsQueue(qf.queueFlags))
+				{
+					foundGraphics = true;
+					break;
+				}
+			}
+
+			if (!foundGraphics)
+			{
+				return anyGraphicsFamily ? "every Vulkan graphics queue family on this adapter lacks compute, which the RHI's graphics queue promises"
+										 : "no Vulkan graphics queue family";
+			}
+
+			const auto enumeratedExts = phys.enumerateDeviceExtensionProperties<HostAllocatorAdapter<vk::ExtensionProperties>>(nullptr, dispatch);
+			if (enumeratedExts.result != vk::Result::eSuccess)
+			{
+				return "Vulkan device extension enumeration failed on this adapter";
+			}
+
+			const detail::HostVector<vk::ExtensionProperties> & availableExts = enumeratedExts.value;
+			const auto hasExt												  = [&availableExts](const char * name) noexcept
+			{
+				return std::ranges::any_of(availableExts,
+					[name](const vk::ExtensionProperties & ep)
+					{
+						return std::strcmp(ep.extensionName, name) == 0;
+					});
+			};
+
+			if (!hasExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+			{
+				return "this adapter does not support VK_KHR_swapchain, which the backend enables on every device";
+			}
+
+			if (adapterApi < PackVkApiVersion(1, 3) && !hasExt(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME))
+			{
+				return "Vulkan below 1.3 requires VK_KHR_synchronization2";
+			}
+
+			return nullptr;
+		}
+
 		[[nodiscard]] VulkanDevice * MakeOwnedDevice(VulkanInstance * instance, const DeviceDesc & desc, Error * error)
 		{
 			VulkanBackendOwner & owner = Owner();
 
-			const auto deviceFail = [error](const char * message) -> VulkanDevice *
+			const auto deviceFail = [error](const char * message, vk::Result result) -> VulkanDevice *
 			{
 				*error = Error{
-					.code	 = ErrorCode::eNativeApiError,
-					.message = message,
+					.code		= ErrorCode::eNativeApiError,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
 				};
 				return nullptr;
 			};
@@ -522,14 +585,14 @@ namespace azo::rhi
 			const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 			if (enumerated.result != vk::Result::eSuccess)
 			{
-				return deviceFail("Vulkan physical device enumeration failed");
+				return deviceFail("Vulkan physical device enumeration failed", enumerated.result);
 			}
 
 			const detail::HostVector<vk::PhysicalDevice> & physicals = enumerated.value;
 			if (physicals.empty())
 			{
 				*error = Error{
-					.code	 = ErrorCode::eUnsupportedFeature,
+					.code	 = ErrorCode::eNoCompatibleAdapter,
 					.message = "no Vulkan physical devices found",
 				};
 				return nullptr;
@@ -542,6 +605,15 @@ namespace azo::rhi
 				adapterIndex = desc.preferredAdapterIndex;
 				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				phys = physicals[adapterIndex];
+
+				if (const char * refusal = VulkanAdapterRefusal(phys, instance->dispatch); refusal != nullptr)
+				{
+					*error = Error{
+						.code	 = ErrorCode::eNoCompatibleAdapter,
+						.message = refusal,
+					};
+					return nullptr;
+				}
 
 				for (const DeviceFeature feature : desc.requiredFeatures)
 				{
@@ -557,11 +629,24 @@ namespace azo::rhi
 			}
 			else
 			{
-				int bestScore = -1;
+				int bestScore			  = -1;
+				std::uint32_t usableCount = 0;
+				const char * firstRefusal = nullptr;
 				for (std::uint32_t i = 0; i < physicals.size(); ++i)
 				{
 					const vk::PhysicalDevice candidate = physicals[i];
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					if (const char * refusal = VulkanAdapterRefusal(candidate, instance->dispatch); refusal != nullptr)
+					{
+						if (firstRefusal == nullptr)
+						{
+							firstRefusal = refusal;
+						}
+
+						continue;
+					}
+
+					++usableCount;
 					if (!AdapterSupportsAllFeatures(candidate, instance->dispatch, desc.requiredFeatures))
 					{
 						continue;
@@ -591,12 +676,22 @@ namespace azo::rhi
 
 				if (!phys)
 				{
+					if (usableCount == 0)
+					{
+						*error = Error{
+							.code	 = ErrorCode::eNoCompatibleAdapter,
+							.message = firstRefusal,
+						};
+						return nullptr;
+					}
+
 					for (const DeviceFeature feature : desc.requiredFeatures)
 					{
 						const bool anySupports = std::ranges::any_of(physicals,
 							[feature, instance](vk::PhysicalDevice candidate) noexcept
 							{
-								return AdapterSupportsFeature(candidate, instance->dispatch, feature);
+								return VulkanAdapterRefusal(candidate, instance->dispatch) == nullptr &&
+									   AdapterSupportsFeature(candidate, instance->dispatch, feature);
 							});
 
 						if (!anySupports)
@@ -620,35 +715,15 @@ namespace azo::rhi
 
 			const detail::HostVector<vk::QueueFamilyProperties> qfs =
 				phys.getQueueFamilyProperties<HostAllocatorAdapter<vk::QueueFamilyProperties>>(instance->dispatch);
-			bool foundGraphics			 = false;
-			bool anyGraphicsFamily		 = false;
 			std::uint32_t graphicsFamily = 0;
 			for (std::uint32_t i = 0; i < qfs.size(); ++i)
 			{
 				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				const vk::QueueFlags flags = qfs[i].queueFlags;
-				if (!static_cast<bool>(flags & vk::QueueFlagBits::eGraphics))
-				{
-					continue;
-				}
-
-				anyGraphicsFamily = true;
-				if (CanBackGraphicsQueue(flags))
+				if (CanBackGraphicsQueue(qfs[i].queueFlags))
 				{
 					graphicsFamily = i;
-					foundGraphics  = true;
 					break;
 				}
-			}
-
-			if (!foundGraphics)
-			{
-				*error = Error{
-					.code	 = ErrorCode::eUnsupportedFeature,
-					.message = anyGraphicsFamily ? "every Vulkan graphics queue family on this adapter lacks compute, which the RHI's graphics queue promises"
-												 : "no Vulkan graphics queue family",
-				};
-				return nullptr;
 			}
 
 			const bool bindsSparse = static_cast<bool>(qfs[graphicsFamily].queueFlags & vk::QueueFlagBits::eSparseBinding);
@@ -694,7 +769,7 @@ namespace azo::rhi
 			const auto enumeratedExts = phys.enumerateDeviceExtensionProperties<HostAllocatorAdapter<vk::ExtensionProperties>>(nullptr, instance->dispatch);
 			if (enumeratedExts.result != vk::Result::eSuccess)
 			{
-				return deviceFail("Vulkan device extension enumeration failed");
+				return deviceFail("Vulkan device extension enumeration failed", enumeratedExts.result);
 			}
 
 			const detail::HostVector<vk::ExtensionProperties> & availableExts = enumeratedExts.value;
@@ -1054,7 +1129,7 @@ namespace azo::rhi
 			const auto createdDevice = phys.createDevice(deviceInfo, nullptr, record->dispatch);
 			if (createdDevice.result != vk::Result::eSuccess)
 			{
-				return deviceFail("Vulkan device creation failed");
+				return deviceFail("Vulkan device creation failed", createdDevice.result);
 			}
 
 			record->device					  = createdDevice.value;
@@ -1401,6 +1476,34 @@ namespace azo::rhi
 			return false;
 		}
 
+		bool FailNative(Error * error, const char * message, vk::Result result) noexcept
+		{
+			if (error != nullptr)
+			{
+				*error = Error{
+					.code		= ErrorCode::eNativeApiError,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
+				};
+			}
+
+			return false;
+		}
+
+		bool FailAllocation(Error * error, const char * message, vk::Result result) noexcept
+		{
+			if (error != nullptr)
+			{
+				*error = Error{
+					.code		= ErrorCode::eOutOfDeviceMemory,
+					.nativeCode = static_cast<std::int32_t>(result),
+					.message	= message,
+				};
+			}
+
+			return false;
+		}
+
 		GraphicsApiId VulkanDeviceApiId([[maybe_unused]] void * impl) noexcept
 		{
 			return VulkanApi::id;
@@ -1617,14 +1720,15 @@ namespace azo::rhi
 			VmaAllocation allocation = nullptr;
 			if (exportable)
 			{
-				if (vmaCreateDedicatedBuffer(device->allocator, &bufferInfo, &allocInfo, &exportInfo, &raw, &allocation, nullptr) != VK_SUCCESS)
+				if (const VkResult made = vmaCreateDedicatedBuffer(device->allocator, &bufferInfo, &allocInfo, &exportInfo, &raw, &allocation, nullptr);
+					made != VK_SUCCESS)
 				{
-					return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateDedicatedBuffer failed for an exportable buffer");
+					return FailAllocationValue<BufferHandle>(error, "vmaCreateDedicatedBuffer failed for an exportable buffer", static_cast<vk::Result>(made));
 				}
 			}
-			else if (vmaCreateBuffer(device->allocator, &bufferInfo, &allocInfo, &raw, &allocation, nullptr) != VK_SUCCESS)
+			else if (const VkResult made = vmaCreateBuffer(device->allocator, &bufferInfo, &allocInfo, &raw, &allocation, nullptr); made != VK_SUCCESS)
 			{
-				return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateBuffer failed");
+				return FailAllocationValue<BufferHandle>(error, "vmaCreateBuffer failed", static_cast<vk::Result>(made));
 			}
 
 			NameVulkanObject(device, vk::ObjectType::eBuffer, std::bit_cast<std::uint64_t>(raw), desc.debugName);
@@ -1675,10 +1779,11 @@ namespace azo::rhi
 			void * mapped = nullptr;
 			if (slot->placedMemory != VK_NULL_HANDLE)
 			{
-				if (device->device.mapMemory(slot->placedMemory, slot->placedOffset, slot->size, vk::MemoryMapFlags{}, &mapped, device->dispatch) !=
-					vk::Result::eSuccess)
+				if (const vk::Result mapResult =
+						device->device.mapMemory(slot->placedMemory, slot->placedOffset, slot->size, vk::MemoryMapFlags{}, &mapped, device->dispatch);
+					mapResult != vk::Result::eSuccess)
 				{
-					return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "vkMapMemory failed");
+					return FailNativeValue<MappedMemory>(error, "vkMapMemory failed", mapResult);
 				}
 			}
 			else if (slot->persistentMapped)
@@ -1691,9 +1796,9 @@ namespace azo::rhi
 					return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "persistent mapping is unexpectedly null");
 				}
 			}
-			else if (vmaMapMemory(device->allocator, slot->allocation, &mapped) != VK_SUCCESS)
+			else if (const VkResult vmaResult = vmaMapMemory(device->allocator, slot->allocation, &mapped); vmaResult != VK_SUCCESS)
 			{
-				return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "vmaMapMemory failed");
+				return FailNativeValue<MappedMemory>(error, "vmaMapMemory failed", static_cast<vk::Result>(vmaResult));
 			}
 
 			return ReturnValue(
@@ -1745,9 +1850,9 @@ namespace azo::rhi
 				return Succeed(error);
 			}
 
-			if (vmaFlushAllocation(device->allocator, slot->allocation, offset, bounded) != VK_SUCCESS)
+			if (const VkResult flushed = vmaFlushAllocation(device->allocator, slot->allocation, offset, bounded); flushed != VK_SUCCESS)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "vmaFlushAllocation failed");
+				return FailNative(error, "vmaFlushAllocation failed", static_cast<vk::Result>(flushed));
 			}
 
 			return Succeed(error);
@@ -1772,9 +1877,9 @@ namespace azo::rhi
 				return Succeed(error);
 			}
 
-			if (vmaInvalidateAllocation(device->allocator, slot->allocation, offset, bounded) != VK_SUCCESS)
+			if (const VkResult invalidated = vmaInvalidateAllocation(device->allocator, slot->allocation, offset, bounded); invalidated != VK_SUCCESS)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "vmaInvalidateAllocation failed");
+				return FailNative(error, "vmaInvalidateAllocation failed", static_cast<vk::Result>(invalidated));
 			}
 			return Succeed(error);
 		}
@@ -1852,7 +1957,7 @@ namespace azo::rhi
 				if (created.result != vk::Result::eSuccess)
 				{
 					vmaDestroyImage(device->allocator, image, allocation);
-					return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan texture creation failed");
+					return FailNativeValue<TextureHandle>(error, "Vulkan texture creation failed", created.result);
 				}
 
 				view = created.value;
@@ -1943,21 +2048,22 @@ namespace azo::rhi
 				const auto created = device->device.createImage(imageInfo, nullptr, device->dispatch);
 				if (created.result != vk::Result::eSuccess)
 				{
-					return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "vkCreateImage failed for a sparse texture");
+					return FailAllocationValue<TextureHandle>(error, "vkCreateImage failed for a sparse texture", created.result);
 				}
 
 				image = static_cast<VkImage>(created.value);
 			}
 			else if (exportable)
 			{
-				if (vmaCreateDedicatedImage(device->allocator, &cImageInfo, &allocInfo, &exportInfo, &image, &allocation, nullptr) != VK_SUCCESS)
+				if (const VkResult made = vmaCreateDedicatedImage(device->allocator, &cImageInfo, &allocInfo, &exportInfo, &image, &allocation, nullptr);
+					made != VK_SUCCESS)
 				{
-					return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateDedicatedImage failed for an exportable texture");
+					return FailAllocationValue<TextureHandle>(error, "vmaCreateDedicatedImage failed for an exportable texture", static_cast<vk::Result>(made));
 				}
 			}
-			else if (vmaCreateImage(device->allocator, &cImageInfo, &allocInfo, &image, &allocation, nullptr) != VK_SUCCESS)
+			else if (const VkResult made = vmaCreateImage(device->allocator, &cImageInfo, &allocInfo, &image, &allocation, nullptr); made != VK_SUCCESS)
 			{
-				return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "vmaCreateImage failed");
+				return FailAllocationValue<TextureHandle>(error, "vmaCreateImage failed", static_cast<vk::Result>(made));
 			}
 
 			return VulkanFinishTexture(device, desc, image, allocation, error);
@@ -2074,7 +2180,7 @@ namespace azo::rhi
 				vk::BufferCreateInfo({}, desc.buffer.size, MapBufferUsage(desc.buffer.usage), vk::SharingMode::eExclusive), nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<BufferHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed buffer creation failed");
+				return FailNativeValue<BufferHandle>(error, "Vulkan placed buffer creation failed", created.result);
 			}
 
 			const vk::Buffer buffer			  = created.value;
@@ -2086,10 +2192,10 @@ namespace azo::rhi
 				return FailValue<BufferHandle>(error, ErrorCode::eValidationFailed, "placed buffer does not fit the heap (memory type, alignment, or range)");
 			}
 
-			if (device->device.bindBufferMemory(buffer, heap.memory, desc.offset, device->dispatch) != vk::Result::eSuccess)
+			if (const vk::Result bound = device->device.bindBufferMemory(buffer, heap.memory, desc.offset, device->dispatch); bound != vk::Result::eSuccess)
 			{
 				device->device.destroyBuffer(buffer, nullptr, device->dispatch);
-				return FailValue<BufferHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed buffer memory binding failed");
+				return FailNativeValue<BufferHandle>(error, "Vulkan placed buffer memory binding failed", bound);
 			}
 
 			const BufferHandle handle = device->bufferSlots.Store(BufferSlot{ .buffer = buffer,
@@ -2155,7 +2261,7 @@ namespace azo::rhi
 			const auto createdImage = device->device.createImage(imageInfo, nullptr, device->dispatch);
 			if (createdImage.result != vk::Result::eSuccess)
 			{
-				return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed texture creation failed");
+				return FailNativeValue<TextureHandle>(error, "Vulkan placed texture creation failed", createdImage.result);
 			}
 
 			const vk::Image image			  = createdImage.value;
@@ -2167,10 +2273,10 @@ namespace azo::rhi
 				return FailValue<TextureHandle>(error, ErrorCode::eValidationFailed, "placed texture does not fit the heap (memory type, alignment, or range)");
 			}
 
-			if (device->device.bindImageMemory(image, heap.memory, desc.offset, device->dispatch) != vk::Result::eSuccess)
+			if (const vk::Result bound = device->device.bindImageMemory(image, heap.memory, desc.offset, device->dispatch); bound != vk::Result::eSuccess)
 			{
 				device->device.destroyImage(image, nullptr, device->dispatch);
-				return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed texture memory binding failed");
+				return FailNativeValue<TextureHandle>(error, "Vulkan placed texture memory binding failed", bound);
 			}
 
 			const vk::ImageAspectFlags aspect =
@@ -2188,7 +2294,7 @@ namespace azo::rhi
 				if (createdView.result != vk::Result::eSuccess)
 				{
 					device->device.destroyImage(image, nullptr, device->dispatch);
-					return FailValue<TextureHandle>(error, ErrorCode::eNativeApiError, "Vulkan placed texture view creation failed");
+					return FailNativeValue<TextureHandle>(error, "Vulkan placed texture view creation failed", createdView.result);
 				}
 				placedView = createdView.value;
 			}
@@ -2255,7 +2361,7 @@ namespace azo::rhi
 			const auto created = device->device.createImage(imageInfo, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan texture memory query failed");
+				return FailNative(error, "Vulkan texture memory query failed", created.result);
 			}
 
 			const vk::MemoryRequirements reqs = device->device.getImageMemoryRequirements(created.value, device->dispatch);
@@ -2282,7 +2388,7 @@ namespace azo::rhi
 				vk::BufferCreateInfo({}, desc.size, MapBufferUsage(desc.usage), vk::SharingMode::eExclusive), nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan buffer memory query failed");
+				return FailNative(error, "Vulkan buffer memory query failed", created.result);
 			}
 
 			const vk::MemoryRequirements reqs = device->device.getBufferMemoryRequirements(created.value, device->dispatch);
@@ -2366,10 +2472,11 @@ namespace azo::rhi
 					return FailValue<TextureViewHandle>(
 						error, ErrorCode::eInvalidArgument, "a texture view naming a plane reads it raw and cannot also carry a Y'CbCr conversion");
 				}
-				conversionInfo.conversion = AcquireYcbcrConversion(device, *desc.ycbcrConversion);
+				vk::Result conversionResult = vk::Result::eSuccess;
+				conversionInfo.conversion	= AcquireYcbcrConversion(device, *desc.ycbcrConversion, conversionResult);
 				if (!conversionInfo.conversion)
 				{
-					return FailValue<TextureViewHandle>(error, ErrorCode::eNativeApiError, "Vulkan texture view Y'CbCr conversion creation failed");
+					return FailNativeValue<TextureViewHandle>(error, "Vulkan texture view Y'CbCr conversion creation failed", conversionResult);
 				}
 			}
 			else if (plane == kNoPlane && IsMultiPlanarFormat(texRhiFormat))
@@ -2421,7 +2528,7 @@ namespace azo::rhi
 			const auto created = device->device.createImageView(viewInfo, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eNativeApiError, "Vulkan texture view creation failed");
+				return FailNativeValue<TextureViewHandle>(error, "Vulkan texture view creation failed", created.result);
 			}
 
 			const TextureViewHandle handle = device->textureViewSlots.Store(TextureViewSlot{
@@ -2539,7 +2646,7 @@ namespace azo::rhi
 			const auto created = device->device.createPipelineLayout(vk::PipelineLayoutCreateInfo({}, setLayouts, ranges), nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<PipelineLayoutHandle>(error, ErrorCode::eNativeApiError, "Vulkan pipeline layout creation failed");
+				return FailNativeValue<PipelineLayoutHandle>(error, "Vulkan pipeline layout creation failed", created.result);
 			}
 
 			PipelineLayoutSlot slot{ .layout = created.value };
@@ -2556,8 +2663,9 @@ namespace azo::rhi
 		}
 
 		[[nodiscard]] vk::RenderPass GetOrCreateRenderPass(
-			VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key)
+			VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key, vk::Result & outResult)
 		{
+			outResult = vk::Result::eSuccess;
 			if (const auto it = cache.find(key); it != cache.end())
 			{
 				return it->second;
@@ -2619,6 +2727,7 @@ namespace azo::rhi
 			const auto created = device->device.createRenderPass(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
+				outResult = created.result;
 				return {};
 			}
 
@@ -2779,7 +2888,7 @@ namespace azo::rhi
 					vk::ShaderModuleCreateInfo({}, shader.size, static_cast<const std::uint32_t *>(shader.data)), nullptr, device->dispatch);
 				if (created.result != vk::Result::eSuccess)
 				{
-					return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan shader module creation failed");
+					return FailNativeValue<GraphicsPipelineHandle>(error, "Vulkan shader module creation failed", created.result);
 				}
 
 				modules.push_back(created.value);
@@ -2909,10 +3018,11 @@ namespace azo::rhi
 			}
 			else
 			{
-				const vk::RenderPass renderPass = GetOrCreateRenderPass(device, device->renderPasses, MakePipelineRenderPassKey(desc));
+				vk::Result renderPassResult		= vk::Result::eSuccess;
+				const vk::RenderPass renderPass = GetOrCreateRenderPass(device, device->renderPasses, MakePipelineRenderPassKey(desc), renderPassResult);
 				if (!renderPass)
 				{
-					return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan render pass creation failed");
+					return FailNativeValue<GraphicsPipelineHandle>(error, "Vulkan render pass creation failed", renderPassResult);
 				}
 
 				pipelineInfo.renderPass = renderPass;
@@ -2923,7 +3033,7 @@ namespace azo::rhi
 			const auto created					  = device->device.createGraphicsPipeline(pipelineCache, pipelineInfo, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan graphics pipeline creation failed");
+				return FailNativeValue<GraphicsPipelineHandle>(error, "Vulkan graphics pipeline creation failed", created.result);
 			}
 
 			auto pipelineGuard = detail::MakeScopeGuard(
@@ -2968,7 +3078,7 @@ namespace azo::rhi
 			const auto created = device->device.createSemaphore(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<TimelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan timeline creation failed");
+				return FailNativeValue<TimelineHandle>(error, "Vulkan timeline creation failed", created.result);
 			}
 
 			const TimelineHandle handle =
@@ -3052,7 +3162,7 @@ namespace azo::rhi
 			const auto created = device->device.createQueryPool(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "Vulkan query pool creation failed");
+				return FailNativeValue<QueryPoolHandle>(error, "Vulkan query pool creation failed", created.result);
 			}
 
 			const QueryPoolHandle handle = device->queryPoolSlots.Store(QueryPoolSlot{ .pool = created.value, .queryCount = desc.queryCount });
@@ -3128,10 +3238,11 @@ namespace azo::rhi
 						"a sampler with a Y'CbCr conversion must clamp to edge on every axis and enable neither anisotropy nor depth comparison");
 				}
 
-				conversionInfo.conversion = AcquireYcbcrConversion(device, *desc.ycbcrConversion);
+				vk::Result conversionResult = vk::Result::eSuccess;
+				conversionInfo.conversion	= AcquireYcbcrConversion(device, *desc.ycbcrConversion, conversionResult);
 				if (!conversionInfo.conversion)
 				{
-					return FailValue<SamplerHandle>(error, ErrorCode::eNativeApiError, "Vulkan sampler Y'CbCr conversion creation failed");
+					return FailNativeValue<SamplerHandle>(error, "Vulkan sampler Y'CbCr conversion creation failed", conversionResult);
 				}
 			}
 
@@ -3159,7 +3270,7 @@ namespace azo::rhi
 			const auto created = device->device.createSampler(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<SamplerHandle>(error, ErrorCode::eNativeApiError, "Vulkan sampler creation failed");
+				return FailNativeValue<SamplerHandle>(error, "Vulkan sampler creation failed", created.result);
 			}
 
 			const SamplerHandle handle = device->samplerSlots.Store(SamplerSlot{ .sampler = created.value });
@@ -3204,7 +3315,7 @@ namespace azo::rhi
 				vk::ShaderModuleCreateInfo({}, desc.shader.size, static_cast<const std::uint32_t *>(desc.shader.data)), nullptr, device->dispatch);
 			if (createdModule.result != vk::Result::eSuccess)
 			{
-				return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan shader module creation failed");
+				return FailNativeValue<ComputePipelineHandle>(error, "Vulkan shader module creation failed", createdModule.result);
 			}
 
 			const auto moduleGuard = detail::MakeScopeGuard(
@@ -3219,7 +3330,7 @@ namespace azo::rhi
 			const auto created					  = device->device.createComputePipeline(pipelineCache, info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "Vulkan compute pipeline creation failed");
+				return FailNativeValue<ComputePipelineHandle>(error, "Vulkan compute pipeline creation failed", created.result);
 			}
 
 			auto pipelineGuard = detail::MakeScopeGuard(
@@ -3252,7 +3363,7 @@ namespace azo::rhi
 			const auto created = device->device.createPipelineCache(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<PipelineCacheHandle>(error, ErrorCode::eNativeApiError, "Vulkan pipeline cache creation failed");
+				return FailNativeValue<PipelineCacheHandle>(error, "Vulkan pipeline cache creation failed", created.result);
 			}
 
 			const PipelineCacheHandle handle = device->pipelineCacheSlots.Store(PipelineCacheSlot{ .cache = created.value });
@@ -3278,7 +3389,7 @@ namespace azo::rhi
 			auto data = device->device.getPipelineCacheData<HostAllocatorAdapter<std::uint8_t>>(slot->cache, device->dispatch);
 			if (data.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan getPipelineCacheData failed");
+				return FailNative(error, "Vulkan getPipelineCacheData failed", data.result);
 			}
 
 			slot->data = std::move(data.value);
@@ -3316,7 +3427,7 @@ namespace azo::rhi
 			const auto created = device->device.createSemaphore(info, nullptr, device->dispatch);
 			if (created.result != vk::Result::eSuccess)
 			{
-				return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "Vulkan binary semaphore creation failed");
+				return FailNativeValue<BinarySemaphoreHandle>(error, "Vulkan binary semaphore creation failed", created.result);
 			}
 
 			BinarySemaphoreHandle handle =
@@ -3413,7 +3524,7 @@ namespace azo::rhi
 			const auto calibrated = device->device.getCalibratedTimestampsEXT<HostAllocatorAdapter<std::uint64_t>>(infos, device->dispatch);
 			if (calibrated.result != vk::Result::eSuccess)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Vulkan timestamp calibration failed");
+				return FailNative(error, "Vulkan timestamp calibration failed", calibrated.result);
 			}
 
 			const std::pair<detail::HostVector<std::uint64_t>, std::uint64_t> & sampled = calibrated.value;

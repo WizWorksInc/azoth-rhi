@@ -197,7 +197,7 @@ namespace azo::rhi::vulkan
 			desc.imageCount);
 		if (!bundle.Swapchain)
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "Vulkan swapchain creation failed");
+			return FailNativeValue<void *>(error, "Vulkan swapchain creation failed", bundle.Failure);
 		}
 
 		auto swapchain = HostNew<VulkanSwapchain>();
@@ -252,7 +252,7 @@ namespace azo::rhi::vulkan
 
 		if (!next.Swapchain)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan swapchain resize failed");
+			return FailNative(error, "Vulkan swapchain resize failed", next.Failure);
 		}
 
 		DestroySwapchain(device->device, device->dispatch, device->allocator, swapchain->bundle);
@@ -298,7 +298,7 @@ namespace azo::rhi::vulkan
 
 		if (status == SwapchainStatus::eOk && acquired.result != vk::Result::eSuccess)
 		{
-			Fail(error, ErrorCode::eNativeApiError, "vkAcquireNextImageKHR failed");
+			FailNative(error, "vkAcquireNextImageKHR failed", acquired.result);
 			return AcquireResult{ .status = SwapchainStatus::eError };
 		}
 
@@ -346,7 +346,7 @@ namespace azo::rhi::vulkan
 
 		if (status == SwapchainStatus::eOk && result != vk::Result::eSuccess)
 		{
-			Fail(error, ErrorCode::eNativeApiError, "vkQueuePresentKHR failed");
+			FailNative(error, "vkQueuePresentKHR failed", result);
 			return PresentResult{ .status = SwapchainStatus::eError };
 		}
 

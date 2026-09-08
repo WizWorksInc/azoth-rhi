@@ -37,6 +37,9 @@ namespace azo::rhi::vulkan
 		vk::PresentModeKHR PresentMode = vk::PresentModeKHR::eFifo;
 
 		bool CaptureCapable = false;
+
+		// Why creation failed, since the bundle comes back by value rather than as a Result.
+		vk::Result Failure = vk::Result::eSuccess;
 	};
 
 	vk::PresentModeKHR SelectPresentMode(

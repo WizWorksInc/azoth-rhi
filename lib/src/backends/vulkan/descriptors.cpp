@@ -135,7 +135,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createDescriptorSetLayout(layoutInfo, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eNativeApiError, "Vulkan descriptor set layout creation failed");
+			return FailNativeValue<DescriptorSetLayoutHandle>(error, "Vulkan descriptor set layout creation failed", created.result);
 		}
 
 		DescriptorSetLayoutSlot slot{ .layout = created.value };
@@ -180,7 +180,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createDescriptorPool(vk::DescriptorPoolCreateInfo(poolFlags, maxSets, poolSizes), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "Vulkan descriptor arena creation failed");
+			return FailNativeValue<void *>(error, "Vulkan descriptor arena creation failed", created.result);
 		}
 
 		auto arena = HostNew<VulkanDescriptorArena>();
@@ -237,9 +237,9 @@ namespace azo::rhi::vulkan
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.descriptorArena.reset");
 		auto * arena = static_cast<VulkanDescriptorArena *>(impl);
-		if (arena->owner->device.resetDescriptorPool(arena->pool, {}, arena->owner->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result reset = arena->owner->device.resetDescriptorPool(arena->pool, {}, arena->owner->dispatch); reset != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan descriptor pool reset failed");
+			return FailNative(error, "Vulkan descriptor pool reset failed", reset);
 		}
 
 		static_cast<void>(arena->owner->descriptorSetSlots.RetireIf(

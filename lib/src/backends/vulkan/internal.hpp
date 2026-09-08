@@ -909,6 +909,8 @@ namespace azo::rhi::vulkan
 	void VulkanDestroyInstance(void * impl) noexcept;
 	bool Succeed(Error * error) noexcept;
 	bool Fail(Error * error, ErrorCode code, const char * message) noexcept;
+	bool FailNative(Error * error, const char * message, vk::Result result) noexcept;
+	bool FailAllocation(Error * error, const char * message, vk::Result result) noexcept;
 	GraphicsApiId VulkanDeviceApiId([[maybe_unused]] void * impl) noexcept;
 	std::string_view VulkanDeviceApiName([[maybe_unused]] void * impl) noexcept;
 	const DeviceCaps & VulkanDeviceCaps(void * impl) noexcept;
@@ -935,7 +937,7 @@ namespace azo::rhi::vulkan
 	TextureViewHandle VulkanCreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
 	PipelineLayoutHandle VulkanCreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
 	[[nodiscard]] vk::RenderPass GetOrCreateRenderPass(
-		VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key);
+		VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key, vk::Result & outResult);
 	[[nodiscard]] RenderPassKey MakePipelineRenderPassKey(const GraphicsPipelineDesc & desc) noexcept;
 	[[nodiscard]] vk::PipelineCache ResolvePipelineCache(VulkanDevice * device, PipelineCacheHandle handle) noexcept;
 	GraphicsPipelineHandle VulkanCreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
@@ -1031,6 +1033,7 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] PresentMode MapVkPresentMode(vk::PresentModeKHR mode) noexcept;
 	[[nodiscard]] Format MapVkFormat(vk::Format format) noexcept;
 	[[nodiscard]] bool AdapterSupportsFeature(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, DeviceFeature feature) noexcept;
+	[[nodiscard]] const char * VulkanAdapterRefusal(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 
 	struct PortabilitySubsetFeatures final
 	{
@@ -1059,7 +1062,8 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] bool AdapterSupportsViewSwizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 	[[nodiscard]] bool AdapterSupportsMultiPlanarFormats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 
-	[[nodiscard]] vk::SamplerYcbcrConversion AcquireYcbcrConversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc) noexcept;
+	[[nodiscard]] vk::SamplerYcbcrConversion AcquireYcbcrConversion(
+		VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept;
 	[[nodiscard]] vk::ComponentMapping MapComponentMapping(ComponentMapping mapping) noexcept;
 	[[nodiscard]] bool AdapterSupportsAllFeatures(
 		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, std::span<const DeviceFeature> features) noexcept;
@@ -1232,6 +1236,20 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] T FailValue(Error * error, ErrorCode code, const char * message) noexcept
 	{
 		Fail(error, code, message);
+		return {};
+	}
+
+	template <typename T>
+	[[nodiscard]] T FailNativeValue(Error * error, const char * message, vk::Result result) noexcept
+	{
+		FailNative(error, message, result);
+		return {};
+	}
+
+	template <typename T>
+	[[nodiscard]] T FailAllocationValue(Error * error, const char * message, vk::Result result) noexcept
+	{
+		FailAllocation(error, message, result);
 		return {};
 	}
 

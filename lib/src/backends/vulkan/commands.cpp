@@ -47,7 +47,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createCommandPool(vk::CommandPoolCreateInfo(flags, commandPool->family), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "Vulkan command pool creation failed");
+			return FailNativeValue<void *>(error, "Vulkan command pool creation failed", created.result);
 		}
 
 		commandPool->pool = created.value;
@@ -80,7 +80,7 @@ namespace azo::rhi::vulkan
 
 		if (buffers.result != vk::Result::eSuccess || buffers.value.empty())
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "Vulkan command buffer allocation failed");
+			return FailNativeValue<void *>(error, "Vulkan command buffer allocation failed", buffers.result);
 		}
 
 		auto list = HostNew<VulkanCommandList>();
@@ -157,9 +157,10 @@ namespace azo::rhi::vulkan
 		}
 		commandPool->framebuffers.clear();
 
-		if (commandPool->owner->device.resetCommandPool(commandPool->pool, {}, commandPool->owner->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result reset = commandPool->owner->device.resetCommandPool(commandPool->pool, {}, commandPool->owner->dispatch);
+			reset != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan command pool reset failed");
+			return FailNative(error, "Vulkan command pool reset failed", reset);
 		}
 
 		commandPool->handedOut = 0;
@@ -171,9 +172,10 @@ namespace azo::rhi::vulkan
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		if (list->buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit), list->owner->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result began = list->buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit), list->owner->dispatch);
+			began != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkBeginCommandBuffer failed");
+			return FailNative(error, "vkBeginCommandBuffer failed", began);
 		}
 
 		return Succeed(error);
@@ -183,9 +185,9 @@ namespace azo::rhi::vulkan
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		if (list->buffer.end(list->owner->dispatch) != vk::Result::eSuccess)
+		if (const vk::Result ended = list->buffer.end(list->owner->dispatch); ended != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "vkEndCommandBuffer failed");
+			return FailNative(error, "vkEndCommandBuffer failed", ended);
 		}
 
 		return Succeed(error);
@@ -619,10 +621,11 @@ namespace azo::rhi::vulkan
 			clears.emplace_back(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 		}
 
-		const vk::RenderPass renderPass = GetOrCreateRenderPass(device, list->pool->renderPasses, key);
+		vk::Result renderPassResult		= vk::Result::eSuccess;
+		const vk::RenderPass renderPass = GetOrCreateRenderPass(device, list->pool->renderPasses, key, renderPassResult);
 		if (!renderPass)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan render pass creation failed");
+			return FailNative(error, "Vulkan render pass creation failed", renderPassResult);
 		}
 
 		vk::FramebufferCreateInfo fbInfo;
@@ -635,7 +638,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createFramebuffer(fbInfo, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Vulkan framebuffer creation failed");
+			return FailNative(error, "Vulkan framebuffer creation failed", created.result);
 		}
 
 		if (!detail::TryPushBack(list->pool->framebuffers, created.value))
