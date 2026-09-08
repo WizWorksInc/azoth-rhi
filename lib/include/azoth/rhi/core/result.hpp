@@ -53,8 +53,9 @@ namespace azo::rhi
 
 	struct Error final
 	{
-		ErrorCode code		 = ErrorCode::eOk;
-		const char * message = nullptr;
+		ErrorCode code			= ErrorCode::eOk;
+		std::int32_t nativeCode = 0;
+		const char * message	= nullptr;
 	};
 
 	template <class T>

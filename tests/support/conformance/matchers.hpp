@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 
+#include <format>
 #include <ostream>
 #include <string_view>
 
@@ -56,6 +57,11 @@ namespace azo::rhi::test
 		std::string text{ ErrorCodeName(error.code) };
 		text += " (";
 		text += error.message != nullptr ? error.message : "no diagnostic";
+		if (error.nativeCode != 0)
+		{
+			// Both forms, because an HRESULT is read as hex and a VkResult as a small signed integer.
+			text += std::format(", native 0x{:08x} / {}", static_cast<unsigned>(error.nativeCode), error.nativeCode);
+		}
 		text += ')';
 		return text;
 	}
