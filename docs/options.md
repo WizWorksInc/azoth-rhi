@@ -160,6 +160,20 @@ OFF.
 
 Fetch Dear ImGui when the host provides none. Off so a consumer never ends up with two.
 
+### AZOTH_RHI_FETCH_SDL3
+
+ON.
+
+Fetch SDL3 when the host has none, so the samples that open a window are the same set everywhere rather than a set that
+varies with what happens to be installed.
+
+### AZOTH_RHI_FETCH_SLANG
+
+ON.
+
+Fetch a prebuilt Slang when the host has none. This supplies the slangc that compiles shaders at build time, which is
+wanted by more than the samples.
+
 ## Build behavior
 
 ### AZOTH_RHI_NO_EXCEPTIONS
@@ -196,7 +210,8 @@ defaults are what CI builds against.
 | AZOTH_RHI_TRACY_TAG         | the Tracy AZOTH_RHI_TESTS_FETCH_TRACY brings in            |
 | AZOTH_RHI_WINPIX_VERSION    | the WinPixEventRuntime AZOTH_RHI_TESTS_FETCH_PIX brings in |
 | AZOTH_RHI_IMGUI_TAG         | the Dear ImGui AZOTH_RHI_FETCH_IMGUI brings in             |
-| AZOTH_RHI_SLANG_TAG         | Slang, for the samples that compile shaders               |
+| AZOTH_RHI_SLANG_TAG         | the Slang AZOTH_RHI_FETCH_SLANG brings in                 |
+| AZOTH_RHI_SDL3_TAG          | the SDL3 AZOTH_RHI_FETCH_SDL3 brings in                   |
 | AZOTH_RHI_GLM_TAG           | glm, for the samples that need matrices                   |
 | AZOTH_RHI_FASTGLTF_TAG      | fastgltf, for the scene loader in deccer_cubes            |
 | AZOTH_RHI_STB_TAG           | stb, for image decoding in the samples                    |

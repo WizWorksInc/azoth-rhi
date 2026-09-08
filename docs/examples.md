@@ -7,8 +7,8 @@ cmake -B build -DAZOTH_RHI_BUILD_EXAMPLES=ON
 cmake --build build
 ```
 
-A sample missing something it needs is skipped instead of failing the configure so a machine without SDL3, GLFW or Slang
-still builds the rest.
+SDL3 and Slang are fetched when the host has neither, so the samples needing them build anywhere. GLFW is not fetched,
+and the one sample that needs it is skipped rather than failing the configure.
 
 The tree is split in two on purpose. examples/lib is the framework every sample links and it may grow abstractions and
 take dependencies. examples/samples is what a reader came for: one directory each, no sample depending on another. A
