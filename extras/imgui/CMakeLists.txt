@@ -90,6 +90,9 @@ if(NOT _shader_targets)
 endif()
 
 if(AZOTH_RHI_IMGUI_SHADER_LANGUAGE STREQUAL "slang")
+    include(azoth_rhi_shader_tools)
+    azoth_rhi_provide_slang_if_needed()
+
     if(TARGET slang::slang)
         get_target_property(_slang_config slang::slang IMPORTED_CONFIGURATIONS)
         get_target_property(_slang_lib slang::slang IMPORTED_LOCATION_${_slang_config})
