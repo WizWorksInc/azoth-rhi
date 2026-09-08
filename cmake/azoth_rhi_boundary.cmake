@@ -15,9 +15,10 @@
 # Native graphics headers may appear in the public tree only under include/azoth/rhi/native/.
 # src/ is exempt.
 #
-# Only lib/include is scanned. Tests, examples and benchmarks consume that surface rather than form
-# it, and they reach for a native header when interop is the thing being shown. Holding them to the
-# rule turned every such example into a native/ directory.
+# lib/include, utils/include and extras/imgui/include are scanned, which are the trees that form the
+# public surface. Tests, examples and benchmarks consume that surface rather than form it, and they
+# reach for a native header when interop is the thing being shown. Holding them to the rule turned
+# every such example into a native/ directory.
 #
 # Registered as gate_api_boundary. By hand:
 #
@@ -31,6 +32,8 @@ endif()
 
 set(_scan_roots
         "${AZOTH_RHI_SOURCE_ROOT}/lib/include"
+        "${AZOTH_RHI_SOURCE_ROOT}/utils/include"
+        "${AZOTH_RHI_SOURCE_ROOT}/extras/imgui/include"
 )
 
 set(_globs)
@@ -96,7 +99,7 @@ if(_violations)
     )
 endif()
 
-set(_floor 81)
+set(_floor 83)
 if(_scanned LESS _floor)
     message(FATAL_ERROR
             "AzothRHI API boundary scanned ${_scanned} files, fewer than the ${_floor} this check covers.\n"
