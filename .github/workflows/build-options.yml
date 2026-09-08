@@ -64,6 +64,21 @@ jobs:
       - name: Build
         run: cmake --build build --config "$BUILD_TYPE"
 
+      # rhi_unit_device is the one suite whose PRE_TEST discovery exits nonzero here, and DiscoverTests captures stdout into a
+      # variable and reports only that the last command failed, so the exit code and stderr never reach the log. Running the
+      # listing directly is the only way to see either. It never fails the job, since the Test step below is the actual verdict.
+      - name: Report what the device suite does when it is listed
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        env:
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
+        run: |
+          suite="build/tests/unit/$BUILD_TYPE/rhi_unit_device.exe"
+          ls -l "$suite" "build/tests/unit/$BUILD_TYPE/"*.dll || true
+          status=0
+          "$suite" --gtest_list_tests || status=$?
+          echo "rhi_unit_device --gtest_list_tests exited $status"
+
       - name: Test
         env:
           AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
