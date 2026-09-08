@@ -603,7 +603,7 @@ namespace azo::rhi
 			if (desc.preferredAdapterIndex != kInvalidIndex && desc.preferredAdapterIndex < physicals.size())
 			{
 				adapterIndex = desc.preferredAdapterIndex;
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				phys = physicals[adapterIndex];
 
 				if (const char * refusal = VulkanAdapterRefusal(phys, instance->dispatch); refusal != nullptr)
@@ -718,7 +718,7 @@ namespace azo::rhi
 			std::uint32_t graphicsFamily = 0;
 			for (std::uint32_t i = 0; i < qfs.size(); ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				if (CanBackGraphicsQueue(qfs[i].queueFlags))
 				{
 					graphicsFamily = i;
@@ -1069,7 +1069,7 @@ namespace azo::rhi
 			std::uint32_t maxQueuesPerFamily = 1;
 			for (FamilyQueues & entry : families)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				entry.count = std::min(entry.count, qfs[entry.family].queueCount);
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				maxQueuesPerFamily = std::max(maxQueuesPerFamily, entry.count);
@@ -1274,7 +1274,7 @@ namespace azo::rhi
 			const vk::PhysicalDeviceMemoryProperties memProps = phys.getMemoryProperties(record->dispatch);
 			for (std::uint32_t i = 0; i < memProps.memoryHeapCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				if (static_cast<bool>(memProps.memoryHeaps[i].flags & vk::MemoryHeapFlagBits::eDeviceLocal))
 				{
 					deviceLocalBytes += memProps.memoryHeaps[i].size;
@@ -1380,7 +1380,7 @@ namespace azo::rhi
 			record->caps.optimalBufferCopyOffsetAlignment	= limits.optimalBufferCopyOffsetAlignment;
 			record->caps.optimalBufferCopyRowPitchAlignment = limits.optimalBufferCopyRowPitchAlignment;
 			record->caps.timestampPeriodNanoseconds			= limits.timestampPeriod;
-			// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			record->caps.timestampValidBits = qfs[graphicsFamily].timestampValidBits;
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
@@ -2078,7 +2078,7 @@ namespace azo::rhi
 																	  : vk::MemoryPropertyFlags{ vk::MemoryPropertyFlagBits::eDeviceLocal };
 			for (std::uint32_t i = 0; i < props.memoryTypeCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const vk::MemoryPropertyFlags flags = props.memoryTypes[i].propertyFlags;
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				if ((flags & required) == required)
@@ -2681,7 +2681,7 @@ namespace azo::rhi
 
 			for (std::uint32_t i = 0; i < key.colorCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const RenderPassAttachmentKey & a = key.colors[i];
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				attachments.emplace_back(vk::AttachmentDescriptionFlags{},
@@ -2750,7 +2750,7 @@ namespace azo::rhi
 			const vk::SampleCountFlagBits samples = MapSampleCount(desc.renderTarget.samples);
 			for (std::uint32_t i = 0; i < colorCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				key.colors[i] = RenderPassAttachmentKey{ .format = MapFormat(desc.renderTarget.colorFormats[i]),
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					.samples = samples,
@@ -2961,7 +2961,7 @@ namespace azo::rhi
 
 			for (std::uint32_t i = 0; i < desc.blend.attachmentCount; ++i)
 			{
-				// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const ColorBlendAttachmentDesc & a = desc.blend.attachments[i];
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				vk::PipelineColorBlendAttachmentState state;
@@ -3006,7 +3006,7 @@ namespace azo::rhi
 
 				for (std::uint32_t i = 0; i < desc.renderTarget.colorFormatCount; ++i)
 				{
-					// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+					// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					colorFormats.push_back(MapFormat(desc.renderTarget.colorFormats[i]));
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				}
@@ -3465,7 +3465,8 @@ namespace azo::rhi
 
 			std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
 			vmaGetHeapBudgets(device->allocator, budgets.data());
-			// The loop bound is the size of what is indexed. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+			// memoryHeapCount never exceeds VK_MAX_MEMORY_HEAPS, which is what budgets is sized to.
+			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			const VmaBudget & budget = budgets[heapIndex];
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
