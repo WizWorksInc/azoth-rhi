@@ -39,8 +39,9 @@ namespace
 
 	template <class Fn>
 	// NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): check runs once per backend, so forwarding it would move from it on the first one.
-	void ForEachBackendDevice(const rhi::ValidationMode mode, Fn && check)
+	std::size_t ForEachBackendDevice(const rhi::ValidationMode mode, Fn && check)
 	{
+		std::size_t declinedForAnotherReason = 0;
 		for (const test::Backend & backend : test::SelectedBackends())
 		{
 			rhi::DeviceDesc desc = test::DefaultDeviceDesc();
@@ -49,11 +50,14 @@ namespace
 			const test::DeviceHarness device{ backend, desc };
 			if (!device.IsValid())
 			{
+				declinedForAnotherReason += device.GetError().code != rhi::ErrorCode::eNoCompatibleAdapter ? 1 : 0;
 				continue;
 			}
 
 			check(backend, device.Get());
 		}
+
+		return declinedForAnotherReason;
 	}
 
 	TEST_P(DecoratorTest, ADeviceWithValidationOnIsBehindTheLayer)
@@ -96,7 +100,7 @@ namespace
 		const rhi::CoreDeviceApi * shared = nullptr;
 		std::size_t checked				  = 0;
 
-		ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
+		const std::size_t declinedForAnotherReason = ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
 			[&](const test::Backend & backend, const rhi::Device device)
 			{
 				const rhi::CoreDeviceApi * held = rhi::detail::FacadeBuilder::BlocksOf(device)->Device().core;
@@ -110,6 +114,11 @@ namespace
 				EXPECT_EQ(held, shared) << backend.displayName << " is being checked by something other than the one validation layer";
 				++checked;
 			});
+
+		if (checked == 0 && declinedForAnotherReason == 0)
+		{
+			GTEST_SKIP() << "no adapter on this machine can back any selected backend";
+		}
 
 		EXPECT_GT(checked, 0u) << "no backend came up, so this proved nothing";
 	}

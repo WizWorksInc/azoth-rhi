@@ -138,7 +138,7 @@ if (AZOTH_RHI_BUILD_TESTS)
     # The native arm has no Null backend to reach so this only proves the harness still runs and
     # reports the clean skip.
     add_test(NAME benchmark_native_delta_smoke
-            COMMAND rhi_bench_native_delta --commands 5000 --warmup 0 --benchmark_dry_run)
+            COMMAND rhi_bench_native_delta null --commands 5000 --warmup 0 --benchmark_dry_run)
     set_tests_properties(benchmark_native_delta_smoke PROPERTIES LABELS benchmark)
 
     # Null is the only backend this one runs against so the smoke test covers the real thing and not a

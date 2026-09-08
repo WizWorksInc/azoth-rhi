@@ -31,13 +31,25 @@ namespace azo::rhi::metal4
 		*out = 0;
 
 		NS::SharedPtr<NS::Array> all = NS::TransferPtr(MTL::CopyAllDevices());
-		const std::uint32_t count	 = (all.get() != nullptr) ? static_cast<std::uint32_t>(all->count()) : 0;
-		const std::uint32_t fill	 = std::min(count, static_cast<std::uint32_t>(adapters.size()));
+		const std::uint32_t present	 = (all.get() != nullptr) ? static_cast<std::uint32_t>(all->count()) : 0;
 
-		for (std::uint32_t i = 0; i < fill; ++i)
+		std::uint32_t usable = 0;
+		for (std::uint32_t i = 0; i < present; ++i)
 		{
 			auto * device = static_cast<MTL::Device *>(all->object(i));
-			adapters[i]	  = AdapterInfo{
+			if (!AdapterHasMetal4(device))
+			{
+				continue;
+			}
+
+			const std::uint32_t slot = usable;
+			++usable;
+			if (slot >= adapters.size())
+			{
+				continue;
+			}
+
+			adapters[slot] = AdapterInfo{
 				.type					   = device->hasUnifiedMemory() ? AdapterType::eIntegrated : AdapterType::eDiscrete,
 				.apiId					   = Metal4Api::id,
 				.adapterIndex			   = i,
@@ -47,7 +59,7 @@ namespace azo::rhi::metal4
 			};
 		}
 
-		*out = count;
+		*out = usable;
 		return Succeed(error);
 	}
 
@@ -252,7 +264,7 @@ namespace azo::rhi::metal4
 
 		if (!AdapterHasMetal4(mtlDevice.get()))
 		{
-			refusal = Error{ .code = ErrorCode::eUnsupportedFeature, .message = NoMetal4FamilyMessage(mtlDevice.get()) };
+			refusal = Error{ .code = ErrorCode::eNoCompatibleAdapter, .message = NoMetal4FamilyMessage(mtlDevice.get()) };
 			return nullptr;
 		}
 
@@ -295,12 +307,15 @@ namespace azo::rhi::metal4
 		if (!makeQueues(device->graphicsQueues, plan.graphicsCount) || !makeQueues(device->computeQueues, plan.computeCount) ||
 			!makeQueues(device->copyQueues, plan.copyCount))
 		{
+			refusal =
+				Error{ .code = ErrorCode::eNativeApiError, .message = "this adapter reports the Metal 4 family but would not make a Metal 4 command queue" };
 			return nullptr;
 		}
 
 		device->drainEvent = NS::TransferPtr(mtl->newSharedEvent());
 		if (device->drainEvent.get() == nullptr)
 		{
+			refusal = Error{ .code = ErrorCode::eNativeApiError, .message = "this adapter would not make the shared event the device drains on" };
 			return nullptr;
 		}
 
@@ -312,6 +327,7 @@ namespace azo::rhi::metal4
 				MTL::ResidencySet * made   = mtl->newResidencySet(residencyDesc.get(), &residencyError);
 				if (made == nullptr)
 				{
+					refusal = Error{ .code = ErrorCode::eNativeApiError, .message = "this adapter would not make a residency set" };
 					return nullptr;
 				}
 
@@ -331,6 +347,8 @@ namespace azo::rhi::metal4
 			MTL4::Compiler * compiler = mtl->newCompiler(compilerDesc.get(), &compilerError);
 			if (compiler == nullptr)
 			{
+				refusal = Error{ .code = ErrorCode::eNativeApiError,
+					.message		   = "this adapter would not make the Metal 4 compiler the backend builds pipelines with" };
 				return nullptr;
 			}
 
@@ -356,6 +374,7 @@ namespace azo::rhi::metal4
 		std::uint32_t deviceTag = 0;
 		if (!detail::DeviceTags().Acquire(deviceTag))
 		{
+			refusal = Error{ .code = ErrorCode::eOutOfHostMemory, .message = "no device tag is available, too many devices are alive at once" };
 			return nullptr;
 		}
 		raw->deviceTag = deviceTag;

@@ -46,6 +46,7 @@ namespace azo::rhi::test
 		case ErrorCode::ePipelineCacheIncompatible: return "ePipelineCacheIncompatible";
 		case ErrorCode::eNativeApiError:			return "eNativeApiError";
 		case ErrorCode::eIncompatibleAbi:			return "eIncompatibleAbi";
+		case ErrorCode::eNoCompatibleAdapter:		return "eNoCompatibleAdapter";
 		}
 		return "<unnamed ErrorCode>";
 	}

@@ -18,8 +18,10 @@
 # Shaders compile here at build time and are embedded, so the library links no shader compiler and the
 # target is skipped, not degraded when there is none to compile with.
 
-# slangc and not the Slang library, because this compiles ahead of time and wants the tool. Looked for
-# beside a found Slang package first, then on PATH, which is where a Vulkan SDK install puts it.
+include(azoth_rhi_shader_tools)
+azoth_rhi_provide_slang_if_needed()
+
+# slangc and not the Slang library, because this compiles ahead of time and wants the tool.
 if(TARGET slang::slang)
     get_target_property(_slang_config slang::slang IMPORTED_CONFIGURATIONS)
     get_target_property(_slang_lib slang::slang IMPORTED_LOCATION_${_slang_config})

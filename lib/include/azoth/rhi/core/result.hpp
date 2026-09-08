@@ -47,6 +47,8 @@ namespace azo::rhi
 		eNativeApiError,
 
 		eIncompatibleAbi,
+
+		eNoCompatibleAdapter,
 	};
 
 	struct Error final

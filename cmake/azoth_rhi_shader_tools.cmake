@@ -21,7 +21,7 @@ include_guard(GLOBAL)
 
 # Fetching SDL3 and Slang when the host has neither.
 #
-# Both are needed only by the samples, and a machine without them used to skip those samples silently.
+# A machine without them used to skip those samples silently.
 # That is how the Direct3D 12 shader path went unexercised: the Windows box has neither, so the two
 # samples that compile and bind a shader never ran there and the only end-to-end check of the binding
 # ABI was macOS. Fetching them makes the samples the same set everywhere and not a set that varies
@@ -30,7 +30,7 @@ include_guard(GLOBAL)
 # Either can be turned off, for a build that would rather skip a sample than pull a dependency.
 
 set(AZOTH_RHI_FETCH_SDL3 ON CACHE BOOL "Fetch SDL3 for the samples when the host has none")
-set(AZOTH_RHI_FETCH_SLANG ON CACHE BOOL "Fetch a prebuilt Slang for the samples when the host has none")
+set(AZOTH_RHI_FETCH_SLANG ON CACHE BOOL "Fetch a prebuilt Slang when the host has none")
 
 set(AZOTH_RHI_SDL3_TAG "release-3.4.12" CACHE STRING "SDL3 tag fetched when the host has no SDL3")
 set(AZOTH_RHI_SLANG_TAG "2026.14.1" CACHE STRING "Slang release fetched when the host has no Slang")
@@ -141,5 +141,11 @@ macro(azoth_rhi_provide_slang)
             target_include_directories(slang::slang INTERFACE ${AZOTH_RHI_SLANG_INCLUDE_DIR})
         endif()
         mark_as_advanced(AZOTH_RHI_SLANG_INCLUDE_DIR)
+    endif()
+endmacro()
+
+macro(azoth_rhi_provide_slang_if_needed)
+    if(AZOTH_RHI_BUILD_EXAMPLES OR AZOTH_RHI_BUILD_IMGUI)
+        azoth_rhi_provide_slang()
     endif()
 endmacro()

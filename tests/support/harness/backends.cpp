@@ -83,6 +83,11 @@ namespace azo::rhi::test
 
 		if (mustBeThere)
 		{
+			if (error.code == ErrorCode::eNoCompatibleAdapter)
+			{
+				GTEST_SKIP() << GetParam().displayName << " is required by AZOTH_RHI_TEST_REQUIRE_BACKENDS but no adapter on this machine can back it: " << why;
+			}
+
 			FAIL() << GetParam().displayName << " is required by AZOTH_RHI_TEST_REQUIRE_BACKENDS but produced no device on this machine: " << why;
 		}
 

@@ -36,13 +36,8 @@ target_link_libraries(rhi_shader_abi PRIVATE azoth::rhi GTest::gtest GTest::gtes
 set_target_properties(rhi_shader_abi PROPERTIES FOLDER tests)
 
 # Slang ships as a shared library, so on Windows it has to sit beside the executable or the test dies at
-# load time with no output at all. TARGET_RUNTIME_DLLS resolves whatever the imported target actually needs,
-# which is nothing on the platforms that use an rpath.
-if (WIN32)
-    add_custom_command(TARGET rhi_shader_abi POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:rhi_shader_abi> $<TARGET_FILE_DIR:rhi_shader_abi>
-            COMMAND_EXPAND_LISTS)
-endif ()
+# load time with no output at all.
+azoth_rhi_stage_test_runtime(rhi_shader_abi)
 
 add_test(NAME shader_abi COMMAND rhi_shader_abi)
 set_tests_properties(shader_abi PROPERTIES LABELS conformance)

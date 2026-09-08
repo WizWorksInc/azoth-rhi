@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <print>
 #include <string_view>
 
 namespace rhi = azo::rhi;
@@ -28,6 +29,8 @@ namespace bench::native
 
 	namespace
 	{
+
+		constexpr UINT kAllSubresources = 0xffffffffu;
 
 		struct Arm final
 		{
@@ -50,7 +53,8 @@ namespace bench::native
 			return g_arm.resource != nullptr;
 		}
 
-		[[nodiscard]] std::uint64_t RecordShape(const Kind kind, ID3D12GraphicsCommandList * commandList, const Workload & work, const std::size_t commands)
+		[[nodiscard]] bool RecordShape(
+			const Kind kind, ID3D12GraphicsCommandList * commandList, const Workload & work, const std::size_t commands, std::uint64_t & elapsed)
 		{
 			const D3D12_VIEWPORT viewport{
 				.TopLeftX = work.viewport.x,
@@ -67,10 +71,28 @@ namespace bench::native
 				.bottom = work.scissor.y + static_cast<LONG>(work.scissor.height),
 			};
 
-			D3D12_RESOURCE_BARRIER barrier{};
-			barrier.Type		  = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-			barrier.Flags		  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.UAV.pResource = g_arm.resource;
+			const D3D12_TEXTURE_BARRIER barrier{
+				.SyncBefore	  = D3D12_BARRIER_SYNC_RENDER_TARGET,
+				.SyncAfter	  = D3D12_BARRIER_SYNC_RENDER_TARGET,
+				.AccessBefore = D3D12_BARRIER_ACCESS_RENDER_TARGET,
+				.AccessAfter  = D3D12_BARRIER_ACCESS_RENDER_TARGET,
+				.LayoutBefore = D3D12_BARRIER_LAYOUT_RENDER_TARGET,
+				.LayoutAfter  = D3D12_BARRIER_LAYOUT_RENDER_TARGET,
+				.pResource	  = g_arm.resource,
+				.Subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{ .IndexOrFirstMipLevel = kAllSubresources },
+				.Flags		  = D3D12_TEXTURE_BARRIER_FLAG_NONE,
+			};
+
+			D3D12_BARRIER_GROUP group{};
+			group.Type			   = D3D12_BARRIER_TYPE_TEXTURE;
+			group.NumBarriers	   = 1;
+			group.pTextureBarriers = &barrier;
+
+			ID3D12GraphicsCommandList7 * list7 = nullptr;
+			if (kind == Kind::eBarrier && FAILED(commandList->QueryInterface(IID_PPV_ARGS(&list7))))
+			{
+				return false;
+			}
 
 			const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 			switch (kind)
@@ -106,7 +128,7 @@ namespace bench::native
 			case Kind::eBarrier:
 				for (std::size_t index = 0; index < commands; ++index)
 				{
-					commandList->ResourceBarrier(1, &barrier);
+					list7->Barrier(1, &group);
 				}
 				break;
 
@@ -116,7 +138,13 @@ namespace bench::native
 			}
 			const std::chrono::steady_clock::time_point finished = std::chrono::steady_clock::now();
 
-			return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
+			if (list7 != nullptr)
+			{
+				list7->Release();
+			}
+
+			elapsed = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
+			return true;
 		}
 
 	}
@@ -145,19 +173,26 @@ namespace bench::native
 		std::uint64_t & elapsed)
 	{
 		rhi::Error error{};
+		bool shaped			= false;
 		const bool recorded = list.ModifyNative<rhi::D3D12Api>(
 			mutation,
 			[&](const rhi::native::D3D12CommandListView & view)
 			{
-				elapsed = RecordShape(kind, view.commandList, work, commands);
+				shaped = RecordShape(kind, view.commandList, work, commands, elapsed);
 			},
 			error);
 		if (!recorded)
 		{
 			ReportError("the native mutation scope was refused", error);
+			return false;
 		}
 
-		return recorded;
+		if (!shaped)
+		{
+			std::println("this command list does not expose ID3D12GraphicsCommandList7, which is the interface the RHI arm records its barriers through");
+		}
+
+		return shaped;
 	}
 
 }
