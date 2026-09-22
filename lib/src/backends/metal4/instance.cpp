@@ -132,25 +132,11 @@ namespace azo::rhi::metal4
 		caps.supportsDrawIndirectFirstInstance = true;
 		caps.supportsDynamicBufferOffsets	   = true;
 
-		device->samplesAtStageBoundary	  = mtl->supportsCounterSampling(MTL::CounterSamplingPointAtStageBoundary);
-		device->samplesAtDrawBoundary	  = mtl->supportsCounterSampling(MTL::CounterSamplingPointAtDrawBoundary);
-		device->samplesAtDispatchBoundary = mtl->supportsCounterSampling(MTL::CounterSamplingPointAtDispatchBoundary);
-		device->samplesAtBlitBoundary	  = mtl->supportsCounterSampling(MTL::CounterSamplingPointAtBlitBoundary);
-
-		if (NS::Array * counterSets = mtl->counterSets(); counterSets != nullptr)
-		{
-			for (NS::UInteger i = 0; i < counterSets->count(); ++i)
-			{
-				auto * set = counterSets->object<MTL::CounterSet>(i);
-				if (set != nullptr && set->name() != nullptr && set->name()->isEqualToString(MTL::CommonCounterSetTimestamp))
-				{
-					device->timestampCounterSet = NS::RetainPtr(set);
-					break;
-				}
-			}
-		}
-
-		const bool canWriteTimestamps = device->timestampCounterSet.get() != nullptr && (device->samplesAtStageBoundary || device->samplesAtBlitBoundary);
+		const auto timestampDesc = NS::TransferPtr(MTL4::CounterHeapDescriptor::alloc()->init());
+		timestampDesc->setType(MTL4::CounterHeapTypeTimestamp);
+		timestampDesc->setCount(1);
+		const auto timestampHeap = NS::TransferPtr(mtl->newCounterHeap(timestampDesc.get(), nullptr));
+		const bool canWriteTimestamps = timestampHeap.get() != nullptr;
 
 		caps.supportsTimestampQueries = canWriteTimestamps;
 
@@ -159,7 +145,7 @@ namespace azo::rhi::metal4
 		MTL::Timestamp probedCpu = 0;
 		MTL::Timestamp probedGpu = 0;
 		mtl->sampleTimestamps(&probedCpu, &probedGpu);
-		caps.supportsTimestampCalibration = (device->samplesAtStageBoundary || device->samplesAtDrawBoundary) && (probedCpu != 0 || probedGpu != 0);
+		caps.supportsTimestampCalibration = canWriteTimestamps && (probedCpu != 0 || probedGpu != 0);
 
 		caps.supportsRayTracing = false;
 

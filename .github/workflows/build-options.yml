@@ -64,9 +64,6 @@ jobs:
       - name: Build
         run: cmake --build build --config "$BUILD_TYPE"
 
-      # rhi_unit_device is the one suite whose PRE_TEST discovery exits nonzero here, and DiscoverTests captures stdout into a
-      # variable and reports only that the last command failed, so the exit code and stderr never reach the log. Running the
-      # listing directly is the only way to see either. It never fails the job, since the Test step below is the actual verdict.
       - name: Report what the device suite does when it is listed
         if: runner.os == 'Windows'
         continue-on-error: true
@@ -77,7 +74,6 @@ jobs:
           one='Backends/ThreadingModeTest.gate_ThreadingModelPreserved/d3d12'
           ls -l "$suite" "build/tests/unit/$BUILD_TYPE/"*.dll || true
 
-          # Whether a flag arrives through argv or through the environment says which half of gtest is not reading it.
           status=0
           "$suite" --gtest_filter="$one" > argv-filter.log 2>&1 || status=$?
           echo "argv filter exited $status, ran $(grep -c '^\[ RUN' argv-filter.log || true)"
@@ -92,6 +88,11 @@ jobs:
           "$suite" --gtest_list_tests > list.log 2>&1 || status=$?
           echo "list exited $status, ran $(grep -c '^\[ RUN' list.log || true)"
           tail -20 list.log
+
+          status=0
+          "$suite" > whole.log 2>&1 || status=$?
+          echo "whole suite exited $status, ran $(grep -c '^\[ RUN' whole.log || true)"
+          tail -20 whole.log
 
       - name: Test
         env:
@@ -172,8 +173,7 @@ jobs:
               -DAZOTH_RHI_TESTS_FETCH_TRACY=ON
               -DAZOTH_RHI_BACKEND_VULKAN=OFF
               -DAZOTH_RHI_INSTALL=OFF
-          # The same sink again as a shared library. Neither job above reaches this: the shared job builds no sink and the job above builds static, so a class
-          # in a sink header that never got AZO_RHI_API links fine in both and fails only here, on the vtable a consumer constructing it needs.
+
           - name: tracy-linux-gcc14-shared
             os: ubuntu-24.04
             cc: gcc-14
@@ -185,8 +185,7 @@ jobs:
               -DAZOTH_RHI_BACKEND_VULKAN=OFF
               -DAZOTH_RHI_INSTALL=OFF
               -DBUILD_SHARED_LIBS=ON
-          # Install is off for the same reason it is off above. AzothRHI links its sink PUBLIC, so the exported target names it, and a fetched stand-in is a
-          # build tree artifact that was never installed. The consumer check then fails to link winpix.lib, which says nothing about the sink this job tests.
+
           - name: pix-windows-msvc
             os: windows-2025
             require_backends: d3d12,null
