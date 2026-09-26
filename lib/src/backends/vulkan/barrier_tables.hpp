@@ -28,9 +28,7 @@ namespace azo::rhi::vulkan
 
 		if (stages.Contains(Stage::eVertexWork))
 		{
-			out |= vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::eVertexShader |
-				   vk::PipelineStageFlagBits2::eTessellationControlShader | vk::PipelineStageFlagBits2::eTessellationEvaluationShader |
-				   vk::PipelineStageFlagBits2::eGeometryShader;
+			out |= vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::ePreRasterizationShaders;
 		}
 
 		if (stages.Contains(Stage::eFragmentShading))
@@ -316,10 +314,13 @@ namespace azo::rhi::vulkan
 		return vk::PipelineStageFlagBits2::eAllCommands;
 	}
 
-	static_assert(MapStages(Stage::eVertexWork) == (vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::eVertexShader |
-													   vk::PipelineStageFlagBits2::eTessellationControlShader |
-													   vk::PipelineStageFlagBits2::eTessellationEvaluationShader | vk::PipelineStageFlagBits2::eGeometryShader),
-		"one semantic vertex bit stands for the whole Vulkan front end, and dropping any of the five leaves that stage's work unordered");
+	static_assert(MapStages(Stage::eVertexWork) == (vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::ePreRasterizationShaders),
+		"vertex work covers vertex input and every supported pre-rasterization shader stage");
+
+	static_assert(
+		!(MapStages(Stage::eVertexWork) & (vk::PipelineStageFlagBits2::eTessellationControlShader | vk::PipelineStageFlagBits2::eTessellationEvaluationShader |
+											  vk::PipelineStageFlagBits2::eGeometryShader)),
+		"vertex work must remain valid when optional tessellation and geometry features are disabled");
 
 	static_assert(MapStages(Stage::eCopy) == (vk::PipelineStageFlagBits2::eCopy | vk::PipelineStageFlagBits2::eBlit | vk::PipelineStageFlagBits2::eClear),
 		"none of the three transfer stage bits implies the others, so a copy barrier naming only COPY never reaches a blit or a clear");

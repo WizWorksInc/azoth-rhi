@@ -1993,6 +1993,7 @@ namespace azo::rhi::validation
 			TrackedSubrange box		   = span;
 			box.resource			   = TrackedResource(type, index, generation);
 			const std::uint32_t wanted = PackState(before);
+			const bool discard		   = before.use == ResourceUse::eDiscard;
 
 			bool trackedHere = false;
 			for (const TrackedSubrange & tracked : self->recordedStates)
@@ -2008,13 +2009,13 @@ namespace azo::rhi::validation
 				}
 
 				trackedHere = true;
-				if (tracked.state != wanted)
+				if (!discard && tracked.state != wanted)
 				{
 					return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
 				}
 			}
 
-			if (!trackedHere)
+			if (!discard && !trackedHere)
 			{
 				if (const PendingArrival * pending = PendingArrivalOf(self, box.resource))
 				{

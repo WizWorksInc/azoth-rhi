@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <string_view>
 
 namespace rhi  = azo::rhi;
 namespace test = azo::rhi::test;
@@ -205,6 +206,91 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
 	}
 
+	TEST_P(NativeAccessTest, DiscardReplacesOnlyTheNamedRecordedSubresources)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array wholeToCopy{ rhi::TextureBarrier{
+			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = wholeToCopy }, error), error));
+
+		constexpr rhi::TextureSubresourceRange firstMip{ .aspects = rhi::TextureAspect::eColor, .baseMip = 0, .mipCount = 1, .baseLayer = 0, .layerCount = 1 };
+		constexpr rhi::TextureSubresourceRange secondMip{ .aspects = rhi::TextureAspect::eColor, .baseMip = 1, .mipCount = 1, .baseLayer = 0, .layerCount = 1 };
+		const std::array discarded{ rhi::TextureBarrier{ .texture = texture, .before = UntouchedState(), .after = ShaderReadState(), .range = firstMip } };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = discarded }, error), error));
+
+		const std::array stale{ rhi::TextureBarrier{ .texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .range = firstMip } };
+		rhi::Error staleError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .textures = stale }, staleError));
+		EXPECT_EQ(staleError.code, rhi::ErrorCode::eValidationFailed);
+
+		const std::array untouched{ rhi::TextureBarrier{
+			.texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .range = secondMip } };
+		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = untouched }, error), error));
+		EXPECT_TRUE(recording.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+	}
+
+	TEST_P(NativeAccessTest, DiscardAcceptsSubmittedBufferAndTextureStates)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const std::array buffers{ rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() } };
+		const std::array textures{ rhi::TextureBarrier{
+			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		{
+			test::Recording first(Dev());
+			ASSERT_TRUE(test::Ok(first.IsRecording(), first.GetError()));
+			ASSERT_TRUE(test::Ok(first.List().Barriers(rhi::BarrierBatch{ .buffers = buffers, .textures = textures }, error), error));
+			ASSERT_TRUE(first.End());
+			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), first.List(), error), error));
+		}
+
+		test::Recording next(Dev());
+		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
+		EXPECT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .buffers = buffers }, error), error));
+		EXPECT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .textures = textures }, error), error));
+		EXPECT_TRUE(next.End());
+		EXPECT_TRUE(test::Ok(SubmitAndWait(Dev(), next.List(), error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(NativeAccessTest, DiscardDoesNotBypassQueueOwnership)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "ownership bookkeeping without native queue transfers");
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+		const std::array release{ rhi::BufferBarrier{ .buffer = buffer,
+			.before											  = UntouchedState(),
+			.after											  = CopyDestinationState(),
+			.ownership										  = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = release }, error), error));
+
+		rhi::Error ownershipError{};
+		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = release }, ownershipError));
+		EXPECT_EQ(ownershipError.code, rhi::ErrorCode::eValidationFailed);
+		EXPECT_NE(std::string_view(ownershipError.message).find("does not own"), std::string_view::npos);
+		EXPECT_TRUE(recording.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
 	TEST_P(NativeAccessTest, ABarrierNamingWhatANativeMutationDeclaredIsAccepted)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -317,7 +403,7 @@ namespace
 		EXPECT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .buffers = onward }, error), error))
 			<< "a new recording refused a barrier naming what the native scope in the previous one declared";
 
-		const std::array cleared{ rhi::BufferBarrier{ .buffer = misnamed, .before = UntouchedState(), .after = CopyDestinationState() } };
+		const std::array cleared{ rhi::BufferBarrier{ .buffer = misnamed, .before = CopyDestinationState(), .after = CopyDestinationState() } };
 
 		rhi::Error clearedError{};
 		EXPECT_FALSE(next.List().Barriers(rhi::BarrierBatch{ .buffers = cleared }, clearedError))
@@ -367,7 +453,7 @@ namespace
 		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
 
 		const std::array stale{ rhi::TextureBarrier{
-			.texture = backBuffer, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+			.texture = backBuffer, .before = CopyDestinationState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
 
 		rhi::Error staleError{};
 		EXPECT_FALSE(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, staleError))
