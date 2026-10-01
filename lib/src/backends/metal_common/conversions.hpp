@@ -24,7 +24,6 @@
 
 // ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
-
 #include <tuple>
 #include <utility>
 
