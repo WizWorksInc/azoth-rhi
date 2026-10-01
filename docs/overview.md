@@ -11,8 +11,7 @@
 
 ## What it is
 
-Azoth RHI is a C++23 render hardware interface. You write against one handle-based API and the library lowers it onto
-Vulkan, Direct3D 12 or Metal. It owns no window, no shader compiler and no scene format.
+Azoth RHI is a C++23 render hardware interface with a shared handle-based API for Vulkan, Direct3D 12, and Metal.
 
 ## Backends
 
@@ -22,29 +21,20 @@ Vulkan, Direct3D 12 or Metal. It owns no window, no shader compiler and no scene
 | Direct3D 12 | Windows                          |
 | Metal       | macOS, iOS (Metal 3 and Metal 4) |
 
-Metal is two backends and not one. Metal 4 is preferred where the adapter reports the family and Metal 3 is the
-generation every Apple machine this runs on can take. See [the backend options](options.md#backends).
+Metal 3 and Metal 4 are separate backends. The Apple default prefers Metal 4 when built. If device creation fails,
+selection tries the remaining backends. See [the backend options](options.md#backends).
 
-Which backend a build contains is decided at configure time. Which one it uses is decided at runtime. See
-[picking a backend](guides.md#picking-a-backend).
+Choose which backends to compile at configure time and [which to use](guides.md#picking-a-backend) at runtime.
 
 ## What the API holds to
 
-Each of these has a build gate or a test behind it.
+- Calls that can fail return rhi::Result with a value or an Error. Exceptions must not cross the public API.
+- Unsupported operations return eUnsupportedFeature.
+- Query DeviceCaps for supported features. Reported capabilities must match device behavior.
+- Public headers include Vulkan, D3D12, and Metal headers only through azoth/rhi/native/ and its separate targets.
+  A build gate and a CTest case check this boundary. See [reaching the native objects](guides.md#reaching-the-native-objects).
 
-**Errors are values.** Nothing throws across the public API. A call that can fail returns rhi::Result. That holds either
-the value or an Error carrying a code. There is a build for hosts compiled with -fno-exceptions where the library
-neither throws nor requires exceptions.
-
-**No silent no-ops.** An operation a backend cannot perform reports eUnsupportedFeature. Nothing downstream can tell a
-call that returned success and recorded nothing from one that worked.
-
-**Capabilities match behavior.** If DeviceCaps says a device can do something, it does. Support is queried and no
-feature level stands in for the answer.
-
-**The API names no graphics API.** No header you get from linking azoth::rhi includes a Vulkan, D3D12 or Metal header.
-The one quarantined area is azoth/rhi/native/ and it has a target of its own. A build gate and a CTest case both check
-this. See [reaching the native objects](guides.md#reaching-the-native-objects).
+AZOTH\_RHI\_NO\_EXCEPTIONS supports hosts compiled with -fno-exceptions.
 
 ## Quick start
 
@@ -75,20 +65,15 @@ int main()
 }
 ```
 
-Constructing a BackendSelection registers every backend the build has and moves the one you asked for to the front.
-Creating from it takes the first backend that comes up.
+By default, BackendSelection tries the requested backend first, then falls back until one creates a device.
 
 ## Building
 
-| Requirement | Minimum |
-|-------------|---------|
-| CMake       | 3.24    |
-| GCC         | 14      |
-| Clang       | 18      |
-| MSVC        | 19.43   |
+Use CMake 3.24 or newer and a compiler with C++23 library support. The [CI matrix](../.github/workflows/ci.yml)
+uses GCC 14, Clang 18, AppleClang, and MSVC.
 
-The build fetches the Vulkan and Metal headers at configure time. Direct3D 12 comes from the Windows SDK. You still need
-a driver at runtime.
+The build fetches Vulkan and Metal headers for enabled backends. Direct3D 12 uses the Windows SDK.
+Hardware backends also need a runtime driver.
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -96,7 +81,7 @@ cmake --build build
 ctest --test-dir build
 ```
 
-The options the build takes are in [options](options.md).
+See [options](options.md) for build configuration.
 
 ## Linking it from your own build
 
@@ -105,14 +90,16 @@ find_package(AzothRHI CONFIG REQUIRED)
 target_link_libraries(my_renderer PRIVATE azoth::rhi)
 ```
 
-FetchContent works as well. The exported targets are azoth::rhi for the library, azoth::rhi-backend-sdk and
-azoth::rhi-module-sdk for writing a backend, and azoth::rhi-native-vulkan and azoth::rhi-native-metal for the
-quarantined native access.
+You can also include the library through FetchContent. Exported targets are:
+
+- azoth::rhi: the library.
+- azoth::rhi-backend-sdk and azoth::rhi-module-sdk: custom backends.
+- azoth::rhi-native-vulkan and azoth::rhi-native-metal: native access when the corresponding backend is enabled.
 
 ## Running the tests
 
-The suite runs over every backend the build contains. A backend with no driver on your machine skips without failing the
-run so the suite is still worth running on a Metal-only laptop.
+The suite tests the compiled backends and skips those unavailable on your machine.
+From the build directory, filter tests by label:
 
 ```bash
 ctest -L unit        # the per-module suites
@@ -120,18 +107,14 @@ ctest -L conformance # the cross-backend contracts, including gate_api_boundary
 ctest -L rigorous    # the slower cross-backend campaigns
 ```
 
-AZOTH\_RHI\_TEST\_BACKENDS and AZOTH\_RHI\_TEST\_REQUIRE\_BACKENDS narrow a run or turn a skipped backend into a
-failure. Both are described in [options](options.md#test-environment-variables).
+AZOTH\_RHI\_TEST\_BACKENDS selects backends. With AZOTH\_RHI\_TEST\_REQUIRE\_BACKENDS, device creation errors fail
+the test except for eNoCompatibleAdapter, which still skips. See [test options](options.md#test-environment-variables).
 
 ## Extras
 
-The optional targets beside the library have no install rules so find\_package will not see them. Add this repository as
-a subdirectory or through FetchContent instead.
+Use add\_subdirectory or FetchContent for these targets. They are not installed.
 
-**azoth::rhi-utils** does scaled blits and mip chain generation by hardware blit where the device has one and by compute
-where it does not. It builds when slangc is available to compile its shaders ahead of time. Without slangc it is
-skipped.
-
-**azoth::rhi-imgui** is the drawing half of a Dear ImGui backend, the part that belongs to a graphics API. Turn it on
-with AZOTH\_RHI\_BUILD\_IMGUI. It links the ImGui you already have and fetches one only when AZOTH\_RHI\_FETCH\_IMGUI
-asks it to. A second copy in the same process is a second context and a second font atlas.
+- azoth::rhi-utils provides scaled blits and mip generation using hardware blits or compute. It requires slangc
+  and an enabled hardware backend to compile its shaders.
+- azoth::rhi-imgui renders Dear ImGui draw lists. Enable AZOTH\_RHI\_BUILD\_IMGUI and provide an ImGui target,
+  or enable AZOTH\_RHI\_FETCH\_IMGUI to fetch one.

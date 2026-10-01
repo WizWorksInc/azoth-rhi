@@ -8,7 +8,7 @@
 - [Dependency versions](#dependency-versions)
 - [Test environment variables](#test-environment-variables)
 
-Every option below is a CMake cache variable. The default is given after the name.
+Build options are CMake cache variables. Defaults follow each name. Test environment variables are listed separately.
 
 ## Backends
 
@@ -16,42 +16,32 @@ Every option below is a CMake cache variable. The default is given after the nam
 
 ON where the platform can build them.
 
-Whether that backend is compiled into the library. A backend that is OFF is absent from what AvailableBackends reports.
-Its API tag and its typed entry point are declared either way so a backend of your own can fill them. Asking for a
-backend the host cannot build is a configure error instead of a silent OFF.
+Compile the selected backend. Disabled backends are absent from AvailableBackends but retain their API tags and typed
+entry points for custom implementations. Enabling a backend on an unsupported platform fails configuration.
 
 ```bash
 cmake -B build -DAZOTH_RHI_BACKEND_VULKAN=OFF
 ```
 
-Metal is two backends and not one. Metal 4 replaced submission, recording and binding outright and its command objects
-share no base with the Metal 3 ones. The two are separate APIs that happen to agree about what a texture is. METAL is
-azoth.rhi.metal, the generation every Apple machine this runs on can take. METAL4 is azoth.rhi.metal4, preferred where
-the adapter reports the family and refused with a reason where it does not.
+METAL builds azoth.rhi.metal (Metal 3). METAL4 builds azoth.rhi.metal4 (Metal 4). They have separate command, submission,
+and binding implementations and can be enabled independently. Metal 4 device creation requires a compatible adapter.
 
-Turning one off drops its translation units and nothing else: neither names anything from the other and each passes the
-suite on its own.
-
-METAL4 needs a metal-cpp release carrying the MTL4 headers. Enabling it against one that does not is a configure error
-naming the pinned tag. A quiet downgrade would leave AvailableBackends missing an entry the configuration asked for.
+METAL4 also requires a metal-cpp release with MTL4 headers. Configuration fails and reports the pinned tag if they are
+missing.
 
 ### AZOTH_RHI_DEFAULT_BACKEND
 
 metal4 on Apple where that backend is built, metal on Apple otherwise, d3d12 on Windows, vulkan everywhere else.
 
-The backend chosen when nothing overrides it at runtime. The platform's own API is the default because Apple ships Metal
-and the Vulkan beside it is MoltenVK. That is Vulkan translated onto Metal so defaulting there would charge every caller
-for a translation the platform does not need. The AZOTH\_RHI\_BACKEND environment variable still wins at runtime.
-
-Naming metal4 on a machine that cannot run it costs one refused device creation and then falls back to Metal 3.
-Selection walks the preferred order and a backend that cannot create a device falls through to the next.
+Preferred backend unless overridden at runtime, including by AZOTH\_RHI\_BACKEND. Selection tries the remaining
+backends in order if device creation fails. An unsupported Metal 4 device falls back to Metal 3 when it is built.
 
 ### AZOTH_RHI_DETECT_PLATFORM_APIS
 
 ON.
 
-Check at configure time that each enabled backend's SDK is installed so a missing SDK is a configure error and not a
-wall of compile errors.
+Check enabled backends at configure time. Missing Direct3D 12 headers or Metal frameworks fail configuration.
+A missing Vulkan loader produces a warning because the backend can build with fetched headers.
 
 ## Build contents
 
@@ -83,14 +73,13 @@ Build the long-running stress suites. They carry the ctest label stress.
 
 OFF.
 
-Build the examples. Off by default because some of them carry dependencies nothing else here needs. A sample whose
-dependency is missing is skipped instead of failing the configure.
+Build the examples and their dependencies. Samples with missing optional dependencies are skipped.
 
 ### AZOTH_RHI_BUILD_BENCHMARKS
 
 ON when Azoth RHI is the top-level project and OFF otherwise.
 
-Build the benchmarks the non-functional budgets are measured with.
+Build the performance benchmarks.
 
 ### AZOTH_RHI_INSTALL
 
@@ -104,39 +93,33 @@ Generate the install and export rules.
 
 ON.
 
-Compile in the profiler instrumentation points. With it off every instrumentation point expands to nothing so an
-installed sink is never consulted and the calls are not there to consult it. Debug labels are separate and stay on
-either way.
+Compile profiler instrumentation. OFF removes the instrumentation calls. Debug labels are controlled separately.
 
 ### AZOTH_RHI_TRACY_TARGET
 
 Tracy::TracyClient.
 
-The target providing the Tracy client. Tracy takes no on or off option: the sink compiles when this target exists and
-was built with TRACY\_ENABLE. Tracy puts that on the target itself.
+Target providing the Tracy client. The sink compiles when this target exposes TRACY\_ENABLE in its interface compile
+definitions.
 
 ### AZOTH_RHI_PIX
 
 OFF.
 
-Compile the PIX event sink. Only AZOTH\_RHI\_TESTS\_FETCH\_PIX fetches WinPixEventRuntime so an ON build otherwise links
-the target named by AZOTH\_RHI\_PIX\_TARGET. PIX events come from the Direct3D 12 backend so asking for them without it
-is a configure error.
+Compile PIX events for the Direct3D 12 backend. Requires that backend and the WinPixEventRuntime target named by
+AZOTH\_RHI\_PIX\_TARGET. Only AZOTH\_RHI\_TESTS\_FETCH\_PIX fetches the runtime.
 
 ### AZOTH_RHI_PIX_TARGET
 
 winpix.
 
-The target providing WinPixEventRuntime and pix3.h when PIX is on. It has to put pix3.h on the include search list and
-link the runtime.
+Target that supplies the pix3.h include directory and links WinPixEventRuntime.
 
 ### AZOTH_RHI_TESTS_FETCH_TRACY, AZOTH_RHI_TESTS_FETCH_PIX
 
 Both OFF.
 
-Fetch a Tracy client or WinPixEventRuntime for this build to link in place of one a host supplies. These exist so CI can
-compile the two sinks that are otherwise only reachable when a host brings its own. They are not meant for a consuming
-build.
+Fetch Tracy or WinPixEventRuntime to test the sinks in CI. Consuming builds should supply their own targets.
 
 ## Dear ImGui
 
@@ -144,35 +127,31 @@ build.
 
 OFF.
 
-Build azoth::rhi-imgui, the Dear ImGui renderer. Off by default because ImGui is a dependency the library does not
-otherwise have and a consumer that wants no interface should not be made to carry one.
+Build azoth::rhi-imgui, the Dear ImGui renderer. Requires Dear ImGui.
 
 ### AZOTH_RHI_IMGUI_TARGET
 
 imgui::imgui.
 
-The Dear ImGui target azoth::rhi-imgui links. Point it at yours if it is called something else. The ImGui is yours on
-purpose because a second copy in the same process is a second context and a second font atlas.
+Dear ImGui target linked by azoth::rhi-imgui. Set this to your application's existing target to share the same copy.
 
 ### AZOTH_RHI_FETCH_IMGUI
 
 OFF.
 
-Fetch Dear ImGui when the host provides none. Off so a consumer never ends up with two.
+Fetch Dear ImGui when the host provides none.
 
 ### AZOTH_RHI_FETCH_SDL3
 
 ON.
 
-Fetch SDL3 when the host has none, so the samples that open a window are the same set everywhere rather than a set that
-varies with what happens to be installed.
+Fetch SDL3 for windowed samples when the host provides none.
 
 ### AZOTH_RHI_FETCH_SLANG
 
 ON.
 
-Fetch a prebuilt Slang when the host has none. This supplies the slangc that compiles shaders at build time, which is
-wanted by more than the samples.
+Fetch a prebuilt Slang when the host provides none. Supplies slangc for build-time shader compilation.
 
 ## Build behavior
 
@@ -180,10 +159,9 @@ wanted by more than the samples.
 
 OFF.
 
-Build a library that neither throws nor requires exceptions for hosts compiled with -fno-exceptions. It is PUBLIC and
-joins the module ABI stamp because it changes HostAllocatorAdapter in a header a consumer includes and it is the switch
-a loadable backend has to agree on before anything in it is called. The cost is that a host allocation that fails aborts
-instead of reporting. The standard library already does the same under -fno-exceptions.
+Build without exceptions for hosts compiled with -fno-exceptions. This setting propagates to consumers and is part of
+the module ABI stamp because it changes HostAllocatorAdapter. Allocation failure in that adapter aborts. Operations
+that explicitly check allocation failure can still return eOutOfHostMemory.
 
 ### AZOTH_RHI_SANITIZER
 
@@ -199,8 +177,7 @@ Route compiles through ccache or sccache when one is installed.
 
 ## Dependency versions
 
-Each of these pins a fetched dependency. They exist so a build can be reproduced or moved forward deliberately and the
-defaults are what CI builds against.
+These variables pin fetched dependencies.
 
 | Option                      | Pins                                                       |
 |-----------------------------|------------------------------------------------------------|
@@ -219,8 +196,7 @@ defaults are what CI builds against.
 
 ## Test environment variables
 
-AZOTH\_RHI\_TEST\_BACKENDS and AZOTH\_RHI\_TEST\_REQUIRE\_BACKENDS are read at runtime by the test suite, not at
-configure time. AZOTH\_RHI\_BACKEND is read by the library itself and not only by the suite.
+The test suite reads these variables at runtime. AZOTH\_RHI\_BACKEND also applies to applications.
 
 ### AZOTH_RHI_TEST_BACKENDS
 
@@ -232,8 +208,7 @@ AZOTH_RHI_TEST_BACKENDS=vulkan,null ctest --test-dir build
 
 ### AZOTH_RHI_TEST_REQUIRE_BACKENDS
 
-Turns a skipped backend into a failure. CI sets it so a driver that does not come up fails the job instead of passing
-with everything skipped.
+Fail if a named backend cannot create a device. The test still skips when the machine has no compatible adapter.
 
 ```bash
 AZOTH_RHI_TEST_REQUIRE_BACKENDS=metal ctest --test-dir build
@@ -241,5 +216,5 @@ AZOTH_RHI_TEST_REQUIRE_BACKENDS=metal ctest --test-dir build
 
 ### AZOTH_RHI_BACKEND
 
-Names the backend a program prefers at runtime ahead of the configure-time AZOTH\_RHI\_DEFAULT\_BACKEND. An empty value
-counts as nothing set. See [picking a backend](guides.md#picking-a-backend).
+Preferred runtime backend, overriding AZOTH\_RHI\_DEFAULT\_BACKEND. Empty values are ignored.
+See [picking a backend](guides.md#picking-a-backend).

@@ -1,6 +1,7 @@
 # Guides
 
 - [Picking a backend](#picking-a-backend)
+- [Configuring a backend](#configuring-a-backend)
 - [Presenting to a window](#presenting-to-a-window)
 - [Installing a profiler](#installing-a-profiler)
 - [Owning device memory](#owning-device-memory)
@@ -10,16 +11,17 @@
 
 ## Picking a backend
 
-A BackendSelection owns the registry and the order. Default construction registers every backend the build has and moves
-the one you asked for to the front. Creation then takes the first backend that comes up.
+BackendSelection owns the registry and backend order. By default it registers the compiled backends and tries the
+preferred one first. Device creation falls back to the next backend if that fails.
 
-The one you asked for is resolved in order. A name in BackendPreference::requested wins. When that is null and
-consultEnvironment is left on, the AZOTH\_RHI\_BACKEND environment variable is read. When neither names anything, the
-configure-time AZOTH\_RHI\_DEFAULT\_BACKEND is used: Metal 4 on Apple where that backend is built, Metal 3 on Apple
-otherwise, Direct3D 12 on Windows and Vulkan everywhere else.
+The first nonempty preference wins:
 
-A name is accepted in either its short form or its canonical one so a command line can say vulkan and a configuration
-file can say azoth.rhi.vulkan.
+- BackendPreference::requested.
+- AZOTH\_RHI\_BACKEND, when consultEnvironment is true.
+- AZOTH\_RHI\_DEFAULT\_BACKEND, set at configure time.
+
+The build default is Metal 4 on Apple when built, Metal 3 on Apple otherwise, Direct3D 12 on Windows, and Vulkan elsewhere.
+Both short and canonical names work, such as vulkan and azoth.rhi.vulkan.
 
 ```cpp
 rhi::BackendPreference preference{};
@@ -29,34 +31,56 @@ preference.includeNull = false;   // a program that must draw should not fall th
 rhi::BackendSelection backends(preference);
 ```
 
-includeNull is worth setting false in anything that has to put pixels on a screen. Left on, a host with no working
-driver quietly gets a device that records nothing and reports success.
+Set includeNull to false when the program needs to render. Otherwise it can fall back to a Null device that reports
+success without drawing.
 
-Set includeAvailable to false to register your own backends first and call AddAvailable later for the compiled-in
-remainder. AvailableBackends reports what the build actually contains and not what it declares. A backend compiled out
-is absent from that list. Its API tag and its typed entry point are still declared so a backend of your own can fill
-them.
+Set includeAvailable to false to register custom backends first, then call AddAvailable for the compiled backends.
+AvailableBackends lists only compiled backends. Disabled backends retain their API tags and typed entry points for
+custom implementations.
+
+## Configuring a backend
+
+Include the backend's native configuration header and set its fields through DeviceBuilder. Configure sets device
+options. ConfigureInstance sets options for the instance created by Build.
+
+```cpp
+#include <azoth/rhi/builders/device_builder.hpp>
+#include <azoth/rhi/native/vulkan_config.hpp>
+
+rhi::DeviceBuilder builder;
+builder.ConfigureInstance<rhi::VulkanApi>([](rhi::native::VulkanInstanceConfig & config) {
+    config.minimumInstanceVersion = { .major = 1, .minor = 3 };
+});
+builder.Configure<rhi::VulkanApi>([](rhi::native::VulkanDeviceConfig & config) {
+    config.deviceVersion = { .major = 1, .minor = 3 };
+});
+auto device = builder.Build<rhi::VulkanApi>();
+```
+
+Each backend reads only its own block, so a builder can carry several APIs' configurations while trying a preferred
+order. Repeated configuration preserves fields from the previous call. Copies of a builder can be configured
+independently. Extension name spans remain borrowed and must stay alive through Build.
+
+For direct creation, put device blocks in DeviceDesc::backendConfigs and instance blocks in DeviceDesc::instanceConfigs.
+A standalone InstanceDesc takes instance blocks in backendConfigs. An explicit Vulkan device version cannot exceed
+the instance's version. With no device version set, the backend limits its default to the instance's target.
 
 ## Presenting to a window
 
-The library owns no window and has no windowing dependency. You implement rhi::SurfaceSource and each backend asks it
-for what that backend needs: the loader entry point and a surface for Vulkan, the CAMetalLayer for Metal, the HWND for
-Direct3D 12.
+Implement rhi::SurfaceSource to supply the Vulkan loader entry point and surface, a CAMetalLayer for Metal, or an HWND
+for Direct3D 12. The library has no windowing dependency.
 
-A request arrives identified by an interface id and a payload size. You fill the one you support. A request from newer
-headers than you were built against is read as a prefix so a source written today keeps working against a later library.
+Requests carry an interface ID and payload size. Fill the payloads you support. SurfacePayloadOf accepts a larger
+payload with the same ID, allowing compatible fields to be appended.
 
-SDL3 and GLFW implementations live in the examples. The windowing\_sdl3 and windowing\_glfw samples implement
-rhi::SurfaceSource themselves because showing how that is done is what they are for. Every other windowed sample links
-the shared SDL3 window from examples/lib, which is the part that is not about the RHI.
+The windowing\_sdl3 and windowing\_glfw samples implement SurfaceSource directly. Other windowed samples use the shared
+SDL3 window in examples/lib.
 
 ## Installing a profiler
 
-Implement rhi::Profiler and install it with SetProfiler. You get CPU zones for the library's own work, queue and pool
-counters, device memory events and GPU zones recorded into a command list.
-
-Every method has a do-nothing default so an implementation only overrides what it cares about. BroadcastProfiler
-forwards to several sinks at once so the bundled Tracy sink stays alongside your own.
+Implement rhi::Profiler and install it with SetProfiler to receive CPU zones, queue and pool counters, device memory
+events, and GPU zones. Override the callbacks you need. BroadcastProfiler forwards events to multiple sinks, including
+the bundled Tracy sink.
 
 ```cpp
 class MySink final : public rhi::Profiler
@@ -68,55 +92,44 @@ MySink sink;
 rhi::SetProfiler(&sink);
 ```
 
-Building with AZOTH\_RHI\_ENABLE\_PROFILING off expands every instrumentation point to nothing so an installed sink is
-never consulted and the calls are not there to consult it.
+AZOTH\_RHI\_ENABLE\_PROFILING=OFF removes the instrumentation calls.
 
-Debug labels are separate and always on. They go out through VK\_EXT\_debug\_utils, PIX events and Metal debug groups
-whether or not a sink is installed. A capture in RenderDoc or PIX is readable without turning profiling on.
+Debug labels work independently of profiling through VK\_EXT\_debug\_utils, PIX events, and Metal debug groups.
+Direct3D 12 labels require AZOTH\_RHI\_PIX. Device settings also control whether labels are emitted.
 
-The profiler\_sink sample implements a sink that tallies instead of visualizing. It prints what a Tracy, PIX or Optick
-integration would be drawing.
+The profiler\_sink sample prints event counts.
 
 ## Owning device memory
 
-Implement rhi::DeviceMemoryAllocator. Every buffer and texture then goes into a span you granted so the backend makes no
-allocation of its own. The interface deals in HeapHandle and byte offsets and it never names VkDeviceMemory or
-ID3D12Heap so one implementation serves every backend.
-
-This is how a host with its own budgeting, defragmentation or residency policy keeps that policy in one place instead of
-splitting it across the RHI and everything above it.
+Implement rhi::DeviceMemoryAllocator to control buffer and texture placement. It supplies spans as HeapHandle values and
+byte offsets, keeping budgeting, defragmentation, and residency policy independent of native API types.
 
 ## Owning the library's CPU allocations
 
-Implement rhi::HostAllocator and install it with SetHostAllocator. The library's own heap allocations then route through
-it. A build gate checks that nothing in the library allocates around that seam so the hook covers the whole library
-instead of the parts somebody remembered to route.
+Implement rhi::HostAllocator and install it with SetHostAllocator to handle the library's CPU heap allocations.
+A build gate checks for allocations that bypass it.
 
-Under AZOTH\_RHI\_NO\_EXCEPTIONS a host allocation that fails aborts instead of reporting. The standard library already
-does the same under -fno-exceptions. eOutOfHostMemory survives only where refusal is explicit and already checked.
+With AZOTH\_RHI\_NO\_EXCEPTIONS, HostAllocatorAdapter aborts on allocation failure. Operations that explicitly check
+allocation failure can still return eOutOfHostMemory.
 
 ## Reaching the native objects
 
-Sometimes you need the VkDevice. Everything in azoth/rhi/native/ is quarantined behind a separate target so reaching for
-it is a deliberate act in your build file and not an accident in a header.
+Link a native target to access objects such as VkDevice through azoth/rhi/native/:
 
 ```cmake
 target_link_libraries(my_tooling PRIVATE azoth::rhi-native-vulkan)
 ```
 
-No header you get from linking azoth::rhi includes a Vulkan, D3D12 or Metal header. A build gate and a CTest case both
-check that.
+The azoth::rhi public headers exclude Vulkan, D3D12, and Metal headers. Build and CTest checks enforce this boundary.
 
 ## Adding a backend of your own
 
-A backend outside this repository links azoth::rhi-backend-sdk. That is the public headers plus the pieces a backend
-needs and would otherwise reimplement: slot maps, the host allocation seam, format and subresource arithmetic plus the
-validation registry.
+Link azoth::rhi-backend-sdk for the public headers, slot maps, host allocation helpers, format and subresource
+arithmetic, and validation registry.
 
-A backend that ships as a loadable module links azoth::rhi-module-sdk instead and compiles its entry point through
-AZO\_RHI\_DEFINE\_MODULE. The module carries an ABI stamp that has to agree with the host before anything in it is
-called. AZOTH\_RHI\_NO\_EXCEPTIONS is part of that stamp because a module and a host that disagree on it disagree about
-what an allocation failure does.
+Loadable backends link azoth::rhi-module-sdk and define their entry point with AZO\_RHI\_DEFINE\_MODULE. The module's ABI
+stamp must match the host before it is called. The stamp includes AZOTH\_RHI\_NO\_EXCEPTIONS because it changes allocation
+failure behavior.
 
-Register what you built with BackendSelection::Add or let AddCatalog find it. A self-registered backend with the same
-GraphicsApiId as a bundled one replaces it. A host substitutes an implementation that way without patching the library.
+Register a backend with BackendSelection::Add or discover it with AddCatalog. A self-registered backend replaces a
+bundled backend with the same GraphicsApiId.

@@ -11,12 +11,11 @@ also decided to make it open source to help out others I know in the graphics sp
 | Direct3D 12 | Windows                          |
 | Metal       | macOS, iOS (Metal 3 and Metal 4) |
 
-To learn more about Azoth RHI, how to build it and what it can do, read [the docs](docs/index.md).
+See [the docs](docs/index.md) for build instructions and API guides.
 
 ## Examples
 
-The [examples/](examples) directory has samples from a headless adapter report to a glTF scene with image based
-lighting. See [the examples doc](docs/examples.md) for what each one shows.
+See [examples/](examples) for samples and [the examples doc](docs/examples.md) for build instructions.
 
 ## License
 
