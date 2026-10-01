@@ -22,7 +22,9 @@
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
+
 #include <tuple>
 #include <utility>
 
@@ -38,6 +40,7 @@ namespace azo::rhi::metal_common
 
 	bool Succeed(Error * error) noexcept;
 	bool Fail(Error * error, ErrorCode code, const char * message) noexcept;
+	bool MetalWaitForEvent(MTL::SharedEvent * event, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
 
 	template <typename... Args>
 	[[nodiscard]] Error * LastError(Args &&... args) noexcept
