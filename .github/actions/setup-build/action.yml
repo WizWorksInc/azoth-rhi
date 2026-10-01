@@ -46,6 +46,7 @@ runs:
       if: runner.os == 'Windows' && inputs.vulkan-driver == 'true'
       uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
       with:
+        github_token: ${{ github.token }}
         install_runtime_only: true
         install_lavapipe: true
         cache: true

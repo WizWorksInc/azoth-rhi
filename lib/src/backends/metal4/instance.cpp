@@ -135,7 +135,7 @@ namespace azo::rhi::metal4
 		const auto timestampDesc = NS::TransferPtr(MTL4::CounterHeapDescriptor::alloc()->init());
 		timestampDesc->setType(MTL4::CounterHeapTypeTimestamp);
 		timestampDesc->setCount(1);
-		const auto timestampHeap = NS::TransferPtr(mtl->newCounterHeap(timestampDesc.get(), nullptr));
+		const auto timestampHeap	  = NS::TransferPtr(mtl->newCounterHeap(timestampDesc.get(), nullptr));
 		const bool canWriteTimestamps = timestampHeap.get() != nullptr;
 
 		caps.supportsTimestampQueries = canWriteTimestamps;

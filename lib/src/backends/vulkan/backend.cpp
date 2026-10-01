@@ -248,7 +248,8 @@ namespace azo::rhi
 			const auto config = native::FindInstanceConfig<VulkanApi>(desc.backendConfigs);
 			if (config.malformed)
 			{
-				*error = Error{ .code = ErrorCode::eInvalidArgument, .message = "the Vulkan instance configuration block declares an unsupported size or version" };
+				*error =
+					Error{ .code = ErrorCode::eInvalidArgument, .message = "the Vulkan instance configuration block declares an unsupported size or version" };
 				return nullptr;
 			}
 			VulkanBackendOwner & owner = Owner();
@@ -364,10 +365,15 @@ namespace azo::rhi
 					}
 					if (!extAvailable(extra))
 					{
-						*error = Error{ .code = ErrorCode::eUnsupportedFeature, .message = "an instance extension named in the Vulkan configuration block is not supported by the loader" };
+						*error = Error{ .code = ErrorCode::eUnsupportedFeature,
+							.message		  = "an instance extension named in the Vulkan configuration block is not supported by the loader" };
 						return nullptr;
 					}
-					const bool alreadyEnabled = std::ranges::any_of(instanceExts, [extra](const char * name) noexcept { return std::strcmp(name, extra) == 0; });
+					const bool alreadyEnabled = std::ranges::any_of(instanceExts,
+						[extra](const char * name) noexcept
+						{
+							return std::strcmp(name, extra) == 0;
+						});
 					if (!alreadyEnabled)
 					{
 						instanceExts.push_back(extra);

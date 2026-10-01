@@ -217,7 +217,7 @@ namespace azo::rhi
 		InstanceDesc instance{};
 		instance.validation		  = desc.validation;
 		instance.nativeValidation = desc.nativeValidation;
-		instance.backendConfigs = desc.instanceConfigs;
+		instance.backendConfigs	  = desc.instanceConfigs;
 
 		return instance;
 	}

@@ -212,15 +212,15 @@ namespace azo::rhi
 				return validation.GetError();
 			}
 
-			const auto deviceConfigs = MakeConfigEntries(m_deviceConfigs);
+			const auto deviceConfigs   = MakeConfigEntries(m_deviceConfigs);
 			const auto instanceConfigs = MakeConfigEntries(m_instanceConfigs);
-			DeviceDesc desc		   = m_desc;
-			desc.queues			   = std::span<const QueueRequest>{ queues.data(), queueCount };
-			desc.debugName		   = m_debugName.empty() ? nullptr : m_debugName.c_str();
-			desc.requiredFeatures  = std::span<const DeviceFeature>{ m_requiredFeatures.data(), m_requiredFeatureCount };
-			desc.preferredFeatures = std::span<const DeviceFeature>{ m_preferredFeatures.data(), m_preferredFeatureCount };
-			desc.backendConfigs = deviceConfigs;
-			desc.instanceConfigs = instanceConfigs;
+			DeviceDesc desc			   = m_desc;
+			desc.queues				   = std::span<const QueueRequest>{ queues.data(), queueCount };
+			desc.debugName			   = m_debugName.empty() ? nullptr : m_debugName.c_str();
+			desc.requiredFeatures	   = std::span<const DeviceFeature>{ m_requiredFeatures.data(), m_requiredFeatureCount };
+			desc.preferredFeatures	   = std::span<const DeviceFeature>{ m_preferredFeatures.data(), m_preferredFeatureCount };
+			desc.backendConfigs		   = deviceConfigs;
+			desc.instanceConfigs	   = instanceConfigs;
 
 			return CreateDevice<Api>(desc);
 		}
@@ -244,15 +244,15 @@ namespace azo::rhi
 				return validation.GetError();
 			}
 
-			const auto deviceConfigs = MakeConfigEntries(m_deviceConfigs);
+			const auto deviceConfigs   = MakeConfigEntries(m_deviceConfigs);
 			const auto instanceConfigs = MakeConfigEntries(m_instanceConfigs);
-			DeviceDesc desc		   = m_desc;
-			desc.queues			   = std::span<const QueueRequest>{ queues.data(), queueCount };
-			desc.debugName		   = m_debugName.empty() ? nullptr : m_debugName.c_str();
-			desc.requiredFeatures  = std::span<const DeviceFeature>{ m_requiredFeatures.data(), m_requiredFeatureCount };
-			desc.preferredFeatures = std::span<const DeviceFeature>{ m_preferredFeatures.data(), m_preferredFeatureCount };
-			desc.backendConfigs = deviceConfigs;
-			desc.instanceConfigs = instanceConfigs;
+			DeviceDesc desc			   = m_desc;
+			desc.queues				   = std::span<const QueueRequest>{ queues.data(), queueCount };
+			desc.debugName			   = m_debugName.empty() ? nullptr : m_debugName.c_str();
+			desc.requiredFeatures	   = std::span<const DeviceFeature>{ m_requiredFeatures.data(), m_requiredFeatureCount };
+			desc.preferredFeatures	   = std::span<const DeviceFeature>{ m_preferredFeatures.data(), m_preferredFeatureCount };
+			desc.backendConfigs		   = deviceConfigs;
+			desc.instanceConfigs	   = instanceConfigs;
 
 			return CreateDevice(registry, preferredApis, desc);
 		}
@@ -268,9 +268,9 @@ namespace azo::rhi
 		static void ConfigureBlock(detail::HostVector<ConfiguredBlock> & blocks, ConfigureFn && configure)
 		{
 			const auto previous = std::ranges::find(blocks, Api::id, &ConfiguredBlock::api);
-			Config block = previous != blocks.end() ? *static_cast<const Config *>(previous->config.get()) : Config{};
+			Config block		= previous != blocks.end() ? *static_cast<const Config *>(previous->config.get()) : Config{};
 			std::invoke(std::forward<ConfigureFn>(configure), block);
-			auto owned = std::allocate_shared<Config>(HostAllocatorAdapter<Config>{}, std::move(block));
+			auto owned			= std::allocate_shared<Config>(HostAllocatorAdapter<Config>{}, std::move(block));
 			const auto existing = std::ranges::find(blocks, Api::id, &ConfiguredBlock::api);
 			if (existing != blocks.end())
 			{

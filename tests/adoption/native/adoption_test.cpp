@@ -95,6 +95,17 @@ namespace
 			{
 				GTEST_SKIP() << "this backend is not among the ones AZOTH_RHI_TEST_BACKENDS asked for";
 			}
+
+			const auto plain = MakeDevice<Api>();
+			if (!plain.HasValue())
+			{
+				const test::Backend * backend = test::FindBackend(Api::id);
+				if (test::BackendIsRequired(backend->shortName) && !test::NoAdapterHere(plain.GetError()))
+				{
+					FAIL() << backend->displayName << " is required but produced no device: " << test::Describe(plain.GetError());
+				}
+				GTEST_SKIP() << backend->displayName << " produced no device on this machine: " << test::Describe(plain.GetError());
+			}
 		}
 	};
 
@@ -956,7 +967,8 @@ namespace
 		}
 	}
 
-	[[nodiscard]] rhi::Result<rhi::UniqueInstance> CreateConfiguredVulkanInstance(const rhi::native::VulkanInstanceConfig & config, rhi::GraphicsApiId key = rhi::VulkanApi::id)
+	[[nodiscard]] rhi::Result<rhi::UniqueInstance> CreateConfiguredVulkanInstance(
+		const rhi::native::VulkanInstanceConfig & config, rhi::GraphicsApiId key = rhi::VulkanApi::id)
 	{
 		rhi::GraphicsApiRegistry registry;
 		if (const auto registered = rhi::RegisterBackend<rhi::VulkanApi>(registry); !registered)
@@ -974,7 +986,7 @@ namespace
 	{
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
-		const auto refused = CreateConfiguredVulkanInstance(asking);
+		const auto refused			  = CreateConfiguredVulkanInstance(asking);
 		ASSERT_FALSE(refused.HasValue());
 		EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
 		const auto unrelated = CreateConfiguredVulkanInstance(asking, rhi::MetalApi::id);
@@ -986,7 +998,7 @@ namespace
 		static constexpr std::array<const char * const, 1> kNoSuchExtension{ "VK_AZO_not_an_extension" };
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.instanceExtensions = kNoSuchExtension;
-		const auto refused = CreateConfiguredVulkanInstance(asking);
+		const auto refused		  = CreateConfiguredVulkanInstance(asking);
 		ASSERT_FALSE(refused.HasValue());
 		EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
 	}
@@ -995,11 +1007,11 @@ namespace
 	{
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.header.byteSize = sizeof(rhi::InterfaceHeader);
-		const auto shortBlock = CreateConfiguredVulkanInstance(asking);
+		const auto shortBlock  = CreateConfiguredVulkanInstance(asking);
 		ASSERT_FALSE(shortBlock.HasValue());
 		EXPECT_EQ(shortBlock.GetError().code, rhi::ErrorCode::eInvalidArgument);
-		asking = {};
-		asking.header.version = 99;
+		asking					= {};
+		asking.header.version	= 99;
 		const auto wrongVersion = CreateConfiguredVulkanInstance(asking);
 		ASSERT_FALSE(wrongVersion.HasValue());
 		EXPECT_EQ(wrongVersion.GetError().code, rhi::ErrorCode::eInvalidArgument);
@@ -1016,7 +1028,11 @@ namespace
 	TEST_F(VulkanConfigBlock, DefaultDeviceVersionHonorsTheInstanceTarget)
 	{
 		rhi::DeviceBuilder builder;
-		builder.Headless().ConfigureInstance<rhi::VulkanApi>([](auto & config) { config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 }; });
+		builder.Headless().ConfigureInstance<rhi::VulkanApi>(
+			[](auto & config)
+			{
+				config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 };
+			});
 		const auto device = builder.Build<rhi::VulkanApi>();
 		ASSERT_TRUE(test::Ok(device));
 		EXPECT_EQ(device.Value().Get().GetCaps().apiVersion.major, 1u);
@@ -1029,15 +1045,28 @@ namespace
 		ASSERT_TRUE(test::Ok(rhi::RegisterBackend<rhi::VulkanApi>(registry)));
 		const std::array preferred{ rhi::VulkanApi::id };
 		rhi::DeviceBuilder builder;
-		builder.ConfigureInstance<rhi::VulkanApi>([](auto & config) { config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 }; });
+		builder.ConfigureInstance<rhi::VulkanApi>(
+			[](auto & config)
+			{
+				config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
+			});
 		EXPECT_TRUE(test::Failed(builder.Build(registry, preferred), rhi::ErrorCode::eUnsupportedFeature));
 	}
 
 	TEST_F(VulkanConfigBlock, ADeviceCannotTargetAVersionAboveItsInstance)
 	{
 		rhi::DeviceBuilder builder;
-		builder.ConfigureInstance<rhi::VulkanApi>([](auto & config) { config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 }; })
-			.Configure<rhi::VulkanApi>([](auto & config) { config.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 3 }; });
+		builder
+			.ConfigureInstance<rhi::VulkanApi>(
+				[](auto & config)
+				{
+					config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 };
+				})
+			.Configure<rhi::VulkanApi>(
+				[](auto & config)
+				{
+					config.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 3 };
+				});
 		EXPECT_TRUE(test::Failed(builder.Build<rhi::VulkanApi>(), rhi::ErrorCode::eUnsupportedFeature));
 	}
 
@@ -1055,7 +1084,7 @@ namespace
 		const std::array entries{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::id, .config = &asking } };
 		rhi::DeviceDesc desc{};
 		desc.instanceConfigs = entries;
-		const auto refused = rhi::CreateDevice<rhi::VulkanApi>(desc);
+		const auto refused	 = rhi::CreateDevice<rhi::VulkanApi>(desc);
 		ASSERT_FALSE(refused.HasValue());
 		EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
 	}
@@ -1068,7 +1097,7 @@ namespace
 		const std::array entries{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::id, .config = &asking } };
 		rhi::DeviceDesc desc{};
 		desc.instanceConfigs = entries;
-		const auto refused = rhi::CreateDevice<rhi::VulkanApi>(desc);
+		const auto refused	 = rhi::CreateDevice<rhi::VulkanApi>(desc);
 		ASSERT_FALSE(refused.HasValue());
 		EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
 	}
