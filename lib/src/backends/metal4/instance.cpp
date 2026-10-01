@@ -244,7 +244,7 @@ namespace azo::rhi::metal4
 				Error{ .code = ErrorCode::eInvalidArgument, .message = "the Metal 4 configuration block declares a size or version this backend cannot read" };
 			return nullptr;
 		}
-		if (!VersionIsOurs(config.block != nullptr ? config.block->generation : desc.apiVersion, refusal))
+		if (!VersionIsOurs(config.block != nullptr ? config.block->generation : ApiVersion{}, refusal))
 		{
 			return nullptr;
 		}

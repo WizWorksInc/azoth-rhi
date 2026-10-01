@@ -18,9 +18,12 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace azo::rhi
 {
@@ -44,12 +47,17 @@ namespace azo::rhi
 			return *this;
 		}
 
-		DeviceBuilder & ApiVersionRequest(const std::uint32_t major, const std::uint32_t minor) noexcept
+		template <GraphicsApiTag Api, class ConfigureFn>
+		DeviceBuilder & Configure(ConfigureFn && configure)
 		{
-			m_desc.apiVersion = ApiVersion{
-				.major = major,
-				.minor = minor,
-			};
+			ConfigureBlock<Api, typename native::DeviceConfigFor<Api>::Config>(m_deviceConfigs, std::forward<ConfigureFn>(configure));
+			return *this;
+		}
+
+		template <GraphicsApiTag Api, class ConfigureFn>
+		DeviceBuilder & ConfigureInstance(ConfigureFn && configure)
+		{
+			ConfigureBlock<Api, typename native::InstanceConfigFor<Api>::Config>(m_instanceConfigs, std::forward<ConfigureFn>(configure));
 			return *this;
 		}
 
@@ -204,11 +212,15 @@ namespace azo::rhi
 				return validation.GetError();
 			}
 
+			const auto deviceConfigs = MakeConfigEntries(m_deviceConfigs);
+			const auto instanceConfigs = MakeConfigEntries(m_instanceConfigs);
 			DeviceDesc desc		   = m_desc;
 			desc.queues			   = std::span<const QueueRequest>{ queues.data(), queueCount };
 			desc.debugName		   = m_debugName.empty() ? nullptr : m_debugName.c_str();
 			desc.requiredFeatures  = std::span<const DeviceFeature>{ m_requiredFeatures.data(), m_requiredFeatureCount };
 			desc.preferredFeatures = std::span<const DeviceFeature>{ m_preferredFeatures.data(), m_preferredFeatureCount };
+			desc.backendConfigs = deviceConfigs;
+			desc.instanceConfigs = instanceConfigs;
 
 			return CreateDevice<Api>(desc);
 		}
@@ -232,16 +244,55 @@ namespace azo::rhi
 				return validation.GetError();
 			}
 
+			const auto deviceConfigs = MakeConfigEntries(m_deviceConfigs);
+			const auto instanceConfigs = MakeConfigEntries(m_instanceConfigs);
 			DeviceDesc desc		   = m_desc;
 			desc.queues			   = std::span<const QueueRequest>{ queues.data(), queueCount };
 			desc.debugName		   = m_debugName.empty() ? nullptr : m_debugName.c_str();
 			desc.requiredFeatures  = std::span<const DeviceFeature>{ m_requiredFeatures.data(), m_requiredFeatureCount };
 			desc.preferredFeatures = std::span<const DeviceFeature>{ m_preferredFeatures.data(), m_preferredFeatureCount };
+			desc.backendConfigs = deviceConfigs;
+			desc.instanceConfigs = instanceConfigs;
 
 			return CreateDevice(registry, preferredApis, desc);
 		}
 
 	private:
+		struct ConfiguredBlock final
+		{
+			GraphicsApiId api{};
+			std::shared_ptr<const void> config;
+		};
+
+		template <GraphicsApiTag Api, class Config, class ConfigureFn>
+		static void ConfigureBlock(detail::HostVector<ConfiguredBlock> & blocks, ConfigureFn && configure)
+		{
+			const auto previous = std::ranges::find(blocks, Api::id, &ConfiguredBlock::api);
+			Config block = previous != blocks.end() ? *static_cast<const Config *>(previous->config.get()) : Config{};
+			std::invoke(std::forward<ConfigureFn>(configure), block);
+			auto owned = std::allocate_shared<Config>(HostAllocatorAdapter<Config>{}, std::move(block));
+			const auto existing = std::ranges::find(blocks, Api::id, &ConfiguredBlock::api);
+			if (existing != blocks.end())
+			{
+				existing->config = std::move(owned);
+			}
+			else
+			{
+				blocks.push_back(ConfiguredBlock{ .api = Api::id, .config = std::move(owned) });
+			}
+		}
+
+		[[nodiscard]] static detail::HostVector<DeviceConfigEntry> MakeConfigEntries(const detail::HostVector<ConfiguredBlock> & blocks)
+		{
+			detail::HostVector<DeviceConfigEntry> entries;
+			entries.reserve(blocks.size());
+			for (const ConfiguredBlock & block : blocks)
+			{
+				entries.push_back(DeviceConfigEntry{ .api = block.api, .config = block.config.get() });
+			}
+			return entries;
+		}
+
 		static constexpr std::size_t kInvalidQueueIndex = static_cast<std::size_t>(-1);
 
 		static void AddFeature(std::array<DeviceFeature, kMaxFeatureRequests> & features, std::size_t & count, const DeviceFeature feature) noexcept
@@ -352,6 +403,8 @@ namespace azo::rhi
 		}
 
 		DeviceDesc m_desc{};
+		detail::HostVector<ConfiguredBlock> m_deviceConfigs;
+		detail::HostVector<ConfiguredBlock> m_instanceConfigs;
 		std::array<QueueRequest, kMaxQueueRequests> m_queues{};
 		std::size_t m_queueCount	   = 0;
 		bool m_queueOverflowed		   = false;

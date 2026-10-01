@@ -245,6 +245,12 @@ namespace azo::rhi
 
 		[[nodiscard]] HostUniquePtr<VulkanInstance> BuildInstance(const InstanceDesc & desc, Error * error)
 		{
+			const auto config = native::FindInstanceConfig<VulkanApi>(desc.backendConfigs);
+			if (config.malformed)
+			{
+				*error = Error{ .code = ErrorCode::eInvalidArgument, .message = "the Vulkan instance configuration block declares an unsupported size or version" };
+				return nullptr;
+			}
 			VulkanBackendOwner & owner = Owner();
 			if (!EnsureDispatcherInitialized(owner))
 			{
@@ -348,6 +354,27 @@ namespace azo::rhi
 				}
 			}
 
+			if (config.block != nullptr)
+			{
+				for (const char * extra : config.block->instanceExtensions)
+				{
+					if (extra == nullptr)
+					{
+						continue;
+					}
+					if (!extAvailable(extra))
+					{
+						*error = Error{ .code = ErrorCode::eUnsupportedFeature, .message = "an instance extension named in the Vulkan configuration block is not supported by the loader" };
+						return nullptr;
+					}
+					const bool alreadyEnabled = std::ranges::any_of(instanceExts, [extra](const char * name) noexcept { return std::strcmp(name, extra) == 0; });
+					if (!alreadyEnabled)
+					{
+						instanceExts.push_back(extra);
+					}
+				}
+			}
+
 			detail::HostVector<vk::ValidationFeatureEnableEXT> validationEnables;
 			if (wantApiValidation)
 			{
@@ -373,7 +400,7 @@ namespace azo::rhi
 				validationFeatures.setEnabledValidationFeatures(validationEnables);
 			}
 
-			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(desc.apiVersion);
+			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(config.block != nullptr ? config.block->minimumInstanceVersion : ApiVersion{});
 			const std::uint32_t requestedApi = PackVkApiVersion(apiMajor, apiMinor);
 			const auto loaderApi			 = vk::enumerateInstanceVersion(owner.dispatch);
 			if (loaderApi.result != vk::Result::eSuccess)
@@ -427,6 +454,7 @@ namespace azo::rhi
 			}
 
 			instance->instance	 = created.value;
+			instance->apiVersion = ApiVersion{ .major = apiMajor, .minor = apiMinor };
 			instance->debugUtils = extAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
 			instance->dispatch.init(instance->instance);
@@ -748,8 +776,18 @@ namespace azo::rhi
 				}
 			}
 
-			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(config.block != nullptr ? config.block->deviceVersion : desc.apiVersion);
+			ApiVersion deviceVersion = config.block != nullptr ? config.block->deviceVersion : ApiVersion{};
+			if (deviceVersion.major == 0 && deviceVersion.minor == 0 && instance->apiVersion.major == 1 && instance->apiVersion.minor < 3)
+			{
+				deviceVersion = instance->apiVersion;
+			}
+			const auto [apiMajor, apiMinor]	 = ResolveApiVersion(deviceVersion);
 			const std::uint32_t requestedApi = PackVkApiVersion(apiMajor, apiMinor);
+			if (requestedApi > PackVkApiVersion(instance->apiVersion.major, instance->apiVersion.minor))
+			{
+				*error = Error{ .code = ErrorCode::eUnsupportedFeature, .message = "requested Vulkan device version exceeds the instance's target version" };
+				return nullptr;
+			}
 			if (apiMajor < 1 || (apiMajor == 1 && apiMinor < 2))
 			{
 				*error =

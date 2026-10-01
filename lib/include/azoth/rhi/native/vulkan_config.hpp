@@ -29,17 +29,27 @@ namespace azo::rhi::native
 		eRenderPassObjects,
 	};
 
-	struct VulkanDeviceConfig final
+	struct VulkanInstanceConfig final
 	{
-		InterfaceHeader header{ .byteSize = sizeof(VulkanDeviceConfig), .version = 1 };
+		InterfaceHeader header{ .byteSize = sizeof(VulkanInstanceConfig), .version = 1 };
 
 		ApiVersion minimumInstanceVersion{};
+		std::span<const char * const> instanceExtensions;
+	};
+
+	template <>
+	struct InstanceConfigFor<VulkanApi> final
+	{
+		using Config = VulkanInstanceConfig;
+	};
+
+	struct VulkanDeviceConfig final
+	{
+		InterfaceHeader header{ .byteSize = sizeof(VulkanDeviceConfig), .version = 2 };
 
 		ApiVersion deviceVersion{};
 
 		VulkanRenderingLowering renderingLowering = VulkanRenderingLowering::eAutomatic;
-
-		std::span<const char * const> instanceExtensions;
 
 		std::span<const char * const> deviceExtensions;
 	};
