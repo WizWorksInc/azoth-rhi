@@ -27,6 +27,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <mutex>
 #include <span>

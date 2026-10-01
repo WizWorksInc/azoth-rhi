@@ -23,11 +23,16 @@ namespace azo::rhi
 		const void * config = nullptr;
 	};
 
+	using InstanceConfigEntry = DeviceConfigEntry;
+
 	namespace native
 	{
 
 		template <GraphicsApiTag Api>
 		struct DeviceConfigFor;
+
+		template <GraphicsApiTag Api>
+		struct InstanceConfigFor;
 
 		template <class Config>
 		struct DeviceConfigLookup final
@@ -36,14 +41,12 @@ namespace azo::rhi
 			bool malformed		 = false;
 		};
 
-		template <GraphicsApiTag Api>
-		[[nodiscard]] constexpr DeviceConfigLookup<typename DeviceConfigFor<Api>::Config> FindDeviceConfig(std::span<const DeviceConfigEntry> entries) noexcept
+		template <class Config>
+		[[nodiscard]] constexpr DeviceConfigLookup<Config> FindConfigBlock(std::span<const DeviceConfigEntry> entries, GraphicsApiId api) noexcept
 		{
-			using Config = typename DeviceConfigFor<Api>::Config;
-
 			for (const DeviceConfigEntry & entry : entries)
 			{
-				if (entry.api != Api::id || entry.config == nullptr)
+				if (entry.api != api || entry.config == nullptr)
 				{
 					continue;
 				}
@@ -58,6 +61,18 @@ namespace azo::rhi
 			}
 
 			return DeviceConfigLookup<Config>{};
+		}
+
+		template <GraphicsApiTag Api>
+		[[nodiscard]] constexpr auto FindDeviceConfig(std::span<const DeviceConfigEntry> entries) noexcept
+		{
+			return FindConfigBlock<typename DeviceConfigFor<Api>::Config>(entries, Api::id);
+		}
+
+		template <GraphicsApiTag Api>
+		[[nodiscard]] constexpr auto FindInstanceConfig(std::span<const InstanceConfigEntry> entries) noexcept
+		{
+			return FindConfigBlock<typename InstanceConfigFor<Api>::Config>(entries, Api::id);
 		}
 
 	}

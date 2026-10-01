@@ -163,19 +163,7 @@ namespace azo::rhi::metal
 			event = tracked->event.get();
 		}
 
-		const bool untilSignaled = (timeoutNanoseconds == std::numeric_limits<std::uint64_t>::max());
-		const auto deadline		 = std::chrono::steady_clock::now() + std::chrono::nanoseconds(untilSignaled ? 0 : timeoutNanoseconds);
-
-		while (event->signaledValue() < value)
-		{
-			if (!untilSignaled && std::chrono::steady_clock::now() >= deadline)
-			{
-				return Fail(error, ErrorCode::eTimeout, "timeline wait timed out");
-			}
-			std::this_thread::yield();
-		}
-
-		return Succeed(error);
+		return MetalWaitForEvent(event, value, timeoutNanoseconds, error);
 	}
 
 	bool MetalQueueBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept

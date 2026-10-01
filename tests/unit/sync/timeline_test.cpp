@@ -17,7 +17,11 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <chrono>
 #include <cstdint>
+#include <limits>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
@@ -154,6 +158,51 @@ namespace
 		}
 
 		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, test::kWaitTimeoutNanoseconds, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+	}
+
+	TEST_P(TimelineTest, PollsACompletedValueAndTimesOutOnAnUnsignaledValue)
+	{
+		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "native timeline waits");
+		rhi::Error error{};
+		const auto timeline = Dev().CreateTimeline(test::samples::Timeline(1), error);
+		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		auto queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, 0, error), error));
+		EXPECT_FALSE(queue.Wait(timeline, 2, 0, error));
+		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
+		EXPECT_FALSE(queue.Wait(timeline, 2, 1, error));
+		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
+		EXPECT_FALSE(queue.Wait(timeline, 2, 1'000'000, error));
+		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
+		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+	}
+
+	TEST_P(TimelineTest, AHostSignalWakesFiniteAndInfiniteWaits)
+	{
+		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "native timeline waits");
+		rhi::Error error{};
+		const auto timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		auto queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+		const std::array timeouts{ test::kWaitTimeoutNanoseconds, std::numeric_limits<std::uint64_t>::max() - 1, std::numeric_limits<std::uint64_t>::max() };
+		std::uint64_t value = 0;
+		for (const auto timeout : timeouts)
+		{
+			++value;
+			rhi::Error signalError{};
+			bool signaled = false;
+			std::thread signalThread(
+				[&]
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds{ 100 });
+					signaled = queue.Signal(timeline, value, signalError);
+				});
+			const bool waited = queue.Wait(timeline, value, timeout, error);
+			signalThread.join();
+			EXPECT_TRUE(test::Ok(signaled, signalError));
+			EXPECT_TRUE(test::Ok(waited, error)) << "timeout " << timeout;
+		}
 		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
 	}
 

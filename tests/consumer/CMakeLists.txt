@@ -30,6 +30,15 @@ find_package(AzothRHI REQUIRED)
 # to carry, which is the thing most likely to be wrong and the reason this exists.
 add_executable(consumer_backend out_of_tree_backend.cpp)
 target_link_libraries(consumer_backend PRIVATE azoth::rhi-backend-sdk)
+if(WIN32)
+    add_custom_command(TARGET consumer_backend POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E
+            $<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:consumer_backend>>,copy_if_different,true>
+            "$<TARGET_RUNTIME_DLLS:consumer_backend>" "$<TARGET_FILE_DIR:consumer_backend>"
+            COMMAND_EXPAND_LISTS
+            VERBATIM
+    )
+endif()
 
 # And the module SDK, built as a real loadable module through the shipped helper so the helper is
 # exercised from outside the tree that defines it.

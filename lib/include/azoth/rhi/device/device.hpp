@@ -109,9 +109,9 @@ namespace azo::rhi
 		std::uint32_t engineVersionMajor	  = 0;
 		std::uint32_t engineVersionMinor	  = 0;
 
-		ApiVersion apiVersion{};
 		ValidationMode validation = ValidationMode::eReleaseLight;
 		NativeValidationDesc nativeValidation{};
+		std::span<const InstanceConfigEntry> backendConfigs;
 	};
 
 	struct QueueRequest final
@@ -175,7 +175,6 @@ namespace azo::rhi
 	{
 		std::span<const QueueRequest> queues;
 
-		ApiVersion apiVersion{};
 		ValidationMode validation = ValidationMode::eReleaseLight;
 
 		NativeValidationDesc nativeValidation{};
@@ -208,6 +207,7 @@ namespace azo::rhi
 		std::span<const DeviceFeature> preferredFeatures;
 
 		std::span<const DeviceConfigEntry> backendConfigs;
+		std::span<const InstanceConfigEntry> instanceConfigs;
 
 		const char * debugName = nullptr;
 	};
@@ -215,9 +215,9 @@ namespace azo::rhi
 	[[nodiscard]] constexpr InstanceDesc InstanceDescForDevice(const DeviceDesc & desc) noexcept
 	{
 		InstanceDesc instance{};
-		instance.apiVersion		  = desc.apiVersion;
 		instance.validation		  = desc.validation;
 		instance.nativeValidation = desc.nativeValidation;
+		instance.backendConfigs	  = desc.instanceConfigs;
 
 		return instance;
 	}

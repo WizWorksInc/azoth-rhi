@@ -513,7 +513,7 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		const D3D_FEATURE_LEVEL floor = ApiVersionToFloor(config.block != nullptr ? config.block->minimumFeatureLevel : desc.apiVersion);
+		const D3D_FEATURE_LEVEL floor = ApiVersionToFloor(config.block != nullptr ? config.block->minimumFeatureLevel : ApiVersion{});
 
 		ComPtr<IDXGIAdapter4> chosenAdapter;
 		ComPtr<ID3D12Device> chosenDevice;

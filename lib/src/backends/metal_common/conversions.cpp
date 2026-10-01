@@ -15,6 +15,7 @@
 #include <dispatch/dispatch.h>
 
 #include <algorithm>
+#include <limits>
 
 namespace azo::rhi::metal_common
 {
@@ -38,6 +39,19 @@ namespace azo::rhi::metal_common
 			};
 		}
 		return false;
+	}
+
+	bool MetalWaitForEvent(MTL::SharedEvent * event, const std::uint64_t value, const std::uint64_t timeoutNanoseconds, Error * error) noexcept
+	{
+		constexpr auto infinite = std::numeric_limits<std::uint64_t>::max();
+		const auto timeoutMilliseconds =
+			timeoutNanoseconds == infinite ? infinite : (timeoutNanoseconds / 1'000'000) + static_cast<std::uint64_t>(timeoutNanoseconds % 1'000'000 != 0);
+		if (!event->waitUntilSignaledValue(value, timeoutMilliseconds))
+		{
+			return Fail(error, ErrorCode::eTimeout, "timeline wait timed out");
+		}
+
+		return Succeed(error);
 	}
 
 	void SetMetalLabel(MTL::Resource * resource, const CString debugName) noexcept
