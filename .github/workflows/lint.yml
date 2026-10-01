@@ -25,7 +25,9 @@ jobs:
       - name: Install clang-format
         run: |
           pipx install clang-format==23.1.1
-          "$HOME/.local/bin/clang-format" --version
+          clang_format="$(pipx environment --value PIPX_BIN_DIR)/clang-format"
+          "$clang_format" --version
+          echo "CLANG_FORMAT=$clang_format" >> "$GITHUB_ENV"
 
       - name: Check formatting
-        run: git ls-files '*.cpp' '*.hpp' '*.mm' | xargs "$HOME/.local/bin/clang-format" --dry-run --Werror
+        run: git ls-files '*.cpp' '*.hpp' '*.mm' | xargs "$CLANG_FORMAT" --dry-run --Werror
