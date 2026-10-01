@@ -11,6 +11,7 @@
 
 #include "azoth/rhi/core/hash.hpp"
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <string_view>
 

@@ -13,6 +13,7 @@
 
 #include <array>
 #include <cstddef>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 #include <mutex>
 

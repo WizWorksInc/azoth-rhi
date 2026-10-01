@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstddef>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <cstdint>
 
 namespace azo::rhi::detail
