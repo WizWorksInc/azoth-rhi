@@ -48,6 +48,7 @@ namespace azo::rhi::vulkan
 	struct VulkanInstance final
 	{
 		const BackendObject * object = nullptr;
+		ApiVersion apiVersion{};
 		vk::Instance instance;
 
 		vk::detail::DispatchLoaderDynamic dispatch;

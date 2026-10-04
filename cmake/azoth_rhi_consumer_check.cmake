@@ -64,7 +64,7 @@ function(_azoth_run_step description)
 
     if(NOT _status EQUAL 0)
         message(FATAL_ERROR
-                "AzothRHI consumer check failed while ${description}.\n\n"
+                "AzothRHI consumer check failed while ${description} (status: ${_status}).\n\n"
                 "This means an installed AzothRHI could not be used by a project outside this tree, which "
                 "no other gate here can see: every one of them compiles against the source.\n\n"
                 "--- stdout ---\n${_out}\n--- stderr ---\n${_err}")

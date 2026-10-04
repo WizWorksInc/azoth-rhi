@@ -80,7 +80,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = first }, error), error));
 
 		const std::array wrong{
-			rhi::BufferBarrier{ .buffer = buffer, .before = untouched, .after = shaderRead },
+			rhi::BufferBarrier{ .buffer = buffer, .before = shaderRead, .after = copyDst },
 		};
 
 		rhi::Error wrongError{};
