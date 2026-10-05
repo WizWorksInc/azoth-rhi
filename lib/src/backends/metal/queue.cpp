@@ -61,10 +61,11 @@ namespace azo::rhi::metal
 				continue;
 			}
 			auto * listObject = static_cast<MetalObject *>(detail::UnwrappedImplOf(*list));
-			if (listObject->list != nullptr && listObject->list->commandBuffer.get() != nullptr)
+			if (listObject->list != nullptr && listObject->list->commandBuffer.get() != nullptr && listObject->list->lifecycle != 3)
 			{
 				listObject->list->commandBuffer->commit();
 				listObject->list->lifecycle = 3;
+				device->ReleaseCommandBuffer(listObject->queueType);
 			}
 		}
 
@@ -223,7 +224,7 @@ namespace azo::rhi::metal
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list allocation failed");
 		}
 
-		listObject->list = NewCmdList(device, queueType);
+		listObject->list = NewCmdList(device);
 		if (listObject->list == nullptr)
 		{
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list allocation failed");
@@ -250,6 +251,11 @@ namespace azo::rhi::metal
 		auto * poolObject = static_cast<MetalObject *>(impl);
 		if (poolObject->pool != nullptr)
 		{
+			for (MetalObject * listObject : poolObject->pool->lists)
+			{
+				ReleaseCmdBuffer(poolObject->owner, listObject->list, listObject->queueType);
+			}
+
 			poolObject->pool->handedOut = 0;
 		}
 

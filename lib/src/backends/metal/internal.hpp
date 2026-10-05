@@ -83,6 +83,16 @@ namespace azo::rhi::metal
 		detail::HostVector<std::uint64_t> debugLabelScopes;
 
 		detail::HostString debugName;
+
+		void EndEncoders() noexcept;
+
+		MetalCmdList() = default;
+		~MetalCmdList();
+
+		MetalCmdList(const MetalCmdList &)			   = delete;
+		MetalCmdList & operator=(const MetalCmdList &) = delete;
+		MetalCmdList(MetalCmdList &&)				   = delete;
+		MetalCmdList & operator=(MetalCmdList &&)	   = delete;
 	};
 
 	struct MetalQueryPool final
@@ -198,6 +208,8 @@ namespace azo::rhi::metal
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
 
+		std::uint32_t mapCount = 0;
+
 		BufferDesc desc{};
 	};
 
@@ -261,6 +273,49 @@ namespace azo::rhi::metal
 		{
 			const detail::HostVector<NS::SharedPtr<MTL::CommandQueue>> & pool = QueuesForType(type);
 			return pool.empty() ? nullptr : pool.front().get();
+		}
+
+		static constexpr std::uint32_t kCommandBuffersPerQueue = 64;
+
+		// Submit and waitIdle commit a command buffer of their own for every wait and signal, so those slots cannot go to open lists.
+		static constexpr std::uint32_t kCommandBufferHeadroom = 8;
+
+		static constexpr std::uint32_t kOpenCommandBufferBudget = kCommandBuffersPerQueue - kCommandBufferHeadroom;
+
+		std::atomic<std::uint32_t> openGraphicsCommandBuffers{ 0 };
+		std::atomic<std::uint32_t> openComputeCommandBuffers{ 0 };
+		std::atomic<std::uint32_t> openCopyCommandBuffers{ 0 };
+
+		[[nodiscard]] std::atomic<std::uint32_t> & OpenCommandBuffersFor(QueueType type) noexcept
+		{
+			switch (type)
+			{
+			case QueueType::eCompute:  return openComputeCommandBuffers;
+			case QueueType::eCopy:	   return openCopyCommandBuffers;
+			case QueueType::eGraphics: break;
+			}
+
+			return openGraphicsCommandBuffers;
+		}
+
+		[[nodiscard]] bool ReserveCommandBuffer(QueueType type) noexcept
+		{
+			std::atomic<std::uint32_t> & open = OpenCommandBuffersFor(type);
+			std::uint32_t held				  = open.load(std::memory_order_relaxed);
+			while (held < kOpenCommandBufferBudget)
+			{
+				if (open.compare_exchange_weak(held, held + 1, std::memory_order_relaxed))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		void ReleaseCommandBuffer(QueueType type) noexcept
+		{
+			OpenCommandBuffersFor(type).fetch_sub(1, std::memory_order_relaxed);
 		}
 
 		std::atomic<std::uint32_t> nextHandleIndex{ 0 };
@@ -374,11 +429,12 @@ namespace azo::rhi::metal
 	[[nodiscard]] Format ResolveTextureFormat(MetalDevice * device, TextureHandle handle) noexcept;
 	[[nodiscard]] MTL::CommandBuffer * CmdBufferOf(MetalObject * object) noexcept;
 	void EndActiveEncoders(MetalObject * object) noexcept;
+	void ReleaseCmdBuffer(MetalDevice * device, MetalCmdList * rec, QueueType queueType) noexcept;
 	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object, Error * error) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::RenderCommandEncoder * encoder) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::ComputeCommandEncoder * encoder) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::BlitCommandEncoder * encoder) noexcept;
-	[[nodiscard]] MetalCmdList * NewCmdList(MetalDevice * device, QueueType queueType);
+	[[nodiscard]] MetalCmdList * NewCmdList(MetalDevice * device);
 	BinarySemaphoreHandle MetalCreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept;
 	bool MetalCmdBegin(void * impl, Error * error) noexcept;
 	bool MetalCmdEnd(void * impl, Error * error) noexcept;
@@ -438,6 +494,7 @@ namespace azo::rhi::metal
 	void * MetalCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
 	void * MetalGetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 	MappedMemory MetalMap(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept;
+	bool MetalUnmap(void * impl, BufferHandle buffer, Error * error) noexcept;
 	bool MetalQueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
 	[[nodiscard]] MetalQueryPool * ResolveQueryPool(MetalDevice * device, QueryPoolHandle handle) noexcept;
 	QueryPoolHandle MetalCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;

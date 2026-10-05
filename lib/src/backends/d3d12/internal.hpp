@@ -83,6 +83,8 @@ namespace azo::rhi::d3d12
 		std::uint64_t size = 0;
 		bool hostVisible   = false;
 
+		std::uint32_t mapCount = 0;
+
 		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT;
 
 		SlotLifetime lifetime = SlotLifetime::eOwned;

@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 #include <vector>
 
@@ -251,6 +252,140 @@ namespace
 
 		EXPECT_EQ(info.size, 0u) << "a failed query left the caller's output untouched";
 		EXPECT_EQ(info.alignment, 0u);
+	}
+
+	TEST_P(BufferTest, RefusesAnUnmapWithNoMapOutstanding)
+	{
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		rhi::Error neverMapped{};
+		EXPECT_FALSE(Dev().Unmap(buffer, neverMapped)) << "a buffer that was never mapped was unmapped";
+		EXPECT_EQ(neverMapped.code, rhi::ErrorCode::eInvalidState);
+
+		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, error);
+		if (mapped.data == nullptr)
+		{
+			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
+		}
+
+		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+
+		rhi::Error twice{};
+		EXPECT_FALSE(Dev().Unmap(buffer, twice)) << "the same mapping was unmapped twice";
+		EXPECT_EQ(twice.code, rhi::ErrorCode::eInvalidState);
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(BufferTest, KeepsANestedMapOpenUntilItsLastUnmap)
+	{
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		const rhi::MappedMemory outer = Dev().Map(buffer, {}, error);
+		if (outer.data == nullptr)
+		{
+			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
+		}
+
+		const rhi::MappedMemory inner = Dev().Map(buffer, {}, error);
+		ASSERT_TRUE(test::Ok(inner.data != nullptr, error)) << "a second map of a mapped buffer was refused";
+		EXPECT_EQ(inner.data, outer.data);
+
+		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+		std::memset(outer.data, 0x5A, static_cast<std::size_t>(test::samples::kBufferSize));
+		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+
+		rhi::Error extra{};
+		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
+		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState);
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(BufferTest, DestroysABufferThatIsStillMapped)
+	{
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, error);
+		if (mapped.data == nullptr)
+		{
+			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
+		}
+		static_cast<void>(Dev().Map(buffer, {}, error));
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(BufferTest, DestroysADeviceThatStillHoldsAMappedBuffer)
+	{
+		test::DeviceHarness harness(CurrentBackend());
+		ASSERT_TRUE(harness.IsValid()) << test::Describe(harness.GetError());
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = harness.Get().CreateBuffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		if (harness.Get().Map(buffer, {}, error).data == nullptr)
+		{
+			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
+		}
+	}
+
+	TEST_P(BufferTest, RefusesAMapItCannotHoldRatherThanAborting)
+	{
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		constexpr std::uint32_t kAttempts = 300;
+		std::uint32_t held				  = 0;
+		rhi::Error refused{};
+		while (held < kAttempts && Dev().Map(buffer, {}, refused).data != nullptr)
+		{
+			++held;
+		}
+		if (held == 0)
+		{
+			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(refused);
+		}
+		if (held < kAttempts)
+		{
+			EXPECT_EQ(refused.code, rhi::ErrorCode::eInvalidState) << test::Describe(refused);
+		}
+
+		for (std::uint32_t i = 0; i < held; ++i)
+		{
+			ASSERT_TRUE(test::Ok(Dev().Unmap(buffer, error), error)) << "unmap " << i << " of " << held;
+		}
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(BufferTest, RefusesAMapRangeWhoseEndWrapsPastTheBuffer)
+	{
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		rhi::Error wrapped{};
+		const rhi::MappedMemory mapped = Dev().Map(buffer, rhi::MapDesc{ .offset = 16, .size = ~std::uint64_t{ 0 } - 8 }, wrapped);
+		EXPECT_EQ(mapped.data, nullptr) << "a map whose offset plus size wraps around was accepted, size " << mapped.size;
+		EXPECT_TRUE(test::ErrorIsPopulated(wrapped));
+		if (mapped.data != nullptr)
+		{
+			static_cast<void>(Dev().Unmap(buffer, error));
+		}
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, KeepsBufferAndTextureHandleDomainsApartAtCompileTime)

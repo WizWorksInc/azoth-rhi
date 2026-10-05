@@ -1820,15 +1820,31 @@ namespace azo::rhi
 				return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
 			}
 
+			if (slot->mapCount == kMaxOutstandingMaps)
+			{
+				return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, "map of a buffer already mapped as many times as it can be at once");
+			}
+
 			void * mapped = nullptr;
 			if (slot->placedMemory != VK_NULL_HANDLE)
 			{
-				if (const vk::Result mapResult =
-						device->device.mapMemory(slot->placedMemory, slot->placedOffset, slot->size, vk::MemoryMapFlags{}, &mapped, device->dispatch);
-					mapResult != vk::Result::eSuccess)
+				HeapSlot * heap = device->heapSlots.Resolve(slot->placedHeap, true);
+				if (heap == nullptr)
 				{
-					return FailNativeValue<MappedMemory>(error, "vkMapMemory failed", mapResult);
+					return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, "map of a placed buffer whose heap was destroyed");
 				}
+
+				if (heap->mapCount == 0)
+				{
+					if (const vk::Result mapResult =
+							device->device.mapMemory(heap->memory, 0, VK_WHOLE_SIZE, vk::MemoryMapFlags{}, &heap->mapped, device->dispatch);
+						mapResult != vk::Result::eSuccess)
+					{
+						return FailNativeValue<MappedMemory>(error, "vkMapMemory failed", mapResult);
+					}
+				}
+				++heap->mapCount;
+				mapped = static_cast<std::uint8_t *>(heap->mapped) + slot->placedOffset;
 			}
 			else if (slot->persistentMapped)
 			{
@@ -1844,6 +1860,7 @@ namespace azo::rhi
 			{
 				return FailNativeValue<MappedMemory>(error, "vmaMapMemory failed", static_cast<vk::Result>(vmaResult));
 			}
+			++slot->mapCount;
 
 			return ReturnValue(
 				MappedMemory{
@@ -1863,14 +1880,13 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eInvalidHandle, "unmap of an invalid buffer handle");
 			}
 
-			if (slot->placedMemory != VK_NULL_HANDLE)
+			if (slot->mapCount == 0)
 			{
-				device->device.unmapMemory(slot->placedMemory, device->dispatch);
+				return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 			}
-			else if (!slot->persistentMapped)
-			{
-				vmaUnmapMemory(device->allocator, slot->allocation);
-			}
+
+			device->ReleaseMaps(*slot, 1);
+			--slot->mapCount;
 			return Succeed(error);
 		}
 
@@ -2141,6 +2157,36 @@ namespace azo::rhi
 			return device->heapSlots.Resolve(handle, kHandleAlreadyChecked);
 		}
 
+		void VulkanDevice::ReleaseMaps(const BufferSlot & slot, const std::uint32_t count) noexcept
+		{
+			if (count == 0 || slot.persistentMapped)
+			{
+				return;
+			}
+
+			if (slot.placedMemory == VK_NULL_HANDLE)
+			{
+				for (std::uint32_t i = 0; i < count; ++i)
+				{
+					vmaUnmapMemory(allocator, slot.allocation);
+				}
+				return;
+			}
+
+			HeapSlot * heap = heapSlots.Resolve(slot.placedHeap, true);
+			if (heap == nullptr)
+			{
+				return;
+			}
+
+			heap->mapCount -= count;
+			if (heap->mapCount == 0)
+			{
+				device.unmapMemory(heap->memory, dispatch);
+				heap->mapped = nullptr;
+			}
+		}
+
 		HeapHandle VulkanCreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createHeap");
@@ -2249,6 +2295,7 @@ namespace azo::rhi
 				.hostVisible														  = heap.hostVisible,
 				.placedMemory														  = heap.memory,
 				.placedOffset														  = desc.offset,
+				.placedHeap															  = desc.heap,
 				.desc																  = detail::Recorded(desc.buffer) });
 			if (!handle.IsValid())
 			{

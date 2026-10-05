@@ -110,6 +110,9 @@ namespace azo::rhi::vulkan
 				return Succeed(error);
 			}
 
+			device->ReleaseMaps(*slot, slot->mapCount);
+			slot->mapCount = 0;
+
 			if (slot->buffer != VK_NULL_HANDLE)
 			{
 				if (!RetireNative(device,

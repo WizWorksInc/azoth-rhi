@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <thread>
 #include <vector>
@@ -406,6 +408,197 @@ namespace
 		EXPECT_TRUE(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().Destroy(target, {}, error), error));
+	}
+
+	TEST_P(CommandTest, BeginsMoreListsThanTheBackendCanHoldWithoutBlockingOnAnyOfThem)
+	{
+		rhi::Error error{};
+		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+
+		rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		constexpr std::size_t kLists = 80;
+
+		std::vector<rhi::CommandList> lists;
+		lists.reserve(kLists);
+
+		const auto started = std::chrono::steady_clock::now();
+
+		std::size_t refusals = 0;
+		for (std::size_t index = 0; index < kLists; ++index)
+		{
+			rhi::Error allocation{};
+			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", allocation);
+			if (!list.IsValid())
+			{
+				EXPECT_TRUE(test::ErrorIsPopulated(allocation)) << "allocation " << index << " failed without saying why";
+				break;
+			}
+
+			lists.push_back(list);
+
+			rhi::Error begun{};
+			if (!lists.back().Begin(begun))
+			{
+				EXPECT_TRUE(test::ErrorIsPopulated(begun)) << "Begin " << index << " was refused without saying why";
+				lists.pop_back();
+				++refusals;
+				break;
+			}
+		}
+
+		const auto elapsed = std::chrono::steady_clock::now() - started;
+		EXPECT_LT(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(), 2000) << "beginning " << lists.size() << " lists waited on something";
+
+		EXPECT_GE(lists.size(), 32u) << "the backend refused far more lists than it has to";
+		EXPECT_GT(lists.size() + refusals, 0u);
+
+		for (rhi::CommandList & list : lists)
+		{
+			static_cast<void>(list.End(error));
+		}
+
+		ASSERT_FALSE(lists.empty());
+
+		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error)) << "waiting the queue out while it still holds every begun list was refused";
+
+		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+
+		std::array<const rhi::CommandList *, 1> submitted{ &lists.back() };
+		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
+
+		EXPECT_TRUE(
+			test::Ok(queue.Submit(rhi::SubmitDesc{ .commandLists = submitted, .signals = signals, .debugName = "azoth.rhi.test.submit" }, error), error))
+			<< "submitting with the queue full of begun lists was refused";
+		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+	}
+
+	TEST_P(CommandTest, RebeginsOneListFarMoreTimesThanTheBackendHoldsWithoutEverSubmittingIt)
+	{
+		rhi::Error error{};
+		rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+
+		for (int round = 0; round < 200; ++round)
+		{
+			ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "Begin was refused on round " << round << ", so a discarded recording never gave its slot back";
+			ASSERT_TRUE(test::Ok(list.End(error), error)) << "End was refused on round " << round;
+		}
+	}
+
+	TEST_P(CommandTest, DestroysADeviceHoldingAListThatPushedConstantsAndNeverEnded)
+	{
+		const test::DeviceHarness local(CurrentBackend(), MakeDeviceDesc());
+		if (!local.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not allow a second device: " << test::Describe(local.GetError());
+		}
+
+		rhi::Error error{};
+		const test::samples::UniformLayout setLayout;
+		const rhi::DescriptorSetLayoutHandle set = local.Get().CreateDescriptorSetLayout(setLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+
+		const test::samples::SimplePipelineLayout pipelineLayout(set);
+		const rhi::PipelineLayoutHandle layout = local.Get().CreatePipelineLayout(pipelineLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+
+		rhi::CommandPool pool = local.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+
+		const std::array<std::uint32_t, 4> constants{ 1, 2, 3, 4 };
+		EXPECT_TRUE(test::Ok(list.PushConstants(layout, rhi::ShaderStage::eAll, 0, sizeof(constants), constants.data(), error), error));
+	}
+
+	TEST_P(CommandTest, BeginsARecycledListThatPushedConstantsAndNeverEnded)
+	{
+		const test::DeviceHarness local(CurrentBackend(), MakeDeviceDesc());
+		if (!local.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not allow a second device: " << test::Describe(local.GetError());
+		}
+
+		rhi::Error error{};
+		const test::samples::UniformLayout setLayout;
+		const rhi::DescriptorSetLayoutHandle set = local.Get().CreateDescriptorSetLayout(setLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+
+		const test::samples::SimplePipelineLayout pipelineLayout(set);
+		const rhi::PipelineLayoutHandle layout = local.Get().CreatePipelineLayout(pipelineLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+
+		rhi::CommandPool pool = local.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+
+		const std::array<std::uint32_t, 4> constants{ 1, 2, 3, 4 };
+		ASSERT_TRUE(test::Ok(list.PushConstants(layout, rhi::ShaderStage::eAll, 0, sizeof(constants), constants.data(), error), error));
+
+		ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{}, error), error));
+
+		rhi::CommandList recycled = pool.Allocate("azoth.rhi.test.listAgain", error);
+		ASSERT_TRUE(test::Ok(recycled.IsValid(), error));
+		EXPECT_TRUE(test::Ok(recycled.Begin(error), error));
+	}
+
+	TEST_P(CommandTest, DestroysADeviceHoldingAListLeftInsideARenderingScope)
+	{
+		const test::DeviceHarness local(CurrentBackend(), MakeDeviceDesc());
+		if (!local.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not allow a second device: " << test::Describe(local.GetError());
+		}
+
+		rhi::Error error{};
+		const rhi::TextureHandle target = local.Get().CreateTexture(test::samples::ColorTarget2D(), error);
+		ASSERT_TRUE(test::Ok(target.IsValid(), error));
+
+		const rhi::TextureViewHandle view = local.Get().CreateTextureView(target, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+
+		const std::array colors{
+			rhi::RenderingAttachment{
+				.view  = view,
+				.state = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
+				.load  = rhi::LoadOp::eClear,
+				.store = rhi::StoreOp::eStore,
+			},
+		};
+		const rhi::BeginRenderingDesc rendering{
+			.colors		  = colors,
+			.depthStencil = nullptr,
+			.x			  = 0,
+			.y			  = 0,
+			.width		  = 64,
+			.height		  = 64,
+			.layers		  = 1,
+		};
+
+		rhi::CommandPool pool = local.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+
+		if (!list.BeginRendering(rendering, error))
+		{
+			GTEST_SKIP() << "this backend refused a dynamic rendering scope: " << test::Describe(error);
+		}
 	}
 
 	TEST_P(CommandTest, ADefaultConstructedPoolAndListAreInert)

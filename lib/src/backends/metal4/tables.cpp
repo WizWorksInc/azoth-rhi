@@ -30,7 +30,7 @@ namespace azo::rhi::metal4
 			.createCommandPool			= &Metal4CreateCommandPool,
 			.getQueue					= &Metal4GetQueue,
 			.map						= &Metal4Map,
-			.unmap						= &NoopVoid,
+			.unmap						= &Metal4Unmap,
 			.flushMappedRange			= &NoopVoid,
 			.invalidateMappedRange		= &NoopVoid,
 			.updateDescriptorsBuffer	= &Metal4UpdateDescriptorsBuffer,

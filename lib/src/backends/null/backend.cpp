@@ -489,6 +489,11 @@ namespace azo::rhi
 			return {};
 		}
 
+		bool NullUnmap([[maybe_unused]] void * impl, [[maybe_unused]] BufferHandle buffer, Error * error) noexcept
+		{
+			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
+		}
+
 		GraphicsApiId NullDeviceApiId([[maybe_unused]] void * impl) noexcept
 		{
 			return NullApi::id;
@@ -1154,7 +1159,7 @@ namespace azo::rhi
 				.createCommandPool			= &NullCreateCommandPool,
 				.getQueue					= &NullGetQueue,
 				.map						= &NullMap,
-				.unmap						= &NoopVoid,
+				.unmap						= &NullUnmap,
 				.flushMappedRange			= &NoopVoid,
 				.invalidateMappedRange		= &NoopVoid,
 				.updateDescriptorsBuffer	= &NoopVoid,

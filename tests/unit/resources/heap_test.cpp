@@ -175,6 +175,52 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
+	TEST_P(HeapTest, MapsTwoPlacedBuffersFromOneHeapAtOnce)
+	{
+		rhi::Error error{};
+		rhi::HeapDesc heapDesc	   = test::samples::GpuHeap();
+		heapDesc.type			   = rhi::HeapType::eCpuUpload;
+		heapDesc.allowTextures	   = false;
+		const rhi::HeapHandle heap = Dev().CreateHeap(heapDesc, error);
+		if (!heap.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not create an upload heap: " << test::Describe(error);
+		}
+
+		constexpr std::uint64_t kSecondOffset = 1u << 16u;
+		rhi::PlacedBufferDesc placed{};
+		placed.buffer				   = test::samples::UploadBuffer();
+		placed.heap					   = heap;
+		const rhi::BufferHandle first  = Dev().CreatePlacedBuffer(placed, error);
+		placed.offset				   = kSecondOffset;
+		const rhi::BufferHandle second = Dev().CreatePlacedBuffer(placed, error);
+		ASSERT_TRUE(test::Ok(first.IsValid() && second.IsValid(), error));
+
+		const rhi::MappedMemory one = Dev().Map(first, {}, error);
+		if (one.data == nullptr)
+		{
+			static_cast<void>(Dev().Destroy(first, {}, error));
+			static_cast<void>(Dev().Destroy(second, {}, error));
+			static_cast<void>(Dev().Destroy(heap, {}, error));
+			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(error);
+		}
+		const rhi::MappedMemory two = Dev().Map(second, {}, error);
+		ASSERT_TRUE(test::Ok(two.data != nullptr, error)) << "a second placed buffer in a mapped heap would not map";
+		EXPECT_NE(one.data, two.data);
+
+		std::memset(one.data, 0x11, static_cast<std::size_t>(test::samples::kBufferSize));
+		std::memset(two.data, 0x22, static_cast<std::size_t>(test::samples::kBufferSize));
+		EXPECT_EQ(*static_cast<const std::uint8_t *>(one.data), 0x11) << "the two placed buffers mapped to overlapping memory";
+
+		EXPECT_TRUE(test::Ok(Dev().Unmap(first, error), error));
+		EXPECT_EQ(*static_cast<const std::uint8_t *>(two.data), 0x22) << "unmapping one placed buffer took the other's mapping with it";
+		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(first, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(second, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+	}
+
 	TEST_P(HeapTest, ClearsTheMappingWhenMapFails)
 	{
 		rhi::Error error{};

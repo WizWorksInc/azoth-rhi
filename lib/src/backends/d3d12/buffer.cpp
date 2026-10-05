@@ -67,7 +67,7 @@ namespace azo::rhi::d3d12
 			size = bufferSize - offset;
 			return true;
 		}
-		return offset + size <= bufferSize;
+		return size <= bufferSize - offset;
 	}
 
 	BufferHandle D3D12CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
@@ -213,6 +213,7 @@ namespace azo::rhi::d3d12
 		{
 			return FailValueNative<MappedMemory>(error, hr, "ID3D12Resource::Map failed");
 		}
+		++slot->mapCount;
 
 		return ReturnValue(
 			MappedMemory{
@@ -231,7 +232,12 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "unmap of an invalid buffer handle");
 		}
+		if (slot->mapCount == 0)
+		{
+			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
+		}
 		slot->resource->Unmap(0, nullptr);
+		--slot->mapCount;
 		return Succeed(error);
 	}
 

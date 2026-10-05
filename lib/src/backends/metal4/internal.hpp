@@ -217,6 +217,8 @@ namespace azo::rhi::metal4
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
 
+		std::uint32_t mapCount = 0;
+
 		BufferDesc desc{};
 	};
 
@@ -491,6 +493,7 @@ namespace azo::rhi::metal4
 	void * Metal4CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
 	void * Metal4GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 	MappedMemory Metal4Map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept;
+	bool Metal4Unmap(void * impl, BufferHandle buffer, Error * error) noexcept;
 	bool Metal4QueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
 	[[nodiscard]] Metal4QueryPool * ResolveQueryPool(Metal4Device * device, QueryPoolHandle handle) noexcept;
 	QueryPoolHandle Metal4CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;

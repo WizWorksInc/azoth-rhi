@@ -88,6 +88,9 @@ namespace azo::rhi::vulkan
 		}
 	};
 
+	// VMA counts an allocation's maps in a byte and asserts past it.
+	inline constexpr std::uint32_t kMaxOutstandingMaps = 0xFF;
+
 	struct BufferSlot final
 	{
 		VkBuffer buffer			 = VK_NULL_HANDLE;
@@ -97,9 +100,11 @@ namespace azo::rhi::vulkan
 		bool hostVisible		 = false;
 
 		bool persistentMapped = false;
+		std::uint32_t mapCount = 0;
 
 		VkDeviceMemory placedMemory = VK_NULL_HANDLE;
 		VkDeviceSize placedOffset	= 0;
+		HeapHandle placedHeap{};
 
 		bool sparse = false;
 
@@ -221,6 +226,9 @@ namespace azo::rhi::vulkan
 		std::uint32_t memoryTypeIndex = 0;
 		bool hostVisible			  = false;
 		bool coherent				  = false;
+
+		std::uint32_t mapCount = 0;
+		void * mapped		   = nullptr;
 
 		Flags<ExternalHandleType> exportableHandleTypes;
 	};
@@ -659,6 +667,8 @@ namespace azo::rhi::vulkan
 				});
 		}
 
+		void ReleaseMaps(const BufferSlot & slot, std::uint32_t count) noexcept;
+
 		void DestroyBuffers()
 		{
 			bufferSlots.ForEachLive(
@@ -666,6 +676,7 @@ namespace azo::rhi::vulkan
 				{
 					if (slot.buffer != VK_NULL_HANDLE && slot.lifetime == SlotLifetime::eOwned)
 					{
+						ReleaseMaps(slot, slot.mapCount);
 						vmaDestroyBuffer(allocator, slot.buffer, slot.allocation);
 					}
 				});

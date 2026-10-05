@@ -248,7 +248,7 @@ namespace azo::rhi::metal
 		{
 			for (std::uint32_t i = 0; i < count; ++i)
 			{
-				NS::SharedPtr<MTL::CommandQueue> commandQueue = NS::TransferPtr(mtl->newCommandQueue());
+				NS::SharedPtr<MTL::CommandQueue> commandQueue = NS::TransferPtr(mtl->newCommandQueue(MetalDevice::kCommandBuffersPerQueue));
 				if (commandQueue.get() == nullptr)
 				{
 					return false;
