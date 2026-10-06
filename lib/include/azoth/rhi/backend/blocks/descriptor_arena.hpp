@@ -23,4 +23,4 @@ namespace azo::rhi
 		bool (*reset)(void * impl, RetirePoint safeAfter, Error * error) noexcept = nullptr;
 	};
 
-}
+} // namespace azo::rhi

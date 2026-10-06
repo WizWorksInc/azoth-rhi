@@ -147,22 +147,26 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	bool VulkanCommandPoolReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
+	bool VulkanCommandPoolReset(void * impl, RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.commandPool.reset");
 		auto * commandPool = static_cast<VulkanCommandPool *>(impl);
 
+		const std::array retirePoint{ TimelinePoint{ .timeline = safeAfter.timeline, .value = safeAfter.value } };
+		// The caller names safeAfter as the point this pool's work is done, so once it is reached a lagging backend signal does not block the reset.
+		const bool callerProvedIdle = safeAfter.value != 0 && CallerSignalReached(commandPool->owner, retirePoint);
+
 		// VUID-vkResetCommandPool-commandPool-00040: no buffer allocated from the pool may be pending, and a retired one still counts as allocated.
 		for (const VulkanCommandList * list : commandPool->lists)
 		{
-			if (ListStillRunning(list))
+			if (!callerProvedIdle && ListStillRunning(list))
 			{
 				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
 			}
 		}
 		for (const RetiredCommandBuffer & entry : commandPool->retired)
 		{
-			if (SubmissionStillRunning(commandPool->owner, entry.submitTimeline, entry.submitValue))
+			if (!callerProvedIdle && SubmissionStillRunning(commandPool->owner, entry.submitTimeline, entry.submitValue, entry.callerSignals))
 			{
 				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
 			}
@@ -185,6 +189,7 @@ namespace azo::rhi::vulkan
 			list->lifecycle		 = ListLifecycle::eFresh;
 			list->submitTimeline = kNoSubmitTimeline;
 			list->submitValue	 = 0;
+			list->callerSignals.clear();
 		}
 
 		if (const vk::Result reset = commandPool->owner->device.resetCommandPool(commandPool->pool, {}, commandPool->owner->dispatch);
@@ -223,11 +228,12 @@ namespace azo::rhi::vulkan
 			entry.submitTimeline = list->submitTimeline;
 			entry.submitValue	 = list->submitValue;
 
-			if (!detail::TryPushBack(pool->retired, entry))
+			if (!detail::TryPushBack(pool->retired, std::move(entry)))
 			{
 				device->device.freeCommandBuffers(pool->pool, 1, &replacement, device->dispatch);
 				return Fail(error, ErrorCode::eOutOfHostMemory, "could not park a command buffer that is still executing");
 			}
+			pool->retired.back().callerSignals = std::move(list->callerSignals);
 		}
 		else
 		{
@@ -266,6 +272,7 @@ namespace azo::rhi::vulkan
 		list->lifecycle		 = ListLifecycle::eRecording;
 		list->submitTimeline = kNoSubmitTimeline;
 		list->submitValue	 = 0;
+		list->callerSignals.clear();
 		return Succeed(error);
 	}
 

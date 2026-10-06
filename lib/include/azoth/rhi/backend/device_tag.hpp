@@ -72,4 +72,4 @@ namespace azo::rhi::detail
 		static DeviceTagPool pool;
 		return pool;
 	}
-}
+} // namespace azo::rhi

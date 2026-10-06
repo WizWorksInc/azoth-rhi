@@ -1443,6 +1443,13 @@ namespace azo::rhi::validation
 			return state.use.Bits();
 		}
 
+		constexpr std::uint32_t kUnknownState = std::numeric_limits<std::uint32_t>::max();
+
+		[[nodiscard]] bool StatesAgree(const std::uint32_t tracked, const std::uint32_t wanted) noexcept
+		{
+			return tracked == wanted || tracked == kUnknownState;
+		}
+
 		[[nodiscard]] RegisteredHandle TrackedResource(const ResourceType type, const std::uint32_t index, const std::uint32_t generation) noexcept
 		{
 			return RegisteredHandle{
@@ -1821,7 +1828,7 @@ namespace azo::rhi::validation
 				{
 					for (const TrackedSubrange & earlier : staged)
 					{
-						if (Overlaps(arrival, earlier) && arrival.state != earlier.state)
+						if (Overlaps(arrival, earlier) && !StatesAgree(earlier.state, arrival.state))
 						{
 							return validator.Fail(error, "a submitted barrier claims a before-state an earlier command list did not leave");
 						}
@@ -2076,7 +2083,7 @@ namespace azo::rhi::validation
 					continue;
 				}
 
-				if (!discard && tracked.state != wanted)
+				if (!discard && !StatesAgree(tracked.state, wanted))
 				{
 					return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
 				}
@@ -2240,12 +2247,12 @@ namespace azo::rhi::validation
 		}
 
 		void ReconcileNativeMutation(WrappedCommandList * self, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const TrackedSubrange & span, const ResourceState & finalState) noexcept
+			const TrackedSubrange & span, const ResourceState & finalState, const bool finalStateUnknown) noexcept
 		{
 			TrackedSubrange written = span;
 			written.resource		= TrackedResource(type, index, generation);
 
-			if (!Retrack(self, written, PackState(finalState)))
+			if (!Retrack(self, written, finalStateUnknown ? kUnknownState : PackState(finalState)))
 			{
 				Forget(self, written.resource);
 			}
@@ -2255,7 +2262,7 @@ namespace azo::rhi::validation
 				return;
 			}
 
-			if (!CoversWholeResource(written, ExtentsOf(self, type, index, generation)))
+			if (finalStateUnknown || !CoversWholeResource(written, ExtentsOf(self, type, index, generation)))
 			{
 				SetPendingArrival(self, written.resource, 0, false);
 				return;
@@ -2280,7 +2287,8 @@ namespace azo::rhi::validation
 					if (touched.access == NativeMutationAccess::eReadWrite)
 					{
 						const TrackedSubrange span = WholeResourceSpan(ExtentsOf(self, ResourceType::eBuffer, touched.buffer.index, touched.buffer.generation));
-						ReconcileNativeMutation(self, ResourceType::eBuffer, touched.buffer.index, touched.buffer.generation, span, touched.finalState);
+						ReconcileNativeMutation(
+							self, ResourceType::eBuffer, touched.buffer.index, touched.buffer.generation, span, touched.finalState, touched.finalStateUnknown);
 					}
 				}
 
@@ -2290,7 +2298,13 @@ namespace azo::rhi::validation
 					{
 						const TrackedSubrange span =
 							TextureSpan(touched.range, ExtentsOf(self, ResourceType::eTexture, touched.texture.index, touched.texture.generation));
-						ReconcileNativeMutation(self, ResourceType::eTexture, touched.texture.index, touched.texture.generation, span, touched.finalState);
+						ReconcileNativeMutation(self,
+							ResourceType::eTexture,
+							touched.texture.index,
+							touched.texture.generation,
+							span,
+							touched.finalState,
+							touched.finalStateUnknown);
 					}
 				}
 			}

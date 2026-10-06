@@ -44,4 +44,4 @@ namespace azo::rhi
 		bool (*bindSparse)(void * impl, const SparseBindDesc & desc, Error * error) noexcept = nullptr;
 	};
 
-}
+} // namespace azo::rhi

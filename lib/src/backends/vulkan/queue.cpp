@@ -75,7 +75,29 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	bool SubmissionStillRunning(VulkanDevice * device, const std::uint32_t submitTimeline, const std::uint64_t submitValue) noexcept
+	bool CallerSignalReached(VulkanDevice * device, const std::span<const TimelinePoint> callerSignals) noexcept
+	{
+		for (const TimelinePoint & signal : callerSignals)
+		{
+			// Validate just in case the caller possibly destroyed the timeline since the submit.
+			const TimelineSlot * slot = device->timelineSlots.Resolve(signal.timeline, true);
+			if (slot == nullptr)
+			{
+				continue;
+			}
+
+			const auto reached = device->device.getSemaphoreCounterValue(slot->semaphore, device->dispatch);
+			if (reached.result == vk::Result::eSuccess && reached.value >= signal.value)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool SubmissionStillRunning(
+		VulkanDevice * device, const std::uint32_t submitTimeline, const std::uint64_t submitValue, const std::span<const TimelinePoint> callerSignals) noexcept
 	{
 		if (submitTimeline == kNoSubmitTimeline || submitValue == 0 || submitTimeline >= device->submitTimelines.size())
 		{
@@ -89,7 +111,8 @@ namespace azo::rhi::vulkan
 			return true;
 		}
 
-		return reached.value < submitValue;
+		// Per vkQueueSubmit2 every signal in a batch covers all its commands, and none is ordered before another, so the caller's may land first.
+		return reached.value < submitValue && !CallerSignalReached(device, callerSignals);
 	}
 
 	bool ListStillRunning(const VulkanCommandList * list) noexcept
@@ -99,7 +122,7 @@ namespace azo::rhi::vulkan
 			return false;
 		}
 
-		return SubmissionStillRunning(list->owner, list->submitTimeline, list->submitValue);
+		return SubmissionStillRunning(list->owner, list->submitTimeline, list->submitValue, list->callerSignals);
 	}
 
 	void SweepRetiredCommandBuffers(VulkanCommandPool * pool) noexcept
@@ -113,10 +136,14 @@ namespace azo::rhi::vulkan
 		std::size_t kept	  = 0;
 		for (std::size_t at = 0; at < pool->retired.size(); ++at)
 		{
-			const RetiredCommandBuffer & entry = pool->retired[at];
-			if (SubmissionStillRunning(device, entry.submitTimeline, entry.submitValue))
+			RetiredCommandBuffer & entry = pool->retired[at];
+			if (SubmissionStillRunning(device, entry.submitTimeline, entry.submitValue, entry.callerSignals))
 			{
-				pool->retired[kept] = entry;
+				if (kept != at)
+				{
+					pool->retired[kept] = std::move(entry);
+				}
+
 				++kept;
 				continue;
 			}
@@ -437,6 +464,12 @@ namespace azo::rhi::vulkan
 			record->lifecycle	   = ListLifecycle::eSubmitted;
 			record->submitTimeline = queue->submitTimeline;
 			record->submitValue	   = submittedAt;
+
+			record->callerSignals.clear();
+			if (detail::TryReserve(record->callerSignals, desc.signals.size()))
+			{
+				record->callerSignals.assign(desc.signals.begin(), desc.signals.end());
+			}
 		}
 
 		tracked.submitted.store(submittedAt, std::memory_order_release);

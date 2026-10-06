@@ -362,7 +362,9 @@ namespace azo::rhi::d3d12
 
 		const std::uint64_t allocated = slot->allocation != nullptr ? slot->allocation->GetSize() : 0;
 
-		const MemoryAccess access = slot->hostVisible ? MemoryAccess::eCpuVisibleCoherent : MemoryAccess::eGpuOnly;
+		const MemoryAccess access = !slot->hostVisible					   ? MemoryAccess::eGpuOnly
+									: HostReadsAreCoherent(slot->heapType) ? MemoryAccess::eCpuVisibleCoherent
+																		   : MemoryAccess::eCpuVisible;
 
 		*out = BufferInfo{ .desc = slot->desc, .allocationSize = allocated, .memoryAccess = access };
 		return true;

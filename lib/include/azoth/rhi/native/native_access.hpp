@@ -31,6 +31,7 @@ namespace azo::rhi
 	{
 		BufferHandle buffer{};
 		NativeMutationAccess access = NativeMutationAccess::eReadOnly;
+		bool finalStateUnknown		= false;
 		ResourceState finalState{};
 	};
 
@@ -38,6 +39,7 @@ namespace azo::rhi
 	{
 		TextureHandle texture{};
 		NativeMutationAccess access = NativeMutationAccess::eReadOnly;
+		bool finalStateUnknown		= false;
 		TextureSubresourceRange range{};
 		ResourceState finalState{};
 	};

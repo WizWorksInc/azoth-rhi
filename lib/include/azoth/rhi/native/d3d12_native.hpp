@@ -72,9 +72,10 @@ namespace azo::rhi
 
 	[[nodiscard]] AZO_RHI_API Result<D3D12NativeSwapchain> GetD3D12NativeSwapchain(Swapchain swapchain);
 
+	// Begin over a list whose submission is still running swaps in a fresh native list and allocator, so fetch these after Begin.
 	[[nodiscard]] AZO_RHI_API ID3D12GraphicsCommandList * GetD3D12CommandList(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandPool commandPool);
+	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandList commandList);
 
 	template <>
 	struct NativeTimeline<D3D12Api> final

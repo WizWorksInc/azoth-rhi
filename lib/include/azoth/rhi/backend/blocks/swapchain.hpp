@@ -44,4 +44,4 @@ namespace azo::rhi
 		bool (*supportsReadback)(void * impl) noexcept = nullptr;
 	};
 
-}
+} // namespace azo::rhi

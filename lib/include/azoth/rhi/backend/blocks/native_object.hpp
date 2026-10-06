@@ -21,4 +21,4 @@ namespace azo::rhi
 		void * (*inner)(void * impl) noexcept = nullptr;
 	};
 
-}
+} // namespace azo::rhi

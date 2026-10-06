@@ -319,18 +319,34 @@ namespace azo::rhi::d3d12
 
 	struct D3D12CommandList;
 
+	// A list and allocator that Begin replaced while their submission was still running, kept with what it references until the fence passes.
+	struct RetiredCommandRecording final
+	{
+		ComPtr<ID3D12CommandAllocator> allocator;
+		ComPtr<ID3D12GraphicsCommandList> list;
+		ComPtr<ID3D12DescriptorHeap> clearGpuHeap;
+		ComPtr<ID3D12DescriptorHeap> clearStagingHeap;
+		detail::HostVector<ComPtr<ID3D12DescriptorHeap>> clearHeaps;
+		detail::HostVector<ComPtr<ID3D12Resource>> copyScratch;
+		detail::HostVector<ComPtr<D3D12MA::Allocation>> copyAllocs;
+		ID3D12Fence * submitFence = nullptr;
+		std::uint64_t submitValue = 0;
+	};
+
 	struct D3D12CommandPool final
 	{
 		const BackendObject * object = nullptr;
 		D3D12Device * owner			 = nullptr;
-		ComPtr<ID3D12CommandAllocator> allocator;
 		D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 		QueueType queueType			 = QueueType::eGraphics;
+		bool resetsIndividualLists	 = false;
 
 		detail::HostVector<CommandSignatureEntry> commandSignatures;
 
 		detail::HostVector<D3D12CommandList *> lists;
 		std::size_t handedOut = 0;
+
+		detail::HostVector<RetiredCommandRecording> retired;
 	};
 
 	struct D3D12CommandList final
@@ -339,10 +355,10 @@ namespace azo::rhi::d3d12
 		D3D12Device * owner			 = nullptr;
 		ComPtr<ID3D12GraphicsCommandList> list;
 		ComPtr<ID3D12GraphicsCommandList7> list7;
-		ID3D12CommandAllocator * allocator = nullptr;
-		D3D12CommandPool * pool			   = nullptr;
-		D3D12_COMMAND_LIST_TYPE type	   = D3D12_COMMAND_LIST_TYPE_DIRECT;
-		QueueType queueType				   = QueueType::eGraphics;
+		ComPtr<ID3D12CommandAllocator> allocator;
+		D3D12CommandPool * pool		 = nullptr;
+		D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+		QueueType queueType			 = QueueType::eGraphics;
 
 		ListLifecycle lifecycle = ListLifecycle::eFresh;
 
@@ -680,6 +696,13 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12BackendOwner & Owner();
 	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept;
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapType(MemoryUsage memory, bool & hostVisible) noexcept;
+
+	// Only Map invalidates the CPU cache, so a pointer held across GPU writes needs InvalidateMappedRange.
+	[[nodiscard]] constexpr bool HostReadsAreCoherent(const D3D12_HEAP_TYPE heap) noexcept
+	{
+		return heap != D3D12_HEAP_TYPE_READBACK;
+	}
+
 	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] bool BoundBufferRange(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
@@ -688,8 +711,7 @@ namespace azo::rhi::d3d12
 	bool D3D12Unmap(void * impl, BufferHandle handle, Error * error) noexcept;
 	bool D3D12FlushMappedRange(
 		void * impl, BufferHandle handle, [[maybe_unused]] std::uint64_t offset, [[maybe_unused]] std::uint64_t size, Error * error) noexcept;
-	bool D3D12InvalidateMappedRange(
-		void * impl, BufferHandle handle, [[maybe_unused]] std::uint64_t offset, [[maybe_unused]] std::uint64_t size, Error * error) noexcept;
+	bool D3D12InvalidateMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
 	bool D3D12GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
 	bool D3D12DestroyBuffer(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	[[nodiscard]] DXGI_FORMAT MapFormat(Format format) noexcept;
@@ -817,6 +839,7 @@ namespace azo::rhi::d3d12
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, bool validate, Error * error) noexcept;
 	bool D3D12QueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 	bool D3D12QueueWaitIdle(void * impl, Error * error) noexcept;
+	[[nodiscard]] bool SubmissionStillRunning(ID3D12Fence * fence, std::uint64_t value) noexcept;
 	[[nodiscard]] bool ListStillRunning(const D3D12CommandList & record) noexcept;
 	bool D3D12QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
 	bool D3D12QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;

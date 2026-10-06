@@ -22,9 +22,9 @@
 
 namespace azo::rhi::validation
 {
-	[[nodiscard]] void * WrapDevice(void * deviceImpl, ValidationMode mode) noexcept;
+	[[nodiscard]] void * wrap_device(void * deviceImpl, ValidationMode mode) noexcept;
 
-}
+} // namespace azo::rhi::validation
 
 namespace azo::rhi::detail
 {
@@ -497,7 +497,7 @@ namespace azo::rhi::detail
 	};
 
 	template <typename Block>
-	[[nodiscard]] std::size_t DeclaredEntryCount(const Block & block) noexcept
+	[[nodiscard]] std::size_t declared_entry_count(const Block & block) noexcept
 	{
 		constexpr std::size_t known = BlockEntries<Block>::kNames.size();
 
@@ -511,9 +511,9 @@ namespace azo::rhi::detail
 	}
 
 	template <typename Block>
-	[[nodiscard]] std::size_t FirstMissingEntry(const Block & block) noexcept
+	[[nodiscard]] std::size_t first_missing_entry(const Block & block) noexcept
 	{
-		const std::size_t count = DeclaredEntryCount(block);
+		const std::size_t count = declared_entry_count(block);
 
 		const auto * words = reinterpret_cast<const std::byte *>(&block) + sizeof(InterfaceHeader); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		for (std::size_t index = 0; index < count; ++index)
@@ -534,7 +534,7 @@ namespace azo::rhi::detail
 	{
 		constexpr std::size_t known = BlockEntries<Block>::kNames.size();
 
-		const std::size_t missing = FirstMissingEntry(*block);
+		const std::size_t missing = first_missing_entry(*block);
 		if (missing == known)
 		{
 			return true;
@@ -615,7 +615,7 @@ namespace azo::rhi::detail
 			return nullptr;
 		}
 
-		deviceImpl = validation::WrapDevice(deviceImpl, desc.validation);
+		deviceImpl = validation::wrap_device(deviceImpl, desc.validation);
 
 		HostUniquePtr<BackendBlockSet> blocks = HostNew<BackendBlockSet>(deviceImpl, desc);
 		if (blocks == nullptr)

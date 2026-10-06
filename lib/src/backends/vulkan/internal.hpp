@@ -353,6 +353,7 @@ namespace azo::rhi::vulkan
 		vk::CommandBuffer buffer;
 		std::uint32_t submitTimeline = kNoSubmitTimeline;
 		std::uint64_t submitValue	 = 0;
+		detail::HostVector<TimelinePoint> callerSignals;
 	};
 
 	struct VulkanCommandPool final
@@ -388,6 +389,8 @@ namespace azo::rhi::vulkan
 		// Plain like lifecycle beside them: the threading model gives one list per thread, so moving one between threads is a caller hand-off.
 		std::uint32_t submitTimeline = kNoSubmitTimeline;
 		std::uint64_t submitValue	 = 0;
+		// The submit's own timeline signals, since a caller who waited on one may reuse the list before submitValue is reached.
+		detail::HostVector<TimelinePoint> callerSignals;
 
 		vk::QueryPool pendingEndTimestamp;
 		std::uint32_t pendingEndTimestampQuery = 0;
@@ -1298,7 +1301,9 @@ namespace azo::rhi::vulkan
 	bool VulkanQueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
 	[[nodiscard]] std::uint32_t AcquireSubmitTimeline(VulkanDevice * device, QueueType type, std::uint32_t index) noexcept;
 	[[nodiscard]] bool BuildSubmitTimelines(VulkanDevice * device, Error * error) noexcept;
-	[[nodiscard]] bool SubmissionStillRunning(VulkanDevice * device, std::uint32_t submitTimeline, std::uint64_t submitValue) noexcept;
+	[[nodiscard]] bool CallerSignalReached(VulkanDevice * device, std::span<const TimelinePoint> callerSignals) noexcept;
+	[[nodiscard]] bool SubmissionStillRunning(
+		VulkanDevice * device, std::uint32_t submitTimeline, std::uint64_t submitValue, std::span<const TimelinePoint> callerSignals) noexcept;
 	[[nodiscard]] bool ListStillRunning(const VulkanCommandList * list) noexcept;
 	void SweepRetiredCommandBuffers(VulkanCommandPool * pool) noexcept;
 	bool VulkanQueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;

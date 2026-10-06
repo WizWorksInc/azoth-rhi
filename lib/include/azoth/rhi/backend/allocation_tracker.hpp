@@ -54,4 +54,4 @@ namespace azo::rhi::detail
 		std::array<DeviceRecords, kResourceTypeCount> m_records;
 	};
 
-}
+} // namespace azo::rhi

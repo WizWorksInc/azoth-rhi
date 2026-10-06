@@ -13,7 +13,6 @@
 
 namespace azo::rhi
 {
-
 	struct CommandPoolApi final
 	{
 		InterfaceHeader header{ .byteSize = sizeof(CommandPoolApi), .version = 1 };
@@ -22,5 +21,4 @@ namespace azo::rhi
 
 		bool (*reset)(void * impl, RetirePoint safeAfter, Error * error) noexcept = nullptr;
 	};
-
-}
+} // namespace azo::rhi

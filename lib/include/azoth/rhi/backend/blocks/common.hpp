@@ -22,4 +22,4 @@
 namespace azo::rhi
 {
 
-}
+} // namespace azo::rhi

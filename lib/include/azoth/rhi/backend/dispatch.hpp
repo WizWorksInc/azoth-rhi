@@ -467,7 +467,7 @@ namespace azo::rhi
 		}
 
 		template <typename Block>
-		[[nodiscard]] inline const Block * QueryBlock(void * impl) noexcept
+		[[nodiscard]] const Block * QueryBlock(void * impl) noexcept
 		{
 			const BackendObject * object = ObjectOf(impl);
 			if (object == nullptr || object->queryInterface == nullptr)
@@ -509,13 +509,13 @@ namespace azo::rhi
 		}
 
 		template <typename Block>
-		[[nodiscard]] inline void * NativeImplOf(void * impl, const Block & expected) noexcept
+		[[nodiscard]] void * NativeImplOf(void * impl, const Block & expected) noexcept
 		{
 			void * native = NativeImplOf(impl);
 			return native != nullptr && QueryBlock<Block>(native) == &expected ? native : nullptr;
 		}
 
-	}
+	} // namespace detail
 
 	class BackendBlockSet final
 	{
@@ -699,15 +699,17 @@ namespace azo::rhi
 			m_caps.supportsMultiPlanarFormats		 = m_caps.supportsMultiPlanarFormats && declared(DeviceFeature::eMultiPlanarFormats);
 			m_caps.supportsSamplerYcbcrConversion	 = m_caps.supportsSamplerYcbcrConversion && declared(DeviceFeature::eSamplerYcbcrConversion);
 
-			SparseTier granted = SparseTier::eNone;
+			auto granted = SparseTier::eNone;
 			if (declared(DeviceFeature::eSparseResources) || declared(DeviceFeature::eSparseBuffers))
 			{
 				granted = SparseTier::eBuffers;
 			}
+
 			if (declared(DeviceFeature::eSparseTextures))
 			{
 				granted = SparseTier::eResidentTextures;
 			}
+
 			if (declared(DeviceFeature::eSparseVolumes))
 			{
 				granted = SparseTier::eResidentVolumes;
@@ -883,11 +885,11 @@ namespace azo::rhi
 		};
 
 		template <class Facade>
-		[[nodiscard]] inline void * UnwrappedImplOf(const Facade & facade) noexcept
+		[[nodiscard]] void * UnwrappedImplOf(const Facade & facade) noexcept
 		{
 			return FacadeBuilder::ImplOf(facade);
 		}
 
-	}
+	} // namespace detail
 
-}
+} // namespace azo::rhi

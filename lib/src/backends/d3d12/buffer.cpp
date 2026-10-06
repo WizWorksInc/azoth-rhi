@@ -212,8 +212,12 @@ namespace azo::rhi::d3d12
 			return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
 		}
 
+		const D3D12_RANGE readRange = desc.mode == MapMode::eWrite
+										  ? D3D12_RANGE{ .Begin = 0, .End = 0 }
+										  : D3D12_RANGE{ .Begin = static_cast<SIZE_T>(desc.offset), .End = static_cast<SIZE_T>(desc.offset + mapSize) };
+
 		void * mapped	 = nullptr;
-		const HRESULT hr = slot->resource->Map(0, nullptr, &mapped);
+		const HRESULT hr = slot->resource->Map(0, &readRange, &mapped);
 		if (FAILED(hr))
 		{
 			static_cast<void>(slot->mapCount.TryRelease());
@@ -224,7 +228,7 @@ namespace azo::rhi::d3d12
 			MappedMemory{
 				.data	  = static_cast<std::uint8_t *>(mapped) + desc.offset,
 				.size	  = mapSize,
-				.coherent = true,
+				.coherent = HostReadsAreCoherent(slot->heapType),
 			},
 			error);
 	}
@@ -252,11 +256,37 @@ namespace azo::rhi::d3d12
 		return ResolveBuffer(device, handle) != nullptr ? Succeed(error) : Fail(error, ErrorCode::eInvalidHandle, "flush of an invalid buffer handle");
 	}
 
-	bool D3D12InvalidateMappedRange(
-		void * impl, BufferHandle handle, [[maybe_unused]] std::uint64_t offset, [[maybe_unused]] std::uint64_t size, Error * error) noexcept
+	bool D3D12InvalidateMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept
 	{
-		auto * device = static_cast<D3D12Device *>(impl);
-		return ResolveBuffer(device, handle) != nullptr ? Succeed(error) : Fail(error, ErrorCode::eInvalidHandle, "invalidate of an invalid buffer handle");
+		auto * device	  = static_cast<D3D12Device *>(impl);
+		BufferSlot * slot = ResolveBuffer(device, handle);
+		if (slot == nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidHandle, "invalidate of an invalid buffer handle");
+		}
+
+		std::uint64_t bounded = size;
+		if (!BoundBufferRange(slot->size, offset, bounded))
+		{
+			return Fail(error, ErrorCode::eInvalidArgument, "invalidate range is outside the buffer");
+		}
+
+		if (!slot->hostVisible || HostReadsAreCoherent(slot->heapType))
+		{
+			return Succeed(error);
+		}
+
+		const D3D12_RANGE readRange{ .Begin = static_cast<SIZE_T>(offset), .End = static_cast<SIZE_T>(offset + bounded) };
+		void * mapped	 = nullptr;
+		const HRESULT hr = slot->resource->Map(0, &readRange, &mapped);
+		if (FAILED(hr))
+		{
+			return FailNative(error, hr, "ID3D12Resource::Map failed while invalidating a mapped range");
+		}
+
+		const D3D12_RANGE nothingWritten{ .Begin = 0, .End = 0 };
+		slot->resource->Unmap(0, &nothingWritten);
+		return Succeed(error);
 	}
 
 	bool D3D12GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept

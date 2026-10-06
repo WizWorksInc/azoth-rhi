@@ -37,4 +37,4 @@ namespace azo::rhi
 		bool (*queryExternalHandleSupport)(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept = nullptr;
 	};
 
-}
+} // namespace azo::rhi

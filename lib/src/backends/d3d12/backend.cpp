@@ -120,9 +120,10 @@ namespace azo::rhi
 		return impl != nullptr ? impl->list.Get() : nullptr;
 	}
 
-	ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandPool commandPool)
+	ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandList commandList)
 	{
-		const auto * impl = static_cast<d3d12::D3D12CommandPool *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandPool), d3d12::CommandPoolBlock()));
+		const auto * impl =
+			static_cast<d3d12::D3D12CommandList *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandList), d3d12::RenderCommandBlock()));
 		return impl != nullptr ? impl->allocator.Get() : nullptr;
 	}
 

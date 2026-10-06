@@ -14,19 +14,19 @@
 namespace azo::rhi::d3d12
 {
 	// Matches vulkan's rule that an unknown completion counts as running, so both backends reporting resubmit agree on the unsafe case.
-	bool ListStillRunning(const D3D12CommandList & record) noexcept
+	bool SubmissionStillRunning(ID3D12Fence * fence, std::uint64_t value) noexcept
 	{
-		if (record.lifecycle != ListLifecycle::eSubmitted)
-		{
-			return false;
-		}
-
-		if (record.submitFence == nullptr || record.submitValue == 0)
+		if (fence == nullptr || value == 0)
 		{
 			return true;
 		}
 
-		return record.submitFence->GetCompletedValue() < record.submitValue;
+		return fence->GetCompletedValue() < value;
+	}
+
+	bool ListStillRunning(const D3D12CommandList & record) noexcept
+	{
+		return record.lifecycle == ListLifecycle::eSubmitted && SubmissionStillRunning(record.submitFence, record.submitValue);
 	}
 
 	bool D3D12QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
