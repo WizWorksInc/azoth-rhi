@@ -414,15 +414,20 @@ namespace
 			const std::thread::id acquiredOn = std::this_thread::get_id();
 
 			std::thread::id releasedOn{};
+			int heldWhereReleased = 0;
 			std::thread mover(
 				[&]
 				{
 					releasedOn = std::this_thread::get_id();
 					guard.unlock();
+					heldWhereReleased = rhi::detail::GuardsHeld();
 				});
 			mover.join();
 
 			EXPECT_NE(releasedOn, acquiredOn) << "the release did not actually happen on another thread, so nothing migrated";
+			EXPECT_EQ(rhi::detail::GuardsHeld(), 0)
+				<< "the acquiring thread still counts a guard that was released elsewhere, so its next allocator call traps";
+			EXPECT_EQ(heldWhereReleased, 0) << "the releasing thread counts a guard it never took";
 			EXPECT_EQ(migrating.held.load(std::memory_order_relaxed), 0u) << "the guard did not come back after a cross-thread release";
 
 			std::atomic<bool> retaken{ false };
@@ -460,6 +465,8 @@ namespace
 					guard.unlock();
 				});
 			mover.join();
+
+			EXPECT_EQ(rhi::detail::GuardsHeld(), 0) << "the acquiring thread still counts a guard that was released elsewhere";
 
 			EXPECT_EQ(affine.affinityViolations.load(std::memory_order_relaxed), 1u)
 				<< "a host whose release only works on the acquiring thread went unnoticed, which is the mistake this rules out";

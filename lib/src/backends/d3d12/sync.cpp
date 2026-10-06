@@ -244,7 +244,23 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.commandPool.reset");
 
-		auto * pool		 = static_cast<D3D12CommandPool *>(impl);
+		auto * pool = static_cast<D3D12CommandPool *>(impl);
+
+		// Resetting an allocator whose lists are still executing is the caller's to avoid per the ID3D12CommandAllocator::Reset docs, so refuse it here.
+		for (const D3D12CommandList * list : pool->lists)
+		{
+			if (ListStillRunning(*list))
+			{
+				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
+			}
+		}
+
+		// Marked before the native reset rather than after, so a reset that fails cannot leave a list looking submittable.
+		for (D3D12CommandList * list : pool->lists)
+		{
+			list->lifecycle = ListLifecycle::eFresh;
+		}
+
 		const HRESULT hr = pool->allocator->Reset();
 		if (FAILED(hr))
 		{
@@ -288,6 +304,9 @@ namespace azo::rhi::d3d12
 		list->boundSamplerHeap	   = nullptr;
 		list->computePipelineBound = false;
 		list->pendingSets		   = {};
+
+		// Reset on the list discards whatever it held, so a prior recording is already gone here.
+		list->lifecycle = ListLifecycle::eRecording;
 		return Succeed(error);
 	}
 
@@ -299,6 +318,8 @@ namespace azo::rhi::d3d12
 		{
 			return FailNative(error, hr, "ID3D12GraphicsCommandList::Close failed");
 		}
+
+		list->lifecycle = ListLifecycle::eEnded;
 		return Succeed(error);
 	}
 

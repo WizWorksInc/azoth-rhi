@@ -13,12 +13,44 @@
 
 namespace azo::rhi::d3d12
 {
+	// Matches vulkan's rule that an unknown completion counts as running, so both backends reporting resubmit agree on the unsafe case.
+	bool ListStillRunning(const D3D12CommandList & record) noexcept
+	{
+		if (record.lifecycle != ListLifecycle::eSubmitted)
+		{
+			return false;
+		}
+
+		if (record.submitFence == nullptr || record.submitValue == 0)
+		{
+			return true;
+		}
+
+		return record.submitFence->GetCompletedValue() < record.submitValue;
+	}
+
 	bool D3D12QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.submit");
 
 		auto * queue		 = static_cast<D3D12Queue *>(impl);
 		D3D12Device * device = queue->owner;
+
+		if (const char * refusal = SubmitRefusalForLists(
+				desc.commandLists,
+				device->caps.supportsCommandListResubmit,
+				[](const CommandList & list)
+				{
+					return static_cast<const D3D12CommandList *>(detail::UnwrappedImplOf(list));
+				},
+				[](const D3D12CommandList & record)
+				{
+					return ListStillRunning(record);
+				});
+			refusal != nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, refusal);
+		}
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
@@ -56,11 +88,45 @@ namespace azo::rhi::d3d12
 		lists.reserve(desc.commandLists.size());
 		for (const CommandList * list : desc.commandLists)
 		{
-			lists.push_back(static_cast<D3D12CommandList *>(detail::UnwrappedImplOf(*list))->list.Get());
+			if (list == nullptr)
+			{
+				continue;
+			}
+
+			// The check above refused everything that was not ended, so every list still here carries work.
+			auto * record = static_cast<D3D12CommandList *>(detail::UnwrappedImplOf(*list));
+			lists.push_back(record->list.Get());
 		}
 		if (!lists.empty())
 		{
 			queue->queue->ExecuteCommandLists(static_cast<UINT>(lists.size()), lists.data());
+
+			// Only a Signal that succeeded gives a value worth recording, and a list with none is read back as still running.
+			ID3D12Fence * marked   = nullptr;
+			std::uint64_t markedAt = 0;
+			if (queue->idleFence)
+			{
+				const std::uint64_t next = queue->idleValue + 1;
+				if (SUCCEEDED(queue->queue->Signal(queue->idleFence.Get(), next)))
+				{
+					queue->idleValue = next;
+					marked			 = queue->idleFence.Get();
+					markedAt		 = next;
+				}
+			}
+
+			for (const CommandList * list : desc.commandLists)
+			{
+				if (list == nullptr)
+				{
+					continue;
+				}
+
+				auto * record		= static_cast<D3D12CommandList *>(detail::UnwrappedImplOf(*list));
+				record->lifecycle	= ListLifecycle::eSubmitted;
+				record->submitFence = marked;
+				record->submitValue = markedAt;
+			}
 		}
 
 		for (const SwapchainSync & sync : desc.swapchains)
@@ -309,6 +375,42 @@ namespace azo::rhi::d3d12
 		}
 
 		return Succeed(error);
+	}
+
+	// Bounded for the same reason vulkan's drain is: a queue parked behind a wait nobody will signal would block teardown forever.
+	bool D3D12Device::DrainQueues() noexcept
+	{
+		if (queuesDrained)
+		{
+			return true;
+		}
+
+		bool drained = true;
+		for (const QueueType type : { QueueType::eGraphics, QueueType::eCompute, QueueType::eCopy })
+		{
+			for (D3D12Queue & queue : QueuesForType(type))
+			{
+				if (!queue.queue || !queue.idleFence)
+				{
+					continue;
+				}
+
+				const std::uint64_t next = queue.idleValue + 1;
+				if (FAILED(queue.queue->Signal(queue.idleFence.Get(), next)))
+				{
+					continue;
+				}
+
+				queue.idleValue = next;
+				if (WaitFenceHost(queue.idleFence.Get(), next, kTeardownDrainNanoseconds) != WAIT_OBJECT_0)
+				{
+					drained = false;
+				}
+			}
+		}
+
+		queuesDrained = drained;
+		return drained;
 	}
 
 	bool D3D12QueueWaitIdle(void * impl, Error * error) noexcept

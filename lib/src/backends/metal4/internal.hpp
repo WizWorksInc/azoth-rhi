@@ -12,6 +12,7 @@
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/resource_tables.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
@@ -64,7 +65,7 @@ namespace azo::rhi::metal4
 
 		NS::SharedPtr<MTL4::ArgumentTable> argumentTable;
 
-		std::uint8_t lifecycle = 0;
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
 
 		NS::SharedPtr<MTL4::RenderCommandEncoder> renderEncoder;
 
@@ -217,7 +218,7 @@ namespace azo::rhi::metal4
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
 
-		std::uint32_t mapCount = 0;
+		BoundedCount mapCount;
 
 		BufferDesc desc{};
 	};
@@ -407,7 +408,7 @@ namespace azo::rhi::metal4
 	[[nodiscard]] inline CmdList * RecordingListOf(Metal4Object * object) noexcept
 	{
 		CmdList * list = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr || list->lifecycle != 1)
+		if (list == nullptr || list->commandBuffer.get() == nullptr || list->lifecycle != ListLifecycle::eRecording)
 		{
 			return nullptr;
 		}

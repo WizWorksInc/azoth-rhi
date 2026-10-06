@@ -129,6 +129,8 @@ namespace azo::rhi::metal4
 
 		caps.supportsShaderFloat16 = true;
 
+		caps.supportsScalarBlockLayout = true;
+
 		caps.supportsDrawIndirectFirstInstance = true;
 		caps.supportsDynamicBufferOffsets	   = true;
 
@@ -141,6 +143,9 @@ namespace azo::rhi::metal4
 		caps.supportsTimestampQueries = canWriteTimestamps;
 
 		caps.supportsTimestampWritesInScope = canWriteTimestamps;
+
+		// A write with an encoder open samples at the encoder and one without samples at the command buffer, and Apple orders neither against the other.
+		caps.supportsOrderedTimestamps = false;
 
 		MTL::Timestamp probedCpu = 0;
 		MTL::Timestamp probedGpu = 0;
@@ -354,6 +359,12 @@ namespace azo::rhi::metal4
 		device->caps.copyQueueCount			   = queueCount(QueueType::eCopy);
 		device->caps.hasDedicatedComputeQueue  = device->caps.computeQueueCount != 0;
 		device->caps.hasDedicatedTransferQueue = device->caps.copyQueueCount != 0;
+
+		// MTL4 command buffers come from per list allocators rather than a capped queue, so nothing here bounds how many lists are open.
+		device->caps.maxOpenCommandListsPerQueue = kUnlimitedOpenCommandLists;
+
+		// Committing an MTL4 command buffer a second time trips an assert inside IOGPUMetal4CommandQueue and kills the process.
+		device->caps.supportsCommandListResubmit = false;
 
 		Metal4Device * raw		   = device.get();
 		Metal4BackendOwner & owner = Owner();

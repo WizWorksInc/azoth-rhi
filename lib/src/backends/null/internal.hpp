@@ -12,6 +12,7 @@
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/resource_tables.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
 #include "azoth/rhi/backend/support/resource_record.hpp"
@@ -54,6 +55,8 @@ namespace azo::rhi::null
 
 		detail::HostVector<NullObject *> lists;
 		std::size_t handedOut = 0;
+
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
 	};
 
 	struct NullInstance final

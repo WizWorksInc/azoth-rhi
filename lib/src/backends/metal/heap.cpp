@@ -36,6 +36,7 @@ namespace azo::rhi::metal
 		NS::SharedPtr<MTL::HeapDescriptor> descriptor = NS::TransferPtr(MTL::HeapDescriptor::alloc()->init());
 		descriptor->setType(MTL::HeapTypePlacement);
 		descriptor->setStorageMode(MetalHeapStorage(desc.type));
+		descriptor->setHazardTrackingMode(MTL::HazardTrackingModeTracked);
 		descriptor->setSize(desc.size);
 
 		MTL::Heap * raw = device->device->newHeap(descriptor.get());

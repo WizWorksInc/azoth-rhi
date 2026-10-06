@@ -78,12 +78,6 @@ namespace azo::rhi
 			return *this;
 		}
 
-		BufferBuilder & PersistentMap(bool enabled = true) noexcept
-		{
-			m_desc.persistentMap = enabled;
-			return *this;
-		}
-
 		BufferBuilder & DebugName(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());

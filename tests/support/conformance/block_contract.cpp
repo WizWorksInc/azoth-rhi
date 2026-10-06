@@ -215,6 +215,12 @@ namespace azo::rhi::test::oracle
 		EXPECT_FALSE(caps.supportsTimestampWritesInScope && !caps.supportsTimestampQueries)
 			<< "the device allows timestamp writes inside a scope while reporting no timestamp queries";
 
+		EXPECT_FALSE(caps.supportsOrderedTimestamps && !caps.supportsTimestampQueries)
+			<< "the device orders a pair of timestamps while reporting no timestamp queries";
+
+		EXPECT_FALSE(caps.supportsTimestampCalibration && !caps.supportsTimestampQueries)
+			<< "the device correlates its timestamp clocks while reporting no timestamp queries";
+
 		EXPECT_FALSE(caps.supportsSurfaces && !present) << "the device claims surfaces with no block to present through";
 	}
 

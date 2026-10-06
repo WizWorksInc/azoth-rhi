@@ -683,6 +683,24 @@ namespace azo::rhi::detail
 		};
 	}
 
+	[[nodiscard]] inline Result<void> CheckDeviceDesc(const DeviceDesc & desc) noexcept
+	{
+		if (Result<void> threading = CheckThreading(desc); !threading)
+		{
+			return threading;
+		}
+
+		if (desc.maxOpenCommandListsPerQueue == 0)
+		{
+			return Error{
+				.code	 = ErrorCode::eInvalidArgument,
+				.message = "maxOpenCommandListsPerQueue must allow at least one open command list",
+			};
+		}
+
+		return {};
+	}
+
 	inline void ReleaseUndrivableDevice(void * deviceImpl) noexcept
 	{
 		if (const auto * partial = QueryBlock<CoreDeviceApi>(deviceImpl); partial != nullptr && partial->destroyDevice != nullptr)

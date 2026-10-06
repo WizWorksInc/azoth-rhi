@@ -142,9 +142,9 @@ namespace azo::rhi
 	template <>
 	Result<UniqueDevice> CreateDevice<D3D12Api>(const DeviceDesc & desc)
 	{
-		if (const Result<void> threading = detail::CheckThreading(desc); !threading)
+		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
 		{
-			return threading.GetError();
+			return checked.GetError();
 		}
 
 		Error error{};

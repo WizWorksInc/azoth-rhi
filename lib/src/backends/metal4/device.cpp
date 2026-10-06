@@ -53,7 +53,12 @@ namespace azo::rhi::metal4
 			return {};
 		}
 
-		++tracked->mapCount;
+		if (!tracked->mapCount.TryAcquire())
+		{
+			Fail(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
+			return {};
+		}
+
 		Succeed(error);
 		return MappedMemory{
 			.data	  = static_cast<char *>(contents) + desc.offset,
@@ -69,12 +74,11 @@ namespace azo::rhi::metal4
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "unmap of a buffer this device never created");
 		}
-		if (tracked->mapCount == 0)
+		if (!tracked->mapCount.TryRelease())
 		{
 			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 		}
 
-		--tracked->mapCount;
 		return Succeed(error);
 	}
 

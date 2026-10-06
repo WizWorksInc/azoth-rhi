@@ -12,6 +12,7 @@
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/resource_tables.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
@@ -59,7 +60,9 @@ namespace azo::rhi::metal
 	struct MetalCmdList final
 	{
 		NS::SharedPtr<MTL::CommandBuffer> commandBuffer;
-		std::uint8_t lifecycle = 0;
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
+
+		bool holdsListSlot = false;
 
 		detail::HostVector<NS::SharedPtr<MTL::Buffer>> keepAlive;
 
@@ -208,7 +211,7 @@ namespace azo::rhi::metal
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
 
-		std::uint32_t mapCount = 0;
+		BoundedCount mapCount;
 
 		BufferDesc desc{};
 	};
@@ -275,48 +278,17 @@ namespace azo::rhi::metal
 			return pool.empty() ? nullptr : pool.front().get();
 		}
 
-		static constexpr std::uint32_t kCommandBuffersPerQueue = 64;
-
 		// Submit and waitIdle commit a command buffer of their own for every wait and signal, so those slots cannot go to open lists.
 		static constexpr std::uint32_t kCommandBufferHeadroom = 8;
 
-		static constexpr std::uint32_t kOpenCommandBufferBudget = kCommandBuffersPerQueue - kCommandBufferHeadroom;
-
-		std::atomic<std::uint32_t> openGraphicsCommandBuffers{ 0 };
-		std::atomic<std::uint32_t> openComputeCommandBuffers{ 0 };
-		std::atomic<std::uint32_t> openCopyCommandBuffers{ 0 };
-
-		[[nodiscard]] std::atomic<std::uint32_t> & OpenCommandBuffersFor(QueueType type) noexcept
+		// A queue sized for the setting plus the headroom, clamped so a caller asking for a huge budget cannot wrap the count.
+		[[nodiscard]] static std::uint32_t CommandBuffersPerQueue(std::uint32_t openListBound) noexcept
 		{
-			switch (type)
-			{
-			case QueueType::eCompute:  return openComputeCommandBuffers;
-			case QueueType::eCopy:	   return openCopyCommandBuffers;
-			case QueueType::eGraphics: break;
-			}
-
-			return openGraphicsCommandBuffers;
+			constexpr std::uint32_t ceiling = std::numeric_limits<std::uint32_t>::max() - kCommandBufferHeadroom;
+			return (openListBound > ceiling ? ceiling : openListBound) + kCommandBufferHeadroom;
 		}
 
-		[[nodiscard]] bool ReserveCommandBuffer(QueueType type) noexcept
-		{
-			std::atomic<std::uint32_t> & open = OpenCommandBuffersFor(type);
-			std::uint32_t held				  = open.load(std::memory_order_relaxed);
-			while (held < kOpenCommandBufferBudget)
-			{
-				if (open.compare_exchange_weak(held, held + 1, std::memory_order_relaxed))
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		void ReleaseCommandBuffer(QueueType type) noexcept
-		{
-			OpenCommandBuffersFor(type).fetch_sub(1, std::memory_order_relaxed);
-		}
+		OpenListBudget openLists;
 
 		std::atomic<std::uint32_t> nextHandleIndex{ 0 };
 		std::atomic<std::uint64_t> pendingRetire{ 0 };

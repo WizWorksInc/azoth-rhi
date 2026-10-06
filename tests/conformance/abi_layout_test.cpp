@@ -27,7 +27,8 @@ namespace
 	constexpr bool IsPlainDesc = std::is_trivially_copyable_v<T> && std::is_standard_layout_v<T> && std::is_default_constructible_v<T>;
 
 	constexpr std::size_t kInstanceDescSize = 112;
-	constexpr std::size_t kDeviceDescSize	= 240;
+	constexpr std::size_t kDeviceDescSize	= 248;
+	constexpr std::size_t kDeviceCapsSize	= 232;
 
 	TEST(AbiLayout, EveryResourceDescIsAPlainDescription)
 	{
@@ -149,6 +150,30 @@ namespace
 			"InstanceDesc changed shape. Check InstanceDescForDevice carries any field a device has to pass on, then update kInstanceDescSize.");
 		static_assert(sizeof(rhi::DeviceDesc) == kDeviceDescSize,
 			"DeviceDesc changed shape. Check InstanceDescForDevice carries any field the instance behind a device needs, then update kDeviceDescSize.");
+
+		SUCCEED();
+	}
+
+	TEST(AbiLayout, TheCapsEveryBackendFillsInHaveNotChangedShape)
+	{
+		static_assert(sizeof(rhi::DeviceCaps) == kDeviceCapsSize,
+			"DeviceCaps changed shape. An out of tree backend fills it in through getCaps, so check the new field went at the end, then update "
+			"kDeviceCapsSize.");
+
+		// A bool inserted mid struct slides every later field along without changing the size, so these four landmarks are pinned as well.
+		static_assert(offsetof(rhi::DeviceCaps, supportsTimestampCalibration) == 49,
+			"a field moved above supportsTimestampCalibration, so every bool an out of tree backend wrote after it now lands one field across. Measure the "
+			"new offsets and update them here.");
+		static_assert(offsetof(rhi::DeviceCaps, maxOpenCommandListsPerQueue) == 68,
+			"maxOpenCommandListsPerQueue moved, so an out of tree backend's open list budget now lands on another field. Measure it and update this.");
+		static_assert(offsetof(rhi::DeviceCaps, supportsCommandListResubmit) == 72,
+			"supportsCommandListResubmit moved, so the bools after the queue counts now land one field across. Measure them and update this.");
+		static_assert(offsetof(rhi::DeviceCaps, hasDedicatedTransferQueue) == 74,
+			"the dedicated queue flags moved, and the padding byte after them hides that from every other assert here. Measure them and update this.");
+		static_assert(offsetof(rhi::DeviceCaps, timestampValidBits) == 220, "timestampValidBits moved, so every cap after it now lands one field across.");
+		static_assert(offsetof(rhi::DeviceCaps, supportsScalarBlockLayout) == 224,
+			"supportsScalarBlockLayout is no longer the last field. Adding a cap at the end is fine, but update kDeviceCapsSize and pin the new last field "
+			"here.");
 
 		SUCCEED();
 	}

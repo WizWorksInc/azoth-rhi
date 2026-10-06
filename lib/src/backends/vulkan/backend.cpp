@@ -207,6 +207,23 @@ namespace azo::rhi
 
 		}
 
+		void ReportInstanceMessage(
+			const VulkanInstance * instance, const ValidationMessageSeverity severity, const char * source, const char * message) noexcept
+		{
+			if (message == nullptr)
+			{
+				return;
+			}
+
+			if (instance != nullptr && instance->onMessage != nullptr)
+			{
+				instance->onMessage(severity, message, instance->messageUserData);
+				return;
+			}
+
+			std::cerr << '[' << source << "] " << message << '\n';
+		}
+
 		VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
 			[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types, const vk::DebugUtilsMessengerCallbackDataEXT * data, void * userData) noexcept
 		{
@@ -222,17 +239,10 @@ namespace azo::rhi
 				instance->validationWarnings.fetch_add(1, std::memory_order_relaxed);
 			}
 
-			if (data != nullptr && data->pMessage != nullptr)
+			if (data != nullptr)
 			{
-				if (instance->onMessage != nullptr)
-				{
-					instance->onMessage(
-						isError ? ValidationMessageSeverity::eError : ValidationMessageSeverity::eWarning, data->pMessage, instance->messageUserData);
-				}
-				else
-				{
-					std::cerr << "[vulkan validation] " << data->pMessage << '\n';
-				}
+				ReportInstanceMessage(
+					instance, isError ? ValidationMessageSeverity::eError : ValidationMessageSeverity::eWarning, "vulkan validation", data->pMessage);
 			}
 
 			if ((isError && instance->breakOnError) || (isWarning && instance->breakOnWarning))
@@ -974,6 +984,8 @@ namespace azo::rhi
 
 			const bool shaderFloat16 = static_cast<bool>(supported12.shaderFloat16);
 
+			const bool scalarBlockLayout = static_cast<bool>(supported12.scalarBlockLayout);
+
 			const bool drawIndirectCount = static_cast<bool>(supported12.drawIndirectCount);
 
 			vk::PhysicalDeviceFeatures2 features2;
@@ -1032,6 +1044,10 @@ namespace azo::rhi
 			if (shaderFloat16)
 			{
 				features12.shaderFloat16 = VK_TRUE;
+			}
+			if (scalarBlockLayout)
+			{
+				features12.scalarBlockLayout = VK_TRUE;
 			}
 
 			if (drawIndirectCount)
@@ -1267,6 +1283,17 @@ namespace azo::rhi
 			record->caps.hasDedicatedComputeQueue  = !record->computeQueues.empty() && computeFamily != graphicsFamily;
 			record->caps.hasDedicatedTransferQueue = !record->copyQueues.empty() && copyFamily != graphicsFamily;
 
+			// A VkCommandBuffer comes out of its pool rather than a capped queue, so nothing here bounds how many lists are open.
+			record->caps.maxOpenCommandListsPerQueue = kUnlimitedOpenCommandLists;
+
+			// Begin records no usage flags, so a drained buffer stays executable and may go again, which VUID 00071 allows once it is not pending.
+			record->caps.supportsCommandListResubmit = true;
+
+			if (!BuildSubmitTimelines(record.get(), error))
+			{
+				return nullptr;
+			}
+
 			VmaVulkanFunctions vmaFns{};
 			vmaFns.vkGetInstanceProcAddr = record->dispatch.vkGetInstanceProcAddr;
 			vmaFns.vkGetDeviceProcAddr	 = record->dispatch.vkGetDeviceProcAddr;
@@ -1357,6 +1384,7 @@ namespace azo::rhi
 			record->caps.supportsDrawIndirectFirstInstance = static_cast<bool>(enabledFeatures.drawIndirectFirstInstance);
 			record->caps.supportsShaderDrawParameters	   = static_cast<bool>(features11.shaderDrawParameters);
 			record->caps.supportsShaderFloat16			   = shaderFloat16;
+			record->caps.supportsScalarBlockLayout		   = scalarBlockLayout;
 			record->caps.bindingTier					   = bindless ? BindingTier::eUnbounded : BindingTier::eBasic;
 			record->caps.supportsPartiallyBoundDescriptors = bindless;
 			record->caps.supportsUpdateAfterBind		   = static_cast<bool>(supported12.descriptorBindingSampledImageUpdateAfterBind);
@@ -1367,6 +1395,8 @@ namespace azo::rhi
 			record->caps.maxSamplerDescriptors			   = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
 			record->caps.supportsTimestampQueries		   = static_cast<bool>(limits.timestampComputeAndGraphics);
 			record->caps.supportsTimestampWritesInScope	   = record->caps.supportsTimestampQueries;
+			// The spec forbids a timestamp write that happens after another in the same submission from carrying the lower value.
+			record->caps.supportsOrderedTimestamps		   = record->caps.supportsTimestampQueries;
 			record->caps.supportsAnisotropy				   = static_cast<bool>(enabledFeatures.samplerAnisotropy);
 			record->caps.supportsIndependentBlend		   = static_cast<bool>(enabledFeatures.independentBlend);
 			record->caps.supportsTextureViewSwizzle		   = AdapterSupportsViewSwizzle(phys, record->dispatch);
@@ -1442,20 +1472,78 @@ namespace azo::rhi
 			return raw;
 		}
 
+		[[nodiscard]] bool InstanceStillUsed(const VulkanBackendOwner & owner, const VulkanInstance * instance) noexcept
+		{
+			for (const HostUniquePtr<VulkanDevice> & device : owner.devices)
+			{
+				if (device->instanceWrapper == instance)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		void VulkanDestroyDevice(void * impl) noexcept
 		{
 			VulkanBackendOwner & owner = Owner();
 
 			VulkanInstance * owningInstance = nullptr;
 			std::uint32_t releasedTag		= 0;
+			bool stalled					= false;
 			for (const HostUniquePtr<VulkanDevice> & device : owner.devices)
 			{
 				if (device.get() == impl)
 				{
 					owningInstance = device->instanceWrapper;
 					releasedTag	   = device->deviceTag;
+					stalled		   = static_cast<bool>(device->device) && !device->DrainSubmitTimelines();
 					break;
 				}
+			}
+
+			// Work that did not drain references this device's objects and the instance they were created on, so both records are
+			// released rather than destroyed. The device tag stays taken too, because handles carrying it are still alive.
+			if (stalled)
+			{
+				auto * record = static_cast<VulkanDevice *>(impl);
+				record->ReportTeardownStall();
+
+				for (HostUniquePtr<VulkanDevice> & device : owner.devices)
+				{
+					if (device.get() == impl)
+					{
+						static_cast<void>(device.release());
+						break;
+					}
+				}
+
+				std::erase_if(owner.devices,
+					[](const HostUniquePtr<VulkanDevice> & device)
+					{
+						return device == nullptr;
+					});
+
+				if (owningInstance != nullptr && !InstanceStillUsed(owner, owningInstance))
+				{
+					for (HostUniquePtr<VulkanInstance> & instance : owner.instances)
+					{
+						if (instance.get() == owningInstance)
+						{
+							static_cast<void>(instance.release());
+							break;
+						}
+					}
+
+					std::erase_if(owner.instances,
+						[](const HostUniquePtr<VulkanInstance> & instance)
+						{
+							return instance == nullptr;
+						});
+				}
+
+				return;
 			}
 
 			std::erase_if(owner.devices,
@@ -1467,16 +1555,7 @@ namespace azo::rhi
 
 			if (owningInstance != nullptr)
 			{
-				bool stillUsed = false;
-				for (const HostUniquePtr<VulkanDevice> & device : owner.devices)
-				{
-					if (device->instanceWrapper == owningInstance)
-					{
-						stillUsed = true;
-						break;
-					}
-				}
-				if (!stillUsed)
+				if (!InstanceStillUsed(owner, owningInstance))
 				{
 					std::erase_if(owner.instances,
 						[owningInstance](const HostUniquePtr<VulkanInstance> & instance)
@@ -1757,7 +1836,7 @@ namespace azo::rhi
 			const VkBufferCreateInfo bufferInfo = bufferCreateInfo;
 			VmaAllocationCreateFlags allocFlags = 0;
 			VmaAllocationCreateInfo allocInfo{};
-			allocInfo.usage = MapMemoryUsage(desc.memory, desc.persistentMap, allocFlags);
+			allocInfo.usage = MapBufferMemoryUsage(desc.memory, allocFlags);
 			allocInfo.flags = allocFlags;
 
 			VkBuffer raw			 = VK_NULL_HANDLE;
@@ -1782,12 +1861,20 @@ namespace azo::rhi
 
 			const bool mappable = (allocFlags & (VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)) != 0;
 
+			VmaAllocationInfo allocated{};
+			vmaGetAllocationInfo(device->allocator, allocation, &allocated);
+			if (mappable && allocated.pMappedData == nullptr)
+			{
+				vmaDestroyBuffer(device->allocator, raw, allocation);
+				return FailValue<BufferHandle>(error, ErrorCode::eNativeApiError, "a host visible buffer came back from VMA without the mapping it asked for");
+			}
+
 			const BufferHandle handle = device->bufferSlots.Store(BufferSlot{ .buffer = raw,
 				.allocation															  = allocation,
 				.size																  = desc.size,
 				.coherent															  = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
 				.hostVisible														  = mappable,
-				.persistentMapped													  = (allocFlags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
+				.mapped																  = allocated.pMappedData,
 				.exportableHandleTypes												  = desc.exportableHandleTypes,
 				.desc																  = detail::Recorded(desc) });
 			if (!handle.IsValid())
@@ -1820,47 +1907,22 @@ namespace azo::rhi
 				return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
 			}
 
-			if (slot->mapCount == kMaxOutstandingMaps)
-			{
-				return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, "map of a buffer already mapped as many times as it can be at once");
-			}
-
-			void * mapped = nullptr;
+			void * mapped = slot->mapped;
 			if (slot->placedMemory != VK_NULL_HANDLE)
 			{
-				HeapSlot * heap = device->heapSlots.Resolve(slot->placedHeap, true);
+				const HeapSlot * heap = device->heapSlots.Resolve(slot->placedHeap, true);
 				if (heap == nullptr)
 				{
 					return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, "map of a placed buffer whose heap was destroyed");
 				}
 
-				if (heap->mapCount == 0)
-				{
-					if (const vk::Result mapResult =
-							device->device.mapMemory(heap->memory, 0, VK_WHOLE_SIZE, vk::MemoryMapFlags{}, &heap->mapped, device->dispatch);
-						mapResult != vk::Result::eSuccess)
-					{
-						return FailNativeValue<MappedMemory>(error, "vkMapMemory failed", mapResult);
-					}
-				}
-				++heap->mapCount;
 				mapped = static_cast<std::uint8_t *>(heap->mapped) + slot->placedOffset;
 			}
-			else if (slot->persistentMapped)
+
+			if (!slot->mapCount.TryAcquire())
 			{
-				VmaAllocationInfo info{};
-				vmaGetAllocationInfo(device->allocator, slot->allocation, &info);
-				mapped = info.pMappedData;
-				if (mapped == nullptr)
-				{
-					return FailValue<MappedMemory>(error, ErrorCode::eNativeApiError, "persistent mapping is unexpectedly null");
-				}
+				return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
 			}
-			else if (const VkResult vmaResult = vmaMapMemory(device->allocator, slot->allocation, &mapped); vmaResult != VK_SUCCESS)
-			{
-				return FailNativeValue<MappedMemory>(error, "vmaMapMemory failed", static_cast<vk::Result>(vmaResult));
-			}
-			++slot->mapCount;
 
 			return ReturnValue(
 				MappedMemory{
@@ -1880,13 +1942,11 @@ namespace azo::rhi
 				return Fail(error, ErrorCode::eInvalidHandle, "unmap of an invalid buffer handle");
 			}
 
-			if (slot->mapCount == 0)
+			if (!slot->mapCount.TryRelease())
 			{
 				return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 			}
 
-			device->ReleaseMaps(*slot, 1);
-			--slot->mapCount;
 			return Succeed(error);
 		}
 
@@ -2100,7 +2160,7 @@ namespace azo::rhi
 			const VkImageCreateInfo cImageInfo	= imageInfo;
 			VmaAllocationCreateFlags allocFlags = 0;
 			VmaAllocationCreateInfo allocInfo{};
-			allocInfo.usage = MapMemoryUsage(desc.memory, false, allocFlags);
+			allocInfo.usage = MapMemoryUsage(desc.memory, allocFlags);
 			allocInfo.flags = allocFlags;
 
 			if (desc.allowSparseBinding)
@@ -2157,36 +2217,6 @@ namespace azo::rhi
 			return device->heapSlots.Resolve(handle, kHandleAlreadyChecked);
 		}
 
-		void VulkanDevice::ReleaseMaps(const BufferSlot & slot, const std::uint32_t count) noexcept
-		{
-			if (count == 0 || slot.persistentMapped)
-			{
-				return;
-			}
-
-			if (slot.placedMemory == VK_NULL_HANDLE)
-			{
-				for (std::uint32_t i = 0; i < count; ++i)
-				{
-					vmaUnmapMemory(allocator, slot.allocation);
-				}
-				return;
-			}
-
-			HeapSlot * heap = heapSlots.Resolve(slot.placedHeap, true);
-			if (heap == nullptr)
-			{
-				return;
-			}
-
-			heap->mapCount -= count;
-			if (heap->mapCount == 0)
-			{
-				device.unmapMemory(heap->memory, dispatch);
-				heap->mapped = nullptr;
-			}
-		}
-
 		HeapHandle VulkanCreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createHeap");
@@ -2228,11 +2258,25 @@ namespace azo::rhi
 				return FailValue<HeapHandle>(error, ErrorCode::eOutOfDeviceMemory, "Vulkan heap allocation failed");
 			}
 
+			// One mapping for the whole heap, taken here and given up only by vkFreeMemory, so the placed
+			// buffers sharing it never race to map the memory a sibling already mapped.
+			void * mapped = nullptr;
+			if (hostVisible)
+			{
+				if (const vk::Result mapResult = device->device.mapMemory(allocated.value, 0, VK_WHOLE_SIZE, vk::MemoryMapFlags{}, &mapped, device->dispatch);
+					mapResult != vk::Result::eSuccess)
+				{
+					device->device.freeMemory(allocated.value, nullptr, device->dispatch);
+					return FailNativeValue<HeapHandle>(error, "vkMapMemory failed for a host visible heap", mapResult);
+				}
+			}
+
 			const HeapHandle handle = device->heapSlots.Store(HeapSlot{ .memory = allocated.value,
 				.size															= desc.size,
 				.memoryTypeIndex												= typeIndex,
 				.hostVisible													= hostVisible,
 				.coherent														= coherent,
+				.mapped															= mapped,
 				.exportableHandleTypes											= desc.exportableHandleTypes });
 			if (!handle.IsValid())
 			{
@@ -3788,9 +3832,9 @@ namespace azo::rhi
 	template <>
 	Result<UniqueDevice> CreateDevice<VulkanApi>(const DeviceDesc & desc)
 	{
-		if (const Result<void> threading = detail::CheckThreading(desc); !threading)
+		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
 		{
-			return threading.GetError();
+			return checked.GetError();
 		}
 
 		Error error{};

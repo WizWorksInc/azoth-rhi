@@ -161,6 +161,7 @@ namespace azo::rhi::validation
 		bool ValidatedSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
 		void ApplyPendingOwnership(DeviceValidator & validator, const WrappedCommandList & list) noexcept;
 		bool SubmittedOwnershipIsLegal(DeviceValidator & validator, std::span<const CommandList * const> lists, Error * error) noexcept;
+		bool SubmittedStatesAreLegal(DeviceValidator & validator, std::span<const CommandList * const> lists, Error * error) noexcept;
 		bool ValidatedBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 		bool ValidatedArenaReset(void * impl, RetirePoint safeAfter, Error * error) noexcept;
 		bool ValidatedBarriers(void * impl, const BarrierBatch & batch, Error * error) noexcept;
@@ -1064,6 +1065,7 @@ namespace azo::rhi::validation
 				list->recording = false;
 				list->rendering = false;
 				list->recordedStates.clear();
+				list->requiredStates.clear();
 				list->pendingOwnership.clear();
 				list->pendingArrivals.clear();
 			}
@@ -1179,7 +1181,8 @@ namespace azo::rhi::validation
 				pointers.push_back(&list);
 			}
 
-			if (self->validator->ChecksState() && !SubmittedOwnershipIsLegal(*self->validator, desc.commandLists, error))
+			if (self->validator->ChecksState() && (!SubmittedOwnershipIsLegal(*self->validator, desc.commandLists, error) ||
+													  !SubmittedStatesAreLegal(*self->validator, desc.commandLists, error)))
 			{
 				return false;
 			}
@@ -1738,19 +1741,19 @@ namespace azo::rhi::validation
 			return true;
 		}
 
-		[[nodiscard]] bool Retrack(WrappedCommandList * self, const TrackedSubrange & box, const std::uint32_t state) noexcept
+		[[nodiscard]] bool Retrack(detail::HostVector<TrackedSubrange> & states, const TrackedSubrange & box, const std::uint32_t state) noexcept
 		{
-			const std::size_t existing = self->recordedStates.size();
+			const std::size_t existing = states.size();
 			for (std::size_t i = 0; i < existing; ++i)
 			{
-				const TrackedSubrange covered = self->recordedStates[i];
+				const TrackedSubrange covered = states[i];
 				if (!Overlaps(covered, box))
 				{
 					continue;
 				}
 
-				self->recordedStates[i].aspects = 0u;
-				if (!SubtractInto(self->recordedStates, covered, box))
+				states[i].aspects = 0u;
+				if (!SubtractInto(states, covered, box))
 				{
 					return false;
 				}
@@ -1758,16 +1761,95 @@ namespace azo::rhi::validation
 
 			TrackedSubrange written = box;
 			written.state			= state;
-			if (!detail::TryPushBack(self->recordedStates, written))
+			if (!detail::TryPushBack(states, written))
 			{
 				return false;
 			}
 
-			static_cast<void>(std::erase_if(self->recordedStates,
+			static_cast<void>(std::erase_if(states,
 				[](const TrackedSubrange & entry)
 				{
 					return entry.aspects == 0u;
 				}));
+			return true;
+		}
+
+		[[nodiscard]] bool Retrack(WrappedCommandList * self, const TrackedSubrange & box, const std::uint32_t state) noexcept
+		{
+			return Retrack(self->recordedStates, box, state);
+		}
+
+		[[nodiscard]] bool UntrackedParts(
+			const TrackedSubrange & box, const detail::HostVector<TrackedSubrange> & states, detail::HostVector<TrackedSubrange> & uncovered) noexcept
+		{
+			if (!detail::TryPushBack(uncovered, box))
+			{
+				return false;
+			}
+			for (const TrackedSubrange & tracked : states)
+			{
+				const std::size_t existing = uncovered.size();
+				for (std::size_t i = 0; i < existing; ++i)
+				{
+					const TrackedSubrange piece = uncovered[i];
+					if (!Overlaps(piece, tracked))
+					{
+						continue;
+					}
+					uncovered[i].aspects = 0;
+					if (!SubtractInto(uncovered, piece, tracked))
+					{
+						return false;
+					}
+				}
+				static_cast<void>(std::erase_if(uncovered,
+					[](const TrackedSubrange & piece)
+					{
+						return piece.aspects == 0;
+					}));
+			}
+			return true;
+		}
+
+		[[nodiscard]] bool SubmittedStatesAreLegal(DeviceValidator & validator, std::span<const CommandList * const> lists, Error * error) noexcept
+		{
+			detail::HostVector<TrackedSubrange> staged;
+			for (const CommandList * list : lists)
+			{
+				const auto * wrapper = static_cast<const WrappedCommandList *>(detail::FacadeBuilder::ImplOf(*list));
+				for (const TrackedSubrange & arrival : wrapper->requiredStates)
+				{
+					for (const TrackedSubrange & earlier : staged)
+					{
+						if (Overlaps(arrival, earlier) && arrival.state != earlier.state)
+						{
+							return validator.Fail(error, "a submitted barrier claims a before-state an earlier command list did not leave");
+						}
+					}
+					detail::HostVector<TrackedSubrange> uncovered;
+					if (!UntrackedParts(arrival, staged, uncovered))
+					{
+						return validator.Fail(error, "the host allocator refused the storage a validated submit needs to check resource states");
+					}
+					if (!uncovered.empty())
+					{
+						if (const ResourceRecord * record = validator.Handles().Lookup(arrival.resource))
+						{
+							if (record->useKnown.load(std::memory_order_relaxed) && record->use.load(std::memory_order_relaxed) != arrival.state)
+							{
+								return validator.Fail(error, "a submitted barrier claims a before-state the resource did not arrive in");
+							}
+						}
+					}
+				}
+				for (const TrackedSubrange & finalState : wrapper->recordedStates)
+				{
+					if (!Retrack(staged, finalState, finalState.state))
+					{
+						return validator.Fail(error, "the host allocator refused the storage a validated submit needs to check resource states");
+					}
+				}
+			}
 			return true;
 		}
 
@@ -1901,19 +1983,6 @@ namespace azo::rhi::validation
 			}
 		}
 
-		[[nodiscard]] const PendingArrival * PendingArrivalOf(const WrappedCommandList * self, const RegisteredHandle resource) noexcept
-		{
-			for (const PendingArrival & pending : self->pendingArrivals)
-			{
-				if (pending.resource == resource)
-				{
-					return &pending;
-				}
-			}
-
-			return nullptr;
-		}
-
 		void SetPendingArrival(WrappedCommandList * self, const RegisteredHandle resource, const std::uint32_t use, const bool known) noexcept
 		{
 			for (PendingArrival & pending : self->pendingArrivals)
@@ -1959,11 +2028,11 @@ namespace azo::rhi::validation
 			}
 
 			const PendingOwnership * pending = PendingOwnershipOf(self, type, index, generation);
-			const bool owned				 = pending != nullptr ? pending->owned : record->owned.load(std::memory_order_relaxed);
+			const bool owned				 = pending != nullptr && pending->owned;
 
 			if (owned)
 			{
-				const std::uint8_t held = pending != nullptr ? pending->owner : record->owner.load(std::memory_order_relaxed);
+				const std::uint8_t held = pending->owner;
 				const bool releasing	= ownership.op == OwnershipOp::eRelease || ownership.op == OwnershipOp::eReleaseToExternal;
 
 				if (releasing && held != static_cast<std::uint8_t>(self->queueType))
@@ -1995,7 +2064,6 @@ namespace azo::rhi::validation
 			const std::uint32_t wanted = PackState(before);
 			const bool discard		   = before.use == ResourceUse::eDiscard;
 
-			bool trackedHere = false;
 			for (const TrackedSubrange & tracked : self->recordedStates)
 			{
 				if (tracked.resource != box.resource)
@@ -2008,27 +2076,25 @@ namespace azo::rhi::validation
 					continue;
 				}
 
-				trackedHere = true;
 				if (!discard && tracked.state != wanted)
 				{
 					return self->validator->Fail(error, "a barrier claims a before-state the resource was not left in by the last one");
 				}
 			}
 
-			if (!discard && !trackedHere)
+			if (!discard)
 			{
-				if (const PendingArrival * pending = PendingArrivalOf(self, box.resource))
+				detail::HostVector<TrackedSubrange> uncovered;
+				if (!UntrackedParts(box, self->recordedStates, uncovered))
 				{
-					if (pending->known && pending->use != before.use.Bits())
-					{
-						return self->validator->Fail(error, "a barrier claims a before-state the adopted resource did not arrive in");
-					}
+					return self->validator->Fail(error, "the host allocator refused the storage needed to record resource arrival states");
 				}
-				else if (const ResourceRecord * record = self->validator->Handles().Lookup(box.resource))
+				for (TrackedSubrange arrival : uncovered)
 				{
-					if (record->useKnown.load(std::memory_order_relaxed) && record->use.load(std::memory_order_relaxed) != before.use.Bits())
+					arrival.state = wanted;
+					if (!detail::TryPushBack(self->requiredStates, arrival))
 					{
-						return self->validator->Fail(error, "a barrier claims a before-state the adopted resource did not arrive in");
+						return self->validator->Fail(error, "the host allocator refused the storage needed to record resource arrival states");
 					}
 				}
 			}
@@ -2242,6 +2308,7 @@ namespace azo::rhi::validation
 			}
 
 			self->recordedStates.clear();
+			self->requiredStates.clear();
 			self->pendingOwnership.clear();
 			self->pendingArrivals.clear();
 			self->rendering		  = false;

@@ -60,9 +60,9 @@ namespace azo::rhi
 	template <>
 	Result<UniqueDevice> CreateDevice<MetalApi>(const DeviceDesc & desc)
 	{
-		if (const Result<void> threading = detail::CheckThreading(desc); !threading)
+		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
 		{
-			return threading.GetError();
+			return checked.GetError();
 		}
 
 		Error refusal{};

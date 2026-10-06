@@ -11,6 +11,7 @@
 
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/resource_record.hpp"
@@ -83,7 +84,7 @@ namespace azo::rhi::d3d12
 		std::uint64_t size = 0;
 		bool hostVisible   = false;
 
-		std::uint32_t mapCount = 0;
+		BoundedCount mapCount;
 
 		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -343,6 +344,13 @@ namespace azo::rhi::d3d12
 		D3D12_COMMAND_LIST_TYPE type	   = D3D12_COMMAND_LIST_TYPE_DIRECT;
 		QueueType queueType				   = QueueType::eGraphics;
 
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
+
+		// The queue fence and value this list was last executed against, so a resubmit can tell whether that execution finished.
+		// Raw rather than owning because fence and list are both device scoped, so the fence outlives every list that names it.
+		ID3D12Fence * submitFence = nullptr;
+		std::uint64_t submitValue = 0;
+
 		std::array<std::uint32_t, D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT> vertexStrides{};
 
 		ID3D12QueryHeap * pendingEndTimestampHeap = nullptr;
@@ -416,6 +424,10 @@ namespace azo::rhi::d3d12
 		detail::HostVector<TextureHandle> backBuffers;
 		detail::HostVector<TextureViewHandle> backBufferViews;
 	};
+
+	// Defined in device.cpp beside the info queue callback, so every message this backend raises itself takes the one route.
+	void ReportBackendMessage(
+		ValidationMessageCallback onMessage, void * userData, ValidationMessageSeverity severity, const char * source, const char * message) noexcept;
 
 	struct D3D12Device final
 	{
@@ -518,8 +530,35 @@ namespace azo::rhi::d3d12
 		DWORD infoQueueCookie = 0;
 #endif
 
+		// Two seconds, the bound vulkan's teardown uses, because neither backend has an existing convention and that is still some hundred frames of slack.
+		static constexpr std::uint64_t kTeardownDrainNanoseconds = 2'000'000'000ULL;
+
+		// Set by a drain where every queue reached its fence, so the destructor does not signal and wait again on what the destroy entry already drained.
+		bool queuesDrained = false;
+
+		// Mirrors D3D12QueueWaitIdle on every queue, because nothing below may be released while the GPU still references it.
+		// Defined in queue.cpp, where WaitFenceHost is already declared. False when a queue did not drain in time.
+		[[nodiscard]] bool DrainQueues() noexcept;
+
+		void ReportTeardownStall() const
+		{
+			ReportBackendMessage(onMessage,
+				messageUserData,
+				ValidationMessageSeverity::eError,
+				"d3d12 teardown",
+				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed");
+		}
+
 		~D3D12Device()
 		{
+			// The bound stops a stuck queue hanging teardown. DestroyDeviceObject drains first and releases the whole record when
+			// it cannot, so this is the backstop for a device destroyed any other way, such as one that failed to finish being built.
+			if (!DrainQueues())
+			{
+				ReportTeardownStall();
+				return;
+			}
+
 #ifdef __ID3D12InfoQueue1_INTERFACE_DEFINED__
 			if (infoQueue && infoQueueCookie != 0)
 			{
@@ -778,6 +817,7 @@ namespace azo::rhi::d3d12
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, bool validate, Error * error) noexcept;
 	bool D3D12QueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 	bool D3D12QueueWaitIdle(void * impl, Error * error) noexcept;
+	[[nodiscard]] bool ListStillRunning(const D3D12CommandList & record) noexcept;
 	bool D3D12QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
 	bool D3D12QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
 	bool D3D12QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;

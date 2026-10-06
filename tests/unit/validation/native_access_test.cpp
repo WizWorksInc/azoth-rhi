@@ -406,11 +406,11 @@ namespace
 		const std::array cleared{ rhi::BufferBarrier{ .buffer = misnamed, .before = CopyDestinationState(), .after = CopyDestinationState() } };
 
 		rhi::Error clearedError{};
-		EXPECT_FALSE(next.List().Barriers(rhi::BarrierBatch{ .buffers = cleared }, clearedError))
-			<< "a new recording took a state the native scope had already moved the resource out of";
+		ASSERT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .buffers = cleared }, error), error));
+		ASSERT_TRUE(next.End());
+		EXPECT_FALSE(SubmitAndWait(Dev(), next.List(), clearedError))
+			<< "a submitted recording took a state the native scope had already moved the resource out of";
 		EXPECT_TRUE(test::ErrorIsPopulated(clearedError));
-
-		static_cast<void>(next.End());
 		EXPECT_TRUE(test::Ok(Dev().Destroy(misnamed, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().Destroy(named, {}, error), error));
 	}
@@ -456,11 +456,11 @@ namespace
 			.texture = backBuffer, .before = CopyDestinationState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
 
 		rhi::Error staleError{};
-		EXPECT_FALSE(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, staleError))
+		ASSERT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, error), error));
+		ASSERT_TRUE(next.End());
+		EXPECT_FALSE(SubmitAndWait(Dev(), next.List(), staleError))
 			<< "the refused destroy dropped the arrival state the native scope had declared";
 		EXPECT_TRUE(test::ErrorIsPopulated(staleError));
-
-		static_cast<void>(next.End());
 	}
 
 	TEST_P(NativeAccessTest, ANativeMutationMovesNothingUntilItsListIsSubmitted)

@@ -180,6 +180,9 @@ if (AZOTH_RHI_NO_EXCEPTIONS)
             $<$<CXX_COMPILER_ID:MSVC>:/EHs-c->)
 endif ()
 
+# PRIVATE because no public class has an out of line key function, so a consumer with RTTI still links.
+target_compile_options(AzothRHI PRIVATE $<IF:$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>,/GR-,-fno-rtti>)
+
 if (AZOTH_RHI_BACKEND_VULKAN)
     # PRIVATE keeps Vulkan off a consumer's include path. Link requirements still forward.
     target_link_libraries(AzothRHI PRIVATE vk::dynamic_hpp_dispatch)

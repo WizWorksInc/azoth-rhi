@@ -335,6 +335,31 @@ namespace
 		}
 	}
 
+	TEST_P(DeviceTest, TheTimestampCapsThatHaveNoFeatureOfTheirOwnFollowTheOneThatDoes)
+	{
+		rhi::DeviceDesc silent	 = MakeDeviceDesc();
+		silent.requiredFeatures	 = {};
+		silent.preferredFeatures = {};
+
+		const test::DeviceHarness undeclared(CurrentBackend(), silent);
+		if (!undeclared.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not allow a second device: " << test::Describe(undeclared.GetError());
+		}
+
+		const rhi::DeviceCaps & withheld = undeclared.Get().GetCaps();
+		EXPECT_FALSE(withheld.supportsTimestampQueries) << "timestamp queries were granted to a device that declared nothing";
+		EXPECT_FALSE(withheld.supportsTimestampWritesInScope) << "a device with no timestamp queries still offers to write one inside a scope";
+		EXPECT_FALSE(withheld.supportsTimestampCalibration) << "a device with no timestamp queries still offers to correlate their clocks";
+		EXPECT_FALSE(withheld.supportsOrderedTimestamps) << "a device with no timestamp queries still offers to order a pair of them";
+
+		// The shared device declares the feature, so there the three reported caps are the backend's own answers and none may outrun queries.
+		const rhi::DeviceCaps & granted = Caps();
+		EXPECT_TRUE(granted.supportsTimestampQueries || !granted.supportsTimestampWritesInScope);
+		EXPECT_TRUE(granted.supportsTimestampQueries || !granted.supportsTimestampCalibration);
+		EXPECT_TRUE(granted.supportsTimestampQueries || !granted.supportsOrderedTimestamps);
+	}
+
 	TEST_P(DeviceTest, ARequiredFeatureTheDeviceCannotGiveRefusesCreation)
 	{
 		static constexpr std::array kEveryFeature{
@@ -402,6 +427,40 @@ namespace
 
 		EXPECT_TRUE(test::Ok(Dev().Destroy(fromFirst, {}, error), error));
 		EXPECT_TRUE(test::Ok(second.Get().Destroy(fromSecond, {}, error), error));
+	}
+
+	TEST_P(DeviceTest, RefusesADeviceThatCouldNotHoldOneOpenCommandList)
+	{
+		rhi::DeviceDesc desc			 = MakeDeviceDesc();
+		desc.maxOpenCommandListsPerQueue = 0;
+
+		const test::DeviceHarness impossible(CurrentBackend(), desc);
+
+		EXPECT_FALSE(impossible.IsValid()) << "a device came up that could not hold a single open command list";
+		EXPECT_EQ(impossible.GetError().code, rhi::ErrorCode::eInvalidArgument);
+		EXPECT_NE(impossible.GetError().message, nullptr) << "a refusal has to say what was wrong with the setting";
+	}
+
+	TEST_P(DeviceTest, ReportsWhetherItBoundsHowManyCommandListsStayOpen)
+	{
+		constexpr std::uint32_t kBound = 16;
+
+		rhi::DeviceDesc desc			 = MakeDeviceDesc();
+		desc.maxOpenCommandListsPerQueue = kBound;
+
+		const test::DeviceHarness bounded(CurrentBackend(), desc);
+		if (!bounded.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not allow a second device: " << test::Describe(bounded.GetError());
+		}
+
+		const std::uint32_t reported = bounded.Get().GetCaps().maxOpenCommandListsPerQueue;
+
+		// A backend whose native API caps open lists reports the setting it was given. One that does not says so instead.
+		EXPECT_TRUE(reported == kBound || reported == rhi::kUnlimitedOpenCommandLists)
+			<< "maxOpenCommandListsPerQueue reads " << reported << ", which is neither the setting nor unlimited";
+
+		EXPECT_GT(Caps().maxOpenCommandListsPerQueue, 0u) << "the default device reports a bound of zero, which would allow no recording at all";
 	}
 
 	class DeviceOwnershipTest : public test::BackendTest

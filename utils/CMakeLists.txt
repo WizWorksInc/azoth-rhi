@@ -104,6 +104,7 @@ target_include_directories(AzothRHI-utils
 target_link_libraries(AzothRHI-utils PUBLIC azoth::rhi)
 
 target_compile_features(AzothRHI-utils PUBLIC cxx_std_23)
+target_compile_options(AzothRHI-utils PRIVATE $<IF:$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>,/GR-,-fno-rtti>)
 
 # Which containers actually got compiled in, so the resampler binds the one its backend takes and
 # refuses the rest without reading past an array never built.

@@ -31,6 +31,11 @@ namespace azo::rhi::metal4
 		}
 	}
 
+	[[nodiscard]] static bool SubmittableList(const CmdList * record) noexcept
+	{
+		return record != nullptr && record->commandBuffer.get() != nullptr && record->lifecycle == ListLifecycle::eEnded;
+	}
+
 	bool Metal4QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.submit");
@@ -42,6 +47,23 @@ namespace azo::rhi::metal4
 		if (commandQueue == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "submit on a queue type the device did not create");
+		}
+
+		// This backend never resubmits, so the pending question cannot arise and is answered false.
+		if (const char * refusal = SubmitRefusalForLists(
+				desc.commandLists,
+				device->caps.supportsCommandListResubmit,
+				[](const CommandList & list)
+				{
+					return ListOf(static_cast<Metal4Object *>(detail::UnwrappedImplOf(list)));
+				},
+				[](const CmdList &)
+				{
+					return false;
+				});
+			refusal != nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, refusal);
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -76,7 +98,7 @@ namespace azo::rhi::metal4
 
 			auto * listObject	   = static_cast<Metal4Object *>(detail::UnwrappedImplOf(*list));
 			const CmdList * record = ListOf(listObject);
-			if (record == nullptr || record->commandBuffer.get() == nullptr || record->lifecycle < 2)
+			if (!SubmittableList(record))
 			{
 				continue;
 			}
@@ -98,10 +120,11 @@ namespace azo::rhi::metal4
 					continue;
 				}
 
+				// The same test the gathering loop used, so a list it skipped is not marked as though it had been submitted.
 				auto * listObject = static_cast<Metal4Object *>(detail::UnwrappedImplOf(*list));
-				if (CmdList * record = ListOf(listObject); record != nullptr && record->commandBuffer.get() != nullptr)
+				if (CmdList * record = ListOf(listObject); SubmittableList(record))
 				{
-					record->lifecycle = 3;
+					record->lifecycle = ListLifecycle::eSubmitted;
 				}
 			}
 		}
@@ -343,6 +366,25 @@ namespace azo::rhi::metal4
 		auto * poolObject = static_cast<Metal4Object *>(impl);
 		if (poolObject->pool != nullptr)
 		{
+			const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
+
+			for (Metal4Object * listObject : poolObject->pool->lists)
+			{
+				CmdList * record = ListOf(listObject);
+				if (record == nullptr)
+				{
+					continue;
+				}
+
+				if (record->lifecycle == ListLifecycle::eRecording)
+				{
+					EndActiveEncoders(record);
+					record->commandBuffer->endCommandBuffer();
+				}
+
+				record->lifecycle = ListLifecycle::eFresh;
+			}
+
 			poolObject->pool->handedOut = 0;
 		}
 

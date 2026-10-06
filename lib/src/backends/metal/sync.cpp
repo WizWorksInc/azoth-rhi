@@ -100,16 +100,21 @@ namespace azo::rhi::metal
 
 	void ReleaseCmdBuffer(MetalDevice * device, MetalCmdList * rec, QueueType queueType) noexcept
 	{
-		// A submitted list committed its buffer and gave the queue slot back then, so only an uncommitted one still holds one.
-		if (rec == nullptr || rec->commandBuffer.get() == nullptr || rec->lifecycle == 3)
+		if (rec == nullptr)
 		{
 			return;
 		}
 
 		rec->EndEncoders();
 		rec->commandBuffer.reset();
-		rec->lifecycle = 0;
-		device->ReleaseCommandBuffer(queueType);
+		rec->lifecycle = ListLifecycle::eFresh;
+
+		// The flag and not the lifecycle decides this, so a list that was submitted and gave its slot back then cannot give it back twice.
+		if (rec->holdsListSlot)
+		{
+			rec->holdsListSlot = false;
+			device->openLists.Close(queueType);
+		}
 	}
 
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::RenderCommandEncoder * encoder) noexcept

@@ -13,8 +13,27 @@
 
 	#include "backends/d3d12/internal.hpp"
 
+	#include <iostream>
+
 namespace azo::rhi::d3d12
 {
+	void ReportBackendMessage(const ValidationMessageCallback onMessage, void * userData, const ValidationMessageSeverity severity, const char * source,
+		const char * message) noexcept
+	{
+		if (message == nullptr)
+		{
+			return;
+		}
+
+		if (onMessage != nullptr)
+		{
+			onMessage(severity, message, userData);
+			return;
+		}
+
+		std::cerr << '[' << source << "] " << message << '\n';
+	}
+
 	const void * D3D12QueueQueryInterface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
 	{
 		const auto * queue = static_cast<const D3D12Queue *>(object);
@@ -128,6 +147,8 @@ namespace azo::rhi::d3d12
 		caps.supportsTimelineSync			= true;
 		caps.supportsTimestampQueries		= true;
 		caps.supportsTimestampWritesInScope = true;
+		// Two timestamps on one command list are documented as always reliably comparable, and each is taken once the work before it has finished.
+		caps.supportsOrderedTimestamps		= true;
 		caps.supportsAnisotropy				= true;
 		caps.supportsRootDescriptors		= false;
 
@@ -157,6 +178,7 @@ namespace azo::rhi::d3d12
 		caps.supportsEnhancedBarriers = haveOptions12 && options12.EnhancedBarriersSupported != FALSE;
 		caps.supportsDepthBounds	  = haveOptions2 && options2.DepthBoundsTestSupported != FALSE;
 		caps.supportsShaderFloat16	  = haveOptions4 && options4.Native16BitShaderOpsSupported != FALSE;
+		caps.supportsScalarBlockLayout = true;
 
 		caps.sparseTier			 = SparseTierFromTiledResourcesTier(options.TiledResourcesTier);
 		caps.sparseTileSizeBytes = caps.sparseTier > SparseTier::eNone ? kD3D12TileSizeBytes : 0;
@@ -209,15 +231,29 @@ namespace azo::rhi::d3d12
 
 		D3D12Instance * owningInstance = nullptr;
 		bool found					   = false;
+		bool stalled				   = false;
 		for (auto it = owner.devices.begin(); it != owner.devices.end(); ++it)
 		{
 			if (it->get() == device)
 			{
 				owningInstance = (*it)->instanceWrapper;
+				stalled		   = !(*it)->DrainQueues();
 
 				const std::uint32_t releasedTag = (*it)->deviceTag;
+				if (stalled)
+				{
+					// Releasing an object the GPU still reads is the caller's mistake to avoid here, so the record is released
+					// rather than destroyed, which leaves every ComPtr it holds unreleased, and its tag stays taken.
+					(*it)->ReportTeardownStall();
+					static_cast<void>(it->release());
+				}
+
 				owner.devices.erase(it);
-				detail::DeviceTags().Release(releasedTag);
+				if (!stalled)
+				{
+					detail::DeviceTags().Release(releasedTag);
+				}
+
 				found = true;
 				break;
 			}
@@ -239,6 +275,26 @@ namespace azo::rhi::d3d12
 			{
 				return;
 			}
+		}
+
+		if (stalled)
+		{
+			for (HostUniquePtr<D3D12Instance> & instance : owner.instances)
+			{
+				if (instance.get() == owningInstance)
+				{
+					static_cast<void>(instance.release());
+					break;
+				}
+			}
+
+			std::erase_if(owner.instances,
+				[](const HostUniquePtr<D3D12Instance> & instance)
+				{
+					return instance == nullptr;
+				});
+
+			return;
 		}
 
 		std::erase_if(owner.instances,
@@ -618,10 +674,7 @@ namespace azo::rhi::d3d12
 					return;
 				}
 
-				if (counted->onMessage != nullptr && description != nullptr)
-				{
-					counted->onMessage(classified, description, counted->messageUserData);
-				}
+				ReportBackendMessage(counted->onMessage, counted->messageUserData, classified, "d3d12 validation", description);
 			};
 
 			if (SUCCEEDED(dev->infoQueue->RegisterMessageCallback(onMessage, D3D12_MESSAGE_CALLBACK_FLAG_NONE, dev.get(), &dev->infoQueueCookie)))
@@ -773,6 +826,12 @@ namespace azo::rhi::d3d12
 		dev->caps.copyQueueCount			= static_cast<std::uint32_t>(dev->copyQueues.size());
 		dev->caps.hasDedicatedComputeQueue	= !dev->computeQueues.empty();
 		dev->caps.hasDedicatedTransferQueue = !dev->copyQueues.empty();
+
+		// An ID3D12GraphicsCommandList comes from its allocator rather than a capped queue, so nothing here bounds how many lists are open.
+		dev->caps.maxOpenCommandListsPerQueue = kUnlimitedOpenCommandLists;
+
+		// A closed list may be executed again, but executing one whose earlier execution has not finished is invalid usage, so we refuse it.
+		dev->caps.supportsCommandListResubmit = true;
 
 		dev->ownedInstance	 = std::move(ownedInstance);
 		dev->instanceWrapper = dev->ownedInstance == nullptr ? instance : nullptr;

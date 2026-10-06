@@ -29,6 +29,23 @@ namespace azo::rhi::metal
 			return Fail(error, ErrorCode::eInvalidState, "submit on a queue type the device did not create");
 		}
 
+		// This backend never resubmits, so the pending question cannot arise and is answered false.
+		if (const char * refusal = SubmitRefusalForLists(
+				desc.commandLists,
+				device->caps.supportsCommandListResubmit,
+				[](const CommandList & list)
+				{
+					return static_cast<const MetalObject *>(detail::UnwrappedImplOf(list))->list;
+				},
+				[](const MetalCmdList &)
+				{
+					return false;
+				});
+			refusal != nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, refusal);
+		}
+
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
 		for (const TimelinePoint & wait : desc.waits)
@@ -61,11 +78,18 @@ namespace azo::rhi::metal
 				continue;
 			}
 			auto * listObject = static_cast<MetalObject *>(detail::UnwrappedImplOf(*list));
-			if (listObject->list != nullptr && listObject->list->commandBuffer.get() != nullptr && listObject->list->lifecycle != 3)
+			MetalCmdList * rec = listObject->list;
+			if (rec == nullptr || rec->lifecycle != ListLifecycle::eEnded)
 			{
-				listObject->list->commandBuffer->commit();
-				listObject->list->lifecycle = 3;
-				device->ReleaseCommandBuffer(listObject->queueType);
+				continue;
+			}
+
+			rec->commandBuffer->commit();
+			rec->lifecycle = ListLifecycle::eSubmitted;
+			if (rec->holdsListSlot)
+			{
+				rec->holdsListSlot = false;
+				device->openLists.Close(listObject->queueType);
 			}
 		}
 
