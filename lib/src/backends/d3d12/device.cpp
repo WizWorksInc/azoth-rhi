@@ -148,9 +148,9 @@ namespace azo::rhi::d3d12
 		caps.supportsTimestampQueries		= true;
 		caps.supportsTimestampWritesInScope = true;
 		// Two timestamps on one command list are documented as always reliably comparable, and each is taken once the work before it has finished.
-		caps.supportsOrderedTimestamps		= true;
-		caps.supportsAnisotropy				= true;
-		caps.supportsRootDescriptors		= false;
+		caps.supportsOrderedTimestamps = true;
+		caps.supportsAnisotropy		   = true;
+		caps.supportsRootDescriptors   = false;
 
 		caps.bindingTier					   = BindingTierFromResourceBindingTier(options.ResourceBindingTier);
 		caps.shaderBinaryFormat				   = ShaderBinaryFormat::eDxil;
@@ -174,10 +174,10 @@ namespace azo::rhi::d3d12
 
 		caps.minTexelBufferOffsetAlignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;
 
-		caps.conservativeRasterTier	  = ConservativeRasterTierFrom(options.ConservativeRasterizationTier);
-		caps.supportsEnhancedBarriers = haveOptions12 && options12.EnhancedBarriersSupported != FALSE;
-		caps.supportsDepthBounds	  = haveOptions2 && options2.DepthBoundsTestSupported != FALSE;
-		caps.supportsShaderFloat16	  = haveOptions4 && options4.Native16BitShaderOpsSupported != FALSE;
+		caps.conservativeRasterTier	   = ConservativeRasterTierFrom(options.ConservativeRasterizationTier);
+		caps.supportsEnhancedBarriers  = haveOptions12 && options12.EnhancedBarriersSupported != FALSE;
+		caps.supportsDepthBounds	   = haveOptions2 && options2.DepthBoundsTestSupported != FALSE;
+		caps.supportsShaderFloat16	   = haveOptions4 && options4.Native16BitShaderOpsSupported != FALSE;
 		caps.supportsScalarBlockLayout = true;
 
 		caps.sparseTier			 = SparseTierFromTiledResourcesTier(options.TiledResourcesTier);

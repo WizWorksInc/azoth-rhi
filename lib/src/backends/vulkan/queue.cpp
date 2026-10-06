@@ -433,8 +433,8 @@ namespace azo::rhi::vulkan
 				continue;
 			}
 
-			auto * record	  = static_cast<VulkanCommandList *>(detail::UnwrappedImplOf(*list));
-			record->lifecycle = ListLifecycle::eSubmitted;
+			auto * record		   = static_cast<VulkanCommandList *>(detail::UnwrappedImplOf(*list));
+			record->lifecycle	   = ListLifecycle::eSubmitted;
 			record->submitTimeline = queue->submitTimeline;
 			record->submitValue	   = submittedAt;
 		}

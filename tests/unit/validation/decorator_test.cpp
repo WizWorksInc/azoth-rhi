@@ -472,7 +472,7 @@ namespace
 		const test::DeviceHarness device{ CurrentBackend(), desc };
 		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		const rhi::BufferHandle buffer	 = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
 		const rhi::TextureHandle texture = device.Get().CreateTexture(test::samples::MippedTexture2D(test::samples::kTextureDim, 1), error);
 		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
 		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
@@ -569,8 +569,8 @@ namespace
 		std::array<const rhi::CommandList *, 2> ordered{ &acquire, &release };
 		auto * wrappedQueue				   = static_cast<rhi::validation::WrappedQueue *>(rhi::detail::UnwrappedImplOf(queue));
 		const rhi::QueueApi * backendQueue = wrappedQueue->blocks.core;
-		rhi::QueueApi refusedQueue = *backendQueue;
-		refusedQueue.submit = [](void *, const rhi::SubmitDesc &, rhi::Error * failure) noexcept
+		rhi::QueueApi refusedQueue		   = *backendQueue;
+		refusedQueue.submit				   = [](void *, const rhi::SubmitDesc &, rhi::Error * failure) noexcept
 		{
 			*failure = { .code = rhi::ErrorCode::eInvalidState, .message = "backend submit refusal" };
 			return false;
@@ -599,14 +599,14 @@ namespace
 	{
 		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "seeded validation registry states");
 		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
-		desc.validation = rhi::ValidationMode::eDeveloper;
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
 		const test::DeviceHarness device{ CurrentBackend(), desc };
 		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
 		rhi::Error error{};
 		const rhi::BufferDesc bufferDesc = test::samples::StorageBuffer();
-		rhi::TextureDesc textureDesc = test::samples::MippedTexture2D();
-		textureDesc.arrayLayers = 2;
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(bufferDesc, error);
+		rhi::TextureDesc textureDesc	 = test::samples::MippedTexture2D();
+		textureDesc.arrayLayers			 = 2;
+		const rhi::BufferHandle buffer	 = device.Get().CreateBuffer(bufferDesc, error);
 		const rhi::TextureHandle texture = device.Get().CreateTexture(textureDesc, error);
 		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
 		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
@@ -617,8 +617,8 @@ namespace
 		constexpr rhi::ResourceState source{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
 		constexpr rhi::ResourceState stored{ .use = rhi::ResourceUse::eStorageRead, .stages = rhi::Stage::eCompute };
 		constexpr rhi::ResourceState sampled{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
-		auto & handles = ValidatorOf(device.Get())->Handles();
-		auto * bufferRecord = handles.Lookup({ .type = rhi::ResourceType::eBuffer, .index = buffer.index, .generation = buffer.generation });
+		auto & handles		 = ValidatorOf(device.Get())->Handles();
+		auto * bufferRecord	 = handles.Lookup({ .type = rhi::ResourceType::eBuffer, .index = buffer.index, .generation = buffer.generation });
 		auto * textureRecord = handles.Lookup({ .type = rhi::ResourceType::eTexture, .index = texture.index, .generation = texture.generation });
 		ASSERT_NE(bufferRecord, nullptr);
 		ASSERT_NE(textureRecord, nullptr);
@@ -643,7 +643,8 @@ namespace
 				ASSERT_TRUE(test::Ok(wrong.Begin(error), error));
 				const std::array wrongBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = wrongBefore, .after = stored } };
 				const std::array wrongTextures{ rhi::TextureBarrier{ .texture = texture, .before = wrongBefore, .after = sampled, .range = whole } };
-				ASSERT_TRUE(test::Ok(wrong.Barriers(checkBuffer ? rhi::BarrierBatch{ .buffers = wrongBuffers } : rhi::BarrierBatch{ .textures = wrongTextures }, error), error));
+				ASSERT_TRUE(test::Ok(
+					wrong.Barriers(checkBuffer ? rhi::BarrierBatch{ .buffers = wrongBuffers } : rhi::BarrierBatch{ .textures = wrongTextures }, error), error));
 				ASSERT_TRUE(test::Ok(wrong.End(error), error));
 				std::array<const rhi::CommandList *, 2> mismatched{ &first, &wrong };
 				rhi::Error wrongError{};
@@ -653,13 +654,15 @@ namespace
 		}
 		rhi::CommandList second = pool.Allocate("azoth.rhi.test.ranges.second", error);
 		ASSERT_TRUE(test::Ok(second.Begin(error), error));
-		const std::array secondBuffers{
-			rhi::BufferBarrier{ .buffer = buffer, .before = source, .after = stored, .size = split },
+		const std::array secondBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = source, .after = stored, .size = split },
 			rhi::BufferBarrier{ .buffer = buffer, .before = copied, .after = stored, .offset = split, .size = bufferDesc.size - split } };
-		const std::array secondTextures{
-			rhi::TextureBarrier{ .texture = texture, .before = source, .after = sampled, .range = corner },
-			rhi::TextureBarrier{ .texture = texture, .before = copied, .after = sampled, .range = { .baseLayer = 1, .layerCount = textureDesc.arrayLayers - 1 } },
-			rhi::TextureBarrier{ .texture = texture, .before = copied, .after = sampled, .range = { .baseMip = 1, .mipCount = textureDesc.mipLevels - 1, .layerCount = textureDesc.arrayLayers } } };
+		const std::array secondTextures{ rhi::TextureBarrier{ .texture = texture, .before = source, .after = sampled, .range = corner },
+			rhi::TextureBarrier{
+				.texture = texture, .before = copied, .after = sampled, .range = { .baseLayer = 1, .layerCount = textureDesc.arrayLayers - 1 } },
+			rhi::TextureBarrier{ .texture = texture,
+				.before					  = copied,
+				.after					  = sampled,
+				.range					  = { .baseMip = 1, .mipCount = textureDesc.mipLevels - 1, .layerCount = textureDesc.arrayLayers } } };
 		ASSERT_TRUE(test::Ok(second.Barriers({ .buffers = secondBuffers, .textures = secondTextures }, error), error));
 		ASSERT_TRUE(test::Ok(second.End(error), error));
 		rhi::CommandList third = pool.Allocate("azoth.rhi.test.ranges.third", error);
@@ -788,7 +791,6 @@ namespace
 		EXPECT_FALSE(queue.Submit({ .commandLists = afterOnly }, afterError))
 			<< "the submitted release never reached the device record, so the compute queue's ownership was forgotten";
 		EXPECT_EQ(afterError.code, rhi::ErrorCode::eValidationFailed);
-
 
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(done, {}, error), error));
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));

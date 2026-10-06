@@ -182,7 +182,7 @@ namespace azo::rhi::vulkan
 		// Marked before the native reset rather than after, so a reset that fails cannot leave a list looking submittable.
 		for (VulkanCommandList * list : commandPool->lists)
 		{
-			list->lifecycle = ListLifecycle::eFresh;
+			list->lifecycle		 = ListLifecycle::eFresh;
 			list->submitTimeline = kNoSubmitTimeline;
 			list->submitValue	 = 0;
 		}
@@ -246,8 +246,8 @@ namespace azo::rhi::vulkan
 		SweepRetiredCommandBuffers(list->pool);
 
 		// A buffer that has been begun before is no longer in the initial state, and only a pool carrying eResetCommandBuffer may reset it in place.
-		const bool used		 = list->lifecycle != ListLifecycle::eFresh;
-		const bool running	 = ListStillRunning(list);
+		const bool used	   = list->lifecycle != ListLifecycle::eFresh;
+		const bool running = ListStillRunning(list);
 		// A recording buffer is excluded because vkBeginCommandBuffer forbids it even with the reset bit, per VUID 00049, so it takes the retire path.
 		const bool resetHere = list->pool != nullptr && list->pool->resetsIndividualLists && !running && list->lifecycle != ListLifecycle::eRecording;
 		if (used && !resetHere)

@@ -77,7 +77,7 @@ namespace azo::rhi::metal
 			{
 				continue;
 			}
-			auto * listObject = static_cast<MetalObject *>(detail::UnwrappedImplOf(*list));
+			auto * listObject  = static_cast<MetalObject *>(detail::UnwrappedImplOf(*list));
 			MetalCmdList * rec = listObject->list;
 			if (rec == nullptr || rec->lifecycle != ListLifecycle::eEnded)
 			{

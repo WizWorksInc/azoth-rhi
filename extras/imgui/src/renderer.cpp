@@ -519,10 +519,10 @@ namespace azo::rhi::imgui
 
 			frame.staging.buffer = m_device.CreateBuffer(
 				BufferDesc{
-					.size		   = want,
-					.usage		   = BufferUsage::eCopySrc,
-					.memory		   = MemoryUsage::eCpuToGpu,
-					.debugName	   = "imgui.textureStaging",
+					.size	   = want,
+					.usage	   = BufferUsage::eCopySrc,
+					.memory	   = MemoryUsage::eCpuToGpu,
+					.debugName = "imgui.textureStaging",
 				},
 				error);
 
@@ -786,21 +786,21 @@ namespace azo::rhi::imgui
 
 		frame.vertices = m_device.CreateBuffer(
 			BufferDesc{
-				.size		   = wantVertices,
-				.stride		   = sizeof(ImDrawVert),
-				.usage		   = BufferUsage::eVertex,
-				.memory		   = MemoryUsage::eCpuToGpu,
-				.debugName	   = "imgui.vertices",
+				.size	   = wantVertices,
+				.stride	   = sizeof(ImDrawVert),
+				.usage	   = BufferUsage::eVertex,
+				.memory	   = MemoryUsage::eCpuToGpu,
+				.debugName = "imgui.vertices",
 			},
 			error);
 
 		frame.indices = m_device.CreateBuffer(
 			BufferDesc{
-				.size		   = wantIndices,
-				.stride		   = sizeof(ImDrawIdx),
-				.usage		   = BufferUsage::eIndex,
-				.memory		   = MemoryUsage::eCpuToGpu,
-				.debugName	   = "imgui.indices",
+				.size	   = wantIndices,
+				.stride	   = sizeof(ImDrawIdx),
+				.usage	   = BufferUsage::eIndex,
+				.memory	   = MemoryUsage::eCpuToGpu,
+				.debugName = "imgui.indices",
 			},
 			error);
 

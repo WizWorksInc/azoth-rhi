@@ -458,8 +458,7 @@ namespace
 		rhi::Error staleError{};
 		ASSERT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, error), error));
 		ASSERT_TRUE(next.End());
-		EXPECT_FALSE(SubmitAndWait(Dev(), next.List(), staleError))
-			<< "the refused destroy dropped the arrival state the native scope had declared";
+		EXPECT_FALSE(SubmitAndWait(Dev(), next.List(), staleError)) << "the refused destroy dropped the arrival state the native scope had declared";
 		EXPECT_TRUE(test::ErrorIsPopulated(staleError));
 	}
 

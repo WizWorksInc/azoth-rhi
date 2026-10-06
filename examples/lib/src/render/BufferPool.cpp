@@ -144,10 +144,10 @@ namespace fw::render
 		block->sizeBytes = bytes;
 		block->buffer	 = m_device.CreateBuffer(
 			azo::rhi::BufferDesc{
-				.size		   = bytes,
-				.usage		   = m_usage,
-				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
-				.debugName	   = "fw.render.bufferPool",
+				.size	   = bytes,
+				.usage	   = m_usage,
+				.memory	   = azo::rhi::MemoryUsage::eCpuToGpu,
+				.debugName = "fw.render.bufferPool",
 			},
 			error);
 
