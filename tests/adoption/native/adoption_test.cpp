@@ -678,10 +678,17 @@ namespace
 			.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 		} };
 
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error))
-			<< "a barrier claiming a state the object never arrived in was accepted, so the declaration is not read";
+		// An earlier list in the same submit could still leave the object in the claimed state, so the claim is judged at submit.
+		ASSERT_TRUE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error)) << error.message;
+		ASSERT_TRUE(list.End(error)) << error.message;
 
-		static_cast<void>(list.End(error));
+		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(queue.IsValid()) << error.message;
+		std::array<const rhi::CommandList *, 1> lists{ &list };
+		EXPECT_FALSE(queue.Submit(rhi::SubmitDesc{ .commandLists = lists }, error))
+			<< "a barrier claiming a state the object never arrived in was submitted, so the declaration is not read";
+		EXPECT_NE(std::string_view(error.message != nullptr ? error.message : "").find("did not arrive in"), std::string_view::npos)
+			<< "the submit was refused for another reason: " << error.message;
 		EXPECT_TRUE(device.Destroy(adopted, {}, error)) << error.message;
 
 		vkDevice.destroyImage(produced.image, nullptr, dispatch);
@@ -725,10 +732,17 @@ namespace
 			.ownership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCopy },
 		} };
 
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error))
-			<< "a barrier acquired the object from a queue it was never declared to be owned by";
+		// Ownership is judged at submit for the same reason, since an earlier list in that submit could hand the object over.
+		ASSERT_TRUE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error)) << error.message;
+		ASSERT_TRUE(list.End(error)) << error.message;
 
-		static_cast<void>(list.End(error));
+		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(queue.IsValid()) << error.message;
+		std::array<const rhi::CommandList *, 1> lists{ &list };
+		EXPECT_FALSE(queue.Submit(rhi::SubmitDesc{ .commandLists = lists }, error))
+			<< "a barrier acquired the object from a queue it was never declared to be owned by";
+		EXPECT_NE(std::string_view(error.message != nullptr ? error.message : "").find("does not hold it"), std::string_view::npos)
+			<< "the submit was refused for another reason: " << error.message;
 		EXPECT_TRUE(device.Destroy(adopted, {}, error)) << error.message;
 
 		vkDevice.destroyImage(produced.image, nullptr, dispatch);

@@ -567,7 +567,7 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
 	}
 
-	TEST_P(NativeAccessTest, DISABLED_AQueueThatAcquiresWhatAnotherReleasedToItIsAccepted)
+	TEST_P(NativeAccessTest, AQueueThatAcquiresWhatAnotherReleasedToItIsAccepted)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
 		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
