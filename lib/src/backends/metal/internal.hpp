@@ -12,6 +12,7 @@
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/resource_tables.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
@@ -59,7 +60,9 @@ namespace azo::rhi::metal
 	struct MetalCmdList final
 	{
 		NS::SharedPtr<MTL::CommandBuffer> commandBuffer;
-		std::uint8_t lifecycle = 0;
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
+
+		bool holdsListSlot = false;
 
 		detail::HostVector<NS::SharedPtr<MTL::Buffer>> keepAlive;
 
@@ -83,6 +86,16 @@ namespace azo::rhi::metal
 		detail::HostVector<std::uint64_t> debugLabelScopes;
 
 		detail::HostString debugName;
+
+		void EndEncoders() noexcept;
+
+		MetalCmdList() = default;
+		~MetalCmdList();
+
+		MetalCmdList(const MetalCmdList &)			   = delete;
+		MetalCmdList & operator=(const MetalCmdList &) = delete;
+		MetalCmdList(MetalCmdList &&)				   = delete;
+		MetalCmdList & operator=(MetalCmdList &&)	   = delete;
 	};
 
 	struct MetalQueryPool final
@@ -198,6 +211,8 @@ namespace azo::rhi::metal
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
 
+		BoundedCount mapCount;
+
 		BufferDesc desc{};
 	};
 
@@ -262,6 +277,18 @@ namespace azo::rhi::metal
 			const detail::HostVector<NS::SharedPtr<MTL::CommandQueue>> & pool = QueuesForType(type);
 			return pool.empty() ? nullptr : pool.front().get();
 		}
+
+		// Submit and waitIdle commit a command buffer of their own for every wait and signal, so those slots cannot go to open lists.
+		static constexpr std::uint32_t kCommandBufferHeadroom = 8;
+
+		// A queue sized for the setting plus the headroom, clamped so a caller asking for a huge budget cannot wrap the count.
+		[[nodiscard]] static std::uint32_t CommandBuffersPerQueue(std::uint32_t openListBound) noexcept
+		{
+			constexpr std::uint32_t ceiling = std::numeric_limits<std::uint32_t>::max() - kCommandBufferHeadroom;
+			return (openListBound > ceiling ? ceiling : openListBound) + kCommandBufferHeadroom;
+		}
+
+		OpenListBudget openLists;
 
 		std::atomic<std::uint32_t> nextHandleIndex{ 0 };
 		std::atomic<std::uint64_t> pendingRetire{ 0 };
@@ -374,11 +401,12 @@ namespace azo::rhi::metal
 	[[nodiscard]] Format ResolveTextureFormat(MetalDevice * device, TextureHandle handle) noexcept;
 	[[nodiscard]] MTL::CommandBuffer * CmdBufferOf(MetalObject * object) noexcept;
 	void EndActiveEncoders(MetalObject * object) noexcept;
+	void ReleaseCmdBuffer(MetalDevice * device, MetalCmdList * rec, QueueType queueType) noexcept;
 	[[nodiscard]] MTL::BlitCommandEncoder * BeginBlit(MetalObject * object, Error * error) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::RenderCommandEncoder * encoder) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::ComputeCommandEncoder * encoder) noexcept;
 	void ConsumeAliasWait(MetalCmdList * rec, MTL::BlitCommandEncoder * encoder) noexcept;
-	[[nodiscard]] MetalCmdList * NewCmdList(MetalDevice * device, QueueType queueType);
+	[[nodiscard]] MetalCmdList * NewCmdList(MetalDevice * device);
 	BinarySemaphoreHandle MetalCreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept;
 	bool MetalCmdBegin(void * impl, Error * error) noexcept;
 	bool MetalCmdEnd(void * impl, Error * error) noexcept;
@@ -438,6 +466,7 @@ namespace azo::rhi::metal
 	void * MetalCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
 	void * MetalGetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 	MappedMemory MetalMap(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept;
+	bool MetalUnmap(void * impl, BufferHandle buffer, Error * error) noexcept;
 	bool MetalQueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
 	[[nodiscard]] MetalQueryPool * ResolveQueryPool(MetalDevice * device, QueryPoolHandle handle) noexcept;
 	QueryPoolHandle MetalCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;

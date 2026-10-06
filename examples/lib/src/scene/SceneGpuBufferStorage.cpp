@@ -263,7 +263,6 @@ namespace fw::scene
 				.stride		   = stride,
 				.usage		   = usage,
 				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
-				.persistentMap = true,
 				.debugName	   = debugName,
 			},
 			error);

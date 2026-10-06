@@ -114,6 +114,8 @@ namespace azo::rhi::metal
 
 		caps.supportsShaderFloat16 = true;
 
+		caps.supportsScalarBlockLayout = true;
+
 		caps.supportsDrawIndirectFirstInstance = true;
 		caps.supportsDynamicBufferOffsets	   = true;
 
@@ -140,6 +142,9 @@ namespace azo::rhi::metal
 		caps.supportsTimestampQueries = canWriteTimestamps;
 
 		caps.supportsTimestampWritesInScope = canWriteTimestamps && device->samplesAtDrawBoundary && device->samplesAtDispatchBoundary;
+
+		// Every path a write outside a scope can take samples from its own encoder, and Apple isolates such a sample from no other encoder's commands.
+		caps.supportsOrderedTimestamps = false;
 
 		MTL::Timestamp probedCpu = 0;
 		MTL::Timestamp probedGpu = 0;
@@ -242,13 +247,16 @@ namespace azo::rhi::metal
 		device->caps.deviceLocalMemoryIsHostVisible = device->device->hasUnifiedMemory();
 		device->allowDeviceLocalMapping				= desc.allowDeviceLocalMapping && device->caps.deviceLocalMemoryIsHostVisible;
 
-		const QueuePlan plan  = PlanQueues(desc.queues);
-		MTL::Device * mtl	  = device->device.get();
-		const auto makeQueues = [mtl](detail::HostVector<NS::SharedPtr<MTL::CommandQueue>> & out, std::uint32_t count) -> bool
+		device->openLists.SetBound(desc.maxOpenCommandListsPerQueue);
+
+		const QueuePlan plan				   = PlanQueues(desc.queues);
+		MTL::Device * mtl					   = device->device.get();
+		const std::uint32_t commandBufferCount = MetalDevice::CommandBuffersPerQueue(desc.maxOpenCommandListsPerQueue);
+		const auto makeQueues = [mtl, commandBufferCount](detail::HostVector<NS::SharedPtr<MTL::CommandQueue>> & out, std::uint32_t count) -> bool
 		{
 			for (std::uint32_t i = 0; i < count; ++i)
 			{
-				NS::SharedPtr<MTL::CommandQueue> commandQueue = NS::TransferPtr(mtl->newCommandQueue());
+				NS::SharedPtr<MTL::CommandQueue> commandQueue = NS::TransferPtr(mtl->newCommandQueue(commandBufferCount));
 				if (commandQueue.get() == nullptr)
 				{
 					return false;
@@ -300,6 +308,12 @@ namespace azo::rhi::metal
 		device->caps.copyQueueCount			   = queueCount(QueueType::eCopy);
 		device->caps.hasDedicatedComputeQueue  = device->caps.computeQueueCount != 0;
 		device->caps.hasDedicatedTransferQueue = device->caps.copyQueueCount != 0;
+
+		// Metal 3 takes its command buffers from a queue with a hard cap that blocks when it fills, so this backend really is bounded.
+		device->caps.maxOpenCommandListsPerQueue = desc.maxOpenCommandListsPerQueue;
+
+		// An MTLCommandBuffer commits once and this backend keeps one per list, so there is no way to replay a recording.
+		device->caps.supportsCommandListResubmit = false;
 
 		MetalDevice * raw		  = device.get();
 		MetalBackendOwner & owner = Owner();

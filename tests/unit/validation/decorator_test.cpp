@@ -464,6 +464,220 @@ namespace
 		EXPECT_TRUE(test::Ok(list.End(error), error));
 	}
 
+	TEST_P(DecoratorTest, PrerecordedListsFollowSubmissionStateOrder)
+	{
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "seeded validation registry states");
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		const rhi::TextureHandle texture = device.Get().CreateTexture(test::samples::MippedTexture2D(test::samples::kTextureDim, 1), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		constexpr rhi::ResourceState copied{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
+		constexpr rhi::ResourceState source{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
+		constexpr rhi::ResourceState stored{ .use = rhi::ResourceUse::eStorageRead, .stages = rhi::Stage::eCompute };
+		constexpr rhi::ResourceState sampled{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
+		auto & handles		 = ValidatorOf(device.Get())->Handles();
+		auto * bufferRecord	 = handles.Lookup({ .type = rhi::ResourceType::eBuffer, .index = buffer.index, .generation = buffer.generation });
+		auto * textureRecord = handles.Lookup({ .type = rhi::ResourceType::eTexture, .index = texture.index, .generation = texture.generation });
+		ASSERT_NE(bufferRecord, nullptr);
+		ASSERT_NE(textureRecord, nullptr);
+		bufferRecord->use.store(copied.use.Bits());
+		bufferRecord->useKnown.store(true);
+		textureRecord->use.store(copied.use.Bits());
+		textureRecord->useKnown.store(true);
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandList first	= pool.Allocate("azoth.rhi.test.arrival.first", error);
+		rhi::CommandList second = pool.Allocate("azoth.rhi.test.arrival.second", error);
+		ASSERT_TRUE(test::Ok(first.Begin(error), error));
+		const std::array firstBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = copied, .after = source } };
+		const std::array firstTextures{ rhi::TextureBarrier{
+			.texture = texture, .before = copied, .after = source, .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(first.Barriers({ .buffers = firstBuffers, .textures = firstTextures }, error), error));
+		ASSERT_TRUE(test::Ok(first.End(error), error));
+		ASSERT_TRUE(test::Ok(second.Begin(error), error));
+		const std::array secondBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = source, .after = stored } };
+		const std::array secondTextures{ rhi::TextureBarrier{
+			.texture = texture, .before = source, .after = sampled, .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(second.Barriers({ .buffers = secondBuffers, .textures = secondTextures }, error), error));
+		ASSERT_TRUE(test::Ok(second.End(error), error));
+		rhi::Queue queue = device.Get().GetQueue(rhi::QueueType::eGraphics);
+		std::array<const rhi::CommandList *, 2> reversed{ &second, &first };
+		rhi::Error reversedError{};
+		EXPECT_FALSE(queue.Submit({ .commandLists = reversed }, reversedError));
+		EXPECT_EQ(reversedError.code, rhi::ErrorCode::eValidationFailed);
+		EXPECT_EQ(bufferRecord->use.load(), copied.use.Bits());
+		EXPECT_EQ(textureRecord->use.load(), copied.use.Bits());
+		std::array<const rhi::CommandList *, 2> ordered{ &first, &second };
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = ordered }, error), error));
+		EXPECT_EQ(bufferRecord->use.load(), stored.use.Bits());
+		EXPECT_EQ(textureRecord->use.load(), sampled.use.Bits());
+		bufferRecord->use.store(copied.use.Bits());
+		textureRecord->use.store(copied.use.Bits());
+		std::array<const rhi::CommandList *, 1> firstOnly{ &first };
+		std::array<const rhi::CommandList *, 1> secondOnly{ &second };
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = firstOnly }, error), error));
+		EXPECT_EQ(bufferRecord->use.load(), source.use.Bits());
+		EXPECT_EQ(textureRecord->use.load(), source.use.Bits());
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = secondOnly }, error), error));
+		EXPECT_EQ(bufferRecord->use.load(), stored.use.Bits());
+		EXPECT_EQ(textureRecord->use.load(), sampled.use.Bits());
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(DecoratorTest, PrerecordedListsFollowSubmissionOwnershipOrder)
+	{
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "seeded validation registry ownership");
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eDeveloper;
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		auto * record =
+			ValidatorOf(device.Get())->Handles().Lookup({ .type = rhi::ResourceType::eBuffer, .index = buffer.index, .generation = buffer.generation });
+		ASSERT_NE(record, nullptr);
+		record->owner.store(static_cast<std::uint8_t>(rhi::QueueType::eCompute));
+		record->owned.store(true);
+		constexpr rhi::ResourceState copied{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandList acquire = pool.Allocate("azoth.rhi.test.owner.acquire", error);
+		rhi::CommandList release = pool.Allocate("azoth.rhi.test.owner.release", error);
+		ASSERT_TRUE(test::Ok(acquire.Begin(error), error));
+		const std::array acquired{ rhi::BufferBarrier{
+			.buffer = buffer, .before = copied, .after = copied, .ownership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } } };
+		ASSERT_TRUE(test::Ok(acquire.Barriers({ .buffers = acquired }, error), error));
+		ASSERT_TRUE(test::Ok(acquire.End(error), error));
+		ASSERT_TRUE(test::Ok(release.Begin(error), error));
+		const std::array released{ rhi::BufferBarrier{
+			.buffer = buffer, .before = copied, .after = copied, .ownership = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
+		ASSERT_TRUE(test::Ok(release.Barriers({ .buffers = released }, error), error));
+		ASSERT_TRUE(test::Ok(release.End(error), error));
+		rhi::Queue queue = device.Get().GetQueue(rhi::QueueType::eGraphics);
+		std::array<const rhi::CommandList *, 2> reversed{ &release, &acquire };
+		rhi::Error reversedError{};
+		EXPECT_FALSE(queue.Submit({ .commandLists = reversed }, reversedError));
+		EXPECT_EQ(reversedError.code, rhi::ErrorCode::eValidationFailed);
+		EXPECT_EQ(record->owner.load(), static_cast<std::uint8_t>(rhi::QueueType::eCompute));
+		std::array<const rhi::CommandList *, 2> ordered{ &acquire, &release };
+		auto * wrappedQueue				   = static_cast<rhi::validation::WrappedQueue *>(rhi::detail::UnwrappedImplOf(queue));
+		const rhi::QueueApi * backendQueue = wrappedQueue->blocks.core;
+		rhi::QueueApi refusedQueue = *backendQueue;
+		refusedQueue.submit = [](void *, const rhi::SubmitDesc &, rhi::Error * failure) noexcept
+		{
+			*failure = { .code = rhi::ErrorCode::eInvalidState, .message = "backend submit refusal" };
+			return false;
+		};
+		wrappedQueue->blocks.core = &refusedQueue;
+		rhi::Error refusedError{};
+		EXPECT_FALSE(queue.Submit({ .commandLists = ordered }, refusedError));
+		EXPECT_EQ(refusedError.code, rhi::ErrorCode::eInvalidState);
+		EXPECT_TRUE(record->owned.load());
+		EXPECT_EQ(record->owner.load(), static_cast<std::uint8_t>(rhi::QueueType::eCompute));
+		EXPECT_FALSE(record->useKnown.load());
+		wrappedQueue->blocks.core = backendQueue;
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = ordered }, error), error));
+		EXPECT_TRUE(record->owned.load());
+		EXPECT_EQ(record->owner.load(), static_cast<std::uint8_t>(rhi::QueueType::eCompute));
+		std::array<const rhi::CommandList *, 1> acquireOnly{ &acquire };
+		std::array<const rhi::CommandList *, 1> releaseOnly{ &release };
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = acquireOnly }, error), error));
+		EXPECT_EQ(record->owner.load(), static_cast<std::uint8_t>(rhi::QueueType::eGraphics));
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = releaseOnly }, error), error));
+		EXPECT_EQ(record->owner.load(), static_cast<std::uint8_t>(rhi::QueueType::eCompute));
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(DecoratorTest, PrerecordedListsKeepSubresourceArrivalStates)
+	{
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "seeded validation registry states");
+		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
+		desc.validation = rhi::ValidationMode::eDeveloper;
+		const test::DeviceHarness device{ CurrentBackend(), desc };
+		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
+		rhi::Error error{};
+		const rhi::BufferDesc bufferDesc = test::samples::StorageBuffer();
+		rhi::TextureDesc textureDesc = test::samples::MippedTexture2D();
+		textureDesc.arrayLayers = 2;
+		const rhi::BufferHandle buffer = device.Get().CreateBuffer(bufferDesc, error);
+		const rhi::TextureHandle texture = device.Get().CreateTexture(textureDesc, error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const auto split = bufferDesc.size / 2;
+		const rhi::TextureSubresourceRange whole{ .mipCount = textureDesc.mipLevels, .layerCount = textureDesc.arrayLayers };
+		const rhi::TextureSubresourceRange corner{};
+		constexpr rhi::ResourceState copied{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
+		constexpr rhi::ResourceState source{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
+		constexpr rhi::ResourceState stored{ .use = rhi::ResourceUse::eStorageRead, .stages = rhi::Stage::eCompute };
+		constexpr rhi::ResourceState sampled{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
+		auto & handles = ValidatorOf(device.Get())->Handles();
+		auto * bufferRecord = handles.Lookup({ .type = rhi::ResourceType::eBuffer, .index = buffer.index, .generation = buffer.generation });
+		auto * textureRecord = handles.Lookup({ .type = rhi::ResourceType::eTexture, .index = texture.index, .generation = texture.generation });
+		ASSERT_NE(bufferRecord, nullptr);
+		ASSERT_NE(textureRecord, nullptr);
+		bufferRecord->use.store(copied.use.Bits());
+		bufferRecord->useKnown.store(true);
+		textureRecord->use.store(copied.use.Bits());
+		textureRecord->useKnown.store(true);
+		rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandList first = pool.Allocate("azoth.rhi.test.ranges.first", error);
+		ASSERT_TRUE(test::Ok(first.Begin(error), error));
+		const std::array firstBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = copied, .after = source, .size = split } };
+		const std::array firstTextures{ rhi::TextureBarrier{ .texture = texture, .before = copied, .after = source, .range = corner } };
+		ASSERT_TRUE(test::Ok(first.Barriers({ .buffers = firstBuffers, .textures = firstTextures }, error), error));
+		ASSERT_TRUE(test::Ok(first.End(error), error));
+		rhi::Queue queue = device.Get().GetQueue(rhi::QueueType::eGraphics);
+		for (const bool checkBuffer : { true, false })
+		{
+			for (const rhi::ResourceState wrongBefore : { copied, source })
+			{
+				rhi::CommandList wrong = pool.Allocate("azoth.rhi.test.ranges.wrong", error);
+				ASSERT_TRUE(test::Ok(wrong.Begin(error), error));
+				const std::array wrongBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = wrongBefore, .after = stored } };
+				const std::array wrongTextures{ rhi::TextureBarrier{ .texture = texture, .before = wrongBefore, .after = sampled, .range = whole } };
+				ASSERT_TRUE(test::Ok(wrong.Barriers(checkBuffer ? rhi::BarrierBatch{ .buffers = wrongBuffers } : rhi::BarrierBatch{ .textures = wrongTextures }, error), error));
+				ASSERT_TRUE(test::Ok(wrong.End(error), error));
+				std::array<const rhi::CommandList *, 2> mismatched{ &first, &wrong };
+				rhi::Error wrongError{};
+				EXPECT_FALSE(queue.Submit({ .commandLists = mismatched }, wrongError));
+				EXPECT_EQ(wrongError.code, rhi::ErrorCode::eValidationFailed);
+			}
+		}
+		rhi::CommandList second = pool.Allocate("azoth.rhi.test.ranges.second", error);
+		ASSERT_TRUE(test::Ok(second.Begin(error), error));
+		const std::array secondBuffers{
+			rhi::BufferBarrier{ .buffer = buffer, .before = source, .after = stored, .size = split },
+			rhi::BufferBarrier{ .buffer = buffer, .before = copied, .after = stored, .offset = split, .size = bufferDesc.size - split } };
+		const std::array secondTextures{
+			rhi::TextureBarrier{ .texture = texture, .before = source, .after = sampled, .range = corner },
+			rhi::TextureBarrier{ .texture = texture, .before = copied, .after = sampled, .range = { .baseLayer = 1, .layerCount = textureDesc.arrayLayers - 1 } },
+			rhi::TextureBarrier{ .texture = texture, .before = copied, .after = sampled, .range = { .baseMip = 1, .mipCount = textureDesc.mipLevels - 1, .layerCount = textureDesc.arrayLayers } } };
+		ASSERT_TRUE(test::Ok(second.Barriers({ .buffers = secondBuffers, .textures = secondTextures }, error), error));
+		ASSERT_TRUE(test::Ok(second.End(error), error));
+		rhi::CommandList third = pool.Allocate("azoth.rhi.test.ranges.third", error);
+		ASSERT_TRUE(test::Ok(third.Begin(error), error));
+		const std::array thirdBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = stored, .after = copied } };
+		const std::array thirdTextures{ rhi::TextureBarrier{ .texture = texture, .before = sampled, .after = copied, .range = whole } };
+		ASSERT_TRUE(test::Ok(third.Barriers({ .buffers = thirdBuffers, .textures = thirdTextures }, error), error));
+		ASSERT_TRUE(test::Ok(third.End(error), error));
+		std::array<const rhi::CommandList *, 3> ordered{ &first, &second, &third };
+		ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = ordered }, error), error));
+		EXPECT_TRUE(bufferRecord->useKnown.load());
+		EXPECT_TRUE(textureRecord->useKnown.load());
+		EXPECT_EQ(bufferRecord->use.load(), copied.use.Bits());
+		EXPECT_EQ(textureRecord->use.load(), copied.use.Bits());
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+	}
+
 	TEST_P(DecoratorTest, ABarrierReleasingFromAQueueThatDoesNotOwnTheResourceIsRefused)
 	{
 		rhi::DeviceDesc desc = test::DefaultDeviceDesc();
@@ -568,11 +782,13 @@ namespace
 		ASSERT_TRUE(test::Ok(after.Begin(error), error));
 
 		rhi::Error afterError{};
-		EXPECT_FALSE(after.Barriers(rhi::BarrierBatch{ .buffers = toCompute }, afterError))
+		ASSERT_TRUE(test::Ok(after.Barriers(rhi::BarrierBatch{ .buffers = toCompute }, error), error));
+		ASSERT_TRUE(test::Ok(after.End(error), error));
+		std::array<const rhi::CommandList *, 1> afterOnly{ &after };
+		EXPECT_FALSE(queue.Submit({ .commandLists = afterOnly }, afterError))
 			<< "the submitted release never reached the device record, so the compute queue's ownership was forgotten";
 		EXPECT_EQ(afterError.code, rhi::ErrorCode::eValidationFailed);
 
-		static_cast<void>(after.End(error));
 
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(done, {}, error), error));
 		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));

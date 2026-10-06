@@ -67,7 +67,7 @@ namespace azo::rhi::d3d12
 			size = bufferSize - offset;
 			return true;
 		}
-		return offset + size <= bufferSize;
+		return size <= bufferSize - offset;
 	}
 
 	BufferHandle D3D12CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
@@ -207,10 +207,16 @@ namespace azo::rhi::d3d12
 			return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
 		}
 
+		if (!slot->mapCount.TryAcquire())
+		{
+			return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
+		}
+
 		void * mapped	 = nullptr;
 		const HRESULT hr = slot->resource->Map(0, nullptr, &mapped);
 		if (FAILED(hr))
 		{
+			static_cast<void>(slot->mapCount.TryRelease());
 			return FailValueNative<MappedMemory>(error, hr, "ID3D12Resource::Map failed");
 		}
 
@@ -230,6 +236,10 @@ namespace azo::rhi::d3d12
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "unmap of an invalid buffer handle");
+		}
+		if (!slot->mapCount.TryRelease())
+		{
+			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 		}
 		slot->resource->Unmap(0, nullptr);
 		return Succeed(error);

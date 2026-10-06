@@ -68,7 +68,7 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, bool persistentMap, VmaAllocationCreateFlags & outFlags) noexcept
+	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept
 	{
 		outFlags = 0;
 		switch (memory)
@@ -82,11 +82,19 @@ namespace azo::rhi::vulkan
 		case MemoryUsage::eReserved:	break;
 		}
 
-		if (persistentMap && outFlags != 0)
+		return VMA_MEMORY_USAGE_AUTO;
+	}
+
+	[[nodiscard]] VmaMemoryUsage MapBufferMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept
+	{
+		const VmaMemoryUsage usage = MapMemoryUsage(memory, outFlags);
+
+		// A mappable buffer stays mapped so Map only counts, which keeps VMA's 255-map ceiling out of reach.
+		if (outFlags != 0)
 		{
 			outFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 		}
-		return VMA_MEMORY_USAGE_AUTO;
+		return usage;
 	}
 
 	[[nodiscard]] vk::Format MapFormat(Format format) noexcept

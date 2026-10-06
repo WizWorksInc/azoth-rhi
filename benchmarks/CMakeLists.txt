@@ -97,6 +97,13 @@ if (AZOTH_RHI_BACKEND_D3D12)
     target_compile_definitions(rhi_bench_native_delta PRIVATE AZOTH_RHI_BENCH_D3D12)
 endif ()
 
+# Off by default so an ordinary configure never downloads a second graphics library.
+option(AZOTH_RHI_BENCH_NRI "Fetch NVIDIA's NRI and build the benchmarks that compare this library against it" OFF)
+
+if (AZOTH_RHI_BENCH_NRI)
+    add_subdirectory(vs_nri)
+endif ()
+
 if (AZOTH_RHI_BUILD_TESTS)
     add_test(NAME benchmark_recording_smoke
             COMMAND rhi_bench_recording null --commands 5000 --warmup 0 --benchmark_dry_run)

@@ -147,7 +147,6 @@ namespace fw::render
 				.size		   = bytes,
 				.usage		   = m_usage,
 				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
-				.persistentMap = true,
 				.debugName	   = "fw.render.bufferPool",
 			},
 			error);

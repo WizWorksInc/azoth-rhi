@@ -385,7 +385,11 @@ namespace azo::rhi
 
 		void lock() noexcept
 		{
-			++detail::GuardsHeld();
+			// A cooperative holder is a fiber that may release on another thread, which a thread-local count cannot follow.
+			if (m_mode != ThreadingMode::eCooperative)
+			{
+				++detail::GuardsHeld();
+			}
 
 			switch (m_mode)
 			{
@@ -402,7 +406,10 @@ namespace azo::rhi
 
 		void unlock() noexcept
 		{
-			--detail::GuardsHeld();
+			if (m_mode != ThreadingMode::eCooperative)
+			{
+				--detail::GuardsHeld();
+			}
 
 			switch (m_mode)
 			{
@@ -713,7 +720,10 @@ namespace azo::rhi
 				m_caps.sparseTileSizeBytes = 0;
 			}
 
+			// All three follow the queries they describe: an ordering, a clock correlation and a mid scope write say nothing once the queries are masked off.
 			m_caps.supportsTimestampWritesInScope = m_caps.supportsTimestampWritesInScope && m_caps.supportsTimestampQueries;
+			m_caps.supportsTimestampCalibration	  = m_caps.supportsTimestampCalibration && m_caps.supportsTimestampQueries;
+			m_caps.supportsOrderedTimestamps	  = m_caps.supportsOrderedTimestamps && m_caps.supportsTimestampQueries;
 		}
 
 		void DeriveCaps(void * deviceImpl, const DeviceDesc & desc) noexcept

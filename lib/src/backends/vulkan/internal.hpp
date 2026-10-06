@@ -11,6 +11,7 @@
 
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/resource_record.hpp"
@@ -88,6 +89,9 @@ namespace azo::rhi::vulkan
 		}
 	};
 
+	// Defined in backend.cpp beside the debug messenger, so every message this backend raises itself takes the one route.
+	void ReportInstanceMessage(const VulkanInstance * instance, ValidationMessageSeverity severity, const char * source, const char * message) noexcept;
+
 	struct BufferSlot final
 	{
 		VkBuffer buffer			 = VK_NULL_HANDLE;
@@ -96,10 +100,12 @@ namespace azo::rhi::vulkan
 		bool coherent			 = false;
 		bool hostVisible		 = false;
 
-		bool persistentMapped = false;
+		void * mapped = nullptr;
+		BoundedCount mapCount;
 
 		VkDeviceMemory placedMemory = VK_NULL_HANDLE;
 		VkDeviceSize placedOffset	= 0;
+		HeapHandle placedHeap{};
 
 		bool sparse = false;
 
@@ -222,6 +228,8 @@ namespace azo::rhi::vulkan
 		bool hostVisible			  = false;
 		bool coherent				  = false;
 
+		void * mapped = nullptr;
+
 		Flags<ExternalHandleType> exportableHandleTypes;
 	};
 
@@ -308,6 +316,23 @@ namespace azo::rhi::vulkan
 		std::uint32_t desiredImageCount = 0;
 	};
 
+	inline constexpr std::uint32_t kNoSubmitTimeline = 0xffffffffu;
+
+	// One timeline semaphore per real queue, signaled at an increasing value by every submit on it.
+	struct SubmitTimeline final
+	{
+		vk::Semaphore semaphore;
+		QueueType type		= QueueType::eGraphics;
+		std::uint32_t index = 0;
+
+		// Two Queue objects can name one real queue, and a caller may serialize per object rather than per queue.
+		std::atomic<std::uint64_t> counter{ 0 };
+
+		// The highest value actually handed to the GPU. A submit that failed after reserving leaves counter ahead of this,
+		// and waiting on a value nothing will ever signal would stall teardown, so the drain waits on this one.
+		std::atomic<std::uint64_t> submitted{ 0 };
+	};
+
 	struct VulkanQueue final
 	{
 		const BackendObject * object = nullptr;
@@ -315,9 +340,20 @@ namespace azo::rhi::vulkan
 		vk::Queue queue;
 		QueueType type			  = QueueType::eGraphics;
 		std::uint32_t familyIndex = 0;
+
+		// GetQueue hands out a fresh VulkanQueue per call for the same vk::Queue, so the counter lives on the device and this only indexes it.
+		std::uint32_t submitTimeline = kNoSubmitTimeline;
 	};
 
 	struct VulkanCommandList;
+
+	// A buffer retired by Begin while its earlier submission was still running, freed once the timeline passes value.
+	struct RetiredCommandBuffer final
+	{
+		vk::CommandBuffer buffer;
+		std::uint32_t submitTimeline = kNoSubmitTimeline;
+		std::uint64_t submitValue	 = 0;
+	};
 
 	struct VulkanCommandPool final
 	{
@@ -326,10 +362,15 @@ namespace azo::rhi::vulkan
 		vk::CommandPool pool;
 		std::uint32_t family = 0;
 
+		// vkBeginCommandBuffer may only reset a used buffer in place when the pool carries eResetCommandBuffer.
+		bool resetsIndividualLists = false;
+
 		detail::HostVector<vk::Framebuffer> framebuffers;
 
 		detail::HostVector<VulkanCommandList *> lists;
 		std::size_t handedOut = 0;
+
+		detail::HostVector<RetiredCommandBuffer> retired;
 
 		detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> renderPasses;
 	};
@@ -341,6 +382,12 @@ namespace azo::rhi::vulkan
 		VulkanCommandPool * pool	 = nullptr;
 		vk::CommandBuffer buffer;
 		std::uint32_t family = 0;
+
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
+
+		// Plain like lifecycle beside them: the threading model gives one list per thread, so moving one between threads is a caller hand-off.
+		std::uint32_t submitTimeline = kNoSubmitTimeline;
+		std::uint64_t submitValue	 = 0;
 
 		vk::QueryPool pendingEndTimestamp;
 		std::uint32_t pendingEndTimestampQuery = 0;
@@ -551,6 +598,9 @@ namespace azo::rhi::vulkan
 
 		detail::HostVector<HostUniquePtr<VulkanQueue>> queues;
 
+		// Built once at device create and never grown, so Submit may hold one across a submit while GetQueue runs elsewhere.
+		detail::HostVector<HostUniquePtr<SubmitTimeline>> submitTimelines;
+
 		detail::HostVector<HostUniquePtr<VulkanCommandPool>> commandPools;
 		detail::HostVector<HostUniquePtr<VulkanCommandList>> commandLists;
 
@@ -574,6 +624,18 @@ namespace azo::rhi::vulkan
 			}
 		}
 
+		void DestroySubmitTimelines() const
+		{
+			for (const HostUniquePtr<SubmitTimeline> & tracked : submitTimelines)
+			{
+				if (tracked->semaphore)
+				{
+					device.destroySemaphore(tracked->semaphore, nullptr, dispatch);
+				}
+			}
+		}
+
+		// vkDestroyCommandPool takes its buffers with it, so anything parked on a pool needs no separate free here.
 		void DestroyCommandPools() const
 		{
 			for (const HostUniquePtr<VulkanCommandPool> & cmdPool : commandPools)
@@ -841,10 +903,77 @@ namespace azo::rhi::vulkan
 			}
 		}
 
+		// vkDeviceWaitIdle never returns while a queue sits on a wait nobody will signal, so the drain is bounded and waits on
+		// what this device actually submitted rather than on the queues going idle. Two seconds rather than something longer
+		// because MoltenVK's own GPU watchdog fires near five, and a bound that lands after it would be the driver's rather
+		// than ours. Two seconds is still some hundred frames of slack for work that was already submitted.
+		static constexpr std::uint64_t kTeardownDrainNanoseconds = 2'000'000'000ULL;
+
+		// Set by a drain that reached every submitted value, so the destructor does not wait again on what the destroy entry already waited for.
+		bool submitTimelinesDrained = false;
+
+		[[nodiscard]] bool DrainSubmitTimelines()
+		{
+			if (submitTimelinesDrained)
+			{
+				return true;
+			}
+
+			detail::HostVector<vk::Semaphore> semaphores;
+			detail::HostVector<std::uint64_t> values;
+			if (!detail::TryReserve(semaphores, submitTimelines.size()) || !detail::TryReserve(values, submitTimelines.size()))
+			{
+				return false;
+			}
+
+			for (const HostUniquePtr<SubmitTimeline> & tracked : submitTimelines)
+			{
+				const std::uint64_t reached = tracked->submitted.load(std::memory_order_acquire);
+				if (!tracked->semaphore || reached == 0)
+				{
+					continue;
+				}
+
+				if (!detail::TryPushBack(semaphores, tracked->semaphore) || !detail::TryPushBack(values, reached))
+				{
+					return false;
+				}
+			}
+
+			if (semaphores.empty())
+			{
+				submitTimelinesDrained = true;
+				return true;
+			}
+
+			const vk::SemaphoreWaitInfo waitInfo({}, semaphores, values);
+			submitTimelinesDrained = device.waitSemaphores(waitInfo, kTeardownDrainNanoseconds, dispatch) == vk::Result::eSuccess;
+			return submitTimelinesDrained;
+		}
+
+		void ReportTeardownStall() const
+		{
+			ReportInstanceMessage(instanceWrapper,
+				ValidationMessageSeverity::eError,
+				"vulkan teardown",
+				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed");
+		}
+
 		~VulkanDevice()
 		{
+			// Nothing below may be destroyed while the GPU still references it. VulkanDestroyDevice drains first and leaks the whole
+			// record when it cannot, so this is the backstop for a device destroyed any other way, such as one that failed to finish being built.
+			if (device && !DrainSubmitTimelines())
+			{
+				// Every object below could be referenced by the work that did not finish, not just the semaphores and pools,
+				// so the whole teardown is skipped. Leaking is recoverable where destroying in use is not.
+				ReportTeardownStall();
+				return;
+			}
+
 			DestroyPendingGarbage();
 			DestroyCommandPools();
+			DestroySubmitTimelines();
 			DestroySwapchains();
 			DestroyOwnedSurface();
 			DestroyTextureViews();
@@ -1024,7 +1153,8 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] vk::BufferUsageFlags MapBufferUsage(Flags<BufferUsage> usage) noexcept;
 
 	[[nodiscard]] bool VulkanRefuseRayTracingUsage(Flags<BufferUsage> usage, bool supportsRayTracing, Error * error) noexcept;
-	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, bool persistentMap, VmaAllocationCreateFlags & outFlags) noexcept;
+	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept;
+	[[nodiscard]] VmaMemoryUsage MapBufferMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept;
 	[[nodiscard]] vk::Format MapFormat(Format format) noexcept;
 	[[nodiscard]] vk::ImageUsageFlags MapTextureUsage(Flags<TextureUsage> usage) noexcept;
 	[[nodiscard]] vk::ImageType MapImageType(TextureType type) noexcept;
@@ -1166,6 +1296,11 @@ namespace azo::rhi::vulkan
 	bool VulkanQueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 	bool VulkanQueueWaitIdle(void * impl, Error * error) noexcept;
 	bool VulkanQueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
+	[[nodiscard]] std::uint32_t AcquireSubmitTimeline(VulkanDevice * device, QueueType type, std::uint32_t index) noexcept;
+	[[nodiscard]] bool BuildSubmitTimelines(VulkanDevice * device, Error * error) noexcept;
+	[[nodiscard]] bool SubmissionStillRunning(VulkanDevice * device, std::uint32_t submitTimeline, std::uint64_t submitValue) noexcept;
+	[[nodiscard]] bool ListStillRunning(const VulkanCommandList * list) noexcept;
+	void SweepRetiredCommandBuffers(VulkanCommandPool * pool) noexcept;
 	bool VulkanQueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
 	bool VulkanQueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
 	std::uint32_t QueueFamilyForType(const VulkanDevice * device, QueueType type) noexcept;

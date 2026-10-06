@@ -17,7 +17,7 @@ namespace azo::rhi::metal
 
 		auto * device = static_cast<MetalDevice *>(impl);
 
-		const auto * tracked = device->buffers.Resolve(buffer, kHandleAlreadyChecked);
+		auto * tracked = device->buffers.Resolve(buffer, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
 			Fail(error, ErrorCode::eInvalidHandle, "Map of a buffer this device never created");
@@ -47,9 +47,15 @@ namespace azo::rhi::metal
 		}
 
 		const std::uint64_t size = (desc.size == std::numeric_limits<std::uint64_t>::max()) ? (length - desc.offset) : desc.size;
-		if (desc.offset + size > length)
+		if (size > length - desc.offset)
 		{
 			Fail(error, ErrorCode::eInvalidArgument, "Map range extends beyond the buffer length");
+			return {};
+		}
+
+		if (!tracked->mapCount.TryAcquire())
+		{
+			Fail(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
 			return {};
 		}
 
@@ -59,6 +65,21 @@ namespace azo::rhi::metal
 			.size	  = size,
 			.coherent = true,
 		};
+	}
+
+	bool MetalUnmap(void * impl, BufferHandle buffer, Error * error) noexcept
+	{
+		auto * tracked = static_cast<MetalDevice *>(impl)->buffers.Resolve(buffer, kHandleAlreadyChecked);
+		if (tracked == nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidHandle, "unmap of a buffer this device never created");
+		}
+		if (!tracked->mapCount.TryRelease())
+		{
+			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
+		}
+
+		return Succeed(error);
 	}
 
 	bool MetalQueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept

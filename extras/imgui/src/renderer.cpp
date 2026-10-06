@@ -522,7 +522,6 @@ namespace azo::rhi::imgui
 					.size		   = want,
 					.usage		   = BufferUsage::eCopySrc,
 					.memory		   = MemoryUsage::eCpuToGpu,
-					.persistentMap = true,
 					.debugName	   = "imgui.textureStaging",
 				},
 				error);
@@ -791,7 +790,6 @@ namespace azo::rhi::imgui
 				.stride		   = sizeof(ImDrawVert),
 				.usage		   = BufferUsage::eVertex,
 				.memory		   = MemoryUsage::eCpuToGpu,
-				.persistentMap = true,
 				.debugName	   = "imgui.vertices",
 			},
 			error);
@@ -802,7 +800,6 @@ namespace azo::rhi::imgui
 				.stride		   = sizeof(ImDrawIdx),
 				.usage		   = BufferUsage::eIndex,
 				.memory		   = MemoryUsage::eCpuToGpu,
-				.persistentMap = true,
 				.debugName	   = "imgui.indices",
 			},
 			error);

@@ -402,7 +402,7 @@ namespace azo::rhi::vulkan
 		const VkBufferCreateInfo bufferInfo = bufferCreateInfo;
 		VmaAllocationCreateFlags allocFlags = 0;
 		VmaAllocationCreateInfo allocInfo{};
-		allocInfo.usage = MapMemoryUsage(desc.desc.memory, desc.desc.persistentMap, allocFlags);
+		allocInfo.usage = MapBufferMemoryUsage(desc.desc.memory, allocFlags);
 		allocInfo.flags = allocFlags;
 
 		VkBuffer raw			 = VK_NULL_HANDLE;
@@ -421,12 +421,21 @@ namespace azo::rhi::vulkan
 		vmaGetAllocationMemoryProperties(device->allocator, allocation, &memFlags);
 		const bool mappable = (allocFlags & (VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)) != 0;
 
+		VmaAllocationInfo allocated{};
+		vmaGetAllocationInfo(device->allocator, allocation, &allocated);
+		if (mappable && allocated.pMappedData == nullptr)
+		{
+			vmaDestroyBuffer(device->allocator, raw, allocation);
+			return FailValue<BufferHandle>(
+				error, ErrorCode::eNativeApiError, "a host visible imported buffer came back from VMA without the mapping it asked for");
+		}
+
 		const BufferHandle handle = device->bufferSlots.Store(BufferSlot{ .buffer = raw,
 			.allocation															  = allocation,
 			.size																  = desc.desc.size,
 			.coherent															  = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
 			.hostVisible														  = mappable,
-			.persistentMapped													  = (allocFlags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0,
+			.mapped																  = allocated.pMappedData,
 			.desc																  = detail::Recorded(desc.desc) });
 		if (!handle.IsValid())
 		{
@@ -477,7 +486,7 @@ namespace azo::rhi::vulkan
 		const VkImageCreateInfo imageInfo	= imageCreateInfo;
 		VmaAllocationCreateFlags allocFlags = 0;
 		VmaAllocationCreateInfo allocInfo{};
-		allocInfo.usage = MapMemoryUsage(desc.desc.memory, false, allocFlags);
+		allocInfo.usage = MapMemoryUsage(desc.desc.memory, allocFlags);
 		allocInfo.flags = allocFlags;
 
 		VkImage image			 = VK_NULL_HANDLE;
@@ -535,8 +544,23 @@ namespace azo::rhi::vulkan
 
 		fdGuard.Dismiss();
 
-		const HeapHandle handle = device->heapSlots.Store(
-			HeapSlot{ .memory = allocated.value, .size = desc.desc.size, .memoryTypeIndex = typeIndex, .hostVisible = hostVisible, .coherent = coherent });
+		void * mapped = nullptr;
+		if (hostVisible)
+		{
+			if (const vk::Result mapResult = device->device.mapMemory(allocated.value, 0, VK_WHOLE_SIZE, vk::MemoryMapFlags{}, &mapped, device->dispatch);
+				mapResult != vk::Result::eSuccess)
+			{
+				device->device.freeMemory(allocated.value, nullptr, device->dispatch);
+				return FailNativeValue<HeapHandle>(error, "vkMapMemory failed for a host visible imported heap", mapResult);
+			}
+		}
+
+		const HeapHandle handle = device->heapSlots.Store(HeapSlot{ .memory = allocated.value,
+			.size															= desc.desc.size,
+			.memoryTypeIndex												= typeIndex,
+			.hostVisible													= hostVisible,
+			.coherent														= coherent,
+			.mapped															= mapped });
 		if (!handle.IsValid())
 		{
 			device->device.freeMemory(allocated.value, nullptr, device->dispatch);

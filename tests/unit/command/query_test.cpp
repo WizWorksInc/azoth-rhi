@@ -120,12 +120,21 @@ namespace
 		{
 			EXPECT_NE(first, kUnwritten) << "the first timestamp slot was never written";
 			EXPECT_NE(second, kUnwritten) << "the second timestamp slot was never written";
-			EXPECT_GE(second, first) << "the timestamp written after the work is earlier than the one written before it";
+
+			if (Caps().supportsOrderedTimestamps)
+			{
+				EXPECT_GE(second, first) << "the timestamp written after the work is earlier than the one written before it";
+			}
 		}
 
 		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().Destroy(results, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().Destroy(scratch, {}, error), error));
+
+		if (!Caps().supportsOrderedTimestamps)
+		{
+			GTEST_SKIP() << CurrentBackend().displayName << " does not report supportsOrderedTimestamps, so the pair it resolved carries no order to check";
+		}
 	}
 
 	TEST_P(QueryTest, TimesARenderingScopeThroughTheScopesOwnWrites)

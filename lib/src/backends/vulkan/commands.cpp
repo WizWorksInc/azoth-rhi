@@ -29,7 +29,8 @@ namespace azo::rhi::vulkan
 			flags |= vk::CommandPoolCreateFlagBits::eTransient;
 		}
 
-		if (desc.reuse == ListReuse::ePerListReset)
+		const bool perListReset = desc.reuse == ListReuse::ePerListReset;
+		if (perListReset)
 		{
 			flags |= vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 		}
@@ -40,9 +41,10 @@ namespace azo::rhi::vulkan
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command pool allocation failed");
 		}
 
-		commandPool->object = PublishingObject<Published<CommandPoolApi, &CommandPoolBlock>>();
-		commandPool->owner	= device;
-		commandPool->family = QueueFamilyForType(device, desc.queueType);
+		commandPool->object				   = PublishingObject<Published<CommandPoolApi, &CommandPoolBlock>>();
+		commandPool->owner				   = device;
+		commandPool->family				   = QueueFamilyForType(device, desc.queueType);
+		commandPool->resetsIndividualLists = perListReset;
 
 		const auto created = device->device.createCommandPool(vk::CommandPoolCreateInfo(flags, commandPool->family), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
@@ -67,6 +69,8 @@ namespace azo::rhi::vulkan
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.commandPool.allocate");
 		auto * commandPool	  = static_cast<VulkanCommandPool *>(impl);
 		VulkanDevice * device = commandPool->owner;
+
+		SweepRetiredCommandBuffers(commandPool);
 
 		if (commandPool->handedOut < commandPool->lists.size())
 		{
@@ -148,6 +152,22 @@ namespace azo::rhi::vulkan
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.commandPool.reset");
 		auto * commandPool = static_cast<VulkanCommandPool *>(impl);
 
+		// VUID-vkResetCommandPool-commandPool-00040: no buffer allocated from the pool may be pending, and a retired one still counts as allocated.
+		for (const VulkanCommandList * list : commandPool->lists)
+		{
+			if (ListStillRunning(list))
+			{
+				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
+			}
+		}
+		for (const RetiredCommandBuffer & entry : commandPool->retired)
+		{
+			if (SubmissionStillRunning(commandPool->owner, entry.submitTimeline, entry.submitValue))
+			{
+				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
+			}
+		}
+
 		for (const vk::Framebuffer framebuffer : commandPool->framebuffers)
 		{
 			if (framebuffer)
@@ -156,6 +176,16 @@ namespace azo::rhi::vulkan
 			}
 		}
 		commandPool->framebuffers.clear();
+
+		SweepRetiredCommandBuffers(commandPool);
+
+		// Marked before the native reset rather than after, so a reset that fails cannot leave a list looking submittable.
+		for (VulkanCommandList * list : commandPool->lists)
+		{
+			list->lifecycle = ListLifecycle::eFresh;
+			list->submitTimeline = kNoSubmitTimeline;
+			list->submitValue	 = 0;
+		}
 
 		if (const vk::Result reset = commandPool->owner->device.resetCommandPool(commandPool->pool, {}, commandPool->owner->dispatch);
 			reset != vk::Result::eSuccess)
@@ -168,16 +198,74 @@ namespace azo::rhi::vulkan
 		return Succeed(error);
 	}
 
+	// Freeing needs no pool flag and only forbids a pending buffer, per VUID-vkFreeCommandBuffers-pCommandBuffers-00047, so a live one waits on the pool.
+	static bool RetireAndReplaceBuffer(VulkanCommandList * list, const bool running, Error * error) noexcept
+	{
+		VulkanCommandPool * pool = list->pool;
+		VulkanDevice * device	 = list->owner;
+		if (pool == nullptr)
+		{
+			return Fail(error, ErrorCode::eInvalidState, "command list has no pool to take a fresh buffer from");
+		}
+
+		const vk::CommandBufferAllocateInfo info(pool->pool, vk::CommandBufferLevel::ePrimary, 1);
+		vk::CommandBuffer replacement;
+		if (const vk::Result allocated = device->device.allocateCommandBuffers(&info, &replacement, device->dispatch); allocated != vk::Result::eSuccess)
+		{
+			return FailNative(error, "vkAllocateCommandBuffers failed replacing a used command buffer", allocated);
+		}
+
+		const vk::CommandBuffer retiring = list->buffer;
+		if (running)
+		{
+			RetiredCommandBuffer entry{};
+			entry.buffer		 = retiring;
+			entry.submitTimeline = list->submitTimeline;
+			entry.submitValue	 = list->submitValue;
+
+			if (!detail::TryPushBack(pool->retired, entry))
+			{
+				device->device.freeCommandBuffers(pool->pool, 1, &replacement, device->dispatch);
+				return Fail(error, ErrorCode::eOutOfHostMemory, "could not park a command buffer that is still executing");
+			}
+		}
+		else
+		{
+			device->device.freeCommandBuffers(pool->pool, 1, &retiring, device->dispatch);
+		}
+
+		list->buffer = replacement;
+		return true;
+	}
+
 	bool VulkanCommandListBegin(void * impl, Error * error) noexcept
 	{
-		auto * list = static_cast<VulkanCommandList *>(impl);
+		auto * list			  = static_cast<VulkanCommandList *>(impl);
+		VulkanDevice * device = list->owner;
 
-		if (const vk::Result began = list->buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit), list->owner->dispatch);
-			began != vk::Result::eSuccess)
+		SweepRetiredCommandBuffers(list->pool);
+
+		// A buffer that has been begun before is no longer in the initial state, and only a pool carrying eResetCommandBuffer may reset it in place.
+		const bool used		 = list->lifecycle != ListLifecycle::eFresh;
+		const bool running	 = ListStillRunning(list);
+		// A recording buffer is excluded because vkBeginCommandBuffer forbids it even with the reset bit, per VUID 00049, so it takes the retire path.
+		const bool resetHere = list->pool != nullptr && list->pool->resetsIndividualLists && !running && list->lifecycle != ListLifecycle::eRecording;
+		if (used && !resetHere)
+		{
+			if (!RetireAndReplaceBuffer(list, running, error))
+			{
+				return false;
+			}
+		}
+
+		if (const vk::Result began = list->buffer.begin(vk::CommandBufferBeginInfo(), device->dispatch); began != vk::Result::eSuccess)
 		{
 			return FailNative(error, "vkBeginCommandBuffer failed", began);
 		}
 
+		list->lifecycle		 = ListLifecycle::eRecording;
+		list->submitTimeline = kNoSubmitTimeline;
+		list->submitValue	 = 0;
 		return Succeed(error);
 	}
 
@@ -190,6 +278,7 @@ namespace azo::rhi::vulkan
 			return FailNative(error, "vkEndCommandBuffer failed", ended);
 		}
 
+		list->lifecycle = ListLifecycle::eEnded;
 		return Succeed(error);
 	}
 

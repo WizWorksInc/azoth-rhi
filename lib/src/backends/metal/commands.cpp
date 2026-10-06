@@ -16,16 +16,27 @@ namespace azo::rhi::metal
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 
-		MTL::CommandQueue * commandQueue = object->owner->CommandQueueFor(object->queueType);
+		MetalDevice * device			 = object->owner;
+		MTL::CommandQueue * commandQueue = device->CommandQueueFor(object->queueType);
 		if (commandQueue == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "Metal command list has no command queue for its type");
 		}
 
+		ReleaseCmdBuffer(device, rec, object->queueType);
+
+		if (!device->openLists.TryOpen(object->queueType))
+		{
+			return Fail(error, ErrorCode::eInvalidState, kOpenListBudgetExhausted);
+		}
+		rec->holdsListSlot = true;
+
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 		MTL::CommandBuffer * commandBuffer			  = commandQueue->commandBuffer();
 		if (commandBuffer == nullptr)
 		{
+			rec->holdsListSlot = false;
+			device->openLists.Close(object->queueType);
 			return Fail(error, ErrorCode::eNativeApiError, "Metal command buffer allocation failed");
 		}
 		rec->commandBuffer = NS::RetainPtr(commandBuffer);
@@ -45,7 +56,7 @@ namespace azo::rhi::metal
 		rec->boundPrimitive	  = MTL::PrimitiveTypeTriangle;
 		rec->boundThreadGroup = MTL::Size{ 1, 1, 1 };
 
-		rec->lifecycle = 1;
+		rec->lifecycle = ListLifecycle::eRecording;
 		return Succeed(error);
 	}
 
@@ -92,7 +103,7 @@ namespace azo::rhi::metal
 			rec->computeEncoder.reset();
 		}
 
-		rec->lifecycle = 2;
+		rec->lifecycle = ListLifecycle::eEnded;
 		return Succeed(error);
 	}
 

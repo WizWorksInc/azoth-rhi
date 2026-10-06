@@ -12,6 +12,7 @@
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/resource_tables.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
@@ -64,7 +65,7 @@ namespace azo::rhi::metal4
 
 		NS::SharedPtr<MTL4::ArgumentTable> argumentTable;
 
-		std::uint8_t lifecycle = 0;
+		ListLifecycle lifecycle = ListLifecycle::eFresh;
 
 		NS::SharedPtr<MTL4::RenderCommandEncoder> renderEncoder;
 
@@ -216,6 +217,8 @@ namespace azo::rhi::metal4
 	struct Metal4BufferSlot final
 	{
 		NS::SharedPtr<MTL::Buffer> buffer;
+
+		BoundedCount mapCount;
 
 		BufferDesc desc{};
 	};
@@ -405,7 +408,7 @@ namespace azo::rhi::metal4
 	[[nodiscard]] inline CmdList * RecordingListOf(Metal4Object * object) noexcept
 	{
 		CmdList * list = ListOf(object);
-		if (list == nullptr || list->commandBuffer.get() == nullptr || list->lifecycle != 1)
+		if (list == nullptr || list->commandBuffer.get() == nullptr || list->lifecycle != ListLifecycle::eRecording)
 		{
 			return nullptr;
 		}
@@ -491,6 +494,7 @@ namespace azo::rhi::metal4
 	void * Metal4CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
 	void * Metal4GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
 	MappedMemory Metal4Map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept;
+	bool Metal4Unmap(void * impl, BufferHandle buffer, Error * error) noexcept;
 	bool Metal4QueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
 	[[nodiscard]] Metal4QueryPool * ResolveQueryPool(Metal4Device * device, QueryPoolHandle handle) noexcept;
 	QueryPoolHandle Metal4CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;

@@ -115,6 +115,28 @@
       "cacheVariables": {
         "BUILD_SHARED_LIBS": "ON"
       }
+    },
+    {
+      "name": "bench-nri",
+      "displayName": "NRI comparison",
+      "description": "Release, with NVIDIA's NRI fetched and the benchmarks that compare the two on Vulkan built. The numbers come from this tree.",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/out/bench-nri",
+      "cacheVariables": {
+        "AZOTH_RHI_BENCH_NRI": "ON"
+      }
+    },
+    {
+      "name": "bench-nri-tracy",
+      "displayName": "NRI comparison, Tracy",
+      "description": "The NRI comparison with a Tracy client in the process, for looking at where the time goes. Its numbers carry Tracy's cost and are not the comparison.",
+      "inherits": "bench-nri",
+      "binaryDir": "${sourceDir}/out/bench-nri-tracy",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "AZOTH_RHI_TESTS_FETCH_TRACY": "ON",
+        "AZOTH_RHI_TRACY_TAG": "v0.14.1"
+      }
     }
   ],
   "buildPresets": [
@@ -146,6 +168,14 @@
     {
       "name": "shared",
       "configurePreset": "shared"
+    },
+    {
+      "name": "bench-nri",
+      "configurePreset": "bench-nri"
+    },
+    {
+      "name": "bench-nri-tracy",
+      "configurePreset": "bench-nri-tracy"
     }
   ],
   "testPresets": [

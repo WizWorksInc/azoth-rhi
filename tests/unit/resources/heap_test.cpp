@@ -17,8 +17,10 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <thread>
 #include <vector>
 
 namespace rhi  = azo::rhi;
@@ -173,6 +175,146 @@ namespace
 
 		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
 		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(HeapTest, MapsTwoPlacedBuffersFromOneHeapAtOnce)
+	{
+		rhi::Error error{};
+		rhi::HeapDesc heapDesc	   = test::samples::GpuHeap();
+		heapDesc.type			   = rhi::HeapType::eCpuUpload;
+		heapDesc.allowTextures	   = false;
+		const rhi::HeapHandle heap = Dev().CreateHeap(heapDesc, error);
+		if (!heap.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not create an upload heap: " << test::Describe(error);
+		}
+
+		constexpr std::uint64_t kSecondOffset = 1u << 16u;
+		rhi::PlacedBufferDesc placed{};
+		placed.buffer				   = test::samples::UploadBuffer();
+		placed.heap					   = heap;
+		const rhi::BufferHandle first  = Dev().CreatePlacedBuffer(placed, error);
+		placed.offset				   = kSecondOffset;
+		const rhi::BufferHandle second = Dev().CreatePlacedBuffer(placed, error);
+		ASSERT_TRUE(test::Ok(first.IsValid() && second.IsValid(), error));
+
+		const rhi::MappedMemory one = Dev().Map(first, {}, error);
+		if (one.data == nullptr)
+		{
+			static_cast<void>(Dev().Destroy(first, {}, error));
+			static_cast<void>(Dev().Destroy(second, {}, error));
+			static_cast<void>(Dev().Destroy(heap, {}, error));
+			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(error);
+		}
+		const rhi::MappedMemory two = Dev().Map(second, {}, error);
+		ASSERT_TRUE(test::Ok(two.data != nullptr, error)) << "a second placed buffer in a mapped heap would not map";
+		EXPECT_NE(one.data, two.data);
+
+		std::memset(one.data, 0x11, static_cast<std::size_t>(test::samples::kBufferSize));
+		std::memset(two.data, 0x22, static_cast<std::size_t>(test::samples::kBufferSize));
+		EXPECT_EQ(*static_cast<const std::uint8_t *>(one.data), 0x11) << "the two placed buffers mapped to overlapping memory";
+
+		EXPECT_TRUE(test::Ok(Dev().Unmap(first, error), error));
+		EXPECT_EQ(*static_cast<const std::uint8_t *>(two.data), 0x22) << "unmapping one placed buffer took the other's mapping with it";
+		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(first, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(second, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+	}
+
+	TEST_P(HeapTest, MapsTwoPlacedBuffersOfOneHeapFromTwoThreadsAtOnce)
+	{
+		rhi::Error error{};
+		rhi::HeapDesc heapDesc	   = test::samples::GpuHeap();
+		heapDesc.type			   = rhi::HeapType::eCpuUpload;
+		heapDesc.allowTextures	   = false;
+		const rhi::HeapHandle heap = Dev().CreateHeap(heapDesc, error);
+		if (!heap.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not create an upload heap: " << test::Describe(error);
+		}
+
+		constexpr std::uint64_t kSecondOffset = 1u << 16u;
+		rhi::PlacedBufferDesc placed{};
+		placed.buffer				   = test::samples::UploadBuffer();
+		placed.heap					   = heap;
+		const rhi::BufferHandle first  = Dev().CreatePlacedBuffer(placed, error);
+		placed.offset				   = kSecondOffset;
+		const rhi::BufferHandle second = Dev().CreatePlacedBuffer(placed, error);
+		if (!first.IsValid() || !second.IsValid())
+		{
+			static_cast<void>(Dev().Destroy(first, {}, error));
+			static_cast<void>(Dev().Destroy(second, {}, error));
+			static_cast<void>(Dev().Destroy(heap, {}, error));
+			GTEST_SKIP() << "this backend refused a placed buffer: " << test::Describe(error);
+		}
+
+		rhi::Error probe{};
+		if (Dev().Map(first, {}, probe).data == nullptr)
+		{
+			static_cast<void>(Dev().Destroy(first, {}, error));
+			static_cast<void>(Dev().Destroy(second, {}, error));
+			static_cast<void>(Dev().Destroy(heap, {}, error));
+			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(probe);
+		}
+		ASSERT_TRUE(test::Ok(Dev().Unmap(first, error), error));
+
+		const std::uint32_t rounds = test::ScaledIterations(500);
+		std::atomic<int> ready{ 0 };
+		std::atomic<int> refused{ 0 };
+
+		const auto hammer = [&](const rhi::BufferHandle buffer)
+		{
+			ready.fetch_add(1, std::memory_order_release);
+			while (ready.load(std::memory_order_acquire) < 2)
+			{
+				std::this_thread::yield();
+			}
+
+			for (std::uint32_t round = 0; round < rounds; ++round)
+			{
+				rhi::Error mapError{};
+				if (Dev().Map(buffer, {}, mapError).data == nullptr)
+				{
+					refused.fetch_add(1, std::memory_order_relaxed);
+					continue;
+				}
+				rhi::Error unmapError{};
+				if (!Dev().Unmap(buffer, unmapError))
+				{
+					refused.fetch_add(1, std::memory_order_relaxed);
+				}
+			}
+		};
+
+		std::thread onFirst(hammer, first);
+		std::thread onSecond(hammer, second);
+		onFirst.join();
+		onSecond.join();
+
+		EXPECT_EQ(refused.load(), 0) << "mapping two placed buffers of one heap at once was refused";
+
+		rhi::Error firstExtra{};
+		EXPECT_FALSE(Dev().Unmap(first, firstExtra)) << "the first buffer did not balance back to none outstanding";
+		EXPECT_EQ(firstExtra.code, rhi::ErrorCode::eInvalidState) << test::Describe(firstExtra);
+		rhi::Error secondExtra{};
+		EXPECT_FALSE(Dev().Unmap(second, secondExtra)) << "the second buffer did not balance back to none outstanding";
+		EXPECT_EQ(secondExtra.code, rhi::ErrorCode::eInvalidState) << test::Describe(secondExtra);
+
+		const rhi::MappedMemory one = Dev().Map(first, {}, error);
+		const rhi::MappedMemory two = Dev().Map(second, {}, error);
+		ASSERT_TRUE(test::Ok(one.data != nullptr && two.data != nullptr, error)) << "a placed buffer would not map after the threads were done";
+		std::memset(one.data, 0x11, static_cast<std::size_t>(test::samples::kBufferSize));
+		std::memset(two.data, 0x22, static_cast<std::size_t>(test::samples::kBufferSize));
+		EXPECT_EQ(*static_cast<const std::uint8_t *>(one.data), 0x11) << "the two placed buffers mapped to overlapping memory";
+		EXPECT_TRUE(test::Ok(Dev().Unmap(first, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(first, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(second, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mapping two placed buffers of one heap from two threads ");
 	}
 
 	TEST_P(HeapTest, ClearsTheMappingWhenMapFails)

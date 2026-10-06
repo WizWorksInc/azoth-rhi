@@ -103,8 +103,6 @@ namespace azo::rhi
 
 		bool allowSparseBinding = false;
 
-		bool persistentMap = false;
-
 		const char * debugName = nullptr;
 
 		Flags<ExternalHandleType> exportableHandleTypes;

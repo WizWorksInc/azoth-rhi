@@ -231,6 +231,7 @@ target_include_directories(AzothRHI-imgui
 target_link_libraries(AzothRHI-imgui PUBLIC azoth::rhi ${AZOTH_RHI_IMGUI_TARGET})
 
 target_compile_features(AzothRHI-imgui PUBLIC cxx_std_23)
+target_compile_options(AzothRHI-imgui PRIVATE $<IF:$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>,/GR-,-fno-rtti>)
 
 foreach(_target IN LISTS _shader_targets)
     string(TOUPPER ${_target} _upper)

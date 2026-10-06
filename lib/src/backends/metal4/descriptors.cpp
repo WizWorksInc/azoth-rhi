@@ -68,7 +68,7 @@ namespace azo::rhi::metal4
 			}
 		}
 
-		void EncodeArgumentBuffer(Metal4Device * device, Metal4DescriptorSet & set) noexcept
+		void EncodeArgument(Metal4Device * device, Metal4DescriptorSet & set, const std::uint32_t binding, const std::uint32_t element) noexcept
 		{
 			if (set.argumentBuffer.get() == nullptr)
 			{
@@ -85,13 +85,12 @@ namespace azo::rhi::metal4
 			for (const DescriptorBinding & entry : layout->bindings)
 			{
 				const std::uint32_t stride = entry.type == DescriptorType::eCombinedImageSampler ? 2u : 1u;
-
-				for (std::uint32_t element = 0; element < std::max(entry.count, 1u); ++element)
+				if (entry.binding == binding && element < std::max(entry.count, 1u))
 				{
 					const auto found = set.bindings.find(DescriptorKey(entry.binding, element));
 					if (found == set.bindings.end())
 					{
-						continue;
+						return;
 					}
 
 					const Metal4Descriptor & descriptor = found->second;
@@ -113,6 +112,7 @@ namespace azo::rhi::metal4
 					{
 						WriteArgumentMember(set, at + 1, descriptor.sampler->gpuResourceID()._impl);
 					}
+					return;
 				}
 
 				member += MembersFor(entry);
@@ -204,7 +204,7 @@ namespace azo::rhi::metal4
 				.buffer = buffer,
 				.offset = write.offset,
 			};
-			EncodeArgumentBuffer(device, *set);
+			EncodeArgument(device, *set, write.binding, write.arrayIndex);
 		}
 		return Succeed(error);
 	}
@@ -229,7 +229,7 @@ namespace azo::rhi::metal4
 				descriptor.sampler	 = sampler != nullptr ? sampler->get() : nullptr;
 			}
 			set->bindings[DescriptorKey(write.binding, write.arrayIndex)] = descriptor;
-			EncodeArgumentBuffer(device, *set);
+			EncodeArgument(device, *set, write.binding, write.arrayIndex);
 		}
 		return Succeed(error);
 	}
@@ -251,7 +251,7 @@ namespace azo::rhi::metal4
 				.type	 = DescriptorType::eSampler,
 				.sampler = sampler != nullptr ? sampler->get() : nullptr,
 			};
-			EncodeArgumentBuffer(device, *set);
+			EncodeArgument(device, *set, write.binding, write.arrayIndex);
 		}
 		return Succeed(error);
 	}

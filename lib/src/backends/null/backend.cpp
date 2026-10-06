@@ -142,13 +142,22 @@ namespace azo::rhi
 
 			device->caps.hasDedicatedTransferQueue = false;
 
+			device->caps.maxOpenCommandListsPerQueue = kUnlimitedOpenCommandLists;
+
+			// NullQueueSubmit records no work and waits on nothing, so a list is never pending and can always go again.
+			device->caps.supportsCommandListResubmit = true;
+
 			device->caps.supportsTextureViewSwizzle = true;
+			device->caps.supportsScalarBlockLayout	= true;
 
 			device->caps.supportsMultiPlanarFormats = true;
 
 			device->caps.supportsScaledBlit = true;
 
 			device->caps.supportsTimestampWritesInScope = true;
+
+			// Writing and resolving a timestamp both record nothing here, so there is never a pair of values to come back in order.
+			device->caps.supportsOrderedTimestamps = false;
 
 			device->caps.sparseTier			 = SparseTier::eResidentVolumes;
 			device->caps.sparseTileSizeBytes = std::uint64_t{ 64 } * 1024;
@@ -487,6 +496,11 @@ namespace azo::rhi
 		{
 			Fail(error, ErrorCode::eUnsupportedFeature, "Null backend does not expose mapped memory");
 			return {};
+		}
+
+		bool NullUnmap([[maybe_unused]] void * impl, [[maybe_unused]] BufferHandle buffer, Error * error) noexcept
+		{
+			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 		}
 
 		GraphicsApiId NullDeviceApiId([[maybe_unused]] void * impl) noexcept
@@ -899,9 +913,40 @@ namespace azo::rhi
 			return static_cast<null::NullObject *>(impl)->queueType;
 		}
 
-		bool NullQueueSubmit([[maybe_unused]] void * impl, [[maybe_unused]] const SubmitDesc & desc, Error * error) noexcept
+		bool NullQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.submit");
+
+			const null::NullDevice * device = static_cast<null::NullObject *>(impl)->owner;
+
+			// Nothing is ever in flight here, so a submitted list is never pending and may go again.
+			if (const char * refusal = SubmitRefusalForLists(
+					desc.commandLists,
+					device->caps.supportsCommandListResubmit,
+					[](const CommandList & list)
+					{
+						return static_cast<const null::NullObject *>(detail::UnwrappedImplOf(list));
+					},
+					[](const null::NullObject &)
+					{
+						return false;
+					});
+				refusal != nullptr)
+			{
+				return Fail(error, ErrorCode::eInvalidState, refusal);
+			}
+
+			for (const CommandList * list : desc.commandLists)
+			{
+				if (list == nullptr)
+				{
+					continue;
+				}
+
+				auto * record	  = static_cast<null::NullObject *>(detail::UnwrappedImplOf(*list));
+				record->lifecycle = ListLifecycle::eSubmitted;
+			}
+
 			return Succeed(error);
 		}
 
@@ -951,7 +996,12 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.commandPool.reset");
 
-			static_cast<null::NullObject *>(impl)->handedOut = 0;
+			auto * poolObject = static_cast<null::NullObject *>(impl);
+			for (null::NullObject * listObject : poolObject->lists)
+			{
+				listObject->lifecycle = ListLifecycle::eFresh;
+			}
+			poolObject->handedOut = 0;
 
 			return Succeed(error);
 		}
@@ -966,13 +1016,15 @@ namespace azo::rhi
 			return Succeed(error);
 		}
 
-		bool NullCommandListBegin([[maybe_unused]] void * impl, Error * error) noexcept
+		bool NullCommandListBegin(void * impl, Error * error) noexcept
 		{
+			static_cast<null::NullObject *>(impl)->lifecycle = ListLifecycle::eRecording;
 			return Succeed(error);
 		}
 
-		bool NullCommandListEnd([[maybe_unused]] void * impl, Error * error) noexcept
+		bool NullCommandListEnd(void * impl, Error * error) noexcept
 		{
+			static_cast<null::NullObject *>(impl)->lifecycle = ListLifecycle::eEnded;
 			return Succeed(error);
 		}
 
@@ -1154,7 +1206,7 @@ namespace azo::rhi
 				.createCommandPool			= &NullCreateCommandPool,
 				.getQueue					= &NullGetQueue,
 				.map						= &NullMap,
-				.unmap						= &NoopVoid,
+				.unmap						= &NullUnmap,
 				.flushMappedRange			= &NoopVoid,
 				.invalidateMappedRange		= &NoopVoid,
 				.updateDescriptorsBuffer	= &NoopVoid,
@@ -1485,9 +1537,9 @@ namespace azo::rhi
 	template <>
 	Result<UniqueDevice> CreateDevice<NullApi>(const DeviceDesc & desc)
 	{
-		if (const Result<void> threading = detail::CheckThreading(desc); !threading)
+		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
 		{
-			return threading.GetError();
+			return checked.GetError();
 		}
 
 		Error error{};

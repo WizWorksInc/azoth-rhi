@@ -29,6 +29,13 @@
 #ifdef AZOTH_RHI_TEST_ADOPTION_METAL
 	#include "azoth/rhi/native/metal_config.hpp"
 	#include "azoth/rhi/native/metal_native.hpp"
+
+	#include "conformance/samples.hpp"
+
+	#include <objc/message.h>
+	#include <objc/runtime.h>
+
+	#include <bit>
 #endif
 #ifdef AZOTH_RHI_TEST_ADOPTION_D3D12
 	#include "azoth/rhi/native/d3d12_native.hpp"
@@ -671,10 +678,17 @@ namespace
 			.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 		} };
 
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error))
-			<< "a barrier claiming a state the object never arrived in was accepted, so the declaration is not read";
+		// An earlier list in the same submit could still leave the object in the claimed state, so the claim is judged at submit.
+		ASSERT_TRUE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error)) << error.message;
+		ASSERT_TRUE(list.End(error)) << error.message;
 
-		static_cast<void>(list.End(error));
+		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(queue.IsValid()) << error.message;
+		std::array<const rhi::CommandList *, 1> lists{ &list };
+		EXPECT_FALSE(queue.Submit(rhi::SubmitDesc{ .commandLists = lists }, error))
+			<< "a barrier claiming a state the object never arrived in was submitted, so the declaration is not read";
+		EXPECT_NE(std::string_view(error.message != nullptr ? error.message : "").find("did not arrive in"), std::string_view::npos)
+			<< "the submit was refused for another reason: " << error.message;
 		EXPECT_TRUE(device.Destroy(adopted, {}, error)) << error.message;
 
 		vkDevice.destroyImage(produced.image, nullptr, dispatch);
@@ -718,10 +732,17 @@ namespace
 			.ownership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCopy },
 		} };
 
-		EXPECT_FALSE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error))
-			<< "a barrier acquired the object from a queue it was never declared to be owned by";
+		// Ownership is judged at submit for the same reason, since an earlier list in that submit could hand the object over.
+		ASSERT_TRUE(list.Barriers(rhi::BarrierBatch{ .textures = wrong }, error)) << error.message;
+		ASSERT_TRUE(list.End(error)) << error.message;
 
-		static_cast<void>(list.End(error));
+		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(queue.IsValid()) << error.message;
+		std::array<const rhi::CommandList *, 1> lists{ &list };
+		EXPECT_FALSE(queue.Submit(rhi::SubmitDesc{ .commandLists = lists }, error))
+			<< "a barrier acquired the object from a queue it was never declared to be owned by";
+		EXPECT_NE(std::string_view(error.message != nullptr ? error.message : "").find("does not hold it"), std::string_view::npos)
+			<< "the submit was refused for another reason: " << error.message;
 		EXPECT_TRUE(device.Destroy(adopted, {}, error)) << error.message;
 
 		vkDevice.destroyImage(produced.image, nullptr, dispatch);
@@ -1263,6 +1284,46 @@ namespace
 				EXPECT_NE(view.Value().queue, native.Value().queue) << "a queue of another type answered with the graphics queue";
 			}
 		}
+	}
+
+	TEST(MetalAdoption, APlacedBufferIsHazardTrackedLikeAStandaloneOne)
+	{
+		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::MetalApi>();
+		if (!created.HasValue())
+		{
+			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(created.GetError());
+		}
+
+		rhi::UniqueDevice owned = std::move(created).Value();
+		rhi::Device device		= owned.Get();
+
+		rhi::Error error{};
+		const rhi::HeapHandle heap = device.CreateHeap(test::samples::GpuHeap(), error);
+		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
+
+		rhi::PlacedBufferDesc placedDesc{};
+		placedDesc.buffer			   = test::samples::StorageBuffer();
+		placedDesc.heap				   = heap;
+		const rhi::BufferHandle placed = device.CreatePlacedBuffer(placedDesc, error);
+		ASSERT_TRUE(test::Ok(placed.IsValid(), error));
+		const rhi::BufferHandle standalone = device.CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(standalone.IsValid(), error));
+
+		// metal-cpp is kept out of test targets, so the mode is read through the runtime. MTLHazardTrackingModeTracked is 2.
+		const auto hazardMode = [&](const rhi::BufferHandle buffer)
+		{
+			rhi::NativeBuffer<rhi::MetalApi> native{};
+			EXPECT_TRUE(device.GetNativeBuffer<rhi::MetalApi>(buffer, native, error)) << error.message;
+			const auto send = std::bit_cast<unsigned long (*)(id, SEL)>(&objc_msgSend);
+			return native.buffer != nullptr ? send(std::bit_cast<id>(native.buffer), sel_registerName("hazardTrackingMode")) : 0ul;
+		};
+
+		EXPECT_EQ(hazardMode(standalone), 2ul) << "a standalone buffer is not hazard tracked, so the comparison below proves nothing";
+		EXPECT_EQ(hazardMode(placed), 2ul) << "a placed buffer is untracked, and this backend's barriers encode nothing that would order it";
+
+		EXPECT_TRUE(test::Ok(device.Destroy(standalone, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Destroy(placed, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Destroy(heap, {}, error), error));
 	}
 
 	TEST(MetalAdoption, ANativeScopeRecordsIntoTheCommandBufferTheAccessorReports)

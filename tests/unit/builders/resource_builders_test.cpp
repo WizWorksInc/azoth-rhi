@@ -30,7 +30,6 @@ namespace
 		EXPECT_EQ(desc.memory, rhi::MemoryUsage::eGpuOnly);
 		EXPECT_FALSE(desc.allowAliasing);
 		EXPECT_FALSE(desc.allowSparseBinding);
-		EXPECT_FALSE(desc.persistentMap);
 		EXPECT_EQ(desc.debugName, nullptr);
 	}
 
@@ -43,7 +42,6 @@ namespace
 										 .CpuUpload()
 										 .Aliasing()
 										 .SparseBinding()
-										 .PersistentMap()
 										 .Build();
 
 		EXPECT_EQ(desc.size, 4096u);
@@ -53,7 +51,6 @@ namespace
 		EXPECT_EQ(desc.memory, rhi::MemoryUsage::eCpuUpload);
 		EXPECT_TRUE(desc.allowAliasing);
 		EXPECT_TRUE(desc.allowSparseBinding);
-		EXPECT_TRUE(desc.persistentMap);
 	}
 
 	TEST(BufferBuilder, UsageReplacesWhileAddUsageAccumulates)

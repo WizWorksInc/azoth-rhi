@@ -183,6 +183,7 @@ namespace azo::rhi::validation
 		QueueType queueType = QueueType::eGraphics;
 
 		detail::HostVector<TrackedSubrange> recordedStates;
+		detail::HostVector<TrackedSubrange> requiredStates;
 
 		detail::HostVector<PendingOwnership> pendingOwnership;
 

@@ -66,23 +66,54 @@ namespace azo::rhi::metal
 		return (object->list != nullptr) ? object->list->commandBuffer.get() : nullptr;
 	}
 
+	void MetalCmdList::EndEncoders() noexcept
+	{
+		if (renderEncoder.get() != nullptr)
+		{
+			PopEncoderDebugGroups(this, renderEncoder.get());
+			renderEncoder->endEncoding();
+			renderEncoder.reset();
+		}
+		if (computeEncoder.get() != nullptr)
+		{
+			PopEncoderDebugGroups(this, computeEncoder.get());
+			computeEncoder->endEncoding();
+			computeEncoder.reset();
+		}
+	}
+
+	// Metal treats an encoder released without endEncoding as fatal, so a list cannot be allowed to carry one to its grave.
+	MetalCmdList::~MetalCmdList()
+	{
+		EndEncoders();
+	}
+
 	void EndActiveEncoders(MetalObject * object) noexcept
 	{
 		if (object->list == nullptr)
 		{
 			return;
 		}
-		if (object->list->renderEncoder.get() != nullptr)
+
+		object->list->EndEncoders();
+	}
+
+	void ReleaseCmdBuffer(MetalDevice * device, MetalCmdList * rec, QueueType queueType) noexcept
+	{
+		if (rec == nullptr)
 		{
-			PopEncoderDebugGroups(object->list, object->list->renderEncoder.get());
-			object->list->renderEncoder->endEncoding();
-			object->list->renderEncoder.reset();
+			return;
 		}
-		if (object->list->computeEncoder.get() != nullptr)
+
+		rec->EndEncoders();
+		rec->commandBuffer.reset();
+		rec->lifecycle = ListLifecycle::eFresh;
+
+		// The flag and not the lifecycle decides this, so a list that was submitted and gave its slot back then cannot give it back twice.
+		if (rec->holdsListSlot)
 		{
-			PopEncoderDebugGroups(object->list, object->list->computeEncoder.get());
-			object->list->computeEncoder->endEncoding();
-			object->list->computeEncoder.reset();
+			rec->holdsListSlot = false;
+			device->openLists.Close(queueType);
 		}
 	}
 
@@ -132,22 +163,12 @@ namespace azo::rhi::metal
 		return encoder;
 	}
 
-	[[nodiscard]] MetalCmdList * NewCmdList(MetalDevice * device, QueueType queueType)
+	[[nodiscard]] MetalCmdList * NewCmdList(MetalDevice * device)
 	{
 		auto record = HostNew<MetalCmdList>();
 		if (record == nullptr)
 		{
 			return nullptr;
-		}
-
-		if (MTL::CommandQueue * commandQueue = device->CommandQueueFor(queueType); commandQueue != nullptr)
-		{
-			const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-			MTL::CommandBuffer * commandBuffer			  = commandQueue->commandBuffer();
-			if (commandBuffer != nullptr)
-			{
-				record->commandBuffer = NS::RetainPtr(commandBuffer);
-			}
 		}
 
 		MetalCmdList * raw = record.get();

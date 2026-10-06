@@ -341,7 +341,7 @@ namespace azo::rhi::metal4
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
-		if (list->lifecycle == 1)
+		if (list->lifecycle == ListLifecycle::eRecording)
 		{
 			EndActiveEncoders(list);
 			list->commandBuffer->endCommandBuffer();
@@ -385,7 +385,7 @@ namespace azo::rhi::metal4
 			list->residency->requestResidency();
 		}
 
-		list->lifecycle = 1;
+		list->lifecycle = ListLifecycle::eRecording;
 		return Succeed(error);
 	}
 
@@ -401,7 +401,7 @@ namespace azo::rhi::metal4
 		EndActiveEncoders(list);
 		list->commandBuffer->endCommandBuffer();
 
-		list->lifecycle = 2;
+		list->lifecycle = ListLifecycle::eEnded;
 		return Succeed(error);
 	}
 
@@ -592,6 +592,10 @@ namespace azo::rhi::metal4
 		if (list == nullptr || list->computeEncoder.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "dispatch without a bound compute pipeline");
+		}
+		if (x == 0 || y == 0 || z == 0)
+		{
+			return Succeed(error);
 		}
 
 		list->computeEncoder->setArgumentTable(list->argumentTable.get());

@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <string_view>
 
@@ -171,6 +172,10 @@ namespace azo::rhi
 		eSamplerYcbcrConversion,
 	};
 
+	inline constexpr std::uint32_t kDefaultMaxOpenCommandListsPerQueue = 1024;
+
+	inline constexpr std::uint32_t kUnlimitedOpenCommandLists = std::numeric_limits<std::uint32_t>::max();
+
 	struct DeviceDesc final
 	{
 		std::span<const QueueRequest> queues;
@@ -187,6 +192,8 @@ namespace azo::rhi
 		bool requireSwapchain = true;
 
 		bool allowDeviceLocalMapping = false;
+
+		std::uint32_t maxOpenCommandListsPerQueue = kDefaultMaxOpenCommandListsPerQueue;
 
 		ThreadingMode threading = ThreadingMode::eThreads;
 
@@ -273,6 +280,9 @@ namespace azo::rhi
 
 		bool supportsTimestampWritesInScope = false;
 
+		// Two timestamps written outside a rendering scope, in recording order on one list and both naming the same stage, resolve in that order.
+		bool supportsOrderedTimestamps = false;
+
 		bool supportsMultiDrawIndirect = false;
 
 		bool supportsDrawIndirectFirstInstance = false;
@@ -322,6 +332,10 @@ namespace azo::rhi
 		std::uint32_t computeQueueCount	 = 0;
 		std::uint32_t copyQueueCount	 = 0;
 
+		std::uint32_t maxOpenCommandListsPerQueue = 0;
+
+		bool supportsCommandListResubmit = false;
+
 		bool hasDedicatedComputeQueue  = false;
 		bool hasDedicatedTransferQueue = false;
 
@@ -355,6 +369,8 @@ namespace azo::rhi
 		float timestampPeriodNanoseconds = 1.0f;
 
 		std::uint32_t timestampValidBits = 0;
+
+		bool supportsScalarBlockLayout = false;
 
 		[[nodiscard]] bool Supports(const DeviceFeature feature) const noexcept
 		{

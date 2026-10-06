@@ -3381,9 +3381,9 @@ namespace azo::rhi
 
 	Result<UniqueDevice> CreateDevice(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const DeviceDesc & desc)
 	{
-		if (const Result<void> threading = detail::CheckThreading(desc); !threading)
+		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
 		{
-			return threading.GetError();
+			return checked.GetError();
 		}
 
 		const InstanceDesc instanceDesc = InstanceDescForDevice(desc);

@@ -115,7 +115,7 @@ namespace azo::rhi::metal
 			}
 		}
 
-		void MetalEncodeArgumentBuffer(MetalDevice * device, MetalDescriptorSet & set) noexcept
+		void MetalEncodeArgument(MetalDevice * device, MetalDescriptorSet & set, const std::uint32_t binding, const std::uint32_t element) noexcept
 		{
 			if (set.argumentBuffer.get() == nullptr)
 			{
@@ -132,13 +132,12 @@ namespace azo::rhi::metal
 			for (const DescriptorBinding & entry : layout->bindings)
 			{
 				const std::uint32_t stride = entry.type == DescriptorType::eCombinedImageSampler ? 2u : 1u;
-
-				for (std::uint32_t element = 0; element < std::max(entry.count, 1u); ++element)
+				if (entry.binding == binding && element < std::max(entry.count, 1u))
 				{
 					const auto found = set.bindings.find(DescriptorKey(entry.binding, element));
 					if (found == set.bindings.end())
 					{
-						continue;
+						return;
 					}
 
 					const MetalDescriptor & descriptor = found->second;
@@ -160,6 +159,7 @@ namespace azo::rhi::metal
 					{
 						MetalWriteArgumentMember(set, at + 1, descriptor.sampler->gpuResourceID()._impl);
 					}
+					return;
 				}
 
 				member += MembersFor(entry);
@@ -307,7 +307,7 @@ namespace azo::rhi::metal
 				.buffer = buffer,
 				.offset = write.offset,
 			};
-			MetalEncodeArgumentBuffer(device, *set);
+			MetalEncodeArgument(device, *set, write.binding, write.arrayIndex);
 		}
 		return Succeed(error);
 	}
@@ -332,7 +332,7 @@ namespace azo::rhi::metal
 				descriptor.sampler	 = sampler != nullptr ? sampler->get() : nullptr;
 			}
 			set->bindings[DescriptorKey(write.binding, write.arrayIndex)] = descriptor;
-			MetalEncodeArgumentBuffer(device, *set);
+			MetalEncodeArgument(device, *set, write.binding, write.arrayIndex);
 		}
 		return Succeed(error);
 	}
@@ -354,7 +354,7 @@ namespace azo::rhi::metal
 				.type	 = DescriptorType::eSampler,
 				.sampler = sampler != nullptr ? sampler->get() : nullptr,
 			};
-			MetalEncodeArgumentBuffer(device, *set);
+			MetalEncodeArgument(device, *set, write.binding, write.arrayIndex);
 		}
 		return Succeed(error);
 	}
@@ -365,6 +365,10 @@ namespace azo::rhi::metal
 		if (object->list == nullptr || object->list->computeEncoder.get() == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, "dispatch without a bound compute pipeline");
+		}
+		if (groupCountX == 0 || groupCountY == 0 || groupCountZ == 0)
+		{
+			return Succeed(error);
 		}
 		object->list->computeEncoder->dispatchThreadgroups(MTL::Size::Make(groupCountX, groupCountY, groupCountZ), object->list->boundThreadGroup);
 		return Succeed(error);
