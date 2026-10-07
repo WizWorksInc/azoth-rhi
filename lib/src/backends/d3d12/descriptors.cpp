@@ -15,12 +15,12 @@ namespace azo::rhi::d3d12
 {
 	[[nodiscard]] SamplerSlot * ResolveSampler(D3D12Device * device, SamplerHandle handle) noexcept
 	{
-		return device->samplerSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->samplerSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] DescriptorSetSlot * ResolveDescriptorSet(D3D12Device * device, DescriptorSetHandle handle) noexcept
 	{
-		return device->descriptorSetSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->descriptorSetSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] std::uint32_t BindingOffsetInClass(const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, bool wantSampler) noexcept
@@ -87,8 +87,8 @@ namespace azo::rhi::d3d12
 
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		auto arena	  = HostNew<D3D12DescriptorArena>();
-		arena->object = PublishingObject<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
+		auto arena	  = host_new<D3D12DescriptorArena>();
+		arena->object = publishing_object<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
 		arena->owner  = device;
 
 		arena->resourceHeap		 = device->globalResourceHeap;
@@ -122,7 +122,7 @@ namespace azo::rhi::d3d12
 		detail::HostVector<DescriptorBinding> bindings = layout->bindings;
 		for (DescriptorBinding & binding : bindings)
 		{
-			if (binding.flags.Contains(DescriptorBindingFlag::eVariableDescriptorCount))
+			if (binding.flags.contains(DescriptorBindingFlag::eVariableDescriptorCount))
 			{
 				binding.count = desc.variableDescriptorCount;
 			}
@@ -158,7 +158,7 @@ namespace azo::rhi::d3d12
 		device->globalResourceNext += resourceCount;
 		device->globalSamplerNext += samplerCount;
 
-		return ReturnValue(device->descriptorSetSlots.Store(std::move(slot)), error);
+		return ReturnValue(device->descriptorSetSlots.store(std::move(slot)), error);
 	}
 
 	bool D3D12DescriptorArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
@@ -177,14 +177,14 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		DescriptorSetSlot * slot = device->descriptorSetSlots.Resolve(slotHandle, true);
+		DescriptorSetSlot * slot = device->descriptorSetSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid descriptor set handle");
 		}
 		slot->bindings.clear();
 		slot->arena = nullptr;
-		static_cast<void>(device->descriptorSetSlots.Retire(slotHandle, true));
+		static_cast<void>(device->descriptorSetSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 

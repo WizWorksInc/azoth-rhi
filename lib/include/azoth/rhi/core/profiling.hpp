@@ -31,27 +31,27 @@
 	#define AZO_RHI_PROFILE_PLOT(plotName, plotValue)                                                                                                          \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::GetProfiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
 			{                                                                                                                                                  \
-				azoRhiSink->Plot((plotName), static_cast<std::int64_t>(plotValue));                                                                            \
+				azoRhiSink->plot((plotName), static_cast<std::int64_t>(plotValue));                                                                            \
 			}                                                                                                                                                  \
 		} while (false)
 
 	#define AZO_RHI_PROFILE_ALLOC(allocAddress, allocSize, allocPool)                                                                                          \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::GetProfiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
 			{                                                                                                                                                  \
-				azoRhiSink->GpuAllocate((allocAddress), static_cast<std::uint64_t>(allocSize), (allocPool));                                                   \
+				azoRhiSink->gpu_allocate((allocAddress), static_cast<std::uint64_t>(allocSize), (allocPool));                                                   \
 			}                                                                                                                                                  \
 		} while (false)
 
 	#define AZO_RHI_PROFILE_FREE(freeAddress, freePool)                                                                                                        \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::GetProfiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
 			{                                                                                                                                                  \
-				azoRhiSink->GpuFree((freeAddress), (freePool));                                                                                                \
+				azoRhiSink->gpu_free((freeAddress), (freePool));                                                                                                \
 			}                                                                                                                                                  \
 		} while (false)
 
@@ -66,9 +66,9 @@
 	#define AZO_RHI_PROFILE_GPU_COLLECT(cmdList)                                                                                                               \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::GetProfiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
 			{                                                                                                                                                  \
-				azoRhiSink->CollectGpu(cmdList);                                                                                                               \
+				azoRhiSink->collect_gpu(cmdList);                                                                                                               \
 			}                                                                                                                                                  \
 		} while (false)
 

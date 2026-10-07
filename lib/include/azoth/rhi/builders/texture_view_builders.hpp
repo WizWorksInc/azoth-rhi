@@ -20,69 +20,69 @@ namespace azo::rhi
 	class TextureViewBuilder final
 	{
 	public:
-		TextureViewBuilder & Type(TextureViewType type) noexcept
+		TextureViewBuilder & type(TextureViewType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		TextureViewBuilder & Format(Format format) noexcept
+		TextureViewBuilder & format(Format format) noexcept
 		{
 			m_desc.format = format;
 			return *this;
 		}
 
-		TextureViewBuilder & Range(TextureSubresourceRange range) noexcept
+		TextureViewBuilder & range(TextureSubresourceRange range) noexcept
 		{
 			m_desc.range = range;
 			return *this;
 		}
 
-		TextureViewBuilder & Mips(std::uint32_t baseMip, std::uint32_t mipCount) noexcept
+		TextureViewBuilder & mips(std::uint32_t baseMip, std::uint32_t mipCount) noexcept
 		{
 			m_desc.range.baseMip  = baseMip;
 			m_desc.range.mipCount = mipCount;
 			return *this;
 		}
 
-		TextureViewBuilder & Layers(std::uint32_t baseLayer, std::uint32_t layerCount) noexcept
+		TextureViewBuilder & layers(std::uint32_t baseLayer, std::uint32_t layerCount) noexcept
 		{
 			m_desc.range.baseLayer	= baseLayer;
 			m_desc.range.layerCount = layerCount;
 			return *this;
 		}
 
-		TextureViewBuilder & Aspects(Flags<TextureAspect> aspects) noexcept
+		TextureViewBuilder & aspects(Flags<TextureAspect> aspects) noexcept
 		{
 			m_desc.range.aspects = aspects;
 			return *this;
 		}
 
-		TextureViewBuilder & Swizzle(ComponentMapping swizzle) noexcept
+		TextureViewBuilder & swizzle(ComponentMapping swizzle) noexcept
 		{
 			m_desc.swizzle = swizzle;
 			return *this;
 		}
 
-		TextureViewBuilder & Swizzle(ComponentSwizzle r, ComponentSwizzle g, ComponentSwizzle b, ComponentSwizzle a) noexcept
+		TextureViewBuilder & swizzle(ComponentSwizzle r, ComponentSwizzle g, ComponentSwizzle b, ComponentSwizzle a) noexcept
 		{
 			m_desc.swizzle = ComponentMapping{ .r = r, .g = g, .b = b, .a = a };
 			return *this;
 		}
 
-		TextureViewBuilder & Usage(Flags<TextureUsage> usage) noexcept
+		TextureViewBuilder & usage(Flags<TextureUsage> usage) noexcept
 		{
 			m_desc.usage = usage;
 			return *this;
 		}
 
-		TextureViewBuilder & DebugName(std::string_view name)
+		TextureViewBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] TextureViewDesc Build() const noexcept
+		[[nodiscard]] TextureViewDesc build() const noexcept
 		{
 			TextureViewDesc desc = m_desc;
 			desc.debugName		 = m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -97,30 +97,30 @@ namespace azo::rhi
 	class SamplerBuilder final
 	{
 	public:
-		SamplerBuilder & Filter(Filter mag, Filter min) noexcept
+		SamplerBuilder & filter(Filter mag, Filter min) noexcept
 		{
 			m_desc.magFilter = mag;
 			m_desc.minFilter = min;
 			return *this;
 		}
 
-		SamplerBuilder & Linear() noexcept
+		SamplerBuilder & linear() noexcept
 		{
-			return Filter(Filter::eLinear, Filter::eLinear).Mipmap(MipmapMode::eLinear);
+			return filter(Filter::eLinear, Filter::eLinear).mipmap(MipmapMode::eLinear);
 		}
 
-		SamplerBuilder & Nearest() noexcept
+		SamplerBuilder & nearest() noexcept
 		{
-			return Filter(Filter::eNearest, Filter::eNearest).Mipmap(MipmapMode::eNearest);
+			return filter(Filter::eNearest, Filter::eNearest).mipmap(MipmapMode::eNearest);
 		}
 
-		SamplerBuilder & Mipmap(MipmapMode mode) noexcept
+		SamplerBuilder & mipmap(MipmapMode mode) noexcept
 		{
 			m_desc.mipmapMode = mode;
 			return *this;
 		}
 
-		SamplerBuilder & Address(AddressMode u, AddressMode v, AddressMode w) noexcept
+		SamplerBuilder & address(AddressMode u, AddressMode v, AddressMode w) noexcept
 		{
 			m_desc.addressU = u;
 			m_desc.addressV = v;
@@ -128,12 +128,12 @@ namespace azo::rhi
 			return *this;
 		}
 
-		SamplerBuilder & AddressAll(AddressMode mode) noexcept
+		SamplerBuilder & address_all(AddressMode mode) noexcept
 		{
-			return Address(mode, mode, mode);
+			return address(mode, mode, mode);
 		}
 
-		SamplerBuilder & Lod(float minLod, float maxLod, float bias = 0.0f) noexcept
+		SamplerBuilder & lod(float minLod, float maxLod, float bias = 0.0f) noexcept
 		{
 			m_desc.minLod	  = minLod;
 			m_desc.maxLod	  = maxLod;
@@ -141,33 +141,33 @@ namespace azo::rhi
 			return *this;
 		}
 
-		SamplerBuilder & Anisotropy(float maxAnisotropy, bool enabled = true) noexcept
+		SamplerBuilder & anisotropy(float maxAnisotropy, bool enabled = true) noexcept
 		{
 			m_desc.anisotropyEnable = enabled;
 			m_desc.maxAnisotropy	= maxAnisotropy;
 			return *this;
 		}
 
-		SamplerBuilder & Compare(CompareOp op, bool enabled = true) noexcept
+		SamplerBuilder & compare(CompareOp op, bool enabled = true) noexcept
 		{
 			m_desc.compareEnable = enabled;
 			m_desc.compareOp	 = op;
 			return *this;
 		}
 
-		SamplerBuilder & Border(BorderColor color) noexcept
+		SamplerBuilder & border(BorderColor color) noexcept
 		{
 			m_desc.borderColor = color;
 			return *this;
 		}
 
-		SamplerBuilder & DebugName(std::string_view name)
+		SamplerBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] SamplerDesc Build() const noexcept
+		[[nodiscard]] SamplerDesc build() const noexcept
 		{
 			SamplerDesc desc = m_desc;
 			desc.debugName	 = m_debugName.empty() ? nullptr : m_debugName.c_str();

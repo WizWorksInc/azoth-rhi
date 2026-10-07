@@ -23,8 +23,8 @@ namespace azo::rhi
 		eYUp,
 	};
 
-	[[nodiscard]] AZO_RHI_API bool SetClipSpace(ClipSpaceConvention convention) noexcept;
+	[[nodiscard]] AZO_RHI_API bool set_clip_space(ClipSpaceConvention convention) noexcept;
 
-	[[nodiscard]] AZO_RHI_API ClipSpaceConvention GetClipSpace() noexcept;
+	[[nodiscard]] AZO_RHI_API ClipSpaceConvention get_clip_space() noexcept;
 
 }

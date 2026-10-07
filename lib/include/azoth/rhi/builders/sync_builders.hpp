@@ -22,19 +22,19 @@ namespace azo::rhi
 	class TimelineBuilder final
 	{
 	public:
-		TimelineBuilder & InitialValue(std::uint64_t value) noexcept
+		TimelineBuilder & initial_value(std::uint64_t value) noexcept
 		{
 			m_desc.initialValue = value;
 			return *this;
 		}
 
-		TimelineBuilder & DebugName(std::string_view name)
+		TimelineBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] TimelineDesc Build() const noexcept
+		[[nodiscard]] TimelineDesc build() const noexcept
 		{
 			TimelineDesc desc = m_desc;
 			desc.debugName	  = m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -49,13 +49,13 @@ namespace azo::rhi
 	class BinarySemaphoreBuilder final
 	{
 	public:
-		BinarySemaphoreBuilder & DebugName(std::string_view name)
+		BinarySemaphoreBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] BinarySemaphoreDesc Build() const noexcept
+		[[nodiscard]] BinarySemaphoreDesc build() const noexcept
 		{
 			BinarySemaphoreDesc desc{};
 			desc.debugName = m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -69,25 +69,25 @@ namespace azo::rhi
 	class TimelinePointBuilder final
 	{
 	public:
-		TimelinePointBuilder & Timeline(TimelineHandle timeline) noexcept
+		TimelinePointBuilder & timeline(TimelineHandle timeline) noexcept
 		{
 			m_desc.timeline = timeline;
 			return *this;
 		}
 
-		TimelinePointBuilder & Value(std::uint64_t value) noexcept
+		TimelinePointBuilder & value(std::uint64_t value) noexcept
 		{
 			m_desc.value = value;
 			return *this;
 		}
 
-		TimelinePointBuilder & WaitStages(Flags<Stage> stages) noexcept
+		TimelinePointBuilder & wait_stages(Flags<Stage> stages) noexcept
 		{
 			m_desc.waitStages = stages;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr TimelinePoint Build() const noexcept
+		[[nodiscard]] constexpr TimelinePoint build() const noexcept
 		{
 			return m_desc;
 		}
@@ -99,25 +99,25 @@ namespace azo::rhi
 	class SwapchainSyncBuilder final
 	{
 	public:
-		SwapchainSyncBuilder & Acquired(BinarySemaphoreHandle semaphore) noexcept
+		SwapchainSyncBuilder & acquired(BinarySemaphoreHandle semaphore) noexcept
 		{
 			m_desc.acquired = semaphore;
 			return *this;
 		}
 
-		SwapchainSyncBuilder & RenderFinished(BinarySemaphoreHandle semaphore) noexcept
+		SwapchainSyncBuilder & render_finished(BinarySemaphoreHandle semaphore) noexcept
 		{
 			m_desc.renderFinished = semaphore;
 			return *this;
 		}
 
-		SwapchainSyncBuilder & WaitStages(Flags<Stage> stages) noexcept
+		SwapchainSyncBuilder & wait_stages(Flags<Stage> stages) noexcept
 		{
 			m_desc.waitStages = stages;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr SwapchainSync Build() const noexcept
+		[[nodiscard]] constexpr SwapchainSync build() const noexcept
 		{
 			return m_desc;
 		}
@@ -129,19 +129,19 @@ namespace azo::rhi
 	class ResourceStateBuilder final
 	{
 	public:
-		ResourceStateBuilder & Use(Flags<ResourceUse> use) noexcept
+		ResourceStateBuilder & use(Flags<ResourceUse> use) noexcept
 		{
 			m_desc.use = use;
 			return *this;
 		}
 
-		ResourceStateBuilder & Stages(Flags<Stage> stages) noexcept
+		ResourceStateBuilder & stages(Flags<Stage> stages) noexcept
 		{
 			m_desc.stages = stages;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr ResourceState Build() const noexcept
+		[[nodiscard]] constexpr ResourceState build() const noexcept
 		{
 			return m_desc;
 		}
@@ -153,25 +153,25 @@ namespace azo::rhi
 	class BarrierBatchBuilder final
 	{
 	public:
-		BarrierBatchBuilder & Memory(MemoryBarrier barrier)
+		BarrierBatchBuilder & memory(MemoryBarrier barrier)
 		{
 			m_memory.push_back(barrier);
 			return *this;
 		}
 
-		BarrierBatchBuilder & Buffer(BufferBarrier barrier)
+		BarrierBatchBuilder & buffer(BufferBarrier barrier)
 		{
 			m_buffers.push_back(barrier);
 			return *this;
 		}
 
-		BarrierBatchBuilder & Texture(TextureBarrier barrier)
+		BarrierBatchBuilder & texture(TextureBarrier barrier)
 		{
 			m_textures.push_back(barrier);
 			return *this;
 		}
 
-		BarrierBatchBuilder & Clear() noexcept
+		BarrierBatchBuilder & clear() noexcept
 		{
 			m_memory.clear();
 			m_buffers.clear();
@@ -179,11 +179,11 @@ namespace azo::rhi
 			return *this;
 		}
 
-		[[nodiscard]] BarrierBatch Build() const noexcept
+		[[nodiscard]] BarrierBatch build() const noexcept
 		{
 			return BarrierBatch{ .memory = std::span<const MemoryBarrier>{ m_memory.data(), m_memory.size() },
 				.buffers				 = std::span<const BufferBarrier>{ m_buffers.data(), m_buffers.size() },
-				.textures				 = std::span<const TextureBarrier>{ m_textures.data(), m_textures.size() } };
+				.textures				 = std::span<const TextureBarrier>{ m_textures.data(), m_textures.size() }, };
 		}
 
 	private:
@@ -195,49 +195,49 @@ namespace azo::rhi
 	class SubmitBuilder final
 	{
 	public:
-		SubmitBuilder & AddCommandList(const CommandList & commandList)
+		SubmitBuilder & add_command_list(const CommandList & commandList)
 		{
 			m_commandLists.push_back(&commandList);
 			return *this;
 		}
 
-		SubmitBuilder & CommandLists(std::span<const CommandList *> commandLists)
+		SubmitBuilder & command_lists(std::span<const CommandList *> commandLists)
 		{
 			m_commandLists.assign(commandLists.begin(), commandLists.end());
 			return *this;
 		}
 
-		SubmitBuilder & AddWait(TimelinePoint wait)
+		SubmitBuilder & add_wait(TimelinePoint wait)
 		{
 			m_waits.push_back(wait);
 			return *this;
 		}
 
-		SubmitBuilder & AddSignal(TimelinePoint signal)
+		SubmitBuilder & add_signal(TimelinePoint signal)
 		{
 			m_signals.push_back(signal);
 			return *this;
 		}
 
-		SubmitBuilder & AddSwapchain(SwapchainSync sync)
+		SubmitBuilder & add_swapchain(SwapchainSync sync)
 		{
 			m_swapchains.push_back(sync);
 			return *this;
 		}
 
-		SubmitBuilder & DebugName(std::string_view name)
+		SubmitBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] SubmitDesc Build() noexcept
+		[[nodiscard]] SubmitDesc build() noexcept
 		{
 			return SubmitDesc{ .commandLists = std::span{ m_commandLists.data(), m_commandLists.size() },
 				.waits						 = std::span<const TimelinePoint>{ m_waits.data(), m_waits.size() },
 				.signals					 = std::span<const TimelinePoint>{ m_signals.data(), m_signals.size() },
 				.swapchains					 = std::span<const SwapchainSync>{ m_swapchains.data(), m_swapchains.size() },
-				.debugName					 = m_debugName.empty() ? nullptr : m_debugName.c_str() };
+				.debugName					 = m_debugName.empty() ? nullptr : m_debugName.c_str(), };
 		}
 
 	private:

@@ -29,13 +29,13 @@ namespace azo::rhi
 		PresentationBackend & operator=(PresentationBackend &&)		 = delete;
 		virtual ~PresentationBackend()								 = default;
 
-		[[nodiscard]] virtual bool InitInstanceLoader(SurfaceSource & source) = 0;
+		[[nodiscard]] virtual bool init_instance_loader(SurfaceSource & source) = 0;
 
-		[[nodiscard]] virtual SurfaceHandle CreateSurface(SurfaceSource & source, Device device) = 0;
+		[[nodiscard]] virtual SurfaceHandle create_surface(SurfaceSource & source, Device device) = 0;
 	};
 
-	[[nodiscard]] AZO_RHI_API GraphicsApiId SelectGraphicsApi(const char * requestedOverride = nullptr);
+	[[nodiscard]] AZO_RHI_API GraphicsApiId select_graphics_api(const char * requestedOverride = nullptr);
 
-	[[nodiscard]] AZO_RHI_API HostUniquePtr<PresentationBackend> MakePresentationBackend(GraphicsApiId api);
+	[[nodiscard]] AZO_RHI_API HostUniquePtr<PresentationBackend> make_presentation_backend(GraphicsApiId api);
 
 }

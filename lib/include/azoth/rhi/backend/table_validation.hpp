@@ -10,6 +10,7 @@
 #pragma once
 
 #include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 
@@ -215,7 +216,7 @@ namespace azo::rhi::detail
 	struct BlockEntries<ResourceIntrospectionApi> final
 	{
 		static constexpr std::array<std::string_view, 2> kNames{ "ResourceIntrospectionApi::getTextureInfo is null",
-			"ResourceIntrospectionApi::getBufferInfo is null" };
+			"ResourceIntrospectionApi::getBufferInfo is null", };
 
 		static constexpr std::string_view kBlockMissing{ "the backend device publishes no ResourceIntrospectionApi, or a shorter one than this build reads" };
 
@@ -499,7 +500,7 @@ namespace azo::rhi::detail
 	template <typename Block>
 	[[nodiscard]] std::size_t declared_entry_count(const Block & block) noexcept
 	{
-		constexpr std::size_t known = BlockEntries<Block>::kNames.size();
+		constexpr std::size_t kNown = BlockEntries<Block>::kNames.size();
 
 		if (block.header.byteSize < sizeof(InterfaceHeader))
 		{
@@ -507,7 +508,7 @@ namespace azo::rhi::detail
 		}
 
 		const std::size_t declared = (block.header.byteSize - sizeof(InterfaceHeader)) / sizeof(AnyDispatchEntry);
-		return declared < known ? declared : known;
+		return declared < kNown ? declared : kNown;
 	}
 
 	template <typename Block>
@@ -530,12 +531,12 @@ namespace azo::rhi::detail
 	}
 
 	template <typename Block>
-	[[nodiscard]] bool RequireCompleteBlock(const Block * block, Error * error) noexcept
+	[[nodiscard]] bool require_complete_block(const Block * block, Error * error) noexcept
 	{
-		constexpr std::size_t known = BlockEntries<Block>::kNames.size();
+		constexpr std::size_t kNown = BlockEntries<Block>::kNames.size();
 
 		const std::size_t missing = first_missing_entry(*block);
-		if (missing == known)
+		if (missing == kNown)
 		{
 			return true;
 		}
@@ -545,7 +546,7 @@ namespace azo::rhi::detail
 			*error = Error{
 				.code = ErrorCode::eValidationFailed,
 				// NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
-				.message = BlockEntries<Block>::kNames[missing].data(),
+				.message = azo::rhi::detail::at(BlockEntries<Block>::kNames, missing).data(),
 			};
 		}
 
@@ -553,14 +554,14 @@ namespace azo::rhi::detail
 	}
 
 	template <typename Block>
-	[[nodiscard]] const Block * CheckedBlock(void * impl, Error * error) noexcept
+	[[nodiscard]] const Block * checked_block(void * impl, Error * error) noexcept
 	{
 		if (impl == nullptr)
 		{
 			return nullptr;
 		}
 
-		const auto * block = QueryBlock<Block>(impl);
+		const auto * block = query_block<Block>(impl);
 		if (block == nullptr)
 		{
 			if (error != nullptr)
@@ -575,16 +576,16 @@ namespace azo::rhi::detail
 			return nullptr;
 		}
 
-		return RequireCompleteBlock(block, error) ? block : nullptr;
+		return require_complete_block(block, error) ? block : nullptr;
 	}
 
 	template <typename Block>
-	[[nodiscard]] bool CheckedChild(void * impl, Error * error) noexcept
+	[[nodiscard]] bool checked_child(void * impl, Error * error) noexcept
 	{
-		return CheckedBlock<Block>(impl, error) != nullptr;
+		return checked_block<Block>(impl, error) != nullptr;
 	}
 
-	[[nodiscard]] inline const char * MissingRequiredFeatureMessage(const DeviceFeature feature) noexcept
+	[[nodiscard]] inline const char * missing_required_feature_message(const DeviceFeature feature) noexcept
 	{
 		switch (feature)
 		{
@@ -608,16 +609,16 @@ namespace azo::rhi::detail
 		return "this device cannot provide a required feature";
 	}
 
-	[[nodiscard]] inline BackendBlockSet * ResolveDeviceBlocks(void *& deviceImpl, const DeviceDesc & desc, Error * error) noexcept
+	[[nodiscard]] inline BackendBlockSet * resolve_device_blocks(void *& deviceImpl, const DeviceDesc & desc, Error * error) noexcept
 	{
-		if (CheckedBlock<CoreDeviceApi>(deviceImpl, error) == nullptr)
+		if (checked_block<CoreDeviceApi>(deviceImpl, error) == nullptr)
 		{
 			return nullptr;
 		}
 
 		deviceImpl = validation::wrap_device(deviceImpl, desc.validation);
 
-		HostUniquePtr<BackendBlockSet> blocks = HostNew<BackendBlockSet>(deviceImpl, desc);
+		HostUniquePtr<BackendBlockSet> blocks = host_new<BackendBlockSet>(deviceImpl, desc);
 		if (blocks == nullptr)
 		{
 			if (error != nullptr)
@@ -633,7 +634,7 @@ namespace azo::rhi::detail
 
 		for (const DeviceFeature feature : desc.requiredFeatures)
 		{
-			if (blocks->Caps().Supports(feature))
+			if (blocks->caps().supports(feature))
 			{
 				continue;
 			}
@@ -642,14 +643,14 @@ namespace azo::rhi::detail
 			{
 				*error = Error{
 					.code	 = ErrorCode::eUnsupportedFeature,
-					.message = MissingRequiredFeatureMessage(feature),
+					.message = missing_required_feature_message(feature),
 				};
 			}
 
 			return nullptr;
 		}
 
-		if (blocks->Allocator() != nullptr && blocks->Device().placedMemory == nullptr)
+		if (blocks->allocator() != nullptr && blocks->device().placedMemory == nullptr)
 		{
 			if (error != nullptr)
 			{
@@ -665,14 +666,14 @@ namespace azo::rhi::detail
 		return blocks.release();
 	}
 
-	inline void ReleaseDeviceBlocks(BackendBlockSet * blocks) noexcept
+	inline void release_device_blocks(BackendBlockSet * blocks) noexcept
 	{
 		HostDeleter{ .size = sizeof(BackendBlockSet), .alignment = alignof(BackendBlockSet) }(blocks);
 	}
 
-	[[nodiscard]] inline Result<void> CheckThreading(const DeviceDesc & desc) noexcept
+	[[nodiscard]] inline Result<void> check_threading(const DeviceDesc & desc) noexcept
 	{
-		if (desc.threading != ThreadingMode::eCooperative || desc.sync.IsComplete())
+		if (desc.threading != ThreadingMode::eCooperative || desc.sync.is_complete())
 		{
 			return {};
 		}
@@ -683,9 +684,9 @@ namespace azo::rhi::detail
 		};
 	}
 
-	[[nodiscard]] inline Result<void> CheckDeviceDesc(const DeviceDesc & desc) noexcept
+	[[nodiscard]] inline Result<void> check_device_desc(const DeviceDesc & desc) noexcept
 	{
-		if (Result<void> threading = CheckThreading(desc); !threading)
+		if (Result<void> threading = check_threading(desc); !threading)
 		{
 			return threading;
 		}
@@ -701,9 +702,9 @@ namespace azo::rhi::detail
 		return {};
 	}
 
-	inline void ReleaseUndrivableDevice(void * deviceImpl) noexcept
+	inline void release_undrivable_device(void * deviceImpl) noexcept
 	{
-		if (const auto * partial = QueryBlock<CoreDeviceApi>(deviceImpl); partial != nullptr && partial->destroyDevice != nullptr)
+		if (const auto * partial = query_block<CoreDeviceApi>(deviceImpl); partial != nullptr && partial->destroyDevice != nullptr)
 		{
 			const LifetimeLock lifetime;
 			partial->destroyDevice(deviceImpl);

@@ -48,23 +48,23 @@ namespace azo::rhi
 	};
 
 	template <GraphicsApiTag Api>
-	[[nodiscard]] constexpr BackendEntry MakeBackendEntry(
+	[[nodiscard]] constexpr BackendEntry make_backend_entry(
 		Result<void> (*const registerInto)(GraphicsApiRegistry &), const BackendRank rank = BackendRank::eHardware) noexcept
 	{
 		return BackendEntry{
-			.id			   = Api::id,
-			.canonicalName = Api::canonicalName,
-			.displayName   = Api::displayName,
+			.id			   = Api::kId,
+			.canonicalName = Api::kCanonicalName,
+			.displayName   = Api::kDisplayName,
 			.Register	   = registerInto,
 			.rank		   = rank,
 		};
 	}
 
-	[[nodiscard]] AZO_RHI_API std::span<const BackendEntry> AvailableBackends() noexcept;
+	[[nodiscard]] AZO_RHI_API std::span<const BackendEntry> available_backends() noexcept;
 
-	[[nodiscard]] AZO_RHI_API const BackendEntry * FindAvailableBackend(std::string_view name) noexcept;
+	[[nodiscard]] AZO_RHI_API const BackendEntry * find_available_backend(std::string_view name) noexcept;
 
-	[[nodiscard]] AZO_RHI_API const BackendEntry * FindAvailableBackend(GraphicsApiId id) noexcept;
+	[[nodiscard]] AZO_RHI_API const BackendEntry * find_available_backend(GraphicsApiId id) noexcept;
 
 	class AZO_RHI_API StaticBackendRegistration final
 	{
@@ -78,12 +78,12 @@ namespace azo::rhi
 
 		~StaticBackendRegistration() = default;
 
-		[[nodiscard]] const BackendEntry & Entry() const noexcept
+		[[nodiscard]] const BackendEntry & entry() const noexcept
 		{
 			return m_entry;
 		}
 
-		[[nodiscard]] const StaticBackendRegistration * Next() const noexcept
+		[[nodiscard]] const StaticBackendRegistration * next() const noexcept
 		{
 			return m_next;
 		}
@@ -93,7 +93,7 @@ namespace azo::rhi
 		const StaticBackendRegistration * m_next = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API const StaticBackendRegistration * SelfRegisteredBackends() noexcept;
+	[[nodiscard]] AZO_RHI_API const StaticBackendRegistration * self_registered_backends() noexcept;
 
 // Backend self-registration needs a generated namespace-scope object name. NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b) a## b
@@ -106,12 +106,12 @@ namespace azo::rhi
 	}
 	// NOLINTEND(cppcoreguidelines-macro-usage)
 
-	AZO_RHI_API Result<void> RegisterBackend(GraphicsApiRegistry & registry, GraphicsApiId id);
+	AZO_RHI_API Result<void> register_backend(GraphicsApiRegistry & registry, GraphicsApiId id);
 
 	template <GraphicsApiTag Api>
-	Result<void> RegisterBackend(GraphicsApiRegistry & registry)
+	Result<void> register_backend(GraphicsApiRegistry & registry)
 	{
-		return RegisterBackend(registry, Api::id);
+		return register_backend(registry, Api::kId);
 	}
 
 	enum class BackendRequest : std::uint8_t
@@ -147,20 +147,20 @@ namespace azo::rhi
 
 		~BackendSelection() = default;
 
-		AZO_RHI_API Result<void> Add(const BackendEntry & entry);
+		AZO_RHI_API Result<void> add(const BackendEntry & entry);
 
-		AZO_RHI_API Result<void> AddAll(std::span<const BackendEntry> entries);
+		AZO_RHI_API Result<void> add_all(std::span<const BackendEntry> entries);
 
-		AZO_RHI_API Result<void> AddAvailable();
+		AZO_RHI_API Result<void> add_available();
 
-		AZO_RHI_API Result<void> AddSelfRegistered();
+		AZO_RHI_API Result<void> add_self_registered();
 
-		AZO_RHI_API Result<void> AddModule(std::span<const BackendEntry> entries);
+		AZO_RHI_API Result<void> add_module(std::span<const BackendEntry> entries);
 
-		AZO_RHI_API Result<void> AddCatalog();
+		AZO_RHI_API Result<void> add_catalog();
 
 		template <GraphicsApiTag Api>
-		Result<void> Add(const BackendCreateInfo & createInfo)
+		Result<void> add(const BackendCreateInfo & createInfo)
 		{
 			const std::scoped_lock guard(m_guard);
 
@@ -175,61 +175,61 @@ namespace azo::rhi
 			return {};
 		}
 
-		[[nodiscard]] std::span<const BackendInfo> Preferred() const noexcept
+		[[nodiscard]] std::span<const BackendInfo> preferred() const noexcept
 		{
 			const std::scoped_lock guard(m_guard);
 			return std::span<const BackendInfo>{ m_preferred.data(), m_preferred.size() };
 		}
 
-		[[nodiscard]] std::span<const GraphicsApiId> PreferredApis() const noexcept
+		[[nodiscard]] std::span<const GraphicsApiId> preferred_apis() const noexcept
 		{
 			const std::scoped_lock guard(m_guard);
 			return std::span<const GraphicsApiId>{ m_preferredApis.data(), m_preferredApis.size() };
 		}
 
-		[[nodiscard]] bool IsEmpty() const noexcept
+		[[nodiscard]] bool is_empty() const noexcept
 		{
 			const std::scoped_lock guard(m_guard);
 			return m_preferred.empty();
 		}
 
-		[[nodiscard]] std::string_view RequestedName() const noexcept
+		[[nodiscard]] std::string_view requested_name() const noexcept
 		{
 			return m_requestedName;
 		}
 
-		[[nodiscard]] bool HonoredRequest() const noexcept
+		[[nodiscard]] bool honored_request() const noexcept
 		{
 			return m_honoredRequest;
 		}
 
-		[[nodiscard]] BackendRequest Request() const noexcept
+		[[nodiscard]] BackendRequest request() const noexcept
 		{
 			return m_request;
 		}
 
-		[[nodiscard]] GraphicsApiRegistry & Registry() noexcept
+		[[nodiscard]] GraphicsApiRegistry & registry() noexcept
 		{
 			return m_registry;
 		}
 
-		[[nodiscard]] const GraphicsApiRegistry & Registry() const noexcept
+		[[nodiscard]] const GraphicsApiRegistry & registry() const noexcept
 		{
 			return m_registry;
 		}
 
-		[[nodiscard]] AZO_RHI_API Result<UniqueInstance> CreateInstance(const InstanceDesc & desc = {});
+		[[nodiscard]] AZO_RHI_API Result<UniqueInstance> create_instance(const InstanceDesc & desc = {});
 
-		[[nodiscard]] AZO_RHI_API Result<UniqueDevice> CreateDevice(const DeviceDesc & desc = {});
+		[[nodiscard]] AZO_RHI_API Result<UniqueDevice> create_device(const DeviceDesc & desc = {});
 
-		[[nodiscard]] AZO_RHI_API Result<UniqueInstance> CreateInstance(GraphicsApiId api, const InstanceDesc & desc);
+		[[nodiscard]] AZO_RHI_API Result<UniqueInstance> create_instance(GraphicsApiId api, const InstanceDesc & desc);
 
-		[[nodiscard]] AZO_RHI_API Result<UniqueDevice> CreateDevice(GraphicsApiId api, const DeviceDesc & desc);
+		[[nodiscard]] AZO_RHI_API Result<UniqueDevice> create_device(GraphicsApiId api, const DeviceDesc & desc);
 
 	private:
 		[[nodiscard]] std::size_t Registered() const noexcept
 		{
-			return m_registry.EnumerateBackends().size();
+			return m_registry.enumerate_backends().size();
 		}
 
 		AZO_RHI_API Result<void> AddOne(const BackendEntry & entry);

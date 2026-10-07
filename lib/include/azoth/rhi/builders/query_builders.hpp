@@ -20,42 +20,42 @@ namespace azo::rhi
 	class QueryPoolBuilder final
 	{
 	public:
-		QueryPoolBuilder & Type(QueryType type) noexcept
+		QueryPoolBuilder & type(QueryType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		QueryPoolBuilder & Timestamp() noexcept
+		QueryPoolBuilder & timestamp() noexcept
 		{
-			return Type(QueryType::eTimestamp);
+			return type(QueryType::eTimestamp);
 		}
 
-		QueryPoolBuilder & Occlusion() noexcept
+		QueryPoolBuilder & occlusion() noexcept
 		{
-			return Type(QueryType::eOcclusion);
+			return type(QueryType::eOcclusion);
 		}
 
-		QueryPoolBuilder & PipelineStatistics(Flags<PipelineStatistic> statistics) noexcept
+		QueryPoolBuilder & pipeline_statistics(Flags<PipelineStatistic> statistics) noexcept
 		{
 			m_desc.type		  = QueryType::ePipelineStatistics;
 			m_desc.statistics = statistics;
 			return *this;
 		}
 
-		QueryPoolBuilder & QueryCount(std::uint32_t count) noexcept
+		QueryPoolBuilder & query_count(std::uint32_t count) noexcept
 		{
 			m_desc.queryCount = count;
 			return *this;
 		}
 
-		QueryPoolBuilder & DebugName(std::string_view name)
+		QueryPoolBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] QueryPoolDesc Build() const noexcept
+		[[nodiscard]] QueryPoolDesc build() const noexcept
 		{
 			QueryPoolDesc desc = m_desc;
 			desc.debugName	   = m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -70,32 +70,32 @@ namespace azo::rhi
 	class QueryResultBuilder final
 	{
 	public:
-		QueryResultBuilder & Pool(QueryPoolHandle pool) noexcept
+		QueryResultBuilder & pool(QueryPoolHandle pool) noexcept
 		{
 			m_desc.pool = pool;
 			return *this;
 		}
 
-		QueryResultBuilder & Range(std::uint32_t firstQuery, std::uint32_t queryCount) noexcept
+		QueryResultBuilder & range(std::uint32_t firstQuery, std::uint32_t queryCount) noexcept
 		{
 			m_desc.firstQuery = firstQuery;
 			m_desc.queryCount = queryCount;
 			return *this;
 		}
 
-		QueryResultBuilder & Wait(bool enabled = true) noexcept
+		QueryResultBuilder & wait(bool enabled = true) noexcept
 		{
 			m_desc.wait = enabled;
 			return *this;
 		}
 
-		QueryResultBuilder & Availability(bool enabled = true) noexcept
+		QueryResultBuilder & availability(bool enabled = true) noexcept
 		{
 			m_desc.withAvailability = enabled;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr QueryResultDesc Build() const noexcept
+		[[nodiscard]] constexpr QueryResultDesc build() const noexcept
 		{
 			return m_desc;
 		}

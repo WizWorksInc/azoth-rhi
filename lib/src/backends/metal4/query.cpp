@@ -7,16 +7,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/resources/query.hpp"
 #include "backends/metal4/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSError.hpp>
+#include <Foundation/NSRange.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSString.hpp>
+#include <Metal/MTL4Counters.hpp>
+#include <Metal/MTLAccelerationStructureTypes.hpp>
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLDevice.hpp>
+#include <Metal/MTLFence.hpp>
+#include <Metal/MTLRenderCommandEncoder.hpp>
+#include <cstdint>
+#include <utility>
 
 namespace azo::rhi::metal4
 {
-	[[nodiscard]] Metal4QueryPool * ResolveQueryPool(Metal4Device * device, QueryPoolHandle handle) noexcept
+	[[nodiscard]] Metal4QueryPool * resolve_query_pool(Metal4Device * device, QueryPoolHandle handle) noexcept
 	{
-		return device->queryPools.Resolve(handle, kHandleAlreadyChecked);
+		return device->queryPools.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	QueryPoolHandle Metal4CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
+	QueryPoolHandle metal4_create_query_pool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createQueryPool");
 
@@ -24,12 +46,12 @@ namespace azo::rhi::metal4
 
 		if (desc.type != QueryType::eTimestamp)
 		{
-			return FailValue<QueryPoolHandle>(
+			return fail_value<QueryPoolHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp query pools only, and this pool asked for another type");
 		}
 		if (desc.queryCount == 0)
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool			  = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -41,7 +63,7 @@ namespace azo::rhi::metal4
 		MTL4::CounterHeap * heap = device->device->newCounterHeap(heapDesc.get(), &heapError);
 		if (heap == nullptr)
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "Metal 4 counter heap creation failed");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "Metal 4 counter heap creation failed");
 		}
 
 		NS::SharedPtr<MTL4::CounterHeap> owned = NS::TransferPtr(heap);
@@ -50,29 +72,29 @@ namespace azo::rhi::metal4
 			owned->setLabel(NS::String::string(desc.debugName, NS::UTF8StringEncoding));
 		}
 
-		const QueryPoolHandle handle = device->queryPools.Store(Metal4QueryPool{
+		const QueryPoolHandle handle = device->queryPools.store(Metal4QueryPool{
 			.heap		= std::move(owned),
 			.type		= desc.type,
 			.queryCount = desc.queryCount,
 		});
-		if (!handle.IsValid())
+		if (!handle.is_valid())
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 query pool tracking failed");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 query pool tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	bool Metal4CalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
+	bool metal4_calibrate_timestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
 	{
 		auto * device = static_cast<Metal4Device *>(impl);
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "calibrateTimestamp needs somewhere to write the result");
+			return fail(error, ErrorCode::eInvalidArgument, "calibrateTimestamp needs somewhere to write the result");
 		}
 		if (!device->caps.supportsTimestampCalibration)
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples no counters, so its clocks cannot be correlated");
+			return fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples no counters, so its clocks cannot be correlated");
 		}
 
 		MTL::Timestamp cpu = 0;
@@ -84,51 +106,51 @@ namespace azo::rhi::metal4
 		out->cpuTimestampNanoseconds = cpu;
 		out->gpuPeriodNanoseconds	 = device->caps.timestampPeriodNanoseconds;
 		out->calibrated				 = cpu != 0 || gpu != 0;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool Metal4CmdResetQueryPool(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, Error * error) noexcept
+	bool metal4_cmd_reset_query_pool(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * object			  = static_cast<Metal4Object *>(impl);
-		Metal4QueryPool * tracked = ResolveQueryPool(object->owner, pool);
+		Metal4QueryPool * tracked = resolve_query_pool(object->owner, pool);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
 		}
 		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
 
 		tracked->heap->invalidateCounterRange(NS::Range::Make(firstQuery, queryCount));
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	namespace
 	{
-		[[nodiscard]] MTL::RenderStages RenderStageFor(const Flags<Stage> stages) noexcept
+		[[nodiscard]] MTL::RenderStages render_stage_for(const Flags<Stage> stages) noexcept
 		{
 			const Flags<Stage> beyondVertex = stages & ~(Flags<Stage>(Stage::eIndirectFetch) | Stage::eVertexWork);
-			return !stages.Empty() && beyondVertex.Empty() ? MTL::RenderStageVertex : MTL::RenderStageFragment;
+			return !stages.empty() && beyondVertex.empty() ? MTL::RenderStageVertex : MTL::RenderStageFragment;
 		}
 	}
 
-	bool Metal4CmdWriteTimestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, const Flags<Stage> stage, Error * error) noexcept
+	bool metal4_cmd_write_timestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, const Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * object			  = static_cast<Metal4Object *>(impl);
-		CmdList * list			  = ListOf(object);
-		Metal4QueryPool * tracked = ResolveQueryPool(object->owner, pool);
+		CmdList * list			  = list_of(object);
+		Metal4QueryPool * tracked = resolve_query_pool(object->owner, pool);
 		if (tracked == nullptr || tracked->heap.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "writeTimestamp names a query pool this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "writeTimestamp names a query pool this device never created");
 		}
 		if (query >= tracked->queryCount)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
 		if (list == nullptr || list->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
 		if (list->renderEncoder.get() != nullptr || list->computeEncoder.get() != nullptr)
@@ -138,7 +160,7 @@ namespace azo::rhi::metal4
 				list->timestampFence = NS::TransferPtr(object->owner->device->newFence());
 				if (list->timestampFence.get() == nullptr)
 				{
-					return Fail(error, ErrorCode::eNativeApiError, "Metal 4 timestamp fence allocation failed");
+					return fail(error, ErrorCode::eNativeApiError, "Metal 4 timestamp fence allocation failed");
 				}
 			}
 
@@ -147,56 +169,56 @@ namespace azo::rhi::metal4
 
 		if (list->renderEncoder.get() != nullptr)
 		{
-			list->renderEncoder->writeTimestamp(MTL4::TimestampGranularityPrecise, RenderStageFor(stage), tracked->heap.get(), query);
-			return Succeed(error);
+			list->renderEncoder->writeTimestamp(MTL4::TimestampGranularityPrecise, render_stage_for(stage), tracked->heap.get(), query);
+			return succeed(error);
 		}
 		if (list->computeEncoder.get() != nullptr)
 		{
 			list->computeEncoder->writeTimestamp(MTL4::TimestampGranularityPrecise, tracked->heap.get(), query);
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		list->commandBuffer->writeTimestampIntoHeap(tracked->heap.get(), query);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool Metal4CmdBeginQuery(void * impl, QueryPoolHandle, std::uint32_t, Error * error) noexcept
+	bool metal4_cmd_begin_query(void * impl, QueryPoolHandle /*unused*/, std::uint32_t /*unused*/, Error * error) noexcept
 	{
 		static_cast<void>(impl);
-		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
+		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
 	}
 
-	bool Metal4CmdEndQuery(void * impl, QueryPoolHandle, std::uint32_t, Error * error) noexcept
+	bool metal4_cmd_end_query(void * impl, QueryPoolHandle /*unused*/, std::uint32_t /*unused*/, Error * error) noexcept
 	{
 		static_cast<void>(impl);
-		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
+		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
 	}
 
-	bool Metal4CmdResolveQueryData(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, BufferHandle dst,
+	bool metal4_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, BufferHandle dst,
 		const std::uint64_t dstOffset, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveQueryData");
 
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
-		CmdList * list		  = ListOf(object);
+		CmdList * list		  = list_of(object);
 
-		Metal4QueryPool * tracked = ResolveQueryPool(device, pool);
-		MTL::Buffer * destination = ResolveBuffer(device, dst);
+		Metal4QueryPool * tracked = resolve_query_pool(device, pool);
+		MTL::Buffer * destination = resolve_buffer(device, dst);
 		if (tracked == nullptr || tracked->heap.get() == nullptr || destination == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
 		}
 		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
 		if (list == nullptr || list->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		EndActiveEncoders(list);
+		end_active_encoders(list);
 
 		MTL::Fence * waitFence = list->wroteEncoderTimestamps ? list->timestampFence.get() : nullptr;
 
@@ -205,13 +227,13 @@ namespace azo::rhi::metal4
 
 		if (dstOffset > destination->length() || bytes > destination->length() - dstOffset)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData writes past the end of the destination buffer");
+			return fail(error, ErrorCode::eInvalidArgument, "resolveQueryData writes past the end of the destination buffer");
 		}
 
 		const MTL4::BufferRange range = MTL4::BufferRange::Make(destination->gpuAddress() + dstOffset, bytes);
 
 		list->commandBuffer->resolveCounterHeap(tracked->heap.get(), NS::Range::Make(firstQuery, queryCount), range, waitFence, nullptr);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

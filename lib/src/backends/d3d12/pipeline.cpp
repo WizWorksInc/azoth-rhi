@@ -134,19 +134,19 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] UINT8 MapColorWriteMask(Flags<ColorWrite> mask) noexcept
 	{
 		UINT8 out = 0;
-		if (mask.Contains(ColorWrite::eR))
+		if (mask.contains(ColorWrite::eR))
 		{
 			out |= D3D12_COLOR_WRITE_ENABLE_RED;
 		}
-		if (mask.Contains(ColorWrite::eG))
+		if (mask.contains(ColorWrite::eG))
 		{
 			out |= D3D12_COLOR_WRITE_ENABLE_GREEN;
 		}
-		if (mask.Contains(ColorWrite::eB))
+		if (mask.contains(ColorWrite::eB))
 		{
 			out |= D3D12_COLOR_WRITE_ENABLE_BLUE;
 		}
-		if (mask.Contains(ColorWrite::eA))
+		if (mask.contains(ColorWrite::eA))
 		{
 			out |= D3D12_COLOR_WRITE_ENABLE_ALPHA;
 		}
@@ -155,22 +155,22 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] PipelineLayoutSlot * ResolvePipelineLayout(D3D12Device * device, PipelineLayoutHandle handle) noexcept
 	{
-		return device->pipelineLayoutSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->pipelineLayoutSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] GraphicsPipelineSlot * ResolveGraphicsPipeline(D3D12Device * device, GraphicsPipelineHandle handle) noexcept
 	{
-		return device->graphicsPipelineSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->graphicsPipelineSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] ComputePipelineSlot * ResolveComputePipeline(D3D12Device * device, ComputePipelineHandle handle) noexcept
 	{
-		return device->computePipelineSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->computePipelineSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] ID3D12PipelineLibrary * ResolvePipelineLibrary(D3D12Device * device, PipelineCacheHandle handle) noexcept
 	{
-		const PipelineCacheSlot * const slot = device->pipelineCacheSlots.Resolve(handle, true);
+		const PipelineCacheSlot * const slot = device->pipelineCacheSlots.resolve(handle, true);
 		return slot != nullptr ? slot->library.Get() : nullptr;
 	}
 
@@ -256,7 +256,7 @@ namespace azo::rhi::d3d12
 				continue;
 			}
 
-			const ShaderBindingDisagreement bad = CheckShaderBindingMap(D3D12Api::id, device->caps.bindingTier, abiLayout, *shader.bindingMap);
+			const ShaderBindingDisagreement bad = check_shader_binding_map(D3D12Api::kId, device->caps.bindingTier, abiLayout, *shader.bindingMap);
 			if (!bad.found)
 			{
 				continue;
@@ -484,13 +484,13 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(device->graphicsPipelineSlots.Store(GraphicsPipelineSlot{ .pipeline = std::move(pipeline),
+		return ReturnValue(device->graphicsPipelineSlots.store(GraphicsPipelineSlot{ .pipeline = std::move(pipeline),
 							   .rootSignature												   = layout->rootSignature,
 							   .topology													   = MapPrimitiveTopology(vertexInput.topology),
 							   .vertexStrides												   = vertexStrides,
-							   .bakeBlendConstants											   = !dynamic.Contains(DynamicState::eBlendConstants),
+							   .bakeBlendConstants											   = !dynamic.contains(DynamicState::eBlendConstants),
 							   .blendConstants												   = desc.blend.blendConstants,
-							   .bakeStencilReference										   = !dynamic.Contains(DynamicState::eStencilReference),
+							   .bakeStencilReference										   = !dynamic.contains(DynamicState::eStencilReference),
 							   .stencilReference											   = desc.depthStencil.front.reference,
 							   .depthBoundsTestEnable										   = desc.depthStencil.depthBoundsTestEnable,
 							   .minDepthBounds												   = desc.depthStencil.minDepthBounds,
@@ -536,7 +536,7 @@ namespace azo::rhi::d3d12
 		HRESULT hr						= S_OK;
 		if (library != nullptr)
 		{
-			const std::wstring name = L"cmp" + std::to_wstring(reinterpret_cast<std::uintptr_t>(&desc) ^ device->computePipelineSlots.LiveCount());
+			const std::wstring name = L"cmp" + std::to_wstring(reinterpret_cast<std::uintptr_t>(&desc) ^ device->computePipelineSlots.live_count());
 			if (FAILED(library->LoadComputePipeline(name.c_str(), &psoDesc, IID_PPV_ARGS(pipeline.GetAddressOf()))))
 			{
 				hr = device->device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(pipeline.GetAddressOf()));
@@ -555,7 +555,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<ComputePipelineHandle>(error, hr, "ID3D12Device::CreateComputePipelineState failed");
 		}
 
-		return ReturnValue(device->computePipelineSlots.Store(ComputePipelineSlot{
+		return ReturnValue(device->computePipelineSlots.store(ComputePipelineSlot{
 							   .pipeline	  = std::move(pipeline),
 							   .rootSignature = layout->rootSignature,
 						   }),
@@ -585,7 +585,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<PipelineCacheHandle>(error, hr, "ID3D12Device1::CreatePipelineLibrary failed");
 		}
 
-		return ReturnValue(device->pipelineCacheSlots.Store(PipelineCacheSlot{ .library = std::move(library) }), error);
+		return ReturnValue(device->pipelineCacheSlots.store(PipelineCacheSlot{ .library = std::move(library) }), error);
 	}
 
 	bool D3D12GetPipelineCacheData(void * impl, PipelineCacheHandle cache, PipelineCacheData * out, Error * error) noexcept
@@ -593,7 +593,7 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.getPipelineCacheData");
 
 		auto * device			 = static_cast<D3D12Device *>(impl);
-		PipelineCacheSlot * slot = device->pipelineCacheSlots.Resolve(cache, true);
+		PipelineCacheSlot * slot = device->pipelineCacheSlots.resolve(cache, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "getPipelineCacheData with an invalid or stale cache handle");
@@ -623,7 +623,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		GraphicsPipelineSlot * slot = device->graphicsPipelineSlots.Resolve(slotHandle, true);
+		GraphicsPipelineSlot * slot = device->graphicsPipelineSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid graphics pipeline handle");
@@ -631,7 +631,7 @@ namespace azo::rhi::d3d12
 
 		slot->pipeline.Reset();
 		slot->rootSignature.Reset();
-		static_cast<void>(device->graphicsPipelineSlots.Retire(slotHandle, true));
+		static_cast<void>(device->graphicsPipelineSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -641,7 +641,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		ComputePipelineSlot * slot = device->computePipelineSlots.Resolve(slotHandle, true);
+		ComputePipelineSlot * slot = device->computePipelineSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid compute pipeline handle");
@@ -649,7 +649,7 @@ namespace azo::rhi::d3d12
 
 		slot->pipeline.Reset();
 		slot->rootSignature.Reset();
-		static_cast<void>(device->computePipelineSlots.Retire(slotHandle, true));
+		static_cast<void>(device->computePipelineSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -659,7 +659,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		PipelineCacheSlot * slot = device->pipelineCacheSlots.Resolve(slotHandle, true);
+		PipelineCacheSlot * slot = device->pipelineCacheSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid pipeline cache handle");
@@ -668,7 +668,7 @@ namespace azo::rhi::d3d12
 		slot->library.Reset();
 		slot->data.clear();
 		slot->data.shrink_to_fit();
-		static_cast<void>(device->pipelineCacheSlots.Retire(slotHandle, true));
+		static_cast<void>(device->pipelineCacheSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 

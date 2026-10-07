@@ -15,7 +15,7 @@ namespace azo::rhi::d3d12
 {
 	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept
 	{
-		BufferSlot * slot = device->bufferSlots.Resolve(handle, kHandleAlreadyChecked);
+		BufferSlot * slot = device->bufferSlots.resolve(handle, kHandleAlreadyChecked);
 		return slot != nullptr && slot->resource != nullptr ? slot : nullptr;
 	}
 
@@ -33,7 +33,7 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept
 	{
-		if (usage.Contains(BufferUsage::eAccelerationStructureStorage))
+		if (usage.contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			return D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
 		}
@@ -49,7 +49,7 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept
 	{
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-		if (usage.Contains(BufferUsage::eStorage) || usage.Contains(BufferUsage::eAccelerationStructureStorage))
+		if (usage.contains(BufferUsage::eStorage) || usage.contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		}
@@ -91,7 +91,7 @@ namespace azo::rhi::d3d12
 		bool hostVisible			   = false;
 		const D3D12_HEAP_TYPE heapType = MapHeapType(desc.memory, hostVisible);
 
-		if (desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
+		if (desc.usage.contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
 			return FailValue<BufferHandle>(error,
 				ErrorCode::eInvalidArgument,
@@ -113,14 +113,14 @@ namespace azo::rhi::d3d12
 			resourceDesc.Flags &= ~D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		}
 
-		if (desc.usage.Contains(BufferUsage::eUniform))
+		if (desc.usage.contains(BufferUsage::eUniform))
 		{
 			resourceDesc.Width = (desc.size + 255) & ~static_cast<std::uint64_t>(255);
 		}
 
 		if (desc.allowSparseBinding)
 		{
-			if (!desc.exportableHandleTypes.Empty())
+			if (!desc.exportableHandleTypes.empty())
 			{
 				return FailValue<BufferHandle>(error,
 					ErrorCode::eUnsupportedFeature,
@@ -136,12 +136,12 @@ namespace azo::rhi::d3d12
 
 			NameD3D12Object(reserved.Get(), desc.debugName, device->debugNames);
 
-			return ReturnValue(device->bufferSlots.Store(BufferSlot{
+			return ReturnValue(device->bufferSlots.store(BufferSlot{
 								   .resource	= std::move(reserved),
 								   .size		= desc.size,
 								   .hostVisible = false,
 								   .reserved	= true,
-								   .desc		= detail::Recorded(desc),
+								   .desc		= detail::recorded(desc),
 							   }),
 				error);
 		}
@@ -149,7 +149,7 @@ namespace azo::rhi::d3d12
 		D3D12MA::ALLOCATION_DESC allocationDesc{};
 		allocationDesc.HeapType = heapType;
 
-		if (!desc.exportableHandleTypes.Empty())
+		if (!desc.exportableHandleTypes.empty())
 		{
 			if (heapType != D3D12_HEAP_TYPE_DEFAULT)
 			{
@@ -176,13 +176,13 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.debugName, device->debugNames);
 
-		return ReturnValue(device->bufferSlots.Store(BufferSlot{ .allocation = std::move(allocation),
+		return ReturnValue(device->bufferSlots.store(BufferSlot{ .allocation = std::move(allocation),
 							   .resource									 = std::move(resource),
 							   .size										 = desc.size,
 							   .hostVisible									 = hostVisible,
 							   .heapType									 = heapType,
 							   .exportableHandleTypes						 = desc.exportableHandleTypes,
-							   .desc										 = detail::Recorded(desc) }),
+							   .desc										 = detail::recorded(desc) }),
 			error);
 	}
 
@@ -207,7 +207,7 @@ namespace azo::rhi::d3d12
 			return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
 		}
 
-		if (!slot->mapCount.TryAcquire())
+		if (!slot->mapCount.try_acquire())
 		{
 			return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
 		}
@@ -220,7 +220,7 @@ namespace azo::rhi::d3d12
 		const HRESULT hr = slot->resource->Map(0, &readRange, &mapped);
 		if (FAILED(hr))
 		{
-			static_cast<void>(slot->mapCount.TryRelease());
+			static_cast<void>(slot->mapCount.try_release());
 			return FailValueNative<MappedMemory>(error, hr, "ID3D12Resource::Map failed");
 		}
 
@@ -241,7 +241,7 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "unmap of an invalid buffer handle");
 		}
-		if (!slot->mapCount.TryRelease())
+		if (!slot->mapCount.try_release())
 		{
 			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 		}
@@ -324,7 +324,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		BufferSlot * slot = device->bufferSlots.Resolve(slotHandle, true);
+		BufferSlot * slot = device->bufferSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid buffer handle");
@@ -332,13 +332,13 @@ namespace azo::rhi::d3d12
 		if (slot->lifetime == SlotLifetime::eAdopted)
 		{
 			slot->resource.Reset();
-			static_cast<void>(device->bufferSlots.Retire(slotHandle, true));
+			static_cast<void>(device->bufferSlots.retire(slotHandle, true));
 			return Succeed(error);
 		}
 
 		slot->resource.Reset();
 		slot->allocation.Reset();
-		static_cast<void>(device->bufferSlots.Retire(slotHandle, true));
+		static_cast<void>(device->bufferSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 

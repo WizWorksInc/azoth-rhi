@@ -13,13 +13,13 @@
 
 namespace azo::rhi::detail
 {
-	[[nodiscard]] constexpr TextureDesc Recorded(TextureDesc desc) noexcept
+	[[nodiscard]] constexpr TextureDesc recorded(TextureDesc desc) noexcept
 	{
 		desc.debugName = nullptr;
 		return desc;
 	}
 
-	[[nodiscard]] constexpr BufferDesc Recorded(BufferDesc desc) noexcept
+	[[nodiscard]] constexpr BufferDesc recorded(BufferDesc desc) noexcept
 	{
 		desc.debugName = nullptr;
 		return desc;

@@ -7,19 +7,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/resources/binding_abi.hpp"
+#include "azoth/rhi/resources/descriptors.hpp"
+#include "azoth/rhi/resources/native_slot.hpp"
+#include "azoth/rhi/resources/pipeline.hpp"
 #include "backends/metal4/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSArray.hpp>
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSError.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSString.hpp>
+#include <Foundation/NSTypes.hpp>
+#include <Metal/MTL4Compiler.hpp>
+#include <Metal/MTL4ComputePipeline.hpp>
+#include <Metal/MTL4LibraryFunctionDescriptor.hpp>
+#include <Metal/MTL4PipelineState.hpp>
+#include <Metal/MTL4RenderPipeline.hpp>
+#include <Metal/MTLArgument.hpp>
+#include <Metal/MTLComputePipeline.hpp>
+#include <Metal/MTLLibrary.hpp>
+#include <Metal/MTLRenderPipeline.hpp>
+#include <Metal/MTLTexture.hpp>
+#include <Metal/MTLVertexDescriptor.hpp>
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <span>
+#include <utility>
 
 namespace azo::rhi::metal4
 {
-	[[nodiscard]] MTL::Texture * ResolveTextureView(Metal4Device * device, TextureViewHandle handle) noexcept
+	[[nodiscard]] MTL::Texture * resolve_texture_view(Metal4Device * device, TextureViewHandle handle) noexcept
 	{
-		const auto * tracked = device->textureViews.Resolve(handle, kHandleAlreadyChecked);
+		const auto * tracked = device->textureViews.resolve(handle, kHandleAlreadyChecked);
 		return tracked != nullptr ? tracked->texture.get() : nullptr;
 	}
 
 	namespace
 	{
-		[[nodiscard]] bool BindingMapsAgreeImpl(
+		[[nodiscard]] bool binding_maps_agree_impl(
 			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 		{
 			if (std::ranges::none_of(shaders,
@@ -31,20 +65,20 @@ namespace azo::rhi::metal4
 				return true;
 			}
 
-			const Metal4PipelineLayout * const layout = device->pipelineLayouts.Resolve(layoutHandle, kHandleAlreadyChecked);
+			const Metal4PipelineLayout * const layout = device->pipelineLayouts.resolve(layoutHandle, kHandleAlreadyChecked);
 			if (layout == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "pipeline references an invalid pipeline layout");
+				return fail(error, ErrorCode::eInvalidHandle, "pipeline references an invalid pipeline layout");
 			}
 
 			detail::HostVector<DescriptorSetLayoutDesc> abiSets;
 			abiSets.reserve(layout->sets.size());
 			for (const DescriptorSetLayoutHandle setHandle : layout->sets)
 			{
-				const Metal4DescriptorSetLayout * const setLayout = device->descriptorSetLayouts.Resolve(setHandle, kHandleAlreadyChecked);
+				const Metal4DescriptorSetLayout * const setLayout = device->descriptorSetLayouts.resolve(setHandle, kHandleAlreadyChecked);
 				if (setLayout == nullptr)
 				{
-					return Fail(error, ErrorCode::eInvalidHandle, "a descriptor set layout this pipeline layout was built from has been destroyed");
+					return fail(error, ErrorCode::eInvalidHandle, "a descriptor set layout this pipeline layout was built from has been destroyed");
 				}
 
 				abiSets.push_back(DescriptorSetLayoutDesc{ .bindings = setLayout->bindings });
@@ -59,7 +93,7 @@ namespace azo::rhi::metal4
 					continue;
 				}
 
-				const ShaderBindingDisagreement bad = CheckShaderBindingMap(Metal4Api::id, device->caps.bindingTier, abiLayout, *shader.bindingMap);
+				const ShaderBindingDisagreement bad = check_shader_binding_map(Metal4Api::kId, device->caps.bindingTier, abiLayout, *shader.bindingMap);
 				if (!bad.found)
 				{
 					continue;
@@ -67,29 +101,29 @@ namespace azo::rhi::metal4
 
 				if (bad.wrongAbiVersion)
 				{
-					return Fail(
+					return fail(
 						error, ErrorCode::eUnsupportedFormat, "a shader binary was built against a revision of the binding ABI this build does not implement");
 				}
 
 				if (bad.unknownToLayout)
 				{
-					return Fail(error, ErrorCode::eInvalidArgument, "a shader binary claims a binding this backend does not bind for that pipeline layout");
+					return fail(error, ErrorCode::eInvalidArgument, "a shader binary claims a binding this backend does not bind for that pipeline layout");
 				}
 
-				return Fail(
+				return fail(
 					error, ErrorCode::eInvalidArgument, "a shader binary put a binding at a different argument-table index than this backend binds it at");
 			}
 
 			return true;
 		}
 
-		[[nodiscard]] bool FunctionBuffersAreBoundImpl(
+		[[nodiscard]] bool function_buffers_are_bound_impl(
 			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const NS::Array * bindings, Error * error) noexcept
 		{
-			const Metal4PipelineLayout * const layout = device->pipelineLayouts.Resolve(layoutHandle, kHandleAlreadyChecked);
+			const Metal4PipelineLayout * const layout = device->pipelineLayouts.resolve(layoutHandle, kHandleAlreadyChecked);
 			if (layout == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "pipeline references an invalid pipeline layout");
+				return fail(error, ErrorCode::eInvalidHandle, "pipeline references an invalid pipeline layout");
 			}
 
 			if (bindings == nullptr)
@@ -120,12 +154,12 @@ namespace azo::rhi::metal4
 				bool bound = false;
 				for (std::uint32_t set = 0; set < layout->sets.size() && !bound; ++set)
 				{
-					bound = MetalArgumentBufferIndexForSet(set) == index;
+					bound = metal_argument_buffer_index_for_set(set) == index;
 				}
 
 				if (!bound)
 				{
-					return Fail(error,
+					return fail(error,
 						ErrorCode::eInvalidArgument,
 						"a shader wants a buffer at an index this pipeline layout never binds one to, which on a Slang shader usually means it declares no "
 						"push constant and so numbers its sets one below where this ABI reserves buffer 0 for one");
@@ -136,26 +170,26 @@ namespace azo::rhi::metal4
 		}
 	}
 
-	bool BindingMapsAgree(Metal4Device * device, const PipelineLayoutHandle layout, const std::span<const ShaderBinary> shaders, Error * error) noexcept
+	bool binding_maps_agree(Metal4Device * device, const PipelineLayoutHandle layout, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 	{
-		return BindingMapsAgreeImpl(device, layout, shaders, error);
+		return binding_maps_agree_impl(device, layout, shaders, error);
 	}
 
-	bool FunctionBuffersAreBound(Metal4Device * device, const PipelineLayoutHandle layout, const NS::Array * bindings, Error * error) noexcept
+	bool function_buffers_are_bound(Metal4Device * device, const PipelineLayoutHandle layout, const NS::Array * bindings, Error * error) noexcept
 	{
-		return FunctionBuffersAreBoundImpl(device, layout, bindings, error);
+		return function_buffers_are_bound_impl(device, layout, bindings, error);
 	}
 
-	PipelineLayoutHandle Metal4CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
+	PipelineLayoutHandle metal4_create_pipeline_layout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createPipelineLayout");
 
 		auto * device = static_cast<Metal4Device *>(impl);
 		for (const DescriptorSetLayoutHandle set : desc.sets)
 		{
-			if (!Resolves(device, set))
+			if (!resolves(device, set))
 			{
-				return FailValue<PipelineLayoutHandle>(error, ErrorCode::eInvalidHandle, "pipeline layout with an invalid descriptor set layout handle");
+				return fail_value<PipelineLayoutHandle>(error, ErrorCode::eInvalidHandle, "pipeline layout with an invalid descriptor set layout handle");
 			}
 		}
 
@@ -163,20 +197,20 @@ namespace azo::rhi::metal4
 		slot.sets.assign(desc.sets.begin(), desc.sets.end());
 		slot.hasPushConstants = !desc.pushConstants.empty();
 
-		const PipelineLayoutHandle handle = device->pipelineLayouts.Store(std::move(slot));
-		if (!handle.IsValid())
+		const PipelineLayoutHandle handle = device->pipelineLayouts.store(std::move(slot));
+		if (!handle.is_valid())
 		{
-			return FailValue<PipelineLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Metal pipeline layout handle tracking failed");
+			return fail_value<PipelineLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Metal pipeline layout handle tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
 	namespace
 	{
-		[[nodiscard]] NS::SharedPtr<MTL4::LibraryFunctionDescriptor> FunctionDescriptorFor(Metal4Device * device, const ShaderBinary & shader, Error * error)
+		[[nodiscard]] NS::SharedPtr<MTL4::LibraryFunctionDescriptor> function_descriptor_for(Metal4Device * device, const ShaderBinary & shader, Error * error)
 		{
-			NS::SharedPtr<MTL::Library> library = MetalCompileLibrary(device->device.get(), shader, error);
+			NS::SharedPtr<MTL::Library> library = metal_compile_library(device->device.get(), shader, error);
 			if (library.get() == nullptr)
 			{
 				return {};
@@ -192,13 +226,13 @@ namespace azo::rhi::metal4
 		}
 	}
 
-	ComputePipelineHandle Metal4CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
+	ComputePipelineHandle metal4_create_compute_pipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createComputePipeline");
 
-		if (!desc.shader.threadgroupSize.IsStated())
+		if (!desc.shader.threadgroupSize.is_stated())
 		{
-			return FailValue<ComputePipelineHandle>(error,
+			return fail_value<ComputePipelineHandle>(error,
 				ErrorCode::eInvalidArgument,
 				"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary");
 		}
@@ -206,7 +240,7 @@ namespace azo::rhi::metal4
 		auto * device = static_cast<Metal4Device *>(impl);
 
 		const std::array<ShaderBinary, 1> stages{ desc.shader };
-		if (!BindingMapsAgree(device, desc.layout, stages, error))
+		if (!binding_maps_agree(device, desc.layout, stages, error))
 		{
 			return {};
 		}
@@ -214,12 +248,12 @@ namespace azo::rhi::metal4
 		MTL4::Compiler * compiler = device->compiler.get();
 		if (compiler == nullptr)
 		{
-			return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "this device has no Metal 4 compiler");
+			return fail_value<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "this device has no Metal 4 compiler");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
-		const NS::SharedPtr<MTL4::LibraryFunctionDescriptor> function = FunctionDescriptorFor(device, desc.shader, error);
+		const NS::SharedPtr<MTL4::LibraryFunctionDescriptor> function = function_descriptor_for(device, desc.shader, error);
 		if (function.get() == nullptr)
 		{
 			return {};
@@ -236,11 +270,11 @@ namespace azo::rhi::metal4
 		MTL::ComputePipelineState * rawState = compiler->newComputePipelineState(pipelineDesc.get(), nullptr, &pipelineError);
 		if (rawState == nullptr)
 		{
-			return FailValue<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "Metal 4 compute pipeline creation failed");
+			return fail_value<ComputePipelineHandle>(error, ErrorCode::eNativeApiError, "Metal 4 compute pipeline creation failed");
 		}
 
 		if (MTL::ComputePipelineReflection * info = rawState->reflection();
-			info != nullptr && !FunctionBuffersAreBound(device, desc.layout, info->bindings(), error))
+			info != nullptr && !function_buffers_are_bound(device, desc.layout, info->bindings(), error))
 		{
 			rawState->release();
 			return {};
@@ -250,45 +284,45 @@ namespace azo::rhi::metal4
 		pipeline.state				   = NS::TransferPtr(rawState);
 		pipeline.threadsPerThreadgroup = MTL::Size::Make(desc.shader.threadgroupSize.x, desc.shader.threadgroupSize.y, desc.shader.threadgroupSize.z);
 
-		const ComputePipelineHandle handle = device->computePipelines.Store(std::move(pipeline));
-		if (!handle.IsValid())
+		const ComputePipelineHandle handle = device->computePipelines.store(std::move(pipeline));
+		if (!handle.is_valid())
 		{
-			return FailValue<ComputePipelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 compute pipeline tracking failed");
+			return fail_value<ComputePipelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 compute pipeline tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	GraphicsPipelineHandle Metal4CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
+	GraphicsPipelineHandle metal4_create_graphics_pipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.createGraphicsPipeline");
 
 		if (desc.vertexInput == nullptr)
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error, ErrorCode::eUnsupportedFeature, "graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have");
 		}
 
 		const VertexInputDesc & vertexInput = *desc.vertexInput;
 		if (desc.raster.conservativeRasterEnable)
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Metal has no conservative rasterization, which conservativeRasterTier reports as eNone");
 		}
 		if (vertexInput.topology == PrimitiveTopology::ePatchList)
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Metal tessellates through a compute pre-pass, which this backend does not build");
 		}
 		if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error, ErrorCode::eInvalidArgument, "graphics pipeline names more color attachments than a render target can hold");
 		}
 
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		if (!BindingMapsAgree(device, desc.layout, desc.shaders, error))
+		if (!binding_maps_agree(device, desc.layout, desc.shaders, error))
 		{
 			return {};
 		}
@@ -296,7 +330,7 @@ namespace azo::rhi::metal4
 		MTL4::Compiler * compiler = device->compiler.get();
 		if (compiler == nullptr)
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "this device has no Metal 4 compiler");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "this device has no Metal 4 compiler");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -312,14 +346,14 @@ namespace azo::rhi::metal4
 
 		for (const ShaderBinary & shader : desc.shaders)
 		{
-			if (!MetalRefuseUnbuildableGraphicsStage(shader.stage, error))
+			if (!metal_refuse_unbuildable_graphics_stage(shader.stage, error))
 			{
 				return {};
 			}
 
 			if (shader.stage == ShaderStage::eVertex)
 			{
-				vertex = FunctionDescriptorFor(device, shader, error);
+				vertex = function_descriptor_for(device, shader, error);
 				if (vertex.get() == nullptr)
 				{
 					return {};
@@ -329,7 +363,7 @@ namespace azo::rhi::metal4
 			}
 			else if (shader.stage == ShaderStage::eFragment)
 			{
-				fragment = FunctionDescriptorFor(device, shader, error);
+				fragment = function_descriptor_for(device, shader, error);
 				if (fragment.get() == nullptr)
 				{
 					return {};
@@ -341,7 +375,7 @@ namespace azo::rhi::metal4
 
 		if (vertex.get() == nullptr)
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "graphics pipeline requires a vertex shader");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "graphics pipeline requires a vertex shader");
 		}
 
 		if (!vertexInput.attributes.empty())
@@ -349,10 +383,10 @@ namespace azo::rhi::metal4
 			const NS::SharedPtr<MTL::VertexDescriptor> vertexDescriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
 			for (const VertexAttributeDesc & attribute : vertexInput.attributes)
 			{
-				const MTL::VertexFormat vertexFormat = MetalVertexFormat(attribute.format);
+				const MTL::VertexFormat vertexFormat = metal_vertex_format(attribute.format);
 				if (vertexFormat == MTL::VertexFormatInvalid)
 				{
-					return FailValue<GraphicsPipelineHandle>(
+					return fail_value<GraphicsPipelineHandle>(
 						error, ErrorCode::eUnsupportedFeature, "a vertex attribute names a format this backend has no Metal vertex format for");
 				}
 
@@ -377,27 +411,27 @@ namespace azo::rhi::metal4
 			MTL4::RenderPipelineColorAttachmentDescriptor * attachment = descriptor->colorAttachments()->object(i);
 
 			// Creation refuses a count past these arrays. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			if (!MetalRefuseUnrenderableAttachment(desc.renderTarget.colorFormats[i], error))
+			if (!metal_refuse_unrenderable_attachment(desc.renderTarget.colorFormats[i], error))
 			{
 				return {};
 			}
-			attachment->setPixelFormat(MetalPixelFormat(desc.renderTarget.colorFormats[i]));
+			attachment->setPixelFormat(metal_pixel_format(desc.renderTarget.colorFormats[i]));
 			if (i < desc.blend.attachmentCount)
 			{
 				const ColorBlendAttachmentDesc & blend = desc.blend.attachments[i];
-				if (blend.blendEnable && !MetalRefuseUnblendableAttachment(desc.renderTarget.colorFormats[i], error))
+				if (blend.blendEnable && !metal_refuse_unblendable_attachment(desc.renderTarget.colorFormats[i], error))
 				{
 					return {};
 				}
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				attachment->setBlendingState(blend.blendEnable ? MTL4::BlendStateEnabled : MTL4::BlendStateDisabled);
-				attachment->setSourceRGBBlendFactor(MetalBlendFactor(blend.srcColorBlendFactor));
-				attachment->setDestinationRGBBlendFactor(MetalBlendFactor(blend.dstColorBlendFactor));
-				attachment->setRgbBlendOperation(MetalBlendOp(blend.colorBlendOp));
-				attachment->setSourceAlphaBlendFactor(MetalBlendFactor(blend.srcAlphaBlendFactor));
-				attachment->setDestinationAlphaBlendFactor(MetalBlendFactor(blend.dstAlphaBlendFactor));
-				attachment->setAlphaBlendOperation(MetalBlendOp(blend.alphaBlendOp));
-				attachment->setWriteMask(MetalColorWriteMask(blend.colorWriteMask));
+				attachment->setSourceRGBBlendFactor(metal_blend_factor(blend.srcColorBlendFactor));
+				attachment->setDestinationRGBBlendFactor(metal_blend_factor(blend.dstColorBlendFactor));
+				attachment->setRgbBlendOperation(metal_blend_op(blend.colorBlendOp));
+				attachment->setSourceAlphaBlendFactor(metal_blend_factor(blend.srcAlphaBlendFactor));
+				attachment->setDestinationAlphaBlendFactor(metal_blend_factor(blend.dstAlphaBlendFactor));
+				attachment->setAlphaBlendOperation(metal_blend_op(blend.alphaBlendOp));
+				attachment->setWriteMask(metal_color_write_mask(blend.colorWriteMask));
 			}
 		}
 
@@ -408,12 +442,12 @@ namespace azo::rhi::metal4
 		MTL::RenderPipelineState * rawState = compiler->newRenderPipelineState(descriptor.get(), nullptr, &pipelineError);
 		if (rawState == nullptr)
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Metal 4 render pipeline creation failed");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eNativeApiError, "Metal 4 render pipeline creation failed");
 		}
 
 		if (MTL::RenderPipelineReflection * info = rawState->reflection();
-			info != nullptr && !(FunctionBuffersAreBound(device, desc.layout, info->vertexBindings(), error) &&
-								   FunctionBuffersAreBound(device, desc.layout, info->fragmentBindings(), error)))
+			info != nullptr && !(function_buffers_are_bound(device, desc.layout, info->vertexBindings(), error) &&
+								   function_buffers_are_bound(device, desc.layout, info->fragmentBindings(), error)))
 		{
 			rawState->release();
 			return {};
@@ -421,23 +455,23 @@ namespace azo::rhi::metal4
 
 		Metal4GraphicsPipeline pipeline{};
 		pipeline.state			   = NS::TransferPtr(rawState);
-		pipeline.depthStencil	   = BuildDepthStencilState(device->device.get(), desc.depthStencil);
-		pipeline.primitive		   = MetalPrimitiveType(vertexInput.topology);
-		pipeline.cull			   = MetalCullMode(desc.raster.cullMode);
-		pipeline.winding		   = MetalWinding(desc.raster.frontFace);
-		pipeline.fill			   = MetalFillMode(desc.raster.fillMode);
+		pipeline.depthStencil	   = build_depth_stencil_state(device->device.get(), desc.depthStencil);
+		pipeline.primitive		   = metal_primitive_type(vertexInput.topology);
+		pipeline.cull			   = metal_cull_mode(desc.raster.cullMode);
+		pipeline.winding		   = metal_winding(desc.raster.frontFace);
+		pipeline.fill			   = metal_fill_mode(desc.raster.fillMode);
 		pipeline.depthBiasEnable   = desc.raster.depthBiasEnable;
 		pipeline.depthBiasConstant = desc.raster.depthBiasConstantFactor;
 		pipeline.depthBiasSlope	   = desc.raster.depthBiasSlopeFactor;
 		pipeline.depthBiasClamp	   = desc.raster.depthBiasClamp;
 
-		const GraphicsPipelineHandle handle = device->graphicsPipelines.Store(std::move(pipeline));
-		if (!handle.IsValid())
+		const GraphicsPipelineHandle handle = device->graphicsPipelines.store(std::move(pipeline));
+		if (!handle.is_valid())
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 graphics pipeline tracking failed");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 graphics pipeline tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
 }

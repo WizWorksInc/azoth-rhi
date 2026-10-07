@@ -15,7 +15,7 @@
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 
-namespace MTL
+namespace MTL // NOLINT(readability-identifier-naming)
 {
 	class Device;
 	class CommandQueue;
@@ -27,7 +27,7 @@ namespace MTL
 	class SharedEvent;
 }
 
-namespace MTL4
+namespace MTL4 // NOLINT(readability-identifier-naming)
 {
 	class CommandQueue;
 	class CommandBuffer;
@@ -55,7 +55,7 @@ namespace azo::rhi::native
 		using QueueView		  = MetalQueueView;
 		using CommandListView = MetalCommandListView;
 
-		[[nodiscard]] static AZO_RHI_API MetalCommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API MetalCommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
 	struct Metal4QueueView final
@@ -74,7 +74,7 @@ namespace azo::rhi::native
 		using QueueView		  = Metal4QueueView;
 		using CommandListView = Metal4CommandListView;
 
-		[[nodiscard]] static AZO_RHI_API Metal4CommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API Metal4CommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
 }
@@ -102,9 +102,9 @@ namespace azo::rhi
 		MTL::CommandQueue * queue = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<MetalNativeDevice> GetMetalNativeDevice(Device device);
+	[[nodiscard]] AZO_RHI_API Result<MetalNativeDevice> get_metal_native_device(Device device);
 
-	[[nodiscard]] AZO_RHI_API Result<native::MetalQueueView> GetMetalQueueView(Queue queue);
+	[[nodiscard]] AZO_RHI_API Result<native::MetalQueueView> get_metal_queue_view(Queue queue);
 
 	struct Metal4NativeDevice final
 	{
@@ -112,21 +112,21 @@ namespace azo::rhi
 		MTL4::CommandQueue * queue = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<Metal4NativeDevice> GetMetal4NativeDevice(Device device);
+	[[nodiscard]] AZO_RHI_API Result<Metal4NativeDevice> get_metal4_native_device(Device device);
 
-	[[nodiscard]] AZO_RHI_API Result<native::Metal4QueueView> GetMetal4QueueView(Queue queue);
+	[[nodiscard]] AZO_RHI_API Result<native::Metal4QueueView> get_metal4_queue_view(Queue queue);
 
-	[[nodiscard]] AZO_RHI_API MTL::CommandBuffer * GetMetalCommandBuffer(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL::CommandBuffer * get_metal_command_buffer(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API MTL::RenderCommandEncoder * GetMetalRenderCommandEncoder(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL::RenderCommandEncoder * get_metal_render_command_encoder(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API MTL4::CommandBuffer * GetMetal4CommandBuffer(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::CommandBuffer * get_metal4_command_buffer(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API MTL4::RenderCommandEncoder * GetMetal4RenderCommandEncoder(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::RenderCommandEncoder * get_metal4_render_command_encoder(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API MTL4::ComputeCommandEncoder * GetMetal4ComputeCommandEncoder(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::ComputeCommandEncoder * get_metal4_compute_command_encoder(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API MTL4::ArgumentTable * GetMetal4ArgumentTable(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API MTL4::ArgumentTable * get_metal4_argument_table(CommandList commandList);
 
 	template <>
 	struct NativeTextureView<MetalApi> final

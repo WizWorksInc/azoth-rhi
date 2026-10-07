@@ -7,20 +7,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
+#include "azoth/rhi/backend/support/slot_map.hpp"
+#include "azoth/rhi/core/handle.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/resources/resources.hpp"
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLResource.hpp>
+#include <atomic>
+#include <cstdint>
+#include <limits>
 
 namespace azo::rhi::metal
 {
-	MappedMemory MetalMap(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept
+	MappedMemory metal_map(void * impl, BufferHandle buffer, const MapDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.map");
 
 		auto * device = static_cast<MetalDevice *>(impl);
 
-		auto * tracked = device->buffers.Resolve(buffer, kHandleAlreadyChecked);
+		auto * tracked = device->buffers.resolve(buffer, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
-			Fail(error, ErrorCode::eInvalidHandle, "Map of a buffer this device never created");
+			fail(error, ErrorCode::eInvalidHandle, "Map of a buffer this device never created");
 			return {};
 		}
 
@@ -28,38 +43,38 @@ namespace azo::rhi::metal
 
 		if (raw->storageMode() == MTL::StorageModePrivate && !device->allowDeviceLocalMapping)
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "map of a buffer whose memory is not host visible, without DeviceDesc::allowDeviceLocalMapping");
+			fail(error, ErrorCode::eInvalidArgument, "map of a buffer whose memory is not host visible, without DeviceDesc::allowDeviceLocalMapping");
 			return {};
 		}
 
 		void * contents = raw->contents();
 		if (contents == nullptr)
 		{
-			Fail(error, ErrorCode::eUnsupportedFeature, "Map of a buffer without CPU-visible storage");
+			fail(error, ErrorCode::eUnsupportedFeature, "Map of a buffer without CPU-visible storage");
 			return {};
 		}
 
 		const auto length = static_cast<std::uint64_t>(raw->length());
 		if (desc.offset > length)
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "Map offset is beyond the buffer length");
+			fail(error, ErrorCode::eInvalidArgument, "Map offset is beyond the buffer length");
 			return {};
 		}
 
 		const std::uint64_t size = (desc.size == std::numeric_limits<std::uint64_t>::max()) ? (length - desc.offset) : desc.size;
 		if (size > length - desc.offset)
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "Map range extends beyond the buffer length");
+			fail(error, ErrorCode::eInvalidArgument, "Map range extends beyond the buffer length");
 			return {};
 		}
 
-		if (!tracked->mapCount.TryAcquire())
+		if (!tracked->mapCount.try_acquire())
 		{
-			Fail(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
+			fail(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
 			return {};
 		}
 
-		Succeed(error);
+		succeed(error);
 		return MappedMemory{
 			.data	  = static_cast<char *>(contents) + desc.offset,
 			.size	  = size,
@@ -67,26 +82,26 @@ namespace azo::rhi::metal
 		};
 	}
 
-	bool MetalUnmap(void * impl, BufferHandle buffer, Error * error) noexcept
+	bool metal_unmap(void * impl, BufferHandle buffer, Error * error) noexcept
 	{
-		auto * tracked = static_cast<MetalDevice *>(impl)->buffers.Resolve(buffer, kHandleAlreadyChecked);
+		auto * tracked = static_cast<MetalDevice *>(impl)->buffers.resolve(buffer, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "unmap of a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "unmap of a buffer this device never created");
 		}
-		if (!tracked->mapCount.TryRelease())
+		if (!tracked->mapCount.try_release())
 		{
-			return Fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
+			return fail(error, ErrorCode::eInvalidState, "unmap of a buffer with no map outstanding");
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalQueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept
+	bool metal_query_memory_budget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "memory budget output pointer is null");
+			return fail(error, ErrorCode::eInvalidArgument, "memory budget output pointer is null");
 		}
 
 		auto * device			   = static_cast<MetalDevice *>(impl);
@@ -100,67 +115,67 @@ namespace azo::rhi::metal
 			.availableForReservationBytes = (budget > usage) ? (budget - usage) : 0,
 			.budgetIsPrecise			  = false,
 		};
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalDestroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept
+	bool metal_destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.destroy");
 
 		auto * device = static_cast<MetalDevice *>(impl);
 
-		constexpr bool matchIdentity = true;
+		constexpr bool kMatchIdentity = true;
 
 		if (type == ResourceType::eTexture)
 		{
-			const MetalTextureSlot * const slot = device->textures.Resolve(Typed<TextureHandle>(handle), matchIdentity);
+			const MetalTextureSlot * const slot = device->textures.resolve(typed<TextureHandle>(handle), kMatchIdentity);
 			if (slot != nullptr && slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 			{
-				return Fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer texture is not allowed");
+				return fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer texture is not allowed");
 			}
 		}
 		else if (type == ResourceType::eTextureView)
 		{
-			const MetalTextureViewSlot * const slot = device->textureViews.Resolve(Typed<TextureViewHandle>(handle), matchIdentity);
+			const MetalTextureViewSlot * const slot = device->textureViews.resolve(typed<TextureViewHandle>(handle), kMatchIdentity);
 			if (slot != nullptr && slot->lifetime == SlotLifetime::eSwapchainBorrowed)
 			{
-				return Fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer view is not allowed");
+				return fail(error, ErrorCode::eValidationFailed, "destroy of a borrowed swapchain back buffer view is not allowed");
 			}
 		}
 
 		bool retired = false;
 		switch (type)
 		{
-		case ResourceType::eBuffer:			  retired = device->buffers.Retire(Typed<BufferHandle>(handle), matchIdentity); break;
-		case ResourceType::eTexture:		  retired = device->textures.Retire(Typed<TextureHandle>(handle), matchIdentity); break;
-		case ResourceType::eTextureView:	  retired = device->textureViews.Retire(Typed<TextureViewHandle>(handle), matchIdentity); break;
-		case ResourceType::eSampler:		  retired = device->samplers.Retire(Typed<SamplerHandle>(handle), matchIdentity); break;
-		case ResourceType::eHeap:			  retired = device->heaps.Retire(Typed<HeapHandle>(handle), matchIdentity); break;
-		case ResourceType::eTimeline:		  retired = device->timelines.Retire(Typed<TimelineHandle>(handle), matchIdentity); break;
-		case ResourceType::eBinarySemaphore:  retired = device->binarySemaphores.Retire(Typed<BinarySemaphoreHandle>(handle), matchIdentity); break;
-		case ResourceType::eGraphicsPipeline: retired = device->graphicsPipelines.Retire(Typed<GraphicsPipelineHandle>(handle), matchIdentity); break;
-		case ResourceType::eComputePipeline:  retired = device->computePipelines.Retire(Typed<ComputePipelineHandle>(handle), matchIdentity); break;
-		case ResourceType::eQueryPool:		  retired = device->queryPools.Retire(Typed<QueryPoolHandle>(handle), matchIdentity); break;
+		case ResourceType::eBuffer:			  retired = device->buffers.retire(typed<BufferHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eTexture:		  retired = device->textures.retire(typed<TextureHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eTextureView:	  retired = device->textureViews.retire(typed<TextureViewHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eSampler:		  retired = device->samplers.retire(typed<SamplerHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eHeap:			  retired = device->heaps.retire(typed<HeapHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eTimeline:		  retired = device->timelines.retire(typed<TimelineHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eBinarySemaphore:  retired = device->binarySemaphores.retire(typed<BinarySemaphoreHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eGraphicsPipeline: retired = device->graphicsPipelines.retire(typed<GraphicsPipelineHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eComputePipeline:  retired = device->computePipelines.retire(typed<ComputePipelineHandle>(handle), kMatchIdentity); break;
+		case ResourceType::eQueryPool:		  retired = device->queryPools.retire(typed<QueryPoolHandle>(handle), kMatchIdentity); break;
 
-		case ResourceType::eDescriptorSet: retired = device->descriptorSets.Retire(Typed<DescriptorSetHandle>(handle), matchIdentity); break;
+		case ResourceType::eDescriptorSet: retired = device->descriptorSets.retire(typed<DescriptorSetHandle>(handle), kMatchIdentity); break;
 
-		case ResourceType::eDescriptorSetLayout: retired = device->descriptorSetLayouts.Retire(Typed<DescriptorSetLayoutHandle>(handle), matchIdentity); break;
-		case ResourceType::ePipelineLayout:		 retired = device->pipelineLayouts.Retire(Typed<PipelineLayoutHandle>(handle), matchIdentity); break;
+		case ResourceType::eDescriptorSetLayout: retired = device->descriptorSetLayouts.retire(typed<DescriptorSetLayoutHandle>(handle), kMatchIdentity); break;
+		case ResourceType::ePipelineLayout:		 retired = device->pipelineLayouts.retire(typed<PipelineLayoutHandle>(handle), kMatchIdentity); break;
 
-		default: retired = device->tracked.Retire(type, handle, matchIdentity); break;
+		default: retired = device->tracked.retire(type, handle, kMatchIdentity); break;
 		}
 
 		if (!retired)
 		{
-			return Fail(error, ErrorCode::eValidationFailed, "destroy of a stale, foreign, or already destroyed handle");
+			return fail(error, ErrorCode::eValidationFailed, "destroy of a stale, foreign, or already destroyed handle");
 		}
 
 		[[maybe_unused]] const std::uint64_t pending = device->pendingRetire.fetch_add(1, std::memory_order_relaxed) + 1;
 		AZO_RHI_PROFILE_PLOT("rhi.metal.pendingRetire", static_cast<std::int64_t>(pending));
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCollectGarbage(void * impl, ResourceType type, Error * error) noexcept
+	bool metal_collect_garbage(void * impl, ResourceType type, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.collectGarbage");
 
@@ -169,13 +184,13 @@ namespace azo::rhi::metal
 			static_cast<MetalDevice *>(impl)->pendingRetire.store(0, std::memory_order_relaxed);
 			AZO_RHI_PROFILE_PLOT("rhi.metal.pendingRetire", static_cast<std::int64_t>(0));
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCollectGarbageTimeline(
+	bool metal_collect_garbage_timeline(
 		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept
 	{
-		return MetalCollectGarbage(impl, type, error);
+		return metal_collect_garbage(impl, type, error);
 	}
 
 }

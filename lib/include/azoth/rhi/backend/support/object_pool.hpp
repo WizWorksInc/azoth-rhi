@@ -31,7 +31,7 @@ namespace azo::rhi::detail
 
 		~TypedObjectPool()
 		{
-			Reset();
+			reset();
 		}
 
 		TypedObjectPool(const TypedObjectPool &)			 = delete;
@@ -51,7 +51,7 @@ namespace azo::rhi::detail
 		{
 			if (this != &other)
 			{
-				Reset();
+				reset();
 
 				m_pages			= std::move(other.m_pages);
 				m_count			= other.m_count;
@@ -76,30 +76,30 @@ namespace azo::rhi::detail
 				}
 
 				const std::size_t bytes = m_blocksPerPage * sizeof(T);
-				void * memory			= HostAllocate(bytes, static_cast<std::size_t>(kAlign));
+				void * memory			= host_allocate(bytes, static_cast<std::size_t>(kAlign));
 				if (memory == nullptr)
 				{
 					return nullptr;
 				}
 
-				if (!TryPushBack(m_pages, Page{ static_cast<std::byte *>(memory), bytes }))
+				if (!try_push_back(m_pages, Page{ static_cast<std::byte *>(memory), bytes }))
 				{
 					return nullptr;
 				}
 			}
 
-			std::byte * slot = m_pages[pageIndex].memory + ((m_count % m_blocksPerPage) * sizeof(T));
+			std::byte * slot = azo::rhi::detail::at(m_pages, pageIndex).memory + ((m_count % m_blocksPerPage) * sizeof(T));
 			T * object = std::construct_at(reinterpret_cast<T *>(slot), std::forward<Args>(args)...); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 			++m_count;
 			return object;
 		}
 
-		void Reset() noexcept
+		void reset() noexcept
 		{
 			for (std::size_t i = m_count; i > 0; --i)
 			{
 				const std::size_t index = i - 1;
-				std::byte * slot		= m_pages[index / m_blocksPerPage].memory + ((index % m_blocksPerPage) * sizeof(T));
+				std::byte * slot		= azo::rhi::detail::at(m_pages, index / m_blocksPerPage).memory + ((index % m_blocksPerPage) * sizeof(T));
 				std::destroy_at(reinterpret_cast<T *>(slot)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 			}
 
@@ -107,12 +107,12 @@ namespace azo::rhi::detail
 			m_count = 0;
 		}
 
-		[[nodiscard]] std::size_t LiveCount() const noexcept
+		[[nodiscard]] std::size_t live_count() const noexcept
 		{
 			return m_count;
 		}
 
-		[[nodiscard]] const char * DebugName() const noexcept
+		[[nodiscard]] const char * debug_name() const noexcept
 		{
 			return m_debugName;
 		}
@@ -161,7 +161,7 @@ namespace azo::rhi::detail
 			{
 				if (memory != nullptr)
 				{
-					HostFree(memory, bytes, static_cast<std::size_t>(kAlign));
+					host_free(memory, bytes, static_cast<std::size_t>(kAlign));
 				}
 			}
 		};

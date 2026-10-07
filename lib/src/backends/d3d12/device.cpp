@@ -43,7 +43,7 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		return QueryPublished<Published<QueueApi, &QueueBlock>, Published<SparseApi, &SparseBlock>>(object, id, minVersion);
+		return query_published<Published<QueueApi, &QueueBlock>, Published<SparseApi, &SparseBlock>>(object, id, minVersion);
 	}
 
 	const BackendObject * QueueObject() noexcept
@@ -64,7 +64,7 @@ namespace azo::rhi::d3d12
 	void FillAdapterInfo(AdapterInfo & info, const DXGI_ADAPTER_DESC3 & desc, std::uint32_t index, bool unifiedMemory) noexcept
 	{
 		info.type						= ClassifyAdapter(desc, unifiedMemory);
-		info.apiId						= D3D12Api::id;
+		info.apiId						= D3D12Api::kId;
 		info.adapterIndex				= index;
 		info.vendorId					= desc.VendorId;
 		info.deviceId					= desc.DeviceId;
@@ -117,13 +117,13 @@ namespace azo::rhi::d3d12
 			return {};
 		}
 		const std::uint64_t raw = static_cast<std::uint64_t>(umd.QuadPart);
-		return { FormatD3D12DriverVersion(raw), raw };
+		return { format_d3_d12_driver_version(raw), raw };
 	}
 
 	void NegotiateCaps(D3D12Device & dev, D3D_FEATURE_LEVEL level) noexcept
 	{
 		DeviceCaps & caps = dev.caps;
-		caps.apiId		  = D3D12Api::id;
+		caps.apiId		  = D3D12Api::kId;
 		caps.apiVersion	  = FeatureLevelToApiVersion(level);
 
 		ID3D12Device * device = dev.device.Get();
@@ -251,7 +251,7 @@ namespace azo::rhi::d3d12
 				owner.devices.erase(it);
 				if (!stalled)
 				{
-					detail::DeviceTags().Release(releasedTag);
+					detail::device_tags().release(releasedTag);
 				}
 
 				found = true;
@@ -306,12 +306,12 @@ namespace azo::rhi::d3d12
 
 	GraphicsApiId D3D12DeviceApiId([[maybe_unused]] void * impl) noexcept
 	{
-		return D3D12Api::id;
+		return D3D12Api::kId;
 	}
 
 	std::string_view D3D12DeviceApiName([[maybe_unused]] void * impl) noexcept
 	{
-		return D3D12Api::displayName;
+		return D3D12Api::kDisplayName;
 	}
 
 	const DeviceCaps & D3D12DeviceCaps(void * impl) noexcept
@@ -394,7 +394,7 @@ namespace azo::rhi::d3d12
 
 	GraphicsApiId D3D12InstanceApiId([[maybe_unused]] void * impl) noexcept
 	{
-		return D3D12Api::id;
+		return D3D12Api::kId;
 	}
 
 	bool D3D12QueryExternalHandleSupport(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
@@ -504,8 +504,8 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] HostUniquePtr<D3D12Instance> BuildInstance(const InstanceDesc & desc, Error * error)
 	{
-		auto instance			  = HostNew<D3D12Instance>();
-		instance->object		  = PublishingObject<Published<InstanceApi, &InstanceBlock>, Published<ExternalCapabilityApi, &ExternalCapabilityBlock>>();
+		auto instance			  = host_new<D3D12Instance>();
+		instance->object		  = publishing_object<Published<InstanceApi, &InstanceBlock>, Published<ExternalCapabilityApi, &ExternalCapabilityBlock>>();
 		instance->onMessage		  = desc.nativeValidation.onMessage;
 		instance->messageUserData = desc.nativeValidation.messageUserData;
 
@@ -562,7 +562,7 @@ namespace azo::rhi::d3d12
 	{
 		D3D12BackendOwner & owner = Owner();
 
-		const auto config = native::FindDeviceConfig<D3D12Api>(desc.backendConfigs);
+		const auto config = native::find_device_config<D3D12Api>(desc.backendConfigs);
 		if (config.malformed)
 		{
 			Fail(error, ErrorCode::eInvalidArgument, "the Direct3D 12 configuration block declares fewer bytes than this backend reads");
@@ -628,8 +628,8 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		auto dev			 = HostNew<D3D12Device>();
-		dev->object			 = PublishingObject<Published<CoreDeviceApi, &CoreDeviceBlock>,
+		auto dev			 = host_new<D3D12Device>();
+		dev->object			 = publishing_object<Published<CoreDeviceApi, &CoreDeviceBlock>,
 			Published<PresentApi, &PresentBlock>,
 			Published<PlacedMemoryApi, &PlacedMemoryBlock>,
 			Published<QueryApi, &QueryBlock>,
@@ -689,33 +689,33 @@ namespace azo::rhi::d3d12
 	#endif
 
 		std::uint32_t deviceTag = 0;
-		if (!detail::DeviceTags().Acquire(deviceTag))
+		if (!detail::device_tags().acquire(deviceTag))
 		{
 			Fail(error, ErrorCode::eOutOfHostMemory, "no device tag is available, too many devices are alive at once");
 			return nullptr;
 		}
 		dev->deviceTag = deviceTag;
 
-		auto tagGuard = detail::MakeScopeGuard(
+		auto tagGuard = detail::make_scope_guard(
 			[deviceTag]() noexcept
 			{
-				detail::DeviceTags().Release(deviceTag);
+				detail::device_tags().release(deviceTag);
 			});
 
-		dev->bufferSlots.Rebind(deviceTag);
-		dev->textureSlots.Rebind(deviceTag);
-		dev->textureViewSlots.Rebind(deviceTag);
-		dev->samplerSlots.Rebind(deviceTag);
-		dev->heapSlots.Rebind(deviceTag);
-		dev->descriptorSetLayoutSlots.Rebind(deviceTag);
-		dev->pipelineLayoutSlots.Rebind(deviceTag);
-		dev->graphicsPipelineSlots.Rebind(deviceTag);
-		dev->computePipelineSlots.Rebind(deviceTag);
-		dev->pipelineCacheSlots.Rebind(deviceTag);
-		dev->queryPoolSlots.Rebind(deviceTag);
-		dev->timelineSlots.Rebind(deviceTag);
-		dev->binarySemaphoreSlots.Rebind(deviceTag);
-		dev->descriptorSetSlots.Rebind(deviceTag);
+		dev->bufferSlots.rebind(deviceTag);
+		dev->textureSlots.rebind(deviceTag);
+		dev->textureViewSlots.rebind(deviceTag);
+		dev->samplerSlots.rebind(deviceTag);
+		dev->heapSlots.rebind(deviceTag);
+		dev->descriptorSetLayoutSlots.rebind(deviceTag);
+		dev->pipelineLayoutSlots.rebind(deviceTag);
+		dev->graphicsPipelineSlots.rebind(deviceTag);
+		dev->computePipelineSlots.rebind(deviceTag);
+		dev->pipelineCacheSlots.rebind(deviceTag);
+		dev->queryPoolSlots.rebind(deviceTag);
+		dev->timelineSlots.rebind(deviceTag);
+		dev->binarySemaphoreSlots.rebind(deviceTag);
+		dev->descriptorSetSlots.rebind(deviceTag);
 
 		D3D_FEATURE_LEVEL achieved = floor;
 		D3D12_FEATURE_DATA_FEATURE_LEVELS levels{};
@@ -726,7 +726,7 @@ namespace azo::rhi::d3d12
 			achieved = levels.MaxSupportedFeatureLevel;
 		}
 
-		const QueuePlan plan  = PlanQueues(desc.queues);
+		const QueuePlan plan  = plan_queues(desc.queues);
 		const auto makeQueues = [&](detail::HostVector<D3D12Queue> & out, QueueType type, D3D12_COMMAND_LIST_TYPE d3dType, std::uint32_t count) -> bool
 		{
 			for (std::uint32_t i = 0; i < count; ++i)
@@ -838,7 +838,7 @@ namespace azo::rhi::d3d12
 
 		D3D12Device * raw = dev.get();
 		owner.devices.push_back(std::move(dev));
-		tagGuard.Dismiss();
+		tagGuard.dismiss();
 		Succeed(error);
 		return raw;
 	}

@@ -7,17 +7,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/interface.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/external.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/device/device.hpp"
 #include "backends/metal4/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <string_view>
 
 namespace azo::rhi::metal4
 {
-	bool Metal4RefuseUnexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
+	bool metal4_refuse_unexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
 	{
 		const Flags<ExternalHandleType> unsupported = declared & ~allowed;
-		return unsupported.Empty() ? true : Fail(error, ErrorCode::eUnsupportedFeature, what);
+		return unsupported.empty() ? true : fail(error, ErrorCode::eUnsupportedFeature, what);
 	}
 
-	[[nodiscard]] void * AllocObject(Metal4Device * device, const BackendObject * published, QueueType queueType)
+	[[nodiscard]] void * alloc_object(Metal4Device * device, const BackendObject * published, QueueType queueType)
 	{
 		Metal4Object * object = device->objects.New();
 		if (object == nullptr)
@@ -32,33 +41,33 @@ namespace azo::rhi::metal4
 		return object;
 	}
 
-	[[nodiscard]] Metal4BackendOwner & Owner()
+	[[nodiscard]] Metal4BackendOwner & backend_owner()
 	{
-		static Metal4BackendOwner owner;
-		return owner;
+		static Metal4BackendOwner s_Owner;
+		return s_Owner;
 	}
 
-	GraphicsApiId Metal4DeviceApiId([[maybe_unused]] void * impl) noexcept
+	GraphicsApiId metal4_device_api_id([[maybe_unused]] void * impl) noexcept
 	{
-		return Metal4Api::id;
+		return Metal4Api::kId;
 	}
 
-	std::string_view Metal4DeviceApiName([[maybe_unused]] void * impl) noexcept
+	std::string_view metal4_device_api_name([[maybe_unused]] void * impl) noexcept
 	{
-		return Metal4Api::displayName;
+		return Metal4Api::kDisplayName;
 	}
 
-	const DeviceCaps & Metal4DeviceCaps(void * impl) noexcept
+	const DeviceCaps & metal4_device_caps(void * impl) noexcept
 	{
 		return static_cast<Metal4Device *>(impl)->caps;
 	}
 
-	const AdapterInfo & Metal4DeviceAdapterInfo(void * impl) noexcept
+	const AdapterInfo & metal4_device_adapter_info(void * impl) noexcept
 	{
 		return static_cast<Metal4Device *>(impl)->adapter;
 	}
 
-	ValidationMessageCounts Metal4DeviceValidationMessageCounts([[maybe_unused]] void * impl) noexcept
+	ValidationMessageCounts metal4_device_validation_message_counts([[maybe_unused]] void * impl) noexcept
 	{
 		return {};
 	}

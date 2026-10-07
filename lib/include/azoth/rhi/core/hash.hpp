@@ -25,14 +25,14 @@ namespace azo::rhi::hash
 	{
 		std::uint64_t state = kFnv1a64OffsetBasis;
 
-		constexpr Fnv1a64 & Mix(std::uint64_t value) noexcept
+		constexpr Fnv1a64 & mix(std::uint64_t value) noexcept
 		{
 			state ^= value;
 			state *= kFnv1a64Prime;
 			return *this;
 		}
 
-		constexpr Fnv1a64 & MixBytes(std::span<const std::byte> bytes) noexcept
+		constexpr Fnv1a64 & mix_bytes(std::span<const std::byte> bytes) noexcept
 		{
 			for (const std::byte b : bytes)
 			{
@@ -42,28 +42,28 @@ namespace azo::rhi::hash
 			return *this;
 		}
 
-		[[nodiscard]] constexpr std::uint64_t Value() const noexcept
+		[[nodiscard]] constexpr std::uint64_t value() const noexcept
 		{
 			return state;
 		}
 	};
 
-	[[nodiscard]] constexpr std::uint64_t Fnv1a64Hash(std::string_view text) noexcept
+	[[nodiscard]] constexpr std::uint64_t fnv1a64_hash(std::string_view text) noexcept
 	{
 		Fnv1a64 h;
 		for (const char c : text)
 		{
-			h.Mix(static_cast<std::uint64_t>(static_cast<unsigned char>(c)));
+			h.mix(static_cast<std::uint64_t>(static_cast<unsigned char>(c)));
 		}
-		return h.Value();
+		return h.value();
 	}
 
-	[[nodiscard]] constexpr std::uint64_t Fnv1a64Hash(std::span<const std::byte> bytes) noexcept
+	[[nodiscard]] constexpr std::uint64_t fnv1a64_hash(std::span<const std::byte> bytes) noexcept
 	{
-		return Fnv1a64{}.MixBytes(bytes).Value();
+		return Fnv1a64{}.mix_bytes(bytes).value();
 	}
 
-	[[nodiscard]] constexpr std::uint32_t Fnv1a32Hash(std::string_view text) noexcept
+	[[nodiscard]] constexpr std::uint32_t fnv1a32_hash(std::string_view text) noexcept
 	{
 		std::uint32_t hash = kFnv1a32OffsetBasis;
 		for (const char c : text)

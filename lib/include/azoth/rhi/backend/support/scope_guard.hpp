@@ -32,7 +32,7 @@ namespace azo::rhi::detail
 			}
 		}
 
-		void Dismiss() noexcept
+		void dismiss() noexcept
 		{
 			m_armed = false;
 		}
@@ -43,7 +43,7 @@ namespace azo::rhi::detail
 	};
 
 	template <class Fn>
-	[[nodiscard]] ScopeGuard<Fn> MakeScopeGuard(Fn action) noexcept
+	[[nodiscard]] ScopeGuard<Fn> make_scope_guard(Fn action) noexcept
 	{
 		return ScopeGuard<Fn>{ std::move(action) };
 	}

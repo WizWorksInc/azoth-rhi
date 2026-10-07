@@ -7,268 +7,274 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/blocks/command_list.hpp"
+#include "azoth/rhi/backend/blocks/command_pool.hpp"
+#include "azoth/rhi/backend/blocks/descriptor_arena.hpp"
+#include "azoth/rhi/backend/blocks/device.hpp"
+#include "azoth/rhi/backend/blocks/instance.hpp"
+#include "azoth/rhi/backend/blocks/queue.hpp"
 #include "backends/metal4/internal.hpp"
 
 namespace azo::rhi::metal4
 {
-	const CoreDeviceApi & CoreDeviceBlock() noexcept
+	const CoreDeviceApi & core_device_block() noexcept
 	{
 		static const CoreDeviceApi block{
-			.getGraphicsApiId			= &Metal4DeviceApiId,
-			.getGraphicsApiName			= &Metal4DeviceApiName,
-			.createBuffer				= &Metal4CreateBuffer,
-			.createTexture				= &Metal4CreateTexture,
-			.createTextureView			= &Metal4CreateTextureView,
-			.createSampler				= &Metal4CreateSampler,
-			.createDescriptorSetLayout	= &Metal4CreateDescriptorSetLayout,
-			.createPipelineLayout		= &Metal4CreatePipelineLayout,
-			.createGraphicsPipeline		= &Metal4CreateGraphicsPipeline,
-			.createComputePipeline		= &Metal4CreateComputePipeline,
-			.createTimeline				= &Metal4CreateTimeline,
-			.createBinarySemaphore		= &Metal4CreateBinarySemaphore,
-			.createDescriptorArena		= &Metal4CreateDescriptorArena,
-			.createCommandPool			= &Metal4CreateCommandPool,
-			.getQueue					= &Metal4GetQueue,
-			.map						= &Metal4Map,
-			.unmap						= &Metal4Unmap,
-			.flushMappedRange			= &NoopVoid,
-			.invalidateMappedRange		= &NoopVoid,
-			.updateDescriptorsBuffer	= &Metal4UpdateDescriptorsBuffer,
-			.updateDescriptorsTexture	= &Metal4UpdateDescriptorsTexture,
-			.updateDescriptorsSampler	= &Metal4UpdateDescriptorsSampler,
-			.getCaps					= &Metal4DeviceCaps,
-			.getFormatSupport			= &Metal4DeviceFormatSupport,
-			.getAdapterInfo				= &Metal4DeviceAdapterInfo,
-			.getValidationMessageCounts = &Metal4DeviceValidationMessageCounts,
-			.destroy					= &Metal4Destroy,
-			.collectGarbage				= &Metal4CollectGarbage,
-			.collectGarbageTimeline		= &Metal4CollectGarbageTimeline,
-			.destroyDevice				= &Metal4DestroyDevice,
+			.getGraphicsApiId			= &metal4_device_api_id,
+			.getGraphicsApiName			= &metal4_device_api_name,
+			.createBuffer				= &metal4_create_buffer,
+			.createTexture				= &metal4_create_texture,
+			.createTextureView			= &metal4_create_texture_view,
+			.createSampler				= &metal4_create_sampler,
+			.createDescriptorSetLayout	= &metal4_create_descriptor_set_layout,
+			.createPipelineLayout		= &metal4_create_pipeline_layout,
+			.createGraphicsPipeline		= &metal4_create_graphics_pipeline,
+			.createComputePipeline		= &metal4_create_compute_pipeline,
+			.createTimeline				= &metal4_create_timeline,
+			.createBinarySemaphore		= &metal4_create_binary_semaphore,
+			.createDescriptorArena		= &metal4_create_descriptor_arena,
+			.createCommandPool			= &metal4_create_command_pool,
+			.getQueue					= &metal4_get_queue,
+			.map						= &metal4_map,
+			.unmap						= &metal4_unmap,
+			.flushMappedRange			= &noop_void,
+			.invalidateMappedRange		= &noop_void,
+			.updateDescriptorsBuffer	= &metal4_update_descriptors_buffer,
+			.updateDescriptorsTexture	= &metal4_update_descriptors_texture,
+			.updateDescriptorsSampler	= &metal4_update_descriptors_sampler,
+			.getCaps					= &metal4_device_caps,
+			.getFormatSupport			= &metal4_device_format_support,
+			.getAdapterInfo				= &metal4_device_adapter_info,
+			.getValidationMessageCounts = &metal4_device_validation_message_counts,
+			.destroy					= &metal4_destroy,
+			.collectGarbage				= &metal4_collect_garbage,
+			.collectGarbageTimeline		= &metal4_collect_garbage_timeline,
+			.destroyDevice				= &metal4_destroy_device,
 		};
 
 		return block;
 	}
 
-	const PresentApi & PresentBlock() noexcept
+	const PresentApi & present_block() noexcept
 	{
 		static const PresentApi block{
-			.createSwapchain = &Metal4CreateSwapchain,
+			.createSwapchain = &metal4_create_swapchain,
 		};
 
 		return block;
 	}
 
-	const PlacedMemoryApi & PlacedMemoryBlock() noexcept
+	const PlacedMemoryApi & placed_memory_block() noexcept
 	{
 		static const PlacedMemoryApi block{
-			.createHeap			  = &Metal4CreateHeap,
-			.createPlacedBuffer	  = &Metal4CreatePlacedBuffer,
-			.createPlacedTexture  = &Metal4CreatePlacedTexture,
-			.getTextureMemoryInfo = &Metal4GetTextureMemoryInfo,
-			.getBufferMemoryInfo  = &Metal4GetBufferMemoryInfo,
+			.createHeap			  = &metal4_create_heap,
+			.createPlacedBuffer	  = &metal4_create_placed_buffer,
+			.createPlacedTexture  = &metal4_create_placed_texture,
+			.getTextureMemoryInfo = &metal4_get_texture_memory_info,
+			.getBufferMemoryInfo  = &metal4_get_buffer_memory_info,
 		};
 
 		return block;
 	}
 
-	const RayTracingApi & RayTracingBlock() noexcept
+	const RayTracingApi & ray_tracing_block() noexcept
 	{
 		static const RayTracingApi block{
-			.createRayTracingPipeline				= &Metal4CreateRayTracingPipeline,
-			.createAccelerationStructure			= &Metal4CreateAccelerationStructure,
-			.updateDescriptorsAccelerationStructure = &Metal4Unimplemented,
+			.createRayTracingPipeline				= &metal4_create_ray_tracing_pipeline,
+			.createAccelerationStructure			= &metal4_create_acceleration_structure,
+			.updateDescriptorsAccelerationStructure = &metal4_unimplemented,
 		};
 
 		return block;
 	}
 
-	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept
+	const ResourceIntrospectionApi & resource_introspection_block() noexcept
 	{
 		static const ResourceIntrospectionApi block{
-			.getTextureInfo = &Metal4GetTextureInfo,
-			.getBufferInfo	= &Metal4GetBufferInfo,
+			.getTextureInfo = &metal4_get_texture_info,
+			.getBufferInfo	= &metal4_get_buffer_info,
 		};
 
 		return block;
 	}
 
-	const QueryApi & QueryBlock() noexcept
+	const QueryApi & query_block() noexcept
 	{
 		static const QueryApi block{
-			.createQueryPool	= &Metal4CreateQueryPool,
-			.calibrateTimestamp = &Metal4CalibrateTimestamp,
+			.createQueryPool	= &metal4_create_query_pool,
+			.calibrateTimestamp = &metal4_calibrate_timestamp,
 		};
 
 		return block;
 	}
 
-	const ResidencyApi & ResidencyBlock() noexcept
+	const ResidencyApi & residency_block() noexcept
 	{
 		static const ResidencyApi block{
-			.queryMemoryBudget	  = &Metal4QueryMemoryBudget,
-			.setResidencyPriority = &NoopVoid,
+			.queryMemoryBudget	  = &metal4_query_memory_budget,
+			.setResidencyPriority = &noop_void,
 		};
 
 		return block;
 	}
 
-	const AdoptionApi & AdoptionBlock() noexcept
+	const AdoptionApi & adoption_block() noexcept
 	{
 		static const AdoptionApi block{
-			.adoptBuffer			  = &Metal4AdoptBuffer,
-			.adoptTexture			  = &Metal4AdoptTexture,
-			.getNativeBuffer		  = &Metal4GetNativeBuffer,
-			.getNativeTexture		  = &Metal4GetNativeTexture,
-			.adoptTextureView		  = &Metal4AdoptTextureView,
-			.adoptSampler			  = &Metal4AdoptSampler,
-			.getNativeTextureView	  = &Metal4GetNativeTextureView,
-			.getNativeSampler		  = &Metal4GetNativeSampler,
-			.adoptTimeline			  = &Metal4AdoptTimeline,
-			.adoptBinarySemaphore	  = &Metal4AdoptBinarySemaphore,
-			.getNativeTimeline		  = &Metal4GetNativeTimeline,
-			.getNativeBinarySemaphore = &Metal4GetNativeBinarySemaphore,
+			.adoptBuffer			  = &metal4_adopt_buffer,
+			.adoptTexture			  = &metal4_adopt_texture,
+			.getNativeBuffer		  = &metal4_get_native_buffer,
+			.getNativeTexture		  = &metal4_get_native_texture,
+			.adoptTextureView		  = &metal4_adopt_texture_view,
+			.adoptSampler			  = &metal4_adopt_sampler,
+			.getNativeTextureView	  = &metal4_get_native_texture_view,
+			.getNativeSampler		  = &metal4_get_native_sampler,
+			.adoptTimeline			  = &metal4_adopt_timeline,
+			.adoptBinarySemaphore	  = &metal4_adopt_binary_semaphore,
+			.getNativeTimeline		  = &metal4_get_native_timeline,
+			.getNativeBinarySemaphore = &metal4_get_native_binary_semaphore,
 		};
 
 		return block;
 	}
 
-	const InstanceApi & InstanceBlock() noexcept
+	const InstanceApi & instance_block() noexcept
 	{
 		static const InstanceApi block{
-			.getGraphicsApiId  = &Metal4InstanceApiId,
-			.enumerateAdapters = &Metal4EnumerateAdapters,
-			.createDevice	   = &Metal4InstanceCreateDevice,
-			.destroyInstance   = &Metal4DestroyInstance,
+			.getGraphicsApiId  = &metal4_instance_api_id,
+			.enumerateAdapters = &metal4_enumerate_adapters,
+			.createDevice	   = &metal4_instance_create_device,
+			.destroyInstance   = &metal4_destroy_instance,
 		};
 
 		return block;
 	}
 
-	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept
+	const ExternalCapabilityApi & external_capability_block() noexcept
 	{
 		static const ExternalCapabilityApi block{
-			.queryExternalHandleSupport = &Metal4QueryExternalHandleSupport,
+			.queryExternalHandleSupport = &metal4_query_external_handle_support,
 		};
 
 		return block;
 	}
 
-	const QueueApi & QueueBlock() noexcept
+	const QueueApi & queue_block() noexcept
 	{
 		static const QueueApi block{
-			.getType		   = &Metal4QueueTypeOf,
-			.submit			   = &Metal4QueueSubmit,
-			.waitIdle		   = &Metal4QueueWaitIdle,
-			.getCompletedValue = &Metal4QueueGetCompletedValue,
-			.wait			   = &Metal4QueueWait,
-			.signal			   = &Metal4QueueSignal,
-			.beginDebugLabel   = &Metal4QueueBeginDebugLabel,
-			.endDebugLabel	   = &Metal4QueueEndDebugLabel,
+			.getType		   = &metal4_queue_type_of,
+			.submit			   = &metal4_queue_submit,
+			.waitIdle		   = &metal4_queue_wait_idle,
+			.getCompletedValue = &metal4_queue_get_completed_value,
+			.wait			   = &metal4_queue_wait,
+			.signal			   = &metal4_queue_signal,
+			.beginDebugLabel   = &metal4_queue_begin_debug_label,
+			.endDebugLabel	   = &metal4_queue_end_debug_label,
 		};
 
 		return block;
 	}
 
-	const CommandPoolApi & CommandPoolBlock() noexcept
+	const CommandPoolApi & command_pool_block() noexcept
 	{
 		static const CommandPoolApi block{
-			.allocate = &Metal4CommandPoolAllocate,
-			.reset	  = &Metal4CommandPoolReset,
+			.allocate = &metal4_command_pool_allocate,
+			.reset	  = &metal4_command_pool_reset,
 		};
 
 		return block;
 	}
 
-	const RenderCommandApi & RenderCommandBlock() noexcept
+	const RenderCommandApi & render_command_block() noexcept
 	{
 		static const RenderCommandApi block{
-			.begin = &Metal4CmdBegin,
-			.end   = &Metal4CmdEnd,
+			.begin = &metal4_cmd_begin,
+			.end   = &metal4_cmd_end,
 
-			.barriers = &Metal4CmdBarriers,
+			.barriers = &metal4_cmd_barriers,
 
-			.beginRendering		 = &Metal4CmdBeginRendering,
-			.endRendering		 = &Metal4CmdEndRendering,
-			.setGraphicsPipeline = &Metal4CmdSetGraphicsPipeline,
-			.setComputePipeline	 = &Metal4CmdSetComputePipeline,
-			.bindDescriptorSet	 = &Metal4CmdBindDescriptorSet,
-			.pushConstants		 = &Metal4CmdPushConstants,
-			.setViewport		 = &Metal4CmdSetViewport,
-			.setScissor			 = &Metal4CmdSetScissor,
-			.setBlendConstants	 = &Metal4CmdSetBlendConstants,
-			.setStencilReference = &Metal4CmdSetStencilReference,
-			.setDepthBias		 = &Metal4CmdSetDepthBias,
-			.setVertexBuffer	 = &Metal4CmdSetVertexBuffer,
-			.setIndexBuffer		 = &Metal4CmdSetIndexBuffer,
-			.draw				 = &Metal4CmdDraw,
-			.drawIndexed		 = &Metal4CmdDrawIndexed,
-			.dispatch			 = &Metal4CmdDispatch,
+			.beginRendering		 = &metal4_cmd_begin_rendering,
+			.endRendering		 = &metal4_cmd_end_rendering,
+			.setGraphicsPipeline = &metal4_cmd_set_graphics_pipeline,
+			.setComputePipeline	 = &metal4_cmd_set_compute_pipeline,
+			.bindDescriptorSet	 = &metal4_cmd_bind_descriptor_set,
+			.pushConstants		 = &metal4_cmd_push_constants,
+			.setViewport		 = &metal4_cmd_set_viewport,
+			.setScissor			 = &metal4_cmd_set_scissor,
+			.setBlendConstants	 = &metal4_cmd_set_blend_constants,
+			.setStencilReference = &metal4_cmd_set_stencil_reference,
+			.setDepthBias		 = &metal4_cmd_set_depth_bias,
+			.setVertexBuffer	 = &metal4_cmd_set_vertex_buffer,
+			.setIndexBuffer		 = &metal4_cmd_set_index_buffer,
+			.draw				 = &metal4_cmd_draw,
+			.drawIndexed		 = &metal4_cmd_draw_indexed,
+			.dispatch			 = &metal4_cmd_dispatch,
 
-			.copyBuffer			 = &Metal4CmdCopyBuffer,
-			.copyBufferToTexture = &Metal4CmdCopyBufferToTexture,
-			.copyTextureToBuffer = &Metal4CmdCopyTextureToBuffer,
-			.copyTexture		 = &Metal4CmdCopyTexture,
-			.clearBuffer		 = &Metal4CmdClearBuffer,
-			.clearTexture		 = &Metal4CmdClearTexture,
-			.resolveTexture		 = &Metal4CmdResolveTexture,
-			.blit				 = &Metal4CmdBlit,
-			.generateMips		 = &Metal4CmdGenerateMips,
+			.copyBuffer			 = &metal4_cmd_copy_buffer,
+			.copyBufferToTexture = &metal4_cmd_copy_buffer_to_texture,
+			.copyTextureToBuffer = &metal4_cmd_copy_texture_to_buffer,
+			.copyTexture		 = &metal4_cmd_copy_texture,
+			.clearBuffer		 = &metal4_cmd_clear_buffer,
+			.clearTexture		 = &metal4_cmd_clear_texture,
+			.resolveTexture		 = &metal4_cmd_resolve_texture,
+			.blit				 = &metal4_cmd_blit,
+			.generateMips		 = &metal4_cmd_generate_mips,
 
-			.beginDebugLabel = &Metal4CmdBeginDebugLabel,
-			.endDebugLabel	 = &Metal4CmdEndDebugLabel,
+			.beginDebugLabel = &metal4_cmd_begin_debug_label,
+			.endDebugLabel	 = &metal4_cmd_end_debug_label,
 		};
 
 		return block;
 	}
 
-	const QueryCommandApi & QueryCommandBlock() noexcept
+	const QueryCommandApi & query_command_block() noexcept
 	{
 		static const QueryCommandApi block{
-			.resetQueryPool	  = &Metal4CmdResetQueryPool,
-			.writeTimestamp	  = &Metal4CmdWriteTimestamp,
-			.beginQuery		  = &Metal4CmdBeginQuery,
-			.endQuery		  = &Metal4CmdEndQuery,
-			.resolveQueryData = &Metal4CmdResolveQueryData,
+			.resetQueryPool	  = &metal4_cmd_reset_query_pool,
+			.writeTimestamp	  = &metal4_cmd_write_timestamp,
+			.beginQuery		  = &metal4_cmd_begin_query,
+			.endQuery		  = &metal4_cmd_end_query,
+			.resolveQueryData = &metal4_cmd_resolve_query_data,
 		};
 
 		return block;
 	}
 
-	const AliasingCommandApi & AliasingCommandBlock() noexcept
+	const AliasingCommandApi & aliasing_command_block() noexcept
 	{
 		static const AliasingCommandApi block{
-			.aliasBarriers = &Metal4CmdAliasBarriers,
+			.aliasBarriers = &metal4_cmd_alias_barriers,
 		};
 
 		return block;
 	}
 
-	const IndirectApi & IndirectBlock() noexcept
+	const IndirectApi & indirect_block() noexcept
 	{
 		static const IndirectApi block{
-			.drawIndirect		 = &Metal4CmdDrawIndirect,
-			.drawIndexedIndirect = &Metal4CmdDrawIndexedIndirect,
-			.dispatchIndirect	 = &Metal4CmdDispatchIndirect,
+			.drawIndirect		 = &metal4_cmd_draw_indirect,
+			.drawIndexedIndirect = &metal4_cmd_draw_indexed_indirect,
+			.dispatchIndirect	 = &metal4_cmd_dispatch_indirect,
 		};
 
 		return block;
 	}
 
-	const NativeEscapeApi & NativeEscapeBlock() noexcept
+	const NativeEscapeApi & native_escape_block() noexcept
 	{
 		static const NativeEscapeApi block{
-			.beginNativeMutation = &Metal4BeginNativeMutation,
-			.endNativeMutation	 = &NoopVoid,
+			.beginNativeMutation = &metal4_begin_native_mutation,
+			.endNativeMutation	 = &noop_void,
 		};
 
 		return block;
 	}
 
-	const DescriptorArenaApi & DescriptorArenaBlock() noexcept
+	const DescriptorArenaApi & descriptor_arena_block() noexcept
 	{
 		static const DescriptorArenaApi block{
-			.allocate = &Metal4ArenaAllocate,
-			.reset	  = &Metal4ArenaReset,
+			.allocate = &metal4_arena_allocate,
+			.reset	  = &metal4_arena_reset,
 		};
 
 		return block;

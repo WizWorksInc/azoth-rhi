@@ -52,12 +52,12 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] TimelineSlot * ResolveTimeline(D3D12Device * device, TimelineHandle handle) noexcept
 	{
-		return device->timelineSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->timelineSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] BinarySemaphoreSlot * ResolveBinarySemaphore(D3D12Device * device, BinarySemaphoreHandle handle) noexcept
 	{
-		return device->binarySemaphoreSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->binarySemaphoreSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	TimelineHandle D3D12CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
@@ -74,7 +74,7 @@ namespace azo::rhi::d3d12
 
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.Empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
+		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
 
 		ComPtr<ID3D12Fence> fence;
 		const HRESULT hr = device->device->CreateFence(desc.initialValue, flags, IID_PPV_ARGS(fence.GetAddressOf()));
@@ -83,7 +83,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<TimelineHandle>(error, hr, "ID3D12Device::CreateFence failed for a timeline");
 		}
 
-		return ReturnValue(device->timelineSlots.Store(TimelineSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
+		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
 	}
 
 	bool D3D12DestroyTimeline(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -92,14 +92,14 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		TimelineSlot * slot = device->timelineSlots.Resolve(slotHandle, true);
+		TimelineSlot * slot = device->timelineSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid timeline handle");
 		}
 
 		slot->fence.Reset();
-		static_cast<void>(device->timelineSlots.Retire(slotHandle, true));
+		static_cast<void>(device->timelineSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -116,7 +116,7 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createBinarySemaphore");
 
 		auto * device				  = static_cast<D3D12Device *>(impl);
-		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.Empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
+		const D3D12_FENCE_FLAGS flags = desc.exportableHandleTypes.empty() ? D3D12_FENCE_FLAG_NONE : D3D12_FENCE_FLAG_SHARED;
 
 		ComPtr<ID3D12Fence> fence;
 		const HRESULT hr = device->device->CreateFence(0, flags, IID_PPV_ARGS(fence.GetAddressOf()));
@@ -126,7 +126,7 @@ namespace azo::rhi::d3d12
 		}
 
 		return ReturnValue(
-			device->binarySemaphoreSlots.Store(BinarySemaphoreSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
+			device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
 	}
 
 	bool D3D12DestroyBinarySemaphore(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -135,14 +135,14 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		BinarySemaphoreSlot * slot = device->binarySemaphoreSlots.Resolve(slotHandle, true);
+		BinarySemaphoreSlot * slot = device->binarySemaphoreSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid binary semaphore handle");
 		}
 
 		slot->fence.Reset();
-		static_cast<void>(device->binarySemaphoreSlots.Retire(slotHandle, true));
+		static_cast<void>(device->binarySemaphoreSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -202,7 +202,7 @@ namespace azo::rhi::d3d12
 				return false;
 			}
 
-			if (!detail::TryPushBack(list->pool->retired,
+			if (!detail::try_push_back(list->pool->retired,
 					RetiredCommandRecording{
 						.allocator		  = list->allocator,
 						.list			  = list->list,
@@ -235,8 +235,8 @@ namespace azo::rhi::d3d12
 
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		auto pool					= HostNew<D3D12CommandPool>();
-		pool->object				= PublishingObject<Published<CommandPoolApi, &CommandPoolBlock>>();
+		auto pool					= host_new<D3D12CommandPool>();
+		pool->object				= publishing_object<Published<CommandPoolApi, &CommandPoolBlock>>();
 		pool->owner					= device;
 		pool->type					= MapCommandListType(desc.queueType);
 		pool->queueType				= desc.queueType;
@@ -272,8 +272,8 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		auto cmd	   = HostNew<D3D12CommandList>();
-		cmd->object	   = PublishingObject<Published<RenderCommandApi, &RenderCommandBlock>,
+		auto cmd	   = host_new<D3D12CommandList>();
+		cmd->object	   = publishing_object<Published<RenderCommandApi, &RenderCommandBlock>,
 			Published<AliasingCommandApi, &AliasingCommandBlock>,
 			Published<QueryCommandApi, &QueryCommandBlock>,
 			Published<IndirectApi, &IndirectBlock>,
@@ -292,7 +292,7 @@ namespace azo::rhi::d3d12
 		D3D12CommandList * raw = cmd.get();
 		device->commandLists.push_back(std::move(cmd));
 
-		if (!detail::TryPushBack(pool->lists, raw))
+		if (!detail::try_push_back(pool->lists, raw))
 		{
 			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "D3D12 command list allocation failed");
 		}

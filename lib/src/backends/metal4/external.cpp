@@ -7,7 +7,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/blocks/device.hpp"
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/resource_record.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/external.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/resources/resources.hpp"
 #include "backends/metal4/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSObject.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Metal/MTLEvent.hpp>
+#include <Metal/MTLTexture.hpp>
+#include <utility>
 
 namespace azo::rhi::metal4
 {
@@ -17,30 +33,30 @@ namespace azo::rhi::metal4
 		constexpr const char * kNoBuffers  = "Metal has no shared buffer, so nothing here can be exported or imported as one";
 		constexpr const char * kNoHeaps	   = "Metal has no shared heap, so nothing here can be exported or imported as one";
 
-		[[nodiscard]] bool ReturnObject(NS::Object * object, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+		[[nodiscard]] bool return_object(NS::Object * object, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 		{
 			if (object == nullptr)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Metal produced no handle for an object created shared");
+				return fail(error, ErrorCode::eNativeApiError, "Metal produced no handle for an object created shared");
 			}
 
 			*out = ExternalHandle{ .type = type, .handle = object };
-			return Succeed(error);
+			return succeed(error);
 		}
 
-		[[nodiscard]] bool CheckExport(
+		[[nodiscard]] bool check_export(
 			const Flags<ExternalHandleType> declared, const ExternalHandleType wanted, const ExternalHandleType only, Error * error) noexcept
 		{
 			if (wanted != only)
 			{
-				return Fail(error, ErrorCode::eUnsupportedFeature, "Metal names this kind of object under one handle type only, and it is not that one");
+				return fail(error, ErrorCode::eUnsupportedFeature, "Metal names this kind of object under one handle type only, and it is not that one");
 			}
 
-			return declared.Contains(wanted) ? true : Fail(error, ErrorCode::eInvalidArgument, kUndeclared);
+			return declared.contains(wanted) ? true : fail(error, ErrorCode::eInvalidArgument, kUndeclared);
 		}
 	}
 
-	bool Metal4ExportBuffer([[maybe_unused]] void * impl, [[maybe_unused]] const BufferHandle buffer, [[maybe_unused]] const ExternalHandleType type,
+	bool metal4_export_buffer([[maybe_unused]] void * impl, [[maybe_unused]] const BufferHandle buffer, [[maybe_unused]] const ExternalHandleType type,
 		ExternalHandle * out, Error * error) noexcept
 	{
 		if (out != nullptr)
@@ -48,10 +64,10 @@ namespace azo::rhi::metal4
 			*out = {};
 		}
 
-		return Fail(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
+		return fail(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
 	}
 
-	bool Metal4ExportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const HeapHandle heap, [[maybe_unused]] const ExternalHandleType type,
+	bool metal4_export_heap([[maybe_unused]] void * impl, [[maybe_unused]] const HeapHandle heap, [[maybe_unused]] const ExternalHandleType type,
 		ExternalHandle * out, Error * error) noexcept
 	{
 		if (out != nullptr)
@@ -59,113 +75,113 @@ namespace azo::rhi::metal4
 			*out = {};
 		}
 
-		return Fail(error, ErrorCode::eUnsupportedFeature, kNoHeaps);
+		return fail(error, ErrorCode::eUnsupportedFeature, kNoHeaps);
 	}
 
-	bool Metal4ExportTexture(void * impl, const TextureHandle texture, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+	bool metal4_export_texture(void * impl, const TextureHandle texture, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external export needs somewhere to write the handle");
+			return fail(error, ErrorCode::eInvalidArgument, "external export needs somewhere to write the handle");
 		}
 
 		*out		  = {};
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		const Metal4TextureSlot * slot = device->textures.Resolve(texture, kHandleAlreadyChecked);
+		const Metal4TextureSlot * slot = device->textures.resolve(texture, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "export of an invalid texture handle");
 		}
 
 		if (!slot->shared)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, kUndeclared);
+			return fail(error, ErrorCode::eInvalidArgument, kUndeclared);
 		}
 
 		if (type != ExternalHandleType::eMtlSharedTexture)
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "Metal names a texture under MTLSharedTextureHandle and nothing else");
+			return fail(error, ErrorCode::eUnsupportedFeature, "Metal names a texture under MTLSharedTextureHandle and nothing else");
 		}
 
-		return ReturnObject(slot->texture->newSharedTextureHandle(), type, out, error);
+		return return_object(slot->texture->newSharedTextureHandle(), type, out, error);
 	}
 
-	bool Metal4ExportTimeline(void * impl, const TimelineHandle timeline, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+	bool metal4_export_timeline(void * impl, const TimelineHandle timeline, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external export needs somewhere to write the handle");
+			return fail(error, ErrorCode::eInvalidArgument, "external export needs somewhere to write the handle");
 		}
 
 		*out		  = {};
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		const Metal4Timeline * slot = device->timelines.Resolve(timeline, kHandleAlreadyChecked);
+		const Metal4Timeline * slot = device->timelines.resolve(timeline, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid timeline handle");
+			return fail(error, ErrorCode::eInvalidHandle, "export of an invalid timeline handle");
 		}
 
-		if (!CheckExport(slot->exportableHandleTypes, type, ExternalHandleType::eMtlSharedEvent, error))
+		if (!check_export(slot->exportableHandleTypes, type, ExternalHandleType::eMtlSharedEvent, error))
 		{
 			return false;
 		}
 
-		return ReturnObject(slot->event->newSharedEventHandle(), type, out, error);
+		return return_object(slot->event->newSharedEventHandle(), type, out, error);
 	}
 
-	bool Metal4ExportBinarySemaphore(
+	bool metal4_export_binary_semaphore(
 		void * impl, const BinarySemaphoreHandle semaphore, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external export needs somewhere to write the handle");
+			return fail(error, ErrorCode::eInvalidArgument, "external export needs somewhere to write the handle");
 		}
 
 		*out		  = {};
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		const Metal4BinarySemaphore * slot = device->binarySemaphores.Resolve(semaphore, kHandleAlreadyChecked);
+		const Metal4BinarySemaphore * slot = device->binarySemaphores.resolve(semaphore, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid binary semaphore handle");
+			return fail(error, ErrorCode::eInvalidHandle, "export of an invalid binary semaphore handle");
 		}
 
-		if (!CheckExport(slot->exportableHandleTypes, type, ExternalHandleType::eMtlSharedEvent, error))
+		if (!check_export(slot->exportableHandleTypes, type, ExternalHandleType::eMtlSharedEvent, error))
 		{
 			return false;
 		}
 
-		return ReturnObject(slot->event->newSharedEventHandle(), type, out, error);
+		return return_object(slot->event->newSharedEventHandle(), type, out, error);
 	}
 
-	BufferHandle Metal4ImportBuffer([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalBufferImportDesc & desc, Error * error) noexcept
+	BufferHandle metal4_import_buffer([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalBufferImportDesc & desc, Error * error) noexcept
 	{
-		return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
+		return fail_value<BufferHandle>(error, ErrorCode::eUnsupportedFeature, kNoBuffers);
 	}
 
-	HeapHandle Metal4ImportHeap([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalHeapImportDesc & desc, Error * error) noexcept
+	HeapHandle metal4_import_heap([[maybe_unused]] void * impl, [[maybe_unused]] const ExternalHeapImportDesc & desc, Error * error) noexcept
 	{
-		return FailValue<HeapHandle>(error, ErrorCode::eUnsupportedFeature, kNoHeaps);
+		return fail_value<HeapHandle>(error, ErrorCode::eUnsupportedFeature, kNoHeaps);
 	}
 
-	TextureHandle Metal4ImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept
+	TextureHandle metal4_import_texture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.importTexture");
 		auto * device = static_cast<Metal4Device *>(impl);
 
 		if (desc.handle.type != ExternalHandleType::eMtlSharedTexture)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal opens a texture from an MTLSharedTextureHandle and nothing else");
+			return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal opens a texture from an MTLSharedTextureHandle and nothing else");
 		}
 
 		if (desc.handle.handle == nullptr)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Metal object");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Metal object");
 		}
 
-		if (BuildTextureDescriptor(desc.desc, error).get() == nullptr)
+		if (build_texture_descriptor(desc.desc, error).get() == nullptr)
 		{
 			return TextureHandle{};
 		}
@@ -173,91 +189,91 @@ namespace azo::rhi::metal4
 		MTL::Texture * raw = device->device->newSharedTexture(static_cast<const MTL::SharedTextureHandle *>(desc.handle.handle));
 		if (raw == nullptr)
 		{
-			return FailValue<TextureHandle>(
+			return fail_value<TextureHandle>(
 				error, ErrorCode::eNativeApiError, "the handle names no texture this device can open, which is what a handle from another device reports");
 		}
 
-		SetMetalLabel(raw, desc.desc.debugName);
+		set_metal_label(raw, desc.desc.debugName);
 		NS::SharedPtr<MTL::Texture> texture = NS::TransferPtr(raw);
 
-		const TextureHandle handle = device->textures.Store(Metal4TextureSlot{ .texture = std::move(texture),
+		const TextureHandle handle = device->textures.store(Metal4TextureSlot{ .texture = std::move(texture),
 			.format																		= desc.desc.format,
 			.usage																		= desc.desc.usage,
 			.mutableFormat																= desc.desc.allowFormatViews,
 			.shared																		= false,
-			.desc																		= detail::Recorded(desc.desc) });
-		if (!handle.IsValid())
+			.desc																		= detail::recorded(desc.desc), });
+		if (!handle.is_valid())
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported texture handle tracking failed");
+			return fail_value<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported texture handle tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	TimelineHandle Metal4ImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept
+	TimelineHandle metal4_import_timeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.importTimeline");
 		auto * device = static_cast<Metal4Device *>(impl);
 
 		if (desc.handle.type != ExternalHandleType::eMtlSharedEvent)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eUnsupportedFeature, "Metal opens a timeline from an MTLSharedEventHandle and nothing else");
+			return fail_value<TimelineHandle>(error, ErrorCode::eUnsupportedFeature, "Metal opens a timeline from an MTLSharedEventHandle and nothing else");
 		}
 
 		if (desc.handle.handle == nullptr)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Metal object");
+			return fail_value<TimelineHandle>(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Metal object");
 		}
 
 		MTL::SharedEvent * raw = device->device->newSharedEvent(static_cast<const MTL::SharedEventHandle *>(desc.handle.handle));
 		if (raw == nullptr)
 		{
-			return FailValue<TimelineHandle>(
+			return fail_value<TimelineHandle>(
 				error, ErrorCode::eNativeApiError, "the handle names no event this device can open, which is what a handle from another device reports");
 		}
 
-		const TimelineHandle handle = device->timelines.Store(Metal4Timeline{ .event = NS::TransferPtr(raw) });
-		if (!handle.IsValid())
+		const TimelineHandle handle = device->timelines.store(Metal4Timeline{ .event = NS::TransferPtr(raw) });
+		if (!handle.is_valid())
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported timeline handle tracking failed");
+			return fail_value<TimelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported timeline handle tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	BinarySemaphoreHandle Metal4ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept
+	BinarySemaphoreHandle metal4_import_binary_semaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.importBinarySemaphore");
 		auto * device = static_cast<Metal4Device *>(impl);
 
 		if (desc.handle.type != ExternalHandleType::eMtlSharedEvent)
 		{
-			return FailValue<BinarySemaphoreHandle>(
+			return fail_value<BinarySemaphoreHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Metal opens a binary semaphore from an MTLSharedEventHandle and nothing else");
 		}
 
 		if (desc.handle.handle == nullptr)
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Metal object");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Metal object");
 		}
 
 		MTL::SharedEvent * raw = device->device->newSharedEvent(static_cast<const MTL::SharedEventHandle *>(desc.handle.handle));
 		if (raw == nullptr)
 		{
-			return FailValue<BinarySemaphoreHandle>(
+			return fail_value<BinarySemaphoreHandle>(
 				error, ErrorCode::eNativeApiError, "the handle names no event this device can open, which is what a handle from another device reports");
 		}
 
-		const BinarySemaphoreHandle handle = device->binarySemaphores.Store(Metal4BinarySemaphore{ .event = NS::TransferPtr(raw) });
-		if (!handle.IsValid())
+		const BinarySemaphoreHandle handle = device->binarySemaphores.store(Metal4BinarySemaphore{ .event = NS::TransferPtr(raw) });
+		if (!handle.is_valid())
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported binary semaphore handle tracking failed");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported binary semaphore handle tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	bool Metal4CloseExportedHandle([[maybe_unused]] void * impl, const ExternalHandle & handle, Error * error) noexcept
+	bool metal4_close_exported_handle([[maybe_unused]] void * impl, const ExternalHandle & handle, Error * error) noexcept
 	{
 		switch (handle.type)
 		{
@@ -268,7 +284,7 @@ namespace azo::rhi::metal4
 				static_cast<NS::Object *>(handle.handle)->release();
 			}
 
-			return Succeed(error);
+			return succeed(error);
 
 		case ExternalHandleType::eOpaqueFd:
 		case ExternalHandleType::eOpaqueWin32:
@@ -279,23 +295,23 @@ namespace azo::rhi::metal4
 		case ExternalHandleType::eDmaBuf:		  break;
 		}
 
-		return Fail(error, ErrorCode::eInvalidArgument, "this backend does not produce handles of that type, so it has nothing to release");
+		return fail(error, ErrorCode::eInvalidArgument, "this backend does not produce handles of that type, so it has nothing to release");
 	}
 
-	const ExternalSharingApi & ExternalSharingBlock() noexcept
+	const ExternalSharingApi & external_sharing_block() noexcept
 	{
 		static const ExternalSharingApi block{
-			.exportBuffer		   = &Metal4ExportBuffer,
-			.exportHeap			   = &Metal4ExportHeap,
-			.exportTexture		   = &Metal4ExportTexture,
-			.exportTimeline		   = &Metal4ExportTimeline,
-			.exportBinarySemaphore = &Metal4ExportBinarySemaphore,
-			.importBuffer		   = &Metal4ImportBuffer,
-			.importHeap			   = &Metal4ImportHeap,
-			.importTexture		   = &Metal4ImportTexture,
-			.importTimeline		   = &Metal4ImportTimeline,
-			.importBinarySemaphore = &Metal4ImportBinarySemaphore,
-			.closeExportedHandle   = &Metal4CloseExportedHandle,
+			.exportBuffer		   = &metal4_export_buffer,
+			.exportHeap			   = &metal4_export_heap,
+			.exportTexture		   = &metal4_export_texture,
+			.exportTimeline		   = &metal4_export_timeline,
+			.exportBinarySemaphore = &metal4_export_binary_semaphore,
+			.importBuffer		   = &metal4_import_buffer,
+			.importHeap			   = &metal4_import_heap,
+			.importTexture		   = &metal4_import_texture,
+			.importTimeline		   = &metal4_import_timeline,
+			.importBinarySemaphore = &metal4_import_binary_semaphore,
+			.closeExportedHandle   = &metal4_close_exported_handle,
 		};
 
 		return block;

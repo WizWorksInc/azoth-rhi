@@ -19,14 +19,14 @@ namespace azo::rhi::native
 
 	struct VulkanLoaderPayload final
 	{
-		static constexpr InterfaceId kId = MakeInterfaceId("azoth.rhi.surface.vulkanLoader");
+		static constexpr InterfaceId kId = make_interface_id("azoth.rhi.surface.vulkanLoader");
 
 		void * getInstanceProcAddr = nullptr;
 	};
 
 	struct VulkanSurfacePayload final
 	{
-		static constexpr InterfaceId kId = MakeInterfaceId("azoth.rhi.surface.vulkan");
+		static constexpr InterfaceId kId = make_interface_id("azoth.rhi.surface.vulkan");
 
 		void * instance = nullptr;
 
@@ -35,18 +35,18 @@ namespace azo::rhi::native
 
 	struct MetalSurfacePayload final
 	{
-		static constexpr InterfaceId kId = MakeInterfaceId("azoth.rhi.surface.metal");
+		static constexpr InterfaceId kId = make_interface_id("azoth.rhi.surface.metal");
 
 		void * layer = nullptr;
 	};
 
 	struct Win32SurfacePayload final
 	{
-		static constexpr InterfaceId kId = MakeInterfaceId("azoth.rhi.surface.win32");
+		static constexpr InterfaceId kId = make_interface_id("azoth.rhi.surface.win32");
 
 		void * window = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API void * ResolveVulkanLoader();
+	[[nodiscard]] AZO_RHI_API void * resolve_vulkan_loader();
 
 }

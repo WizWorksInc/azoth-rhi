@@ -21,7 +21,7 @@
 
 namespace azo::rhi
 {
-	AZO_RHI_FORCE_INLINE void CpuSpinHint() noexcept
+	AZO_RHI_FORCE_INLINE void cpu_spin_hint() noexcept
 	{
 #ifdef AZOTH_RHI_CPU_X64
 		_mm_pause();
@@ -43,7 +43,7 @@ namespace azo::rhi
 			{
 				while (m_locked.load(std::memory_order_relaxed))
 				{
-					CpuSpinHint();
+					cpu_spin_hint();
 				}
 			}
 		}

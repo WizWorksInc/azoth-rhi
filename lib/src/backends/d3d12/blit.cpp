@@ -98,7 +98,7 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture clears color textures; clear depth via BeginRendering");
 		}
 
-		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
+		if (!slot->usage.contains(TextureUsage::eColorAttachment))
 		{
 			return Fail(
 				error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Direct3D 12 clears through");

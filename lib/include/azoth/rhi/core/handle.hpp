@@ -26,17 +26,17 @@ namespace azo::rhi
 
 		inline constexpr std::uint32_t kMaxDeviceTag = (1u << (32u - kHandleSlotBits)) - 1u;
 
-		[[nodiscard]] constexpr std::uint32_t SlotOfIndex(std::uint32_t indexWord) noexcept
+		[[nodiscard]] constexpr std::uint32_t slot_of_index(std::uint32_t indexWord) noexcept
 		{
 			return indexWord & kHandleSlotMask;
 		}
 
-		[[nodiscard]] constexpr std::uint32_t TagOfIndex(std::uint32_t indexWord) noexcept
+		[[nodiscard]] constexpr std::uint32_t tag_of_index(std::uint32_t indexWord) noexcept
 		{
 			return indexWord >> kHandleSlotBits;
 		}
 
-		[[nodiscard]] constexpr std::uint32_t ComposeIndex(std::uint32_t deviceTag, std::uint32_t slot) noexcept
+		[[nodiscard]] constexpr std::uint32_t compose_index(std::uint32_t deviceTag, std::uint32_t slot) noexcept
 		{
 			return (deviceTag << kHandleSlotBits) | slot;
 		}
@@ -78,7 +78,7 @@ namespace azo::rhi
 		std::uint32_t index		 = kInvalidHandleIndex;
 		std::uint32_t generation = 0;
 
-		[[nodiscard]] constexpr bool IsValid() const noexcept
+		[[nodiscard]] constexpr bool is_valid() const noexcept
 		{
 			return index != kInvalidHandleIndex;
 		}

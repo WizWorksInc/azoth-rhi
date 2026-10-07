@@ -37,12 +37,12 @@ namespace azo::rhi::metal_common
 	inline constexpr std::uint32_t kMetalPushConstantIndex = 0;
 	inline constexpr std::uint32_t kMetalVertexBufferBase  = 16;
 
-	bool Succeed(Error * error) noexcept;
-	bool Fail(Error * error, ErrorCode code, const char * message) noexcept;
-	bool MetalWaitForEvent(MTL::SharedEvent * event, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
+	bool succeed(Error * error) noexcept;
+	bool fail(Error * error, ErrorCode code, const char * message) noexcept;
+	bool metal_wait_for_event(MTL::SharedEvent * event, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
 
 	template <typename... Args>
-	[[nodiscard]] Error * LastError(Args &&... args) noexcept
+	[[nodiscard]] Error * last_error(Args &&... args) noexcept
 	{
 		static_assert(sizeof...(Args) > 0);
 		auto tuple = std::forward_as_tuple(std::forward<Args>(args)...);
@@ -50,7 +50,7 @@ namespace azo::rhi::metal_common
 	}
 
 	template <typename T, typename... Args>
-	[[nodiscard]] T * OutputBeforeError(Args &&... args) noexcept
+	[[nodiscard]] T * output_before_error(Args &&... args) noexcept
 	{
 		static_assert(sizeof...(Args) > 1);
 		auto tuple = std::forward_as_tuple(std::forward<Args>(args)...);
@@ -58,127 +58,127 @@ namespace azo::rhi::metal_common
 	}
 
 	template <typename T>
-	[[nodiscard]] T ReturnValue(T value, Error * error) noexcept
+	[[nodiscard]] T return_value(T value, Error * error) noexcept
 	{
-		Succeed(error);
+		succeed(error);
 		return value;
 	}
 
 	template <typename T>
-	[[nodiscard]] T FailValue(Error * error, ErrorCode code, const char * message) noexcept
+	[[nodiscard]] T fail_value(Error * error, ErrorCode code, const char * message) noexcept
 	{
-		Fail(error, code, message);
+		fail(error, code, message);
 		return {};
 	}
 
 	template <typename T>
-	[[nodiscard]] bool Store(T * out, T value, Error * error) noexcept
+	[[nodiscard]] bool store(T * out, T value, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "backend output pointer is null");
+			return fail(error, ErrorCode::eInvalidArgument, "backend output pointer is null");
 		}
 
 		*out = std::move(value);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	template <typename... Args>
-	bool NoopVoid([[maybe_unused]] void * impl, Args... args) noexcept
+	bool noop_void([[maybe_unused]] void * impl, Args... args) noexcept
 	{
-		return Succeed(LastError(args...));
+		return succeed(last_error(args...));
 	}
 
 	template <typename T, typename... Args>
-	bool DefaultValue([[maybe_unused]] void * impl, Args... args) noexcept
+	bool default_value([[maybe_unused]] void * impl, Args... args) noexcept
 	{
-		T * out = OutputBeforeError<T>(args...);
+		T * out = output_before_error<T>(args...);
 		if (out == nullptr)
 		{
-			return Fail(LastError(args...), ErrorCode::eInvalidArgument, "operation called with a null output");
+			return fail(last_error(args...), ErrorCode::eInvalidArgument, "operation called with a null output");
 		}
 
-		return Store(out, T{}, LastError(args...));
+		return store(out, T{}, last_error(args...));
 	}
 
 	template <typename HandleT>
-	[[nodiscard]] constexpr HandleT Typed(const RawHandle handle) noexcept
+	[[nodiscard]] constexpr HandleT typed(const RawHandle handle) noexcept
 	{
 		return HandleT{ .index = handle.index, .generation = handle.generation };
 	}
 
-	[[nodiscard]] MTL::PixelFormat MetalPixelFormat(Format format) noexcept;
+	[[nodiscard]] MTL::PixelFormat metal_pixel_format(Format format) noexcept;
 
-	[[nodiscard]] MTL::VertexFormat MetalVertexFormat(Format format) noexcept;
+	[[nodiscard]] MTL::VertexFormat metal_vertex_format(Format format) noexcept;
 
-	[[nodiscard]] constexpr bool IsStencilFormat(const Format format) noexcept
+	[[nodiscard]] constexpr bool is_stencil_format(const Format format) noexcept
 	{
 		return format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
 	}
 
-	[[nodiscard]] constexpr bool IsCompressedFormat(const Format format) noexcept
+	[[nodiscard]] constexpr bool is_compressed_format(const Format format) noexcept
 	{
-		return detail::IsCompressedFormat(format);
+		return detail::is_compressed_format(format);
 	}
 
-	[[nodiscard]] constexpr bool IsIntegerFormat(const Format format) noexcept
+	[[nodiscard]] constexpr bool is_integer_format(const Format format) noexcept
 	{
-		return detail::IsIntegerFormat(format);
+		return detail::is_integer_format(format);
 	}
 
-	[[nodiscard]] constexpr bool IsBlendableFormat(const Format format) noexcept
+	[[nodiscard]] constexpr bool is_blendable_format(const Format format) noexcept
 	{
-		return !IsDepthFormat(format) && !IsCompressedFormat(format) && !IsIntegerFormat(format);
+		return !is_depth_format(format) && !is_compressed_format(format) && !is_integer_format(format);
 	}
 
-	[[nodiscard]] constexpr bool IsColorRenderableFormat(const Format format) noexcept
+	[[nodiscard]] constexpr bool is_color_renderable_format(const Format format) noexcept
 	{
-		return !IsDepthFormat(format) && !IsCompressedFormat(format);
+		return !is_depth_format(format) && !is_compressed_format(format);
 	}
 
-	[[nodiscard]] bool MetalRefuseUnblendableAttachment(Format format, Error * error);
+	[[nodiscard]] bool metal_refuse_unblendable_attachment(Format format, Error * error);
 
-	[[nodiscard]] bool MetalRefuseUnrenderableAttachment(Format format, Error * error);
+	[[nodiscard]] bool metal_refuse_unrenderable_attachment(Format format, Error * error);
 
-	[[nodiscard]] MTL::ResourceOptions MetalBufferStorage(MemoryUsage usage) noexcept;
-	[[nodiscard]] MTL::StorageMode MetalHeapStorage(HeapType type) noexcept;
-	[[nodiscard]] MTL::ResourceOptions MetalResourceOptions(MTL::StorageMode mode) noexcept;
+	[[nodiscard]] MTL::ResourceOptions metal_buffer_storage(MemoryUsage usage) noexcept;
+	[[nodiscard]] MTL::StorageMode metal_heap_storage(HeapType type) noexcept;
+	[[nodiscard]] MTL::ResourceOptions metal_resource_options(MTL::StorageMode mode) noexcept;
 
-	[[nodiscard]] MTL::TextureType MetalViewType(TextureViewType type) noexcept;
-	[[nodiscard]] MTL::TextureSwizzleChannels MetalSwizzleChannels(ComponentMapping mapping) noexcept;
-	[[nodiscard]] MTL::SamplerMinMagFilter MetalMinMagFilter(Filter filter) noexcept;
-	[[nodiscard]] MTL::SamplerMipFilter MetalMipFilter(MipmapMode mode) noexcept;
-	[[nodiscard]] MTL::SamplerAddressMode MetalAddressMode(AddressMode mode) noexcept;
-	[[nodiscard]] MTL::CompareFunction MetalCompareFunction(CompareOp op) noexcept;
-	[[nodiscard]] MTL::StencilOperation MetalStencilOp(StencilOp op) noexcept;
-	[[nodiscard]] MTL::SamplerBorderColor MetalBorderColor(BorderColor color) noexcept;
+	[[nodiscard]] MTL::TextureType metal_view_type(TextureViewType type) noexcept;
+	[[nodiscard]] MTL::TextureSwizzleChannels metal_swizzle_channels(ComponentMapping mapping) noexcept;
+	[[nodiscard]] MTL::SamplerMinMagFilter metal_min_mag_filter(Filter filter) noexcept;
+	[[nodiscard]] MTL::SamplerMipFilter metal_mip_filter(MipmapMode mode) noexcept;
+	[[nodiscard]] MTL::SamplerAddressMode metal_address_mode(AddressMode mode) noexcept;
+	[[nodiscard]] MTL::CompareFunction metal_compare_function(CompareOp op) noexcept;
+	[[nodiscard]] MTL::StencilOperation metal_stencil_op(StencilOp op) noexcept;
+	[[nodiscard]] MTL::SamplerBorderColor metal_border_color(BorderColor color) noexcept;
 
-	[[nodiscard]] NS::SharedPtr<MTL::TextureDescriptor> BuildTextureDescriptor(const TextureDesc & desc, Error * error) noexcept;
+	[[nodiscard]] NS::SharedPtr<MTL::TextureDescriptor> build_texture_descriptor(const TextureDesc & desc, Error * error) noexcept;
 
-	[[nodiscard]] bool ViewRangeFitsTexture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept;
+	[[nodiscard]] bool view_range_fits_texture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept;
 
-	[[nodiscard]] NS::SharedPtr<MTL::SamplerDescriptor> BuildSamplerDescriptor(const SamplerDesc & desc) noexcept;
+	[[nodiscard]] NS::SharedPtr<MTL::SamplerDescriptor> build_sampler_descriptor(const SamplerDesc & desc) noexcept;
 
-	[[nodiscard]] MTL::PrimitiveType MetalPrimitiveType(PrimitiveTopology topology) noexcept;
-	[[nodiscard]] MTL::CullMode MetalCullMode(CullMode mode) noexcept;
-	[[nodiscard]] MTL::Winding MetalWinding(FrontFace face) noexcept;
-	[[nodiscard]] MTL::TriangleFillMode MetalFillMode(FillMode mode) noexcept;
-	[[nodiscard]] MTL::BlendFactor MetalBlendFactor(BlendFactor factor) noexcept;
-	[[nodiscard]] MTL::BlendOperation MetalBlendOp(BlendOp op) noexcept;
-	[[nodiscard]] MTL::ColorWriteMask MetalColorWriteMask(Flags<ColorWrite> mask) noexcept;
-	[[nodiscard]] MTL::LoadAction MetalLoadAction(LoadOp op) noexcept;
-	[[nodiscard]] MTL::StoreAction MetalStoreAction(StoreOp op) noexcept;
-	[[nodiscard]] MTL::FunctionType MetalFunctionType(ShaderStage stage) noexcept;
-	[[nodiscard]] MTL::IndexType MetalIndexType(bool index32) noexcept;
+	[[nodiscard]] MTL::PrimitiveType metal_primitive_type(PrimitiveTopology topology) noexcept;
+	[[nodiscard]] MTL::CullMode metal_cull_mode(CullMode mode) noexcept;
+	[[nodiscard]] MTL::Winding metal_winding(FrontFace face) noexcept;
+	[[nodiscard]] MTL::TriangleFillMode metal_fill_mode(FillMode mode) noexcept;
+	[[nodiscard]] MTL::BlendFactor metal_blend_factor(BlendFactor factor) noexcept;
+	[[nodiscard]] MTL::BlendOperation metal_blend_op(BlendOp op) noexcept;
+	[[nodiscard]] MTL::ColorWriteMask metal_color_write_mask(Flags<ColorWrite> mask) noexcept;
+	[[nodiscard]] MTL::LoadAction metal_load_action(LoadOp op) noexcept;
+	[[nodiscard]] MTL::StoreAction metal_store_action(StoreOp op) noexcept;
+	[[nodiscard]] MTL::FunctionType metal_function_type(ShaderStage stage) noexcept;
+	[[nodiscard]] MTL::IndexType metal_index_type(bool index32) noexcept;
 
-	[[nodiscard]] NS::SharedPtr<MTL::Library> MetalCompileLibrary(MTL::Device * device, const ShaderBinary & shader, Error * error);
+	[[nodiscard]] NS::SharedPtr<MTL::Library> metal_compile_library(MTL::Device * device, const ShaderBinary & shader, Error * error);
 
-	[[nodiscard]] NS::SharedPtr<MTL::Function> CompileFunction(MTL::Device * device, const ShaderBinary & shader, Error * error);
+	[[nodiscard]] NS::SharedPtr<MTL::Function> compile_function(MTL::Device * device, const ShaderBinary & shader, Error * error);
 
-	[[nodiscard]] bool MetalRefuseUnbuildableGraphicsStage(ShaderStage stage, Error * error);
+	[[nodiscard]] bool metal_refuse_unbuildable_graphics_stage(ShaderStage stage, Error * error);
 
-	[[nodiscard]] NS::SharedPtr<MTL::DepthStencilState> BuildDepthStencilState(MTL::Device * device, const DepthStencilStateDesc & desc);
+	[[nodiscard]] NS::SharedPtr<MTL::DepthStencilState> build_depth_stencil_state(MTL::Device * device, const DepthStencilStateDesc & desc);
 
-	void SetMetalLabel(MTL::Resource * resource, CString debugName) noexcept;
+	void set_metal_label(MTL::Resource * resource, CString debugName) noexcept;
 
 }

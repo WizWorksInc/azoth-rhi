@@ -24,7 +24,7 @@ namespace azo::rhi
 	};
 
 	template <class Payload>
-	[[nodiscard]] Payload * SurfacePayloadOf(const SurfaceRequest & request) noexcept
+	[[nodiscard]] Payload * surface_payload_of(const SurfaceRequest & request) noexcept
 	{
 		if (request.id != Payload::kId || request.payload == nullptr || request.byteSize < sizeof(Payload))
 		{
@@ -44,7 +44,7 @@ namespace azo::rhi
 		SurfaceSource & operator=(SurfaceSource &&)		 = delete;
 		virtual ~SurfaceSource()						 = default;
 
-		[[nodiscard]] virtual bool Provide(const SurfaceRequest & request) = 0;
+		[[nodiscard]] virtual bool provide(const SurfaceRequest & request) = 0;
 	};
 
 }

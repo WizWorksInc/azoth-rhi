@@ -35,26 +35,26 @@ namespace azo::rhi
 
 		AZO_RHI_API ~BackendModule();
 
-		[[nodiscard]] AZO_RHI_API static Result<BackendModule> Load(std::string_view path);
+		[[nodiscard]] AZO_RHI_API static Result<BackendModule> load(std::string_view path);
 
-		[[nodiscard]] std::span<const BackendEntry> Entries() const noexcept
+		[[nodiscard]] std::span<const BackendEntry> entries() const noexcept
 		{
 			return std::span<const BackendEntry>{ m_entries.data(), m_entries.size() };
 		}
 
-		[[nodiscard]] AZO_RHI_API std::size_t LiveObjects() const noexcept;
+		[[nodiscard]] AZO_RHI_API std::size_t live_objects() const noexcept;
 
-		[[nodiscard]] bool IsLoaded() const noexcept
+		[[nodiscard]] bool is_loaded() const noexcept
 		{
 			return m_handle != nullptr;
 		}
 
-		[[nodiscard]] std::string_view Path() const noexcept
+		[[nodiscard]] std::string_view path() const noexcept
 		{
 			return m_path;
 		}
 
-		AZO_RHI_API Result<void> Unload();
+		AZO_RHI_API Result<void> unload();
 
 	private:
 		AZO_RHI_API void Adopt(BackendModule && other) noexcept;

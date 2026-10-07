@@ -71,7 +71,7 @@ namespace azo::rhi
 		std::uint32_t y = 0;
 		std::uint32_t z = 0;
 
-		[[nodiscard]] constexpr bool IsStated() const noexcept
+		[[nodiscard]] constexpr bool is_stated() const noexcept
 		{
 			return x != 0 && y != 0 && z != 0;
 		}

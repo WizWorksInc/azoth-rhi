@@ -24,17 +24,17 @@ namespace azo::rhi::detail
 	class AllocationTracker final
 	{
 	public:
-		[[nodiscard]] bool Record(ResourceType type, RawHandle handle, const MemorySpan & span) noexcept;
+		[[nodiscard]] bool record(ResourceType type, RawHandle handle, const MemorySpan & span) noexcept;
 
-		[[nodiscard]] bool Retire(ResourceType type, RawHandle handle, const DestroyDesc & desc, MemorySpan & out) noexcept;
+		[[nodiscard]] bool retire(ResourceType type, RawHandle handle, const DestroyDesc & desc, MemorySpan & out) noexcept;
 
-		void TakeReleasable(ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, HostVector<MemorySpan> & out) noexcept;
+		void take_releasable(ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, HostVector<MemorySpan> & out) noexcept;
 
-		void TakeAll(ResourceType type, HostVector<MemorySpan> & out) noexcept;
+		void take_all(ResourceType type, HostVector<MemorySpan> & out) noexcept;
 
-		void Forget() noexcept;
+		void forget() noexcept;
 
-		[[nodiscard]] std::size_t LiveCount() const noexcept;
+		[[nodiscard]] std::size_t live_count() const noexcept;
 
 	private:
 		struct Pending final

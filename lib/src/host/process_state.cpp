@@ -18,35 +18,35 @@ namespace azo::rhi::detail
 {
 	namespace
 	{
-		std::atomic<HostAllocator *> g_hostAllocator{ nullptr };		   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-		std::atomic<DeviceMemoryAllocator *> g_deviceAllocator{ nullptr }; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-		std::atomic<Profiler *> g_profiler{ nullptr };					   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-		std::atomic<std::uint64_t> g_reentrancyViolations{ 0 };			   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-		thread_local int t_guardsHeld = 0;								   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+		std::atomic<HostAllocator *> g_HostAllocator{ nullptr };		   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+		std::atomic<DeviceMemoryAllocator *> g_DeviceAllocator{ nullptr }; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+		std::atomic<Profiler *> g_Profiler{ nullptr };					   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+		std::atomic<std::uint64_t> g_ReentrancyViolations{ 0 };			   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+		thread_local int g_TGuardsHeld = 0;								   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 	}
 
-	std::atomic<HostAllocator *> & HostAllocatorSlot() noexcept
+	std::atomic<HostAllocator *> & host_allocator_slot() noexcept
 	{
-		return g_hostAllocator;
+		return g_HostAllocator;
 	}
 
-	std::atomic<DeviceMemoryAllocator *> & DeviceAllocatorSlot() noexcept
+	std::atomic<DeviceMemoryAllocator *> & device_allocator_slot() noexcept
 	{
-		return g_deviceAllocator;
+		return g_DeviceAllocator;
 	}
 
-	std::atomic<Profiler *> & ProfilerSlot() noexcept
+	std::atomic<Profiler *> & profiler_slot() noexcept
 	{
-		return g_profiler;
+		return g_Profiler;
 	}
 
-	int & GuardsHeld() noexcept
+	int & guards_held() noexcept
 	{
-		return t_guardsHeld;
+		return g_TGuardsHeld;
 	}
 
-	std::atomic<std::uint64_t> & ReentrancyViolationCount() noexcept
+	std::atomic<std::uint64_t> & reentrancy_violation_count() noexcept
 	{
-		return g_reentrancyViolations;
+		return g_ReentrancyViolations;
 	}
 }

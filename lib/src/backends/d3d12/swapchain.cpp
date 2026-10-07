@@ -67,14 +67,14 @@ namespace azo::rhi::d3d12
 				}
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
 
-				const TextureHandle texture	 = device->textureSlots.Store(TextureSlot{ .resource = resource,
+				const TextureHandle texture	 = device->textureSlots.store(TextureSlot{ .resource = resource,
 					.format																		= sc->viewFormat,
 					.type																		= TextureType::eTex2D,
 					.mipLevels																	= 1,
 					.arrayLayers																= 1,
 					.usage																		= Flags<TextureUsage>(TextureUsage::eColorAttachment),
 					.lifetime																	= SlotLifetime::eSwapchainBorrowed });
-				const TextureViewHandle view = device->textureViewSlots.Store(TextureViewSlot{ .texture = texture,
+				const TextureViewHandle view = device->textureViewSlots.store(TextureViewSlot{ .texture = texture,
 					.format																				= sc->viewFormat,
 					.type																				= TextureViewType::eTex2D,
 					.rtvIndex																			= rtvIndex,
@@ -84,8 +84,8 @@ namespace azo::rhi::d3d12
 			}
 			else
 			{
-				static_cast<void>(device->textureSlots.Retire(sc->backBuffers[i], true));
-				sc->backBuffers[i] = device->textureSlots.Store(TextureSlot{ .resource = resource,
+				static_cast<void>(device->textureSlots.retire(sc->backBuffers[i], true));
+				sc->backBuffers[i] = device->textureSlots.store(TextureSlot{ .resource = resource,
 					.format															   = sc->viewFormat,
 					.type															   = TextureType::eTex2D,
 					.mipLevels														   = 1,
@@ -93,11 +93,11 @@ namespace azo::rhi::d3d12
 					.usage															   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
 					.lifetime														   = SlotLifetime::eSwapchainBorrowed });
 
-				const TextureViewSlot * const oldView = device->textureViewSlots.Resolve(sc->backBufferViews[i], true);
+				const TextureViewSlot * const oldView = device->textureViewSlots.resolve(sc->backBufferViews[i], true);
 				const std::uint32_t rtvIndex		  = oldView != nullptr ? oldView->rtvIndex : kInvalidIndex;
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
-				static_cast<void>(device->textureViewSlots.Retire(sc->backBufferViews[i], true));
-				sc->backBufferViews[i] = device->textureViewSlots.Store(TextureViewSlot{ .texture = sc->backBuffers[i],
+				static_cast<void>(device->textureViewSlots.retire(sc->backBufferViews[i], true));
+				sc->backBufferViews[i] = device->textureViewSlots.store(TextureViewSlot{ .texture = sc->backBuffers[i],
 					.format																		  = sc->viewFormat,
 					.type																		  = TextureViewType::eTex2D,
 					.rtvIndex																	  = rtvIndex,
@@ -117,8 +117,8 @@ namespace azo::rhi::d3d12
 			return FailValue<void *>(error, ErrorCode::eNativeApiError, "the device has no DXGI factory for swapchain creation");
 		}
 
-		auto sc				= HostNew<D3D12Swapchain>();
-		sc->object			= PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
+		auto sc				= host_new<D3D12Swapchain>();
+		sc->object			= publishing_object<Published<SwapchainApi, &SwapchainBlock>>();
 		sc->owner			= device;
 		sc->hwnd			= reinterpret_cast<HWND>(static_cast<std::uintptr_t>(desc.surface.value)); // NOLINT(performance-no-int-to-ptr)
 		sc->width			= std::max<std::uint32_t>(desc.width, 1);
@@ -226,7 +226,7 @@ namespace azo::rhi::d3d12
 		{
 			for (const TextureHandle handle : sc->backBuffers)
 			{
-				if (TextureSlot * const slot = device->textureSlots.Resolve(handle, false); slot != nullptr)
+				if (TextureSlot * const slot = device->textureSlots.resolve(handle, false); slot != nullptr)
 				{
 					slot->resource.Reset();
 				}

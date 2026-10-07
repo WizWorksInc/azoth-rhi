@@ -170,7 +170,7 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CmdBeginNativeMutation(void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
 	{
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return Fail(error, ErrorCode::eUnsupportedApi, "native mutation requested for a different graphics API");
 		}

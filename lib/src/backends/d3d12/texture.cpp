@@ -90,19 +90,19 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapTextureResourceFlags(Flags<TextureUsage> usage) noexcept
 	{
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-		if (usage.Contains(TextureUsage::eColorAttachment))
+		if (usage.contains(TextureUsage::eColorAttachment))
 		{
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 		}
-		if (usage.Contains(TextureUsage::eDepthStencilAttachment))
+		if (usage.contains(TextureUsage::eDepthStencilAttachment))
 		{
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-			if (!usage.Contains(TextureUsage::eSampled))
+			if (!usage.contains(TextureUsage::eSampled))
 			{
 				flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 			}
 		}
-		if (usage.Contains(TextureUsage::eStorage))
+		if (usage.contains(TextureUsage::eStorage))
 		{
 			flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		}
@@ -182,7 +182,7 @@ namespace azo::rhi::d3d12
 		resourceDesc.DepthOrArraySize = static_cast<UINT16>(arrayOrDepth);
 		resourceDesc.MipLevels		  = static_cast<UINT16>(desc.mipLevels);
 		resourceDesc.Format			  = MapFormat(desc.format);
-		if (desc.usage.Contains(TextureUsage::eDepthStencilAttachment) && desc.usage.Contains(TextureUsage::eSampled))
+		if (desc.usage.contains(TextureUsage::eDepthStencilAttachment) && desc.usage.contains(TextureUsage::eSampled))
 		{
 			resourceDesc.Format = DepthTypelessResourceFormat(resourceDesc.Format);
 		}
@@ -237,12 +237,12 @@ namespace azo::rhi::d3d12
 
 		D3D12_CLEAR_VALUE clearValue{};
 		D3D12_CLEAR_VALUE * clearPtr = nullptr;
-		if (desc.usage.Contains(TextureUsage::eColorAttachment))
+		if (desc.usage.contains(TextureUsage::eColorAttachment))
 		{
 			clearValue.Format = format;
 			clearPtr		  = &clearValue;
 		}
-		else if (desc.usage.Contains(TextureUsage::eDepthStencilAttachment))
+		else if (desc.usage.contains(TextureUsage::eDepthStencilAttachment))
 		{
 			clearValue.Format				= format;
 			clearValue.DepthStencil.Depth	= 1.0f;
@@ -252,7 +252,7 @@ namespace azo::rhi::d3d12
 
 		if (desc.allowSparseBinding)
 		{
-			if (!desc.exportableHandleTypes.Empty())
+			if (!desc.exportableHandleTypes.empty())
 			{
 				return FailValue<TextureHandle>(error,
 					ErrorCode::eUnsupportedFeature,
@@ -270,7 +270,7 @@ namespace azo::rhi::d3d12
 
 			NameD3D12Object(reserved.Get(), desc.debugName, device->debugNames);
 
-			return ReturnValue(device->textureSlots.Store(TextureSlot{ .resource = std::move(reserved),
+			return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = std::move(reserved),
 								   .format										 = format,
 								   .rhiFormat									 = desc.format,
 								   .type										 = desc.type,
@@ -279,14 +279,14 @@ namespace azo::rhi::d3d12
 								   .usage										 = desc.usage,
 								   .mutableFormat								 = desc.allowFormatViews,
 								   .reserved									 = true,
-								   .desc										 = detail::Recorded(desc) }),
+								   .desc										 = detail::recorded(desc) }),
 				error);
 		}
 
 		D3D12MA::ALLOCATION_DESC allocationDesc{};
 		allocationDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
 
-		if (!desc.exportableHandleTypes.Empty())
+		if (!desc.exportableHandleTypes.empty())
 		{
 			allocationDesc.ExtraHeapFlags |= D3D12_HEAP_FLAG_SHARED;
 			allocationDesc.Flags |= D3D12MA::ALLOCATION_FLAG_COMMITTED;
@@ -303,7 +303,7 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.debugName, device->debugNames);
 
-		return ReturnValue(device->textureSlots.Store(TextureSlot{ .allocation = std::move(allocation),
+		return ReturnValue(device->textureSlots.store(TextureSlot{ .allocation = std::move(allocation),
 							   .resource									   = std::move(resource),
 							   .format										   = format,
 							   .rhiFormat									   = desc.format,
@@ -313,7 +313,7 @@ namespace azo::rhi::d3d12
 							   .usage										   = desc.usage,
 							   .mutableFormat								   = desc.allowFormatViews,
 							   .exportableHandleTypes						   = desc.exportableHandleTypes,
-							   .desc										   = detail::Recorded(desc) }),
+							   .desc										   = detail::recorded(desc) }),
 			error);
 	}
 
@@ -327,7 +327,7 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "getTextureInfo output pointer is null");
 		}
 
-		const TextureSlot * const slot = device->textureSlots.Resolve(texture, false);
+		const TextureSlot * const slot = device->textureSlots.resolve(texture, false);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "getTextureInfo names a texture this device did not create");
@@ -354,7 +354,7 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "getBufferInfo output pointer is null");
 		}
 
-		const BufferSlot * const slot = device->bufferSlots.Resolve(buffer, false);
+		const BufferSlot * const slot = device->bufferSlots.resolve(buffer, false);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "getBufferInfo names a buffer this device did not create");
@@ -399,7 +399,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		TextureSlot * slot = device->textureSlots.Resolve(slotHandle, true);
+		TextureSlot * slot = device->textureSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid texture handle");
@@ -412,19 +412,19 @@ namespace azo::rhi::d3d12
 		if (slot->lifetime == SlotLifetime::eAdopted)
 		{
 			slot->resource.Reset();
-			static_cast<void>(device->textureSlots.Retire(slotHandle, true));
+			static_cast<void>(device->textureSlots.retire(slotHandle, true));
 			return Succeed(error);
 		}
 
 		slot->resource.Reset();
 		slot->allocation.Reset();
-		static_cast<void>(device->textureSlots.Retire(slotHandle, true));
+		static_cast<void>(device->textureSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
 	[[nodiscard]] TextureSlot * ResolveTexture(D3D12Device * device, TextureHandle handle) noexcept
 	{
-		TextureSlot * slot = device->textureSlots.Resolve(handle, kHandleAlreadyChecked);
+		TextureSlot * slot = device->textureSlots.resolve(handle, kHandleAlreadyChecked);
 		return slot != nullptr && slot->resource != nullptr ? slot : nullptr;
 	}
 
@@ -572,7 +572,7 @@ namespace azo::rhi::d3d12
 			return FailValue<TextureViewHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views");
 		}
-		if (plane == kNoPlane && IsMultiPlanarFormat(rhiFormat))
+		if (plane == kNoPlane && is_multi_planar_format(rhiFormat))
 		{
 			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "a texture view of a multi-planar format must name a plane aspect");
 		}
@@ -580,7 +580,7 @@ namespace azo::rhi::d3d12
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 		if (plane != kNoPlane)
 		{
-			const Format planeFormat = PlaneFormatOf(rhiFormat, plane);
+			const Format planeFormat = plane_format_of(rhiFormat, plane);
 			if (planeFormat == Format::eUndefined)
 			{
 				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view names a plane the source texture's format does not have");
@@ -610,7 +610,7 @@ namespace azo::rhi::d3d12
 
 		std::uint32_t rtvIndex = kInvalidIndex;
 		std::uint32_t dsvIndex = kInvalidIndex;
-		if (usage.Contains(TextureUsage::eDepthStencilAttachment))
+		if (usage.contains(TextureUsage::eDepthStencilAttachment))
 		{
 			dsvIndex = device->dsvHeap.Allocate();
 			if (dsvIndex == kInvalidIndex)
@@ -621,7 +621,7 @@ namespace azo::rhi::d3d12
 			FillDsvDesc(dsv, format, desc);
 			device->device->CreateDepthStencilView(resource.Get(), &dsv, device->dsvHeap.Handle(dsvIndex));
 		}
-		if (usage.Contains(TextureUsage::eColorAttachment))
+		if (usage.contains(TextureUsage::eColorAttachment))
 		{
 			rtvIndex = device->rtvHeap.Allocate();
 			if (rtvIndex == kInvalidIndex)
@@ -634,7 +634,7 @@ namespace azo::rhi::d3d12
 			device->device->CreateRenderTargetView(resource.Get(), &rtv, device->rtvHeap.Handle(rtvIndex));
 		}
 
-		return ReturnValue(device->textureViewSlots.Store(TextureViewSlot{ .texture = texture,
+		return ReturnValue(device->textureViewSlots.store(TextureViewSlot{ .texture = texture,
 							   .format												= format,
 							   .type												= desc.type,
 							   .range												= desc.range,
@@ -651,7 +651,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		TextureViewSlot * slot = device->textureViewSlots.Resolve(slotHandle, true);
+		TextureViewSlot * slot = device->textureViewSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid texture view handle");
@@ -663,7 +663,7 @@ namespace azo::rhi::d3d12
 
 		if (slot->lifetime == SlotLifetime::eAdopted)
 		{
-			static_cast<void>(device->textureViewSlots.Retire(slotHandle, true));
+			static_cast<void>(device->textureViewSlots.retire(slotHandle, true));
 			return Succeed(error);
 		}
 
@@ -671,7 +671,7 @@ namespace azo::rhi::d3d12
 		device->dsvHeap.Free(slot->dsvIndex);
 		slot->rtvIndex = kInvalidIndex;
 		slot->dsvIndex = kInvalidIndex;
-		static_cast<void>(device->textureViewSlots.Retire(slotHandle, true));
+		static_cast<void>(device->textureViewSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 

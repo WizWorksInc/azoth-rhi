@@ -40,60 +40,60 @@ namespace azo::rhi
 		Profiler & operator=(Profiler &&)	   = delete;
 		virtual ~Profiler()					   = default;
 
-		virtual void BeginZone([[maybe_unused]] const ZoneLocation & location) {}
+		virtual void begin_zone([[maybe_unused]] const ZoneLocation & location) {}
 
-		virtual void EndZone() {}
+		virtual void end_zone() {}
 
-		virtual void Plot([[maybe_unused]] CString name, [[maybe_unused]] std::int64_t value) {}
+		virtual void plot([[maybe_unused]] CString name, [[maybe_unused]] std::int64_t value) {}
 
-		virtual void GpuAllocate([[maybe_unused]] const void * address, [[maybe_unused]] std::uint64_t size, [[maybe_unused]] CString pool) {}
+		virtual void gpu_allocate([[maybe_unused]] const void * address, [[maybe_unused]] std::uint64_t size, [[maybe_unused]] CString pool) {}
 
-		virtual void GpuFree([[maybe_unused]] const void * address, [[maybe_unused]] CString pool) {}
+		virtual void gpu_free([[maybe_unused]] const void * address, [[maybe_unused]] CString pool) {}
 
-		[[nodiscard]] virtual bool InitializeGpu([[maybe_unused]] Device device, [[maybe_unused]] CommandList & cmdList)
+		[[nodiscard]] virtual bool initialize_gpu([[maybe_unused]] Device device, [[maybe_unused]] CommandList & cmdList)
 		{
 			return false;
 		}
 
-		virtual void ShutdownGpu() {}
+		virtual void shutdown_gpu() {}
 
-		virtual void BeginGpuZone([[maybe_unused]] CommandList & cmdList, [[maybe_unused]] const ZoneLocation & location) {}
+		virtual void begin_gpu_zone([[maybe_unused]] CommandList & cmdList, [[maybe_unused]] const ZoneLocation & location) {}
 
-		virtual void EndGpuZone([[maybe_unused]] CommandList & cmdList) {}
+		virtual void end_gpu_zone([[maybe_unused]] CommandList & cmdList) {}
 
-		virtual void CollectGpu([[maybe_unused]] CommandList & cmdList) {}
+		virtual void collect_gpu([[maybe_unused]] CommandList & cmdList) {}
 
-		virtual void EnterFiber([[maybe_unused]] FiberId fiber, [[maybe_unused]] CString name) {}
+		virtual void enter_fiber([[maybe_unused]] FiberId fiber, [[maybe_unused]] CString name) {}
 
-		virtual void LeaveFiber([[maybe_unused]] FiberId fiber) {}
+		virtual void leave_fiber([[maybe_unused]] FiberId fiber) {}
 	};
 
 	namespace detail
 	{
-		[[nodiscard]] AZO_RHI_API std::atomic<Profiler *> & ProfilerSlot() noexcept;
+		[[nodiscard]] AZO_RHI_API std::atomic<Profiler *> & profiler_slot() noexcept;
 	}
 
-	inline void SetProfiler(Profiler * profiler) noexcept
+	inline void set_profiler(Profiler * profiler) noexcept
 	{
-		detail::ProfilerSlot().store(profiler, std::memory_order_relaxed);
+		detail::profiler_slot().store(profiler, std::memory_order_relaxed);
 	}
 
-	[[nodiscard]] inline Profiler * GetProfiler() noexcept
+	[[nodiscard]] inline Profiler * get_profiler() noexcept
 	{
-		return detail::ProfilerSlot().load(std::memory_order_relaxed);
+		return detail::profiler_slot().load(std::memory_order_relaxed);
 	}
 
 	class ScopedProfiler final
 	{
 	public:
-		explicit ScopedProfiler(Profiler * profiler) noexcept : m_previous(GetProfiler())
+		explicit ScopedProfiler(Profiler * profiler) noexcept : m_previous(get_profiler())
 		{
-			SetProfiler(profiler);
+			set_profiler(profiler);
 		}
 
 		~ScopedProfiler()
 		{
-			SetProfiler(m_previous);
+			set_profiler(m_previous);
 		}
 
 		ScopedProfiler(const ScopedProfiler &)			   = delete;
@@ -101,7 +101,7 @@ namespace azo::rhi
 		ScopedProfiler(ScopedProfiler &&)				   = delete;
 		ScopedProfiler & operator=(ScopedProfiler &&)	   = delete;
 
-		[[nodiscard]] Profiler * Previous() const noexcept
+		[[nodiscard]] Profiler * previous() const noexcept
 		{
 			return m_previous;
 		}
@@ -115,37 +115,37 @@ namespace azo::rhi
 	public:
 		explicit BroadcastProfiler(std::span<Profiler * const> sinks) noexcept : m_sinks(sinks) {}
 
-		void BeginZone(const ZoneLocation & location) override
+		void begin_zone(const ZoneLocation & location) override
 		{
-			ForEach(&Profiler::BeginZone, location);
+			ForEach(&Profiler::begin_zone, location);
 		}
 
-		void EndZone() override
+		void end_zone() override
 		{
-			ForEach(&Profiler::EndZone);
+			ForEach(&Profiler::end_zone);
 		}
 
-		void Plot(CString name, std::int64_t value) override
+		void plot(CString name, std::int64_t value) override
 		{
-			ForEach(&Profiler::Plot, name, value);
+			ForEach(&Profiler::plot, name, value);
 		}
 
-		void GpuAllocate(const void * address, std::uint64_t size, CString pool) override
+		void gpu_allocate(const void * address, std::uint64_t size, CString pool) override
 		{
-			ForEach(&Profiler::GpuAllocate, address, size, pool);
+			ForEach(&Profiler::gpu_allocate, address, size, pool);
 		}
 
-		void GpuFree(const void * address, CString pool) override
+		void gpu_free(const void * address, CString pool) override
 		{
-			ForEach(&Profiler::GpuFree, address, pool);
+			ForEach(&Profiler::gpu_free, address, pool);
 		}
 
-		[[nodiscard]] bool InitializeGpu(Device device, CommandList & cmdList) override
+		[[nodiscard]] bool initialize_gpu(Device device, CommandList & cmdList) override
 		{
 			bool any = false;
 			for (Profiler * sink : m_sinks)
 			{
-				if (sink != nullptr && sink->InitializeGpu(device, cmdList))
+				if (sink != nullptr && sink->initialize_gpu(device, cmdList))
 				{
 					any = true;
 				}
@@ -153,34 +153,34 @@ namespace azo::rhi
 			return any;
 		}
 
-		void ShutdownGpu() override
+		void shutdown_gpu() override
 		{
-			ForEach(&Profiler::ShutdownGpu);
+			ForEach(&Profiler::shutdown_gpu);
 		}
 
-		void BeginGpuZone(CommandList & cmdList, const ZoneLocation & location) override
+		void begin_gpu_zone(CommandList & cmdList, const ZoneLocation & location) override
 		{
-			ForEach(&Profiler::BeginGpuZone, cmdList, location);
+			ForEach(&Profiler::begin_gpu_zone, cmdList, location);
 		}
 
-		void EndGpuZone(CommandList & cmdList) override
+		void end_gpu_zone(CommandList & cmdList) override
 		{
-			ForEach(&Profiler::EndGpuZone, cmdList);
+			ForEach(&Profiler::end_gpu_zone, cmdList);
 		}
 
-		void CollectGpu(CommandList & cmdList) override
+		void collect_gpu(CommandList & cmdList) override
 		{
-			ForEach(&Profiler::CollectGpu, cmdList);
+			ForEach(&Profiler::collect_gpu, cmdList);
 		}
 
-		void EnterFiber(FiberId fiber, CString name) override
+		void enter_fiber(FiberId fiber, CString name) override
 		{
-			ForEach(&Profiler::EnterFiber, fiber, name);
+			ForEach(&Profiler::enter_fiber, fiber, name);
 		}
 
-		void LeaveFiber(FiberId fiber) override
+		void leave_fiber(FiberId fiber) override
 		{
-			ForEach(&Profiler::LeaveFiber, fiber);
+			ForEach(&Profiler::leave_fiber, fiber);
 		}
 
 	private:
@@ -205,11 +205,11 @@ namespace azo::rhi
 		class ScopedZone final
 		{
 		public:
-			explicit ScopedZone(const ZoneLocation & location) noexcept : m_profiler(GetProfiler())
+			explicit ScopedZone(const ZoneLocation & location) noexcept : m_profiler(get_profiler())
 			{
 				if (m_profiler != nullptr)
 				{
-					m_profiler->BeginZone(location);
+					m_profiler->begin_zone(location);
 				}
 			}
 
@@ -217,7 +217,7 @@ namespace azo::rhi
 			{
 				if (m_profiler != nullptr)
 				{
-					m_profiler->EndZone();
+					m_profiler->end_zone();
 				}
 			}
 
@@ -233,11 +233,11 @@ namespace azo::rhi
 		class ScopedGpuZone final
 		{
 		public:
-			ScopedGpuZone(CommandList & cmdList, const ZoneLocation & location) noexcept : m_profiler(GetProfiler()), m_cmdList(cmdList)
+			ScopedGpuZone(CommandList & cmdList, const ZoneLocation & location) noexcept : m_profiler(get_profiler()), m_cmdList(cmdList)
 			{
 				if (m_profiler != nullptr)
 				{
-					m_profiler->BeginGpuZone(m_cmdList, location);
+					m_profiler->begin_gpu_zone(m_cmdList, location);
 				}
 			}
 
@@ -245,7 +245,7 @@ namespace azo::rhi
 			{
 				if (m_profiler != nullptr)
 				{
-					m_profiler->EndGpuZone(m_cmdList);
+					m_profiler->end_gpu_zone(m_cmdList);
 				}
 			}
 
@@ -263,7 +263,7 @@ namespace azo::rhi
 		{
 		public:
 			explicit FiberSuspension(const SyncOps & sync, Profiler * const deviceProfiler) noexcept
-				: m_profiler(sync.currentFiber == nullptr ? nullptr : (deviceProfiler != nullptr ? deviceProfiler : GetProfiler()))
+				: m_profiler(sync.currentFiber == nullptr ? nullptr : (deviceProfiler != nullptr ? deviceProfiler : get_profiler()))
 			{
 				if (m_profiler == nullptr)
 				{
@@ -271,14 +271,14 @@ namespace azo::rhi
 				}
 
 				m_fiber = sync.currentFiber(sync.context);
-				m_profiler->LeaveFiber(m_fiber);
+				m_profiler->leave_fiber(m_fiber);
 			}
 
 			~FiberSuspension()
 			{
 				if (m_profiler != nullptr)
 				{
-					m_profiler->EnterFiber(m_fiber, nullptr);
+					m_profiler->enter_fiber(m_fiber, nullptr);
 				}
 			}
 

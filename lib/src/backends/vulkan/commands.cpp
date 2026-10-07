@@ -7,18 +7,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/blocks/command_list.hpp"
+#include "azoth/rhi/backend/blocks/command_pool.hpp"
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/interface.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/commands/command.hpp"
+#include "azoth/rhi/commands/copy_types.hpp"
+#include "azoth/rhi/commands/render.hpp"
+#include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/build_config.hpp"
+#include "azoth/rhi/core/c_string.hpp"
+#include "azoth/rhi/core/constants.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/host/allocator.hpp"
+#include "azoth/rhi/native/native_access.hpp"
+#include "azoth/rhi/resources/descriptors.hpp"
+#include "azoth/rhi/resources/resources.hpp"
+#include "azoth/rhi/resources/texture_view.hpp"
 
+#include "backends/vulkan/barrier_tables.hpp"
 #include "backends/vulkan/internal.hpp"
+#include "backends/vulkan/layouts.hpp"
+#include "vulkan/vulkan.hpp"
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <utility>
+#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace azo::rhi::vulkan
 {
 	namespace
 	{
-		const BackendObject * CommandListObject() noexcept;
+		const BackendObject * command_list_object() noexcept;
 	}
 
-	void * VulkanCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
+	void * vulkan_create_command_pool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createCommandPool");
 		auto * device = static_cast<VulkanDevice *>(impl);
@@ -35,48 +67,48 @@ namespace azo::rhi::vulkan
 			flags |= vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 		}
 
-		auto commandPool = HostNew<VulkanCommandPool>();
+		auto commandPool = host_new<VulkanCommandPool>();
 		if (commandPool == nullptr)
 		{
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command pool allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command pool allocation failed");
 		}
 
-		commandPool->object				   = PublishingObject<Published<CommandPoolApi, &CommandPoolBlock>>();
+		commandPool->object				   = publishing_object<Published<CommandPoolApi, &command_pool_block>>();
 		commandPool->owner				   = device;
-		commandPool->family				   = QueueFamilyForType(device, desc.queueType);
+		commandPool->family				   = queue_family_for_type(device, desc.queueType);
 		commandPool->resetsIndividualLists = perListReset;
 
 		const auto created = device->device.createCommandPool(vk::CommandPoolCreateInfo(flags, commandPool->family), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailNativeValue<void *>(error, "Vulkan command pool creation failed", created.result);
+			return fail_native_value<void *>(error, "Vulkan command pool creation failed", created.result);
 		}
 
 		commandPool->pool = created.value;
 
 		VulkanCommandPool * raw = commandPool.get();
-		if (!detail::TryPushBack(device->commandPools, std::move(commandPool)))
+		if (!detail::try_push_back(device->commandPools, std::move(commandPool)))
 		{
 			device->device.destroyCommandPool(created.value, nullptr, device->dispatch);
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command pool allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command pool allocation failed");
 		}
 
-		return ReturnValue(raw, error);
+		return return_value(raw, error);
 	}
 
-	void * VulkanCommandPoolAllocate(void * impl, [[maybe_unused]] CString debugName, Error * error) noexcept
+	void * vulkan_command_pool_allocate(void * impl, [[maybe_unused]] CString debugName, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.commandPool.allocate");
 		auto * commandPool	  = static_cast<VulkanCommandPool *>(impl);
 		VulkanDevice * device = commandPool->owner;
 
-		SweepRetiredCommandBuffers(commandPool);
+		sweep_retired_command_buffers(commandPool);
 
 		if (commandPool->handedOut < commandPool->lists.size())
 		{
-			VulkanCommandList * recycled = commandPool->lists[commandPool->handedOut];
+			VulkanCommandList * recycled = azo::rhi::detail::at(commandPool->lists, commandPool->handedOut);
 			++commandPool->handedOut;
-			return ReturnValue(recycled, error);
+			return return_value(recycled, error);
 		}
 
 		const auto buffers = device->device.allocateCommandBuffers<HostAllocatorAdapter<vk::CommandBuffer>>(
@@ -84,41 +116,41 @@ namespace azo::rhi::vulkan
 
 		if (buffers.result != vk::Result::eSuccess || buffers.value.empty())
 		{
-			return FailNativeValue<void *>(error, "Vulkan command buffer allocation failed", buffers.result);
+			return fail_native_value<void *>(error, "Vulkan command buffer allocation failed", buffers.result);
 		}
 
-		auto list = HostNew<VulkanCommandList>();
+		auto list = host_new<VulkanCommandList>();
 		if (list == nullptr)
 		{
 			device->device.freeCommandBuffers(commandPool->pool, buffers.value.front(), device->dispatch);
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
 		}
 
-		list->object = CommandListObject();
+		list->object = command_list_object();
 		list->owner	 = device;
 		list->pool	 = commandPool;
 		list->buffer = buffers.value.front();
 		list->family = commandPool->family;
 
 		VulkanCommandList * raw = list.get();
-		if (!detail::TryPushBack(device->commandLists, std::move(list)))
+		if (!detail::try_push_back(device->commandLists, std::move(list)))
 		{
 			device->device.freeCommandBuffers(commandPool->pool, buffers.value.front(), device->dispatch);
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
 		}
 
-		if (!detail::TryPushBack(commandPool->lists, raw))
+		if (!detail::try_push_back(commandPool->lists, raw))
 		{
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan command list allocation failed");
 		}
 		++commandPool->handedOut;
 
-		return ReturnValue(raw, error);
+		return return_value(raw, error);
 	}
 
 	namespace
 	{
-		const void * VulkanCommandListQueryInterface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
+		const void * vulkan_command_list_query_interface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
 		{
 			const auto * list = static_cast<const VulkanCommandList *>(object);
 
@@ -132,43 +164,43 @@ namespace azo::rhi::vulkan
 				return nullptr;
 			}
 
-			return QueryPublished<Published<RenderCommandApi, &RenderCommandBlock>,
-				Published<AliasingCommandApi, &AliasingCommandBlock>,
-				Published<QueryCommandApi, &QueryCommandBlock>,
-				Published<IndirectApi, &IndirectBlock>,
-				Published<IndirectCountApi, &IndirectCountBlock>,
-				Published<NativeEscapeApi, &NativeEscapeBlock>>(object, id, minVersion);
+			return query_published<Published<RenderCommandApi, &render_command_block>,
+				Published<AliasingCommandApi, &aliasing_command_block>,
+				Published<QueryCommandApi, &query_command_block>,
+				Published<IndirectApi, &indirect_block>,
+				Published<IndirectCountApi, &indirect_count_block>,
+				Published<NativeEscapeApi, &native_escape_block>>(object, id, minVersion);
 		}
 
-		const BackendObject * CommandListObject() noexcept
+		const BackendObject * command_list_object() noexcept
 		{
-			static constexpr BackendObject object{ .queryInterface = &VulkanCommandListQueryInterface };
-			return &object;
+			static constexpr BackendObject kObject{ .queryInterface = &vulkan_command_list_query_interface };
+			return &kObject;
 		}
 	}
 
-	bool VulkanCommandPoolReset(void * impl, RetirePoint safeAfter, Error * error) noexcept
+	bool vulkan_command_pool_reset(void * impl, RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.commandPool.reset");
 		auto * commandPool = static_cast<VulkanCommandPool *>(impl);
 
 		const std::array retirePoint{ TimelinePoint{ .timeline = safeAfter.timeline, .value = safeAfter.value } };
 		// The caller names safeAfter as the point this pool's work is done, so once it is reached a lagging backend signal does not block the reset.
-		const bool callerProvedIdle = safeAfter.value != 0 && CallerSignalReached(commandPool->owner, retirePoint);
+		const bool callerProvedIdle = safeAfter.value != 0 && caller_signal_reached(commandPool->owner, retirePoint);
 
 		// VUID-vkResetCommandPool-commandPool-00040: no buffer allocated from the pool may be pending, and a retired one still counts as allocated.
 		for (const VulkanCommandList * list : commandPool->lists)
 		{
-			if (!callerProvedIdle && ListStillRunning(list))
+			if (!callerProvedIdle && list_still_running(list))
 			{
-				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
+				return fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
 			}
 		}
 		for (const RetiredCommandBuffer & entry : commandPool->retired)
 		{
-			if (!callerProvedIdle && SubmissionStillRunning(commandPool->owner, entry.submitTimeline, entry.submitValue, entry.callerSignals))
+			if (!callerProvedIdle && submission_still_running(commandPool->owner, entry.submitTimeline, entry.submitValue, entry.callerSignals))
 			{
-				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
+				return fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
 			}
 		}
 
@@ -181,7 +213,7 @@ namespace azo::rhi::vulkan
 		}
 		commandPool->framebuffers.clear();
 
-		SweepRetiredCommandBuffers(commandPool);
+		sweep_retired_command_buffers(commandPool);
 
 		// Marked before the native reset rather than after, so a reset that fails cannot leave a list looking submittable.
 		for (VulkanCommandList * list : commandPool->lists)
@@ -195,12 +227,12 @@ namespace azo::rhi::vulkan
 		if (const vk::Result reset = commandPool->owner->device.resetCommandPool(commandPool->pool, {}, commandPool->owner->dispatch);
 			reset != vk::Result::eSuccess)
 		{
-			return FailNative(error, "Vulkan command pool reset failed", reset);
+			return fail_native(error, "Vulkan command pool reset failed", reset);
 		}
 
 		commandPool->handedOut = 0;
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	// Freeing needs no pool flag and only forbids a pending buffer, per VUID-vkFreeCommandBuffers-pCommandBuffers-00047, so a live one waits on the pool.
@@ -210,14 +242,14 @@ namespace azo::rhi::vulkan
 		VulkanDevice * device	 = list->owner;
 		if (pool == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no pool to take a fresh buffer from");
+			return fail(error, ErrorCode::eInvalidState, "command list has no pool to take a fresh buffer from");
 		}
 
 		const vk::CommandBufferAllocateInfo info(pool->pool, vk::CommandBufferLevel::ePrimary, 1);
 		vk::CommandBuffer replacement;
 		if (const vk::Result allocated = device->device.allocateCommandBuffers(&info, &replacement, device->dispatch); allocated != vk::Result::eSuccess)
 		{
-			return FailNative(error, "vkAllocateCommandBuffers failed replacing a used command buffer", allocated);
+			return fail_native(error, "vkAllocateCommandBuffers failed replacing a used command buffer", allocated);
 		}
 
 		const vk::CommandBuffer retiring = list->buffer;
@@ -228,10 +260,10 @@ namespace azo::rhi::vulkan
 			entry.submitTimeline = list->submitTimeline;
 			entry.submitValue	 = list->submitValue;
 
-			if (!detail::TryPushBack(pool->retired, std::move(entry)))
+			if (!detail::try_push_back(pool->retired, std::move(entry)))
 			{
 				device->device.freeCommandBuffers(pool->pool, 1, &replacement, device->dispatch);
-				return Fail(error, ErrorCode::eOutOfHostMemory, "could not park a command buffer that is still executing");
+				return fail(error, ErrorCode::eOutOfHostMemory, "could not park a command buffer that is still executing");
 			}
 			pool->retired.back().callerSignals = std::move(list->callerSignals);
 		}
@@ -244,56 +276,55 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	bool VulkanCommandListBegin(void * impl, Error * error) noexcept
+	bool vulkan_command_list_begin(void * impl, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device = list->owner;
 
-		SweepRetiredCommandBuffers(list->pool);
+		sweep_retired_command_buffers(list->pool);
 
 		// A buffer that has been begun before is no longer in the initial state, and only a pool carrying eResetCommandBuffer may reset it in place.
 		const bool used	   = list->lifecycle != ListLifecycle::eFresh;
-		const bool running = ListStillRunning(list);
+		const bool running = list_still_running(list);
 		// A recording buffer is excluded because vkBeginCommandBuffer forbids it even with the reset bit, per VUID 00049, so it takes the retire path.
 		const bool resetHere = list->pool != nullptr && list->pool->resetsIndividualLists && !running && list->lifecycle != ListLifecycle::eRecording;
-		if (used && !resetHere)
-		{
-			if (!RetireAndReplaceBuffer(list, running, error))
+		if ((used && !resetHere) && (!RetireAndReplaceBuffer(list, running, error)))
+		
 			{
 				return false;
 			}
-		}
+		
 
 		if (const vk::Result began = list->buffer.begin(vk::CommandBufferBeginInfo(), device->dispatch); began != vk::Result::eSuccess)
 		{
-			return FailNative(error, "vkBeginCommandBuffer failed", began);
+			return fail_native(error, "vkBeginCommandBuffer failed", began);
 		}
 
 		list->lifecycle		 = ListLifecycle::eRecording;
 		list->submitTimeline = kNoSubmitTimeline;
 		list->submitValue	 = 0;
 		list->callerSignals.clear();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCommandListEnd(void * impl, Error * error) noexcept
+	bool vulkan_command_list_end(void * impl, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
 		if (const vk::Result ended = list->buffer.end(list->owner->dispatch); ended != vk::Result::eSuccess)
 		{
-			return FailNative(error, "vkEndCommandBuffer failed", ended);
+			return fail_native(error, "vkEndCommandBuffer failed", ended);
 		}
 
 		list->lifecycle = ListLifecycle::eEnded;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
+	bool vulkan_cmd_set_viewport(void * impl, const Viewport & viewport, Error * error) noexcept
 	{
 		float originY = viewport.y;
 		float height  = viewport.height;
-		if (GetClipSpace() == ClipSpaceConvention::eYUp)
+		if (get_clip_space() == ClipSpaceConvention::eYUp)
 		{
 			originY = viewport.y + viewport.height;
 			height	= -viewport.height;
@@ -302,71 +333,71 @@ namespace azo::rhi::vulkan
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.setViewport(0, vk::Viewport(viewport.x, originY, viewport.width, height, viewport.minDepth, viewport.maxDepth), list->owner->dispatch);
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept
+	bool vulkan_cmd_set_scissor(void * impl, const Rect2D & scissor, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.setScissor(0, vk::Rect2D(vk::Offset2D(scissor.x, scissor.y), vk::Extent2D(scissor.width, scissor.height)), list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdCopyBuffer(
+	bool vulkan_cmd_copy_buffer(
 		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device = list->owner;
 
-		BufferSlot * srcSlot = ResolveBuffer(device, src);
-		BufferSlot * dstSlot = ResolveBuffer(device, dst);
+		BufferSlot * srcSlot = resolve_buffer(device, src);
+		BufferSlot * dstSlot = resolve_buffer(device, dst);
 		if (srcSlot == nullptr || dstSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyBuffer with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "copyBuffer with an invalid buffer handle");
 		}
 
 		list->buffer.copyBuffer(vk::Buffer(srcSlot->buffer), vk::Buffer(dstSlot->buffer), vk::BufferCopy(srcOffset, dstOffset, size), device->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
+	bool vulkan_cmd_reset_query_pool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid query pool handle");
+			return fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid query pool handle");
 		}
 		if (firstQuery > slot->queryCount || queryCount > slot->queryCount - firstQuery)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
 
 		list->buffer.resetQueryPool(slot->pool, firstQuery, queryCount, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept
+	bool vulkan_cmd_write_timestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "writeTimestamp with an invalid query pool handle");
+			return fail(error, ErrorCode::eInvalidHandle, "writeTimestamp with an invalid query pool handle");
 		}
 		if (query >= slot->queryCount)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
 
-		if (!IsOneTimestampStage(stage))
+		if (!is_one_timestamp_stage(stage))
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp takes a single stage and this mask names more than one");
+			return fail(error, ErrorCode::eInvalidArgument, "writeTimestamp takes a single stage and this mask names more than one");
 		}
 
-		const vk::PipelineStageFlagBits2 stageBit = TimestampStage(stage);
+		const vk::PipelineStageFlagBits2 stageBit = timestamp_stage(stage);
 		if (list->owner->coreVk13)
 		{
 			list->buffer.writeTimestamp2(stageBit, slot->pool, query, list->owner->dispatch);
@@ -375,59 +406,59 @@ namespace azo::rhi::vulkan
 		{
 			list->buffer.writeTimestamp2KHR(stageBit, slot->pool, query, list->owner->dispatch);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept
+	bool vulkan_cmd_begin_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "beginQuery with an invalid query pool handle");
+			return fail(error, ErrorCode::eInvalidHandle, "beginQuery with an invalid query pool handle");
 		}
 		if (query >= slot->queryCount)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "beginQuery names a query past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "beginQuery names a query past the end of the pool");
 		}
 
 		list->buffer.beginQuery(slot->pool, query, vk::QueryControlFlags{}, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept
+	bool vulkan_cmd_end_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "endQuery with an invalid query pool handle");
+			return fail(error, ErrorCode::eInvalidHandle, "endQuery with an invalid query pool handle");
 		}
 		if (query >= slot->queryCount)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "endQuery names a query past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "endQuery names a query past the end of the pool");
 		}
 
 		list->buffer.endQuery(slot->pool, query, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
+	bool vulkan_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
 		std::uint64_t dstOffset, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		QueryPoolSlot * poolSlot = ResolveQueryPool(list->owner, pool);
-		BufferSlot * dstSlot	 = ResolveBuffer(list->owner, dst);
+		QueryPoolSlot * poolSlot = resolve_query_pool(list->owner, pool);
+		BufferSlot * dstSlot	 = resolve_buffer(list->owner, dst);
 		if (poolSlot == nullptr || dstSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid query pool or buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid query pool or buffer handle");
 		}
 		if (firstQuery > poolSlot->queryCount || queryCount > poolSlot->queryCount - firstQuery)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
 
 		list->buffer.copyQueryPoolResults(poolSlot->pool,
@@ -438,71 +469,71 @@ namespace azo::rhi::vulkan
 			sizeof(std::uint64_t),
 			vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait,
 			list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	[[nodiscard]] std::array<float, 4> UnpackLabelColor(std::uint32_t color) noexcept
+	[[nodiscard]] std::array<float, 4> unpack_label_color(std::uint32_t color) noexcept
 	{
 		return { static_cast<float>((color >> 24) & 0xFFu) / 255.0f,
 			static_cast<float>((color >> 16) & 0xFFu) / 255.0f,
 			static_cast<float>((color >> 8) & 0xFFu) / 255.0f,
-			static_cast<float>(color & 0xFFu) / 255.0f };
+			static_cast<float>(color & 0xFFu) / 255.0f, };
 	}
 
-	bool VulkanCmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept
+	bool vulkan_cmd_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (list->owner->debugUtils && list->owner->debugLabels)
 		{
-			list->buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT(name != nullptr ? name : "", UnpackLabelColor(color)), list->owner->dispatch);
+			list->buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT(name != nullptr ? name : "", unpack_label_color(color)), list->owner->dispatch);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdEndDebugLabel(void * impl, Error * error) noexcept
+	bool vulkan_cmd_end_debug_label(void * impl, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (list->owner->debugUtils && list->owner->debugLabels)
 		{
 			list->buffer.endDebugUtilsLabelEXT(list->owner->dispatch);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc &, Error * error) noexcept
+	bool vulkan_cmd_begin_native_mutation(void * impl, GraphicsApiId api, const NativeMutationDesc & /*unused*/, Error * error) noexcept
 	{
 		static_cast<void>(impl);
-		if (api != VulkanApi::id)
+		if (api != VulkanApi::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "native mutation API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "native mutation API does not match the device backend");
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc &, Error * error) noexcept
+	bool vulkan_cmd_end_native_mutation(void * impl, const NativeMutationDesc & /*unused*/, Error * error) noexcept
 	{
 		static_cast<void>(impl);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanQueueBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept
+	bool vulkan_queue_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept
 	{
 		auto * queue = static_cast<VulkanQueue *>(impl);
 		if (queue->owner->debugUtils && queue->owner->debugLabels)
 		{
-			queue->queue.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT(name != nullptr ? name : "", UnpackLabelColor(color)), queue->owner->dispatch);
+			queue->queue.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT(name != nullptr ? name : "", unpack_label_color(color)), queue->owner->dispatch);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanQueueEndDebugLabel(void * impl, Error * error) noexcept
+	bool vulkan_queue_end_debug_label(void * impl, Error * error) noexcept
 	{
 		auto * queue = static_cast<VulkanQueue *>(impl);
 		if (queue->owner->debugUtils && queue->owner->debugLabels)
 		{
 			queue->queue.endDebugUtilsLabelEXT(queue->owner->dispatch);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	namespace
@@ -513,7 +544,7 @@ namespace azo::rhi::vulkan
 			std::uint32_t dst = VK_QUEUE_FAMILY_IGNORED;
 		};
 
-		[[nodiscard]] OwnershipFamilies FamiliesFor(const VulkanCommandList * list, const QueueOwnership & ownership) noexcept
+		[[nodiscard]] OwnershipFamilies families_for(const VulkanCommandList * list, const QueueOwnership & ownership) noexcept
 		{
 			const std::uint32_t here = list->family;
 
@@ -521,16 +552,16 @@ namespace azo::rhi::vulkan
 			{
 			case OwnershipOp::eRelease:
 			{
-				const std::uint32_t there = list->owner->FamilyForType(ownership.counterpart);
-				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ here, there };
+				const std::uint32_t there = list->owner->family_for_type(ownership.counterpart);
+				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ .src=here, .dst=there };
 			}
 			case OwnershipOp::eAcquire:
 			{
-				const std::uint32_t there = list->owner->FamilyForType(ownership.counterpart);
-				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ there, here };
+				const std::uint32_t there = list->owner->family_for_type(ownership.counterpart);
+				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ .src=there, .dst=here };
 			}
-			case OwnershipOp::eReleaseToExternal:	return { here, VK_QUEUE_FAMILY_EXTERNAL };
-			case OwnershipOp::eAcquireFromExternal: return { VK_QUEUE_FAMILY_EXTERNAL, here };
+			case OwnershipOp::eReleaseToExternal:	return { .src=here, .dst=VK_QUEUE_FAMILY_EXTERNAL };
+			case OwnershipOp::eAcquireFromExternal: return { .src=VK_QUEUE_FAMILY_EXTERNAL, .dst=here };
 			case OwnershipOp::eNone:				break;
 			}
 
@@ -538,7 +569,7 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	bool VulkanCmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
+	bool vulkan_cmd_barriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device = list->owner;
@@ -546,34 +577,34 @@ namespace azo::rhi::vulkan
 		detail::HostVector<vk::MemoryBarrier2> memoryBarriers;
 		detail::HostVector<vk::BufferMemoryBarrier2> bufferBarriers;
 		detail::HostVector<vk::ImageMemoryBarrier2> imageBarriers;
-		if (!detail::TryReserve(memoryBarriers, barriers.memory.size()) || !detail::TryReserve(bufferBarriers, barriers.buffers.size()) ||
-			!detail::TryReserve(imageBarriers, barriers.textures.size()))
+		if (!detail::try_reserve(memoryBarriers, barriers.memory.size()) || !detail::try_reserve(bufferBarriers, barriers.buffers.size()) ||
+			!detail::try_reserve(imageBarriers, barriers.textures.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan barrier recording allocation failed");
+			return fail(error, ErrorCode::eOutOfHostMemory, "Vulkan barrier recording allocation failed");
 		}
 
 		for (const MemoryBarrier & b : barriers.memory)
 		{
-			memoryBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
-				MapBarrierAccess(b.before.use),
-				MapBarrierStages(b.after.stages, b.after.use),
-				MapBarrierAccess(b.after.use));
+			memoryBarriers.emplace_back(map_barrier_stages(b.before.stages, b.before.use),
+				map_barrier_access(b.before.use),
+				map_barrier_stages(b.after.stages, b.after.use),
+				map_barrier_access(b.after.use));
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
 		{
-			const BufferSlot * slot = ResolveBuffer(device, b.buffer);
+			const BufferSlot * slot = resolve_buffer(device, b.buffer);
 			if (slot == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
+				return fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
 
-			const OwnershipFamilies families = FamiliesFor(list, b.ownership);
+			const OwnershipFamilies families = families_for(list, b.ownership);
 
-			bufferBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
-				MapBarrierAccess(b.before.use),
-				MapBarrierStages(b.after.stages, b.after.use),
-				MapBarrierAccess(b.after.use),
+			bufferBarriers.emplace_back(map_barrier_stages(b.before.stages, b.before.use),
+				map_barrier_access(b.before.use),
+				map_barrier_stages(b.after.stages, b.after.use),
+				map_barrier_access(b.after.use),
 				families.src,
 				families.dst,
 				vk::Buffer(slot->buffer),
@@ -583,24 +614,24 @@ namespace azo::rhi::vulkan
 
 		for (const TextureBarrier & b : barriers.textures)
 		{
-			const vk::Image image = ResolveTexture(device, b.texture);
+			const vk::Image image = resolve_texture(device, b.texture);
 			if (!image)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
+				return fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
 
-			const OwnershipFamilies families = FamiliesFor(list, b.ownership);
+			const OwnershipFamilies families = families_for(list, b.ownership);
 
-			imageBarriers.emplace_back(MapBarrierStages(b.before.stages, b.before.use),
-				MapBarrierAccess(b.before.use),
-				MapBarrierStages(b.after.stages, b.after.use),
-				MapBarrierAccess(b.after.use),
-				LayoutForUse(b.before.use, device->unifiedImageLayouts),
-				LayoutForUse(b.after.use, device->unifiedImageLayouts),
+			imageBarriers.emplace_back(map_barrier_stages(b.before.stages, b.before.use),
+				map_barrier_access(b.before.use),
+				map_barrier_stages(b.after.stages, b.after.use),
+				map_barrier_access(b.after.use),
+				layout_for_use(b.before.use, device->unifiedImageLayouts),
+				layout_for_use(b.after.use, device->unifiedImageLayouts),
 				families.src,
 				families.dst,
 				image,
-				MapSubresourceRange(b.range));
+				map_subresource_range(b.range));
 		}
 
 		vk::DependencyInfo depInfo;
@@ -616,25 +647,25 @@ namespace azo::rhi::vulkan
 			list->buffer.pipelineBarrier2KHR(depInfo, list->owner->dispatch);
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
+	bool vulkan_cmd_alias_barriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (barriers.empty())
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		VulkanDevice * device = list->owner;
 		const auto liveBuffer = [device](const BufferHandle handle) noexcept
 		{
-			return !handle.IsValid() || device->bufferSlots.Resolve(handle, true) != nullptr;
+			return !handle.is_valid() || device->bufferSlots.resolve(handle, true) != nullptr;
 		};
 		const auto liveTexture = [device](const TextureHandle handle) noexcept
 		{
-			return !handle.IsValid() || device->textureSlots.Resolve(handle, true) != nullptr;
+			return !handle.is_valid() || device->textureSlots.resolve(handle, true) != nullptr;
 		};
 
 		for (const AliasBarrier & barrier : barriers)
@@ -642,7 +673,7 @@ namespace azo::rhi::vulkan
 			if (!liveBuffer(barrier.beforeBuffer) || !liveBuffer(barrier.afterBuffer) || !liveTexture(barrier.beforeTexture) ||
 				!liveTexture(barrier.afterTexture))
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
+				return fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
 			}
 		}
 
@@ -660,68 +691,68 @@ namespace azo::rhi::vulkan
 		{
 			list->buffer.pipelineBarrier2KHR(depInfo, list->owner->dispatch);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdBeginRenderPassScope(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept
+	bool vulkan_cmd_begin_render_pass_scope(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
 		VulkanDevice * device = list->owner;
 
 		RenderPassKey key;
 		if (desc.colors.size() > key.colors.size())
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "rendering scope exceeds the maximum color attachment count");
+			return fail(error, ErrorCode::eInvalidArgument, "rendering scope exceeds the maximum color attachment count");
 		}
 		key.colorCount = static_cast<std::uint32_t>(desc.colors.size());
 
 		detail::HostVector<vk::ImageView> views;
 		detail::HostVector<vk::ClearValue> clears;
-		if (!detail::TryReserve(views, desc.colors.size() + 1) || !detail::TryReserve(clears, desc.colors.size() + 1))
+		if (!detail::try_reserve(views, desc.colors.size() + 1) || !detail::try_reserve(clears, desc.colors.size() + 1))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
+			return fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
 		}
 
 		for (std::size_t i = 0; i < desc.colors.size(); ++i)
 		{
-			const RenderingAttachment & a = desc.colors[i];
-			const TextureViewSlot * slot  = ResolveTextureViewSlot(device, a.view);
+			const RenderingAttachment & a = azo::rhi::detail::at(desc.colors, i);
+			const TextureViewSlot * slot  = resolve_texture_view_slot(device, a.view);
 			if (slot == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering color attachment with an invalid view handle");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering color attachment with an invalid view handle");
 			}
 			// An attachment count past this array is refused above. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			key.colors[i] = RenderPassAttachmentKey{ .format = slot->format,
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				.samples = slot->samples,
-				.loadOp	 = MapLoadOp(a.load),
-				.storeOp = MapStoreOp(a.store),
-				.layout	 = LayoutForUse(a.state.use, device->unifiedImageLayouts) };
+				.loadOp	 = map_load_op(a.load),
+				.storeOp = map_store_op(a.store),
+				.layout	 = layout_for_use(a.state.use, device->unifiedImageLayouts), };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
 		}
 
 		if (desc.depthStencil != nullptr)
 		{
-			const TextureViewSlot * slot = ResolveTextureViewSlot(device, desc.depthStencil->view);
+			const TextureViewSlot * slot = resolve_texture_view_slot(device, desc.depthStencil->view);
 			if (slot == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment with an invalid view handle");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment with an invalid view handle");
 			}
 			key.hasDepth = true;
 			key.depth	 = RenderPassAttachmentKey{ .format = slot->format,
 				.samples								 = slot->samples,
-				.loadOp									 = MapLoadOp(desc.depthStencil->load),
-				.storeOp								 = MapStoreOp(desc.depthStencil->store),
-				.layout									 = LayoutForUse(desc.depthStencil->state.use, device->unifiedImageLayouts) };
+				.loadOp									 = map_load_op(desc.depthStencil->load),
+				.storeOp								 = map_store_op(desc.depthStencil->store),
+				.layout									 = layout_for_use(desc.depthStencil->state.use, device->unifiedImageLayouts), };
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 		}
 
 		vk::Result renderPassResult		= vk::Result::eSuccess;
-		const vk::RenderPass renderPass = GetOrCreateRenderPass(device, list->pool->renderPasses, key, renderPassResult);
+		const vk::RenderPass renderPass = get_or_create_render_pass(device, list->pool->renderPasses, key, renderPassResult);
 		if (!renderPass)
 		{
-			return FailNative(error, "Vulkan render pass creation failed", renderPassResult);
+			return fail_native(error, "Vulkan render pass creation failed", renderPassResult);
 		}
 
 		vk::FramebufferCreateInfo fbInfo;
@@ -734,13 +765,13 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createFramebuffer(fbInfo, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailNative(error, "Vulkan framebuffer creation failed", created.result);
+			return fail_native(error, "Vulkan framebuffer creation failed", created.result);
 		}
 
-		if (!detail::TryPushBack(list->pool->framebuffers, created.value))
+		if (!detail::try_push_back(list->pool->framebuffers, created.value))
 		{
 			device->device.destroyFramebuffer(created.value, nullptr, device->dispatch);
-			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
+			return fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
 		}
 
 		vk::RenderPassBeginInfo beginInfo;
@@ -751,28 +782,28 @@ namespace azo::rhi::vulkan
 		beginInfo.setClearValues(clears);
 
 		list->buffer.beginRenderPass(beginInfo, vk::SubpassContents::eInline, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	namespace
 	{
-		bool BeginRenderingTimestamps(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept
+		bool begin_rendering_timestamps(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept
 		{
 			list->pendingEndTimestamp = vk::QueryPool{};
 			if (desc.timestamps == nullptr)
 			{
-				return Succeed(error);
+				return succeed(error);
 			}
 
-			QueryPoolSlot * slot = ResolveQueryPool(list->owner, desc.timestamps->pool);
+			QueryPoolSlot * slot = resolve_query_pool(list->owner, desc.timestamps->pool);
 			if (slot == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering timestamp writes name a query pool this device never created");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering timestamp writes name a query pool this device never created");
 			}
 			if ((desc.timestamps->beginQuery != kInvalidIndex && desc.timestamps->beginQuery >= slot->queryCount) ||
 				(desc.timestamps->endQuery != kInvalidIndex && desc.timestamps->endQuery >= slot->queryCount))
 			{
-				return Fail(error, ErrorCode::eInvalidArgument, "rendering timestamp writes name a query past the end of the pool");
+				return fail(error, ErrorCode::eInvalidArgument, "rendering timestamp writes name a query past the end of the pool");
 			}
 
 			if (desc.timestamps->beginQuery != kInvalidIndex)
@@ -792,44 +823,44 @@ namespace azo::rhi::vulkan
 				list->pendingEndTimestamp	   = slot->pool;
 				list->pendingEndTimestampQuery = desc.timestamps->endQuery;
 			}
-			return Succeed(error);
+			return succeed(error);
 		}
 	}
 
-	bool VulkanCmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
+	bool vulkan_cmd_begin_rendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device = list->owner;
 
-		if (!BeginRenderingTimestamps(list, desc, error))
+		if (!begin_rendering_timestamps(list, desc, error))
 		{
 			return false;
 		}
 
 		if (!device->dynamicRendering)
 		{
-			return VulkanCmdBeginRenderPassScope(list, desc, error);
+			return vulkan_cmd_begin_render_pass_scope(list, desc, error);
 		}
 
 		detail::HostVector<vk::RenderingAttachmentInfo> colorAttachments;
-		if (!detail::TryReserve(colorAttachments, desc.colors.size()))
+		if (!detail::try_reserve(colorAttachments, desc.colors.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
+			return fail(error, ErrorCode::eOutOfHostMemory, "Vulkan rendering attachment allocation failed");
 		}
 
 		for (const RenderingAttachment & a : desc.colors)
 		{
-			const vk::ImageView view = ResolveTextureView(device, a.view);
+			const vk::ImageView view = resolve_texture_view(device, a.view);
 			if (!view)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering color attachment with an invalid view handle");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering color attachment with an invalid view handle");
 			}
 
 			vk::RenderingAttachmentInfo info;
 			info.imageView	 = view;
-			info.imageLayout = LayoutForUse(a.state.use, device->unifiedImageLayouts);
-			info.loadOp		 = MapLoadOp(a.load);
-			info.storeOp	 = MapStoreOp(a.store);
+			info.imageLayout = layout_for_use(a.state.use, device->unifiedImageLayouts);
+			info.loadOp		 = map_load_op(a.load);
+			info.storeOp	 = map_store_op(a.store);
 			info.clearValue	 = vk::ClearValue(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
 			colorAttachments.push_back(info);
 		}
@@ -840,17 +871,17 @@ namespace azo::rhi::vulkan
 		bool hasStencil		= false;
 		if (hasDepth)
 		{
-			const TextureViewSlot * slot = ResolveTextureViewSlot(device, desc.depthStencil->view);
+			const TextureViewSlot * slot = resolve_texture_view_slot(device, desc.depthStencil->view);
 			if (slot == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment with an invalid view handle");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment with an invalid view handle");
 			}
 			const vk::ImageView view = slot->view;
 
 			depthAttachment.imageView	= view;
-			depthAttachment.imageLayout = LayoutForUse(desc.depthStencil->state.use, device->unifiedImageLayouts);
-			depthAttachment.loadOp		= MapLoadOp(desc.depthStencil->load);
-			depthAttachment.storeOp		= MapStoreOp(desc.depthStencil->store);
+			depthAttachment.imageLayout = layout_for_use(desc.depthStencil->state.use, device->unifiedImageLayouts);
+			depthAttachment.loadOp		= map_load_op(desc.depthStencil->load);
+			depthAttachment.storeOp		= map_store_op(desc.depthStencil->store);
 			depthAttachment.clearValue =
 				vk::ClearValue(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 
@@ -885,10 +916,10 @@ namespace azo::rhi::vulkan
 			list->buffer.beginRenderingKHR(renderingInfo, list->owner->dispatch);
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdEndRendering(void * impl, Error * error) noexcept
+	bool vulkan_cmd_end_rendering(void * impl, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (!list->owner->dynamicRendering)
@@ -917,90 +948,90 @@ namespace azo::rhi::vulkan
 			}
 			list->pendingEndTimestamp = vk::QueryPool{};
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
+	bool vulkan_cmd_set_graphics_pipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * list					  = static_cast<VulkanCommandList *>(impl);
-		const vk::Pipeline vkPipeline = ResolveGraphicsPipeline(list->owner, pipeline);
+		const vk::Pipeline vkPipeline = resolve_graphics_pipeline(list->owner, pipeline);
 		if (!vkPipeline)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setGraphicsPipeline with an invalid pipeline handle");
+			return fail(error, ErrorCode::eInvalidHandle, "setGraphicsPipeline with an invalid pipeline handle");
 		}
 
 		list->buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, vkPipeline, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
+	bool vulkan_cmd_push_constants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
 		const void * data, Error * error) noexcept
 	{
 		auto * list						  = static_cast<VulkanCommandList *>(impl);
-		const vk::PipelineLayout vkLayout = ResolvePipelineLayout(list->owner, layout);
+		const vk::PipelineLayout vkLayout = resolve_pipeline_layout(list->owner, layout);
 		if (!vkLayout)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "pushConstants with an invalid pipeline layout handle");
+			return fail(error, ErrorCode::eInvalidHandle, "pushConstants with an invalid pipeline layout handle");
 		}
 
-		list->buffer.pushConstants(vkLayout, MapShaderStages(stages), offset, size, data, list->owner->dispatch);
-		return Succeed(error);
+		list->buffer.pushConstants(vkLayout, map_shader_stages(stages), offset, size, data, list->owner->dispatch);
+		return succeed(error);
 	}
 
 	// NOLINTNEXTLINE(bugprone-exception-escape)
-	bool VulkanCmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept
+	bool vulkan_cmd_set_vertex_buffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept
 	{
 		auto * list					  = static_cast<VulkanCommandList *>(impl);
-		const BufferSlot * bufferSlot = ResolveBuffer(list->owner, buffer);
+		const BufferSlot * bufferSlot = resolve_buffer(list->owner, buffer);
 		if (bufferSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setVertexBuffer with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "setVertexBuffer with an invalid buffer handle");
 		}
 
 		list->buffer.bindVertexBuffers(slot, vk::Buffer(bufferSlot->buffer), static_cast<vk::DeviceSize>(offset), list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept
+	bool vulkan_cmd_set_index_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept
 	{
 		auto * list					  = static_cast<VulkanCommandList *>(impl);
-		const BufferSlot * bufferSlot = ResolveBuffer(list->owner, buffer);
+		const BufferSlot * bufferSlot = resolve_buffer(list->owner, buffer);
 		if (bufferSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer with an invalid buffer handle");
 		}
 
 		list->buffer.bindIndexBuffer(vk::Buffer(bufferSlot->buffer), offset, index32 ? vk::IndexType::eUint32 : vk::IndexType::eUint16, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdDraw(
+	bool vulkan_cmd_draw(
 		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.draw(vertexCount, instanceCount, firstVertex, firstInstance, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
+	bool vulkan_cmd_draw_indexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
 		std::uint32_t firstInstance, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	namespace
 	{
 		template <typename RecordFn>
-		[[nodiscard]] bool LowerMultiDraw(const VulkanCommandList & list, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride,
+		[[nodiscard]] bool lower_multi_draw(const VulkanCommandList & list, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride,
 			std::size_t commandSize, Error * error, const RecordFn & record) noexcept
 		{
 			if (drawCount > 1 && !list.owner->caps.supportsMultiDrawIndirect)
 			{
 				if (stride < commandSize)
 				{
-					return Fail(error, ErrorCode::eInvalidArgument, "an indirect multi-draw needs a stride of at least one command");
+					return fail(error, ErrorCode::eInvalidArgument, "an indirect multi-draw needs a stride of at least one command");
 				}
 
 				for (std::uint32_t draw = 0; draw < drawCount; ++draw)
@@ -1008,24 +1039,24 @@ namespace azo::rhi::vulkan
 					record(offset + (std::uint64_t{ draw } * stride), 1u);
 				}
 
-				return Succeed(error);
+				return succeed(error);
 			}
 
 			record(offset, drawCount);
-			return Succeed(error);
+			return succeed(error);
 		}
 	}
 
-	bool VulkanCmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
+	bool vulkan_cmd_draw_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * list		  = static_cast<VulkanCommandList *>(impl);
-		BufferSlot * slot = ResolveBuffer(list->owner, args);
+		BufferSlot * slot = resolve_buffer(list->owner, args);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "drawIndirect with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "drawIndirect with an invalid buffer handle");
 		}
 
-		return LowerMultiDraw(*list,
+		return lower_multi_draw(*list,
 			offset,
 			drawCount,
 			stride,
@@ -1037,17 +1068,17 @@ namespace azo::rhi::vulkan
 			});
 	}
 
-	bool VulkanCmdDrawIndexedIndirect(
+	bool vulkan_cmd_draw_indexed_indirect(
 		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * list		  = static_cast<VulkanCommandList *>(impl);
-		BufferSlot * slot = ResolveBuffer(list->owner, args);
+		BufferSlot * slot = resolve_buffer(list->owner, args);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirect with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirect with an invalid buffer handle");
 		}
 
-		return LowerMultiDraw(*list,
+		return lower_multi_draw(*list,
 			offset,
 			drawCount,
 			stride,
@@ -1059,68 +1090,68 @@ namespace azo::rhi::vulkan
 			});
 	}
 
-	bool VulkanCmdDrawIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
+	bool vulkan_cmd_draw_indirect_count(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
 		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (!list->owner->caps.supportsIndirectCount)
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "drawIndirectCount requires Vulkan 1.2 (vkCmdDrawIndirectCount)");
+			return fail(error, ErrorCode::eUnsupportedFeature, "drawIndirectCount requires Vulkan 1.2 (vkCmdDrawIndirectCount)");
 		}
 
-		BufferSlot * argsSlot  = ResolveBuffer(list->owner, args);
-		BufferSlot * countSlot = ResolveBuffer(list->owner, count);
+		BufferSlot * argsSlot  = resolve_buffer(list->owner, args);
+		BufferSlot * countSlot = resolve_buffer(list->owner, count);
 		if (argsSlot == nullptr || countSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "drawIndirectCount with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "drawIndirectCount with an invalid buffer handle");
 		}
 
 		list->buffer.drawIndirectCount(
 			vk::Buffer(argsSlot->buffer), argsOffset, vk::Buffer(countSlot->buffer), countOffset, maxDrawCount, stride, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdDrawIndexedIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
+	bool vulkan_cmd_draw_indexed_indirect_count(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
 		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (!list->owner->caps.supportsIndirectCount)
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "drawIndexedIndirectCount requires Vulkan 1.2 (vkCmdDrawIndexedIndirectCount)");
+			return fail(error, ErrorCode::eUnsupportedFeature, "drawIndexedIndirectCount requires Vulkan 1.2 (vkCmdDrawIndexedIndirectCount)");
 		}
 
-		BufferSlot * argsSlot  = ResolveBuffer(list->owner, args);
-		BufferSlot * countSlot = ResolveBuffer(list->owner, count);
+		BufferSlot * argsSlot  = resolve_buffer(list->owner, args);
+		BufferSlot * countSlot = resolve_buffer(list->owner, count);
 		if (argsSlot == nullptr || countSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirectCount with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirectCount with an invalid buffer handle");
 		}
 
 		list->buffer.drawIndexedIndirectCount(
 			vk::Buffer(argsSlot->buffer), argsOffset, vk::Buffer(countSlot->buffer), countOffset, maxDrawCount, stride, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	[[nodiscard]] vk::ImageSubresourceLayers MapSubresourceLayers(const TextureSubresource & sub) noexcept
+	[[nodiscard]] vk::ImageSubresourceLayers map_subresource_layers(const TextureSubresource & sub) noexcept
 	{
-		return { MapAspect(sub.aspects), sub.mip, sub.layer, 1 };
+		return { map_aspect(sub.aspects), sub.mip, sub.layer, 1 };
 	}
 
-	bool VulkanCmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
+	bool vulkan_cmd_copy_buffer_to_texture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		const vk::Image dstImage = ResolveTexture(list->owner, dst);
-		BufferSlot * srcSlot	 = ResolveBuffer(list->owner, src);
+		const vk::Image dstImage = resolve_texture(list->owner, dst);
+		BufferSlot * srcSlot	 = resolve_buffer(list->owner, src);
 		if (!dstImage || srcSlot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyBufferToTexture with an invalid texture or buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "copyBufferToTexture with an invalid texture or buffer handle");
 		}
 
 		detail::HostVector<vk::BufferImageCopy> copies;
-		if (!detail::TryReserve(copies, regions.size()))
+		if (!detail::try_reserve(copies, regions.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "copyBufferToTexture ran out of host memory building its region list");
+			return fail(error, ErrorCode::eOutOfHostMemory, "copyBufferToTexture ran out of host memory building its region list");
 		}
 
 		for (const BufferTextureCopy & r : regions)
@@ -1128,31 +1159,31 @@ namespace azo::rhi::vulkan
 			copies.emplace_back(r.bufferOffset,
 				r.bufferRowLength,
 				r.bufferImageHeight,
-				MapSubresourceLayers(r.subresource),
+				map_subresource_layers(r.subresource),
 				vk::Offset3D(r.textureOffset.x, r.textureOffset.y, r.textureOffset.z),
 				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth));
 		}
 
-		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
 		list->buffer.copyBufferToImage(vk::Buffer(srcSlot->buffer), dstImage, dstLayout, copies, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
+	bool vulkan_cmd_copy_texture_to_buffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		BufferSlot * dstSlot	 = ResolveBuffer(list->owner, dst);
-		const vk::Image srcImage = ResolveTexture(list->owner, src);
+		BufferSlot * dstSlot	 = resolve_buffer(list->owner, dst);
+		const vk::Image srcImage = resolve_texture(list->owner, src);
 		if (dstSlot == nullptr || !srcImage)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyTextureToBuffer with an invalid buffer or texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "copyTextureToBuffer with an invalid buffer or texture handle");
 		}
 
 		detail::HostVector<vk::BufferImageCopy> copies;
-		if (!detail::TryReserve(copies, regions.size()))
+		if (!detail::try_reserve(copies, regions.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "copyTextureToBuffer ran out of host memory building its region list");
+			return fail(error, ErrorCode::eOutOfHostMemory, "copyTextureToBuffer ran out of host memory building its region list");
 		}
 
 		for (const BufferTextureCopy & r : regions)
@@ -1160,49 +1191,49 @@ namespace azo::rhi::vulkan
 			copies.emplace_back(r.bufferOffset,
 				r.bufferRowLength,
 				r.bufferImageHeight,
-				MapSubresourceLayers(r.subresource),
+				map_subresource_layers(r.subresource),
 				vk::Offset3D(r.textureOffset.x, r.textureOffset.y, r.textureOffset.z),
 				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth));
 		}
 
-		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
 		list->buffer.copyImageToBuffer(srcImage, srcLayout, vk::Buffer(dstSlot->buffer), copies, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept
+	bool vulkan_cmd_copy_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		const vk::Image dstImage = ResolveTexture(list->owner, dst);
-		const vk::Image srcImage = ResolveTexture(list->owner, src);
+		const vk::Image dstImage = resolve_texture(list->owner, dst);
+		const vk::Image srcImage = resolve_texture(list->owner, src);
 		if (!dstImage || !srcImage)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyTexture with an invalid texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "copyTexture with an invalid texture handle");
 		}
 
 		detail::HostVector<vk::ImageCopy> copies;
-		if (!detail::TryReserve(copies, regions.size()))
+		if (!detail::try_reserve(copies, regions.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "copyTexture ran out of host memory building its region list");
+			return fail(error, ErrorCode::eOutOfHostMemory, "copyTexture ran out of host memory building its region list");
 		}
 
 		for (const TextureCopy & r : regions)
 		{
-			copies.emplace_back(MapSubresourceLayers(r.srcSubresource),
+			copies.emplace_back(map_subresource_layers(r.srcSubresource),
 				vk::Offset3D(r.srcOffset.x, r.srcOffset.y, r.srcOffset.z),
-				MapSubresourceLayers(r.dstSubresource),
+				map_subresource_layers(r.dstSubresource),
 				vk::Offset3D(r.dstOffset.x, r.dstOffset.y, r.dstOffset.z),
 				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth));
 		}
 
-		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
-		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
 		list->buffer.copyImage(srcImage, srcLayout, dstImage, dstLayout, copies, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	[[nodiscard]] bool FormatSupportsBlit(const VulkanDevice * device, vk::Format format, bool asSource, bool linearFilter) noexcept
+	[[nodiscard]] bool format_supports_blit(const VulkanDevice * device, vk::Format format, bool asSource, bool linearFilter) noexcept
 	{
 		const vk::FormatFeatureFlags features = device->phys.getFormatProperties(format, device->dispatch).optimalTilingFeatures;
 		const vk::FormatFeatureFlags required = asSource ? vk::FormatFeatureFlagBits::eBlitSrc : vk::FormatFeatureFlagBits::eBlitDst;
@@ -1214,79 +1245,79 @@ namespace azo::rhi::vulkan
 		return !(asSource && linearFilter) || static_cast<bool>(features & vk::FormatFeatureFlagBits::eSampledImageFilterLinear);
 	}
 
-	bool VulkanCmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept
+	bool vulkan_cmd_blit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		const vk::Image dstImage = ResolveTexture(list->owner, dst);
-		const vk::Image srcImage = ResolveTexture(list->owner, src);
+		const vk::Image dstImage = resolve_texture(list->owner, dst);
+		const vk::Image srcImage = resolve_texture(list->owner, src);
 		if (!dstImage || !srcImage)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "blit with an invalid texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "blit with an invalid texture handle");
 		}
 
 		const bool linear		   = filter == Filter::eLinear;
-		const vk::Format srcFormat = list->owner->textureSlots.Resolve(src, false)->format;
-		const vk::Format dstFormat = list->owner->textureSlots.Resolve(dst, false)->format;
-		if (!FormatSupportsBlit(list->owner, srcFormat, true, linear))
+		const vk::Format srcFormat = list->owner->textureSlots.resolve(src, false)->format;
+		const vk::Format dstFormat = list->owner->textureSlots.resolve(dst, false)->format;
+		if (!format_supports_blit(list->owner, srcFormat, true, linear))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "blit source format does not support blit, or linear filtering when requested");
+			return fail(error, ErrorCode::eUnsupportedFeature, "blit source format does not support blit, or linear filtering when requested");
 		}
 
-		if (!FormatSupportsBlit(list->owner, dstFormat, false, false))
+		if (!format_supports_blit(list->owner, dstFormat, false, false))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "blit destination format does not support being a blit target");
+			return fail(error, ErrorCode::eUnsupportedFeature, "blit destination format does not support being a blit target");
 		}
 
 		const vk::Filter vkFilter = filter == Filter::eLinear ? vk::Filter::eLinear : vk::Filter::eNearest;
 		detail::HostVector<vk::ImageBlit> blits;
-		if (!detail::TryReserve(blits, regions.size()))
+		if (!detail::try_reserve(blits, regions.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "blit ran out of host memory building its region list");
+			return fail(error, ErrorCode::eOutOfHostMemory, "blit ran out of host memory building its region list");
 		}
 
 		for (const TextureBlit & r : regions)
 		{
-			const std::array<vk::Offset3D, 2> srcBox{ vk::Offset3D(r.srcOffsets[0].x, r.srcOffsets[0].y, r.srcOffsets[0].z),
-				vk::Offset3D(r.srcOffsets[1].x, r.srcOffsets[1].y, r.srcOffsets[1].z) };
-			const std::array<vk::Offset3D, 2> dstBox{ vk::Offset3D(r.dstOffsets[0].x, r.dstOffsets[0].y, r.dstOffsets[0].z),
-				vk::Offset3D(r.dstOffsets[1].x, r.dstOffsets[1].y, r.dstOffsets[1].z) };
-			blits.emplace_back(MapSubresourceLayers(r.srcSubresource), srcBox, MapSubresourceLayers(r.dstSubresource), dstBox);
+			const std::array<vk::Offset3D, 2> srcBox{ vk::Offset3D(azo::rhi::detail::at(r.srcOffsets, 0).x, azo::rhi::detail::at(r.srcOffsets, 0).y, azo::rhi::detail::at(r.srcOffsets, 0).z),
+				vk::Offset3D(azo::rhi::detail::at(r.srcOffsets, 1).x, azo::rhi::detail::at(r.srcOffsets, 1).y, azo::rhi::detail::at(r.srcOffsets, 1).z), };
+			const std::array<vk::Offset3D, 2> dstBox{ vk::Offset3D(azo::rhi::detail::at(r.dstOffsets, 0).x, azo::rhi::detail::at(r.dstOffsets, 0).y, azo::rhi::detail::at(r.dstOffsets, 0).z),
+				vk::Offset3D(azo::rhi::detail::at(r.dstOffsets, 1).x, azo::rhi::detail::at(r.dstOffsets, 1).y, azo::rhi::detail::at(r.dstOffsets, 1).z), };
+			blits.emplace_back(map_subresource_layers(r.srcSubresource), srcBox, map_subresource_layers(r.dstSubresource), dstBox);
 		}
 
-		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
-		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
 		list->buffer.blitImage(srcImage, srcLayout, dstImage, dstLayout, blits, vkFilter, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
+	bool vulkan_cmd_generate_mips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device = list->owner;
 
-		const TextureSlot * const resolved = device->textureSlots.Resolve(texture, true);
+		const TextureSlot * const resolved = device->textureSlots.resolve(texture, true);
 		if (resolved == nullptr || resolved->image == VK_NULL_HANDLE)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "generateMips with an invalid or stale texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "generateMips with an invalid or stale texture handle");
 		}
 		const TextureSlot & slot = *resolved;
 
 		if (slot.mipLevels <= 1)
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 
-		if (!FormatSupportsBlit(device, slot.format, true, true) || !FormatSupportsBlit(device, slot.format, false, false))
+		if (!format_supports_blit(device, slot.format, true, true) || !format_supports_blit(device, slot.format, false, false))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, blit-capable format (not block-compressed or integer)");
+			return fail(error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, blit-capable format (not block-compressed or integer)");
 		}
 
 		const vk::Image image	   = vk::Image(slot.image);
 		const std::uint32_t layers = slot.arrayLayers;
 
-		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eCopySrc, device->unifiedImageLayouts);
-		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eCopyDst, device->unifiedImageLayouts);
+		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eCopySrc, device->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eCopyDst, device->unifiedImageLayouts);
 		const auto transition			= [&](std::uint32_t mip)
 		{
 			const vk::ImageMemoryBarrier2 barrier(vk::PipelineStageFlagBits2::eTransfer,
@@ -1304,9 +1335,9 @@ namespace azo::rhi::vulkan
 			device->coreVk13 ? list->buffer.pipelineBarrier2(dep, device->dispatch) : list->buffer.pipelineBarrier2KHR(dep, device->dispatch);
 		};
 
-		std::int32_t mipWidth  = static_cast<std::int32_t>(slot.width);
-		std::int32_t mipHeight = static_cast<std::int32_t>(slot.height);
-		std::int32_t mipDepth  = static_cast<std::int32_t>(slot.depth);
+		auto mipWidth  = static_cast<std::int32_t>(slot.width);
+		auto mipHeight = static_cast<std::int32_t>(slot.height);
+		auto mipDepth  = static_cast<std::int32_t>(slot.depth);
 		for (std::uint32_t i = 1; i < slot.mipLevels; ++i)
 		{
 			const std::int32_t nextWidth  = mipWidth > 1 ? mipWidth / 2 : 1;
@@ -1327,136 +1358,136 @@ namespace azo::rhi::vulkan
 			mipDepth  = nextDepth;
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept
+	bool vulkan_cmd_clear_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		BufferSlot * slot = ResolveBuffer(list->owner, buffer);
+		BufferSlot * slot = resolve_buffer(list->owner, buffer);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "clearBuffer with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "clearBuffer with an invalid buffer handle");
 		}
 
 		list->buffer.fillBuffer(vk::Buffer(slot->buffer), offset, size, value, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdClearTexture(
+	bool vulkan_cmd_clear_texture(
 		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		const vk::Image image = ResolveTexture(list->owner, texture);
+		const vk::Image image = resolve_texture(list->owner, texture);
 		if (!image)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "clearTexture with an invalid texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "clearTexture with an invalid texture handle");
 		}
 
 		detail::HostVector<vk::ImageSubresourceRange> subranges;
-		if (!detail::TryReserve(subranges, ranges.size()))
+		if (!detail::try_reserve(subranges, ranges.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "clearTexture ran out of host memory building its subresource list");
+			return fail(error, ErrorCode::eOutOfHostMemory, "clearTexture ran out of host memory building its subresource list");
 		}
 
 		for (const TextureSubresourceRange & r : ranges)
 		{
-			subranges.push_back(MapSubresourceRange(r));
+			subranges.push_back(map_subresource_range(r));
 		}
 
 		const vk::ClearColorValue clear(std::array<float, 4>{ color.r, color.g, color.b, color.a });
-		const vk::ImageLayout clearLayout = LayoutForUse(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout clearLayout = layout_for_use(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
 		list->buffer.clearColorImage(image, clearLayout, clear, subranges, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
+	bool vulkan_cmd_resolve_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
-		const vk::Image dstImage = ResolveTexture(list->owner, dst);
-		const vk::Image srcImage = ResolveTexture(list->owner, src);
+		const vk::Image dstImage = resolve_texture(list->owner, dst);
+		const vk::Image srcImage = resolve_texture(list->owner, src);
 		if (!dstImage || !srcImage)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resolveTexture with an invalid texture handle");
+			return fail(error, ErrorCode::eInvalidHandle, "resolveTexture with an invalid texture handle");
 		}
 
 		detail::HostVector<vk::ImageResolve> resolves;
-		if (!detail::TryReserve(resolves, regions.size()))
+		if (!detail::try_reserve(resolves, regions.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "resolveTexture ran out of host memory building its region list");
+			return fail(error, ErrorCode::eOutOfHostMemory, "resolveTexture ran out of host memory building its region list");
 		}
 
 		for (const TextureResolve & r : regions)
 		{
-			resolves.emplace_back(MapSubresourceLayers(r.srcSubresource),
+			resolves.emplace_back(map_subresource_layers(r.srcSubresource),
 				vk::Offset3D(r.srcOffset.x, r.srcOffset.y, r.srcOffset.z),
-				MapSubresourceLayers(r.dstSubresource),
+				map_subresource_layers(r.dstSubresource),
 				vk::Offset3D(r.dstOffset.x, r.dstOffset.y, r.dstOffset.z),
 				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth));
 		}
 
-		const vk::ImageLayout srcLayout = LayoutForUse(ResourceUse::eResolveSrc, list->owner->unifiedImageLayouts);
-		const vk::ImageLayout dstLayout = LayoutForUse(ResourceUse::eResolveDst, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eResolveSrc, list->owner->unifiedImageLayouts);
+		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eResolveDst, list->owner->unifiedImageLayouts);
 		list->buffer.resolveImage(srcImage, srcLayout, dstImage, dstLayout, resolves, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept
+	bool vulkan_cmd_set_blend_constants(void * impl, float r, float g, float b, float a, Error * error) noexcept
 	{
 		const std::array<float, 4> constants{ r, g, b, a };
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.setBlendConstants(constants.data(), list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetStencilReference(void * impl, std::uint32_t reference, Error * error) noexcept
+	bool vulkan_cmd_set_stencil_reference(void * impl, std::uint32_t reference, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.setStencilReference(vk::StencilFaceFlagBits::eFrontAndBack, reference, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetDepthBias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept
+	bool vulkan_cmd_set_depth_bias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.setDepthBias(constantFactor, clamp, slopeFactor, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
+	bool vulkan_cmd_set_compute_pipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * list					  = static_cast<VulkanCommandList *>(impl);
-		const vk::Pipeline vkPipeline = ResolveComputePipeline(list->owner, pipeline);
+		const vk::Pipeline vkPipeline = resolve_compute_pipeline(list->owner, pipeline);
 		if (!vkPipeline)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setComputePipeline with an invalid pipeline handle");
+			return fail(error, ErrorCode::eInvalidHandle, "setComputePipeline with an invalid pipeline handle");
 		}
 
 		list->buffer.bindPipeline(vk::PipelineBindPoint::eCompute, vkPipeline, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdDispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept
+	bool vulkan_cmd_dispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.dispatch(groupCountX, groupCountY, groupCountZ, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
+	bool vulkan_cmd_dispatch_indirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
 	{
 		auto * list		  = static_cast<VulkanCommandList *>(impl);
-		BufferSlot * slot = ResolveBuffer(list->owner, args);
+		BufferSlot * slot = resolve_buffer(list->owner, args);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "dispatchIndirect with an invalid buffer handle");
+			return fail(error, ErrorCode::eInvalidHandle, "dispatchIndirect with an invalid buffer handle");
 		}
 
 		list->buffer.dispatchIndirect(vk::Buffer(slot->buffer), offset, list->owner->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

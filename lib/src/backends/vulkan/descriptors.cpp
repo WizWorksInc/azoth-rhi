@@ -7,11 +7,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/blocks/descriptor_arena.hpp"
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/host/allocator.hpp"
+#include "azoth/rhi/resources/descriptors.hpp"
 #include "backends/vulkan/internal.hpp"
+#include "backends/vulkan/layouts.hpp"
+#include "vulkan/vulkan.hpp"
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <span>
+#include <utility>
 
 namespace azo::rhi::vulkan
 {
-	[[nodiscard]] vk::DescriptorType MapDescriptorType(DescriptorType type) noexcept
+	[[nodiscard]] vk::DescriptorType map_descriptor_type(DescriptorType type) noexcept
 	{
 		switch (type)
 		{
@@ -32,33 +50,33 @@ namespace azo::rhi::vulkan
 		return vk::DescriptorType::eUniformBuffer;
 	}
 
-	[[nodiscard]] vk::DescriptorSetLayout ResolveDescriptorSetLayout(const VulkanDevice * device, DescriptorSetLayoutHandle handle) noexcept
+	[[nodiscard]] vk::DescriptorSetLayout resolve_descriptor_set_layout(const VulkanDevice * device, DescriptorSetLayoutHandle handle) noexcept
 	{
-		const DescriptorSetLayoutSlot * slot = device->descriptorSetLayoutSlots.Resolve(handle, kHandleAlreadyChecked);
+		const DescriptorSetLayoutSlot * slot = device->descriptorSetLayoutSlots.resolve(handle, kHandleAlreadyChecked);
 		return slot != nullptr ? slot->layout : vk::DescriptorSetLayout{};
 	}
 
-	[[nodiscard]] vk::Sampler ResolveSampler(const VulkanDevice * device, SamplerHandle handle) noexcept
+	[[nodiscard]] vk::Sampler resolve_sampler(const VulkanDevice * device, SamplerHandle handle) noexcept
 	{
-		const SamplerSlot * slot = device->samplerSlots.Resolve(handle, kHandleAlreadyChecked);
+		const SamplerSlot * slot = device->samplerSlots.resolve(handle, kHandleAlreadyChecked);
 		return slot != nullptr ? slot->sampler : vk::Sampler{};
 	}
 
-	[[nodiscard]] vk::DescriptorSet ResolveDescriptorSet(const VulkanDevice * device, DescriptorSetHandle handle) noexcept
+	[[nodiscard]] vk::DescriptorSet resolve_descriptor_set(const VulkanDevice * device, DescriptorSetHandle handle) noexcept
 	{
-		const DescriptorSetSlot * const slot = device->descriptorSetSlots.Resolve(handle, true);
+		const DescriptorSetSlot * const slot = device->descriptorSetSlots.resolve(handle, true);
 		return slot != nullptr ? slot->set : vk::DescriptorSet{};
 	}
 
-	DescriptorSetLayoutHandle VulkanCreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept
+	DescriptorSetLayoutHandle vulkan_create_descriptor_set_layout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createDescriptorSetLayout");
 		auto * device = static_cast<VulkanDevice *>(impl);
 		detail::HostVector<vk::DescriptorSetLayoutBinding> bindings;
 		detail::HostVector<vk::DescriptorBindingFlags> bindingFlags;
-		if (!detail::TryReserve(bindings, desc.bindings.size()) || !detail::TryReserve(bindingFlags, desc.bindings.size()))
+		if (!detail::try_reserve(bindings, desc.bindings.size()) || !detail::try_reserve(bindingFlags, desc.bindings.size()))
 		{
-			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set layout binding storage allocation failed");
+			return fail_value<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set layout binding storage allocation failed");
 		}
 
 		detail::HostVector<vk::Sampler> immutableSamplers;
@@ -67,9 +85,9 @@ namespace azo::rhi::vulkan
 		{
 			immutableTotal += b.immutableSamplers.size();
 		}
-		if (!detail::TryReserve(immutableSamplers, immutableTotal))
+		if (!detail::try_reserve(immutableSamplers, immutableTotal))
 		{
-			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan immutable sampler storage allocation failed");
+			return fail_value<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan immutable sampler storage allocation failed");
 		}
 
 		bool anyBindingFlags = false;
@@ -80,35 +98,35 @@ namespace azo::rhi::vulkan
 			{
 				if (b.immutableSamplers.size() != b.count)
 				{
-					return FailValue<DescriptorSetLayoutHandle>(
+					return fail_value<DescriptorSetLayoutHandle>(
 						error, ErrorCode::eInvalidArgument, "a binding's immutable sampler list must hold exactly count entries");
 				}
 
 				immutable = immutableSamplers.data() + immutableSamplers.size();
 				for (const SamplerHandle sampler : b.immutableSamplers)
 				{
-					const SamplerSlot * slot = device->samplerSlots.Resolve(sampler, kHandleAlreadyChecked);
+					const SamplerSlot * slot = device->samplerSlots.resolve(sampler, kHandleAlreadyChecked);
 					if (slot == nullptr)
 					{
-						return FailValue<DescriptorSetLayoutHandle>(
+						return fail_value<DescriptorSetLayoutHandle>(
 							error, ErrorCode::eInvalidHandle, "a binding names an immutable sampler this device never created");
 					}
 					immutableSamplers.push_back(slot->sampler);
 				}
 			}
 
-			bindings.emplace_back(b.binding, MapDescriptorType(b.type), b.count, MapShaderStages(b.stages), immutable);
+			bindings.emplace_back(b.binding, map_descriptor_type(b.type), b.count, map_shader_stages(b.stages), immutable);
 
 			vk::DescriptorBindingFlags f{};
-			if (b.flags.Contains(DescriptorBindingFlag::ePartiallyBound) || b.flags.Contains(DescriptorBindingFlag::eBindless))
+			if (b.flags.contains(DescriptorBindingFlag::ePartiallyBound) || b.flags.contains(DescriptorBindingFlag::eBindless))
 			{
 				f |= vk::DescriptorBindingFlagBits::ePartiallyBound;
 			}
-			if (b.flags.Contains(DescriptorBindingFlag::eVariableDescriptorCount))
+			if (b.flags.contains(DescriptorBindingFlag::eVariableDescriptorCount))
 			{
 				f |= vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
 			}
-			if (b.flags.Contains(DescriptorBindingFlag::eUpdateAfterBind))
+			if (b.flags.contains(DescriptorBindingFlag::eUpdateAfterBind))
 			{
 				f |= vk::DescriptorBindingFlagBits::eUpdateAfterBind;
 			}
@@ -135,7 +153,7 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createDescriptorSetLayout(layoutInfo, nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailNativeValue<DescriptorSetLayoutHandle>(error, "Vulkan descriptor set layout creation failed", created.result);
+			return fail_native_value<DescriptorSetLayoutHandle>(error, "Vulkan descriptor set layout creation failed", created.result);
 		}
 
 		DescriptorSetLayoutSlot slot{ .layout = created.value };
@@ -145,17 +163,17 @@ namespace azo::rhi::vulkan
 			kept.immutableSamplers = {};
 		}
 
-		const DescriptorSetLayoutHandle handle = device->descriptorSetLayoutSlots.Store(std::move(slot));
-		if (!handle.IsValid())
+		const DescriptorSetLayoutHandle handle = device->descriptorSetLayoutSlots.store(std::move(slot));
+		if (!handle.is_valid())
 		{
 			device->device.destroyDescriptorSetLayout(created.value, nullptr, device->dispatch);
-			return FailValue<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set layout handle tracking failed");
+			return fail_value<DescriptorSetLayoutHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set layout handle tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	void * VulkanCreateDescriptorArena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept
+	void * vulkan_create_descriptor_arena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createDescriptorArena");
 		auto * device				= static_cast<VulkanDevice *>(impl);
@@ -169,7 +187,7 @@ namespace azo::rhi::vulkan
 			{ vk::DescriptorType::eUniformBufferDynamic, perType },
 			{ vk::DescriptorType::eStorageBufferDynamic, perType },
 			{ vk::DescriptorType::eUniformTexelBuffer, perType },
-			{ vk::DescriptorType::eStorageTexelBuffer, perType } } };
+			{ vk::DescriptorType::eStorageTexelBuffer, perType }, }, };
 		const std::uint32_t maxSets = desc.maxSets > 0 ? desc.maxSets : 1;
 
 		vk::DescriptorPoolCreateFlags poolFlags{};
@@ -180,39 +198,39 @@ namespace azo::rhi::vulkan
 		const auto created = device->device.createDescriptorPool(vk::DescriptorPoolCreateInfo(poolFlags, maxSets, poolSizes), nullptr, device->dispatch);
 		if (created.result != vk::Result::eSuccess)
 		{
-			return FailNativeValue<void *>(error, "Vulkan descriptor arena creation failed", created.result);
+			return fail_native_value<void *>(error, "Vulkan descriptor arena creation failed", created.result);
 		}
 
-		auto arena = HostNew<VulkanDescriptorArena>();
+		auto arena = host_new<VulkanDescriptorArena>();
 		if (arena == nullptr)
 		{
 			device->device.destroyDescriptorPool(created.value, nullptr, device->dispatch);
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor arena allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor arena allocation failed");
 		}
 
-		arena->object = PublishingObject<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
+		arena->object = publishing_object<Published<DescriptorArenaApi, &descriptor_arena_block>>();
 		arena->owner  = device;
 		arena->pool	  = created.value;
 
 		VulkanDescriptorArena * raw = arena.get();
-		if (!detail::TryPushBack(device->descriptorArenas, std::move(arena)))
+		if (!detail::try_push_back(device->descriptorArenas, std::move(arena)))
 		{
 			device->device.destroyDescriptorPool(created.value, nullptr, device->dispatch);
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor arena allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor arena allocation failed");
 		}
 
-		return ReturnValue(static_cast<void *>(raw), error);
+		return return_value(static_cast<void *>(raw), error);
 	}
 
-	DescriptorSetHandle VulkanArenaAllocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept
+	DescriptorSetHandle vulkan_arena_allocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.descriptorArena.allocate");
 		auto * arena						 = static_cast<VulkanDescriptorArena *>(impl);
 		VulkanDevice * device				 = arena->owner;
-		const vk::DescriptorSetLayout layout = ResolveDescriptorSetLayout(device, desc.layout);
+		const vk::DescriptorSetLayout layout = resolve_descriptor_set_layout(device, desc.layout);
 		if (!layout)
 		{
-			return FailValue<DescriptorSetHandle>(error, ErrorCode::eInvalidHandle, "descriptor set allocation with an invalid layout handle");
+			return fail_value<DescriptorSetHandle>(error, ErrorCode::eInvalidHandle, "descriptor set allocation with an invalid layout handle");
 		}
 
 		const vk::DescriptorSetAllocateInfo info(arena->pool, layout);
@@ -220,48 +238,48 @@ namespace azo::rhi::vulkan
 
 		if (allocated.result != vk::Result::eSuccess || allocated.value.empty())
 		{
-			return FailValue<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set allocation failed");
+			return fail_value<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set allocation failed");
 		}
 
 		const DescriptorSetHandle handle =
-			device->descriptorSetSlots.Store(DescriptorSetSlot{ .set = allocated.value.front(), .arena = arena, .layout = desc.layout });
-		if (!handle.IsValid())
+			device->descriptorSetSlots.store(DescriptorSetSlot{ .set = allocated.value.front(), .arena = arena, .layout = desc.layout });
+		if (!handle.is_valid())
 		{
-			return FailValue<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set handle tracking failed");
+			return fail_value<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan descriptor set handle tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	bool VulkanArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
+	bool vulkan_arena_reset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.descriptorArena.reset");
 		auto * arena = static_cast<VulkanDescriptorArena *>(impl);
 		if (const vk::Result reset = arena->owner->device.resetDescriptorPool(arena->pool, {}, arena->owner->dispatch); reset != vk::Result::eSuccess)
 		{
-			return FailNative(error, "Vulkan descriptor pool reset failed", reset);
+			return fail_native(error, "Vulkan descriptor pool reset failed", reset);
 		}
 
-		static_cast<void>(arena->owner->descriptorSetSlots.RetireIf(
+		static_cast<void>(arena->owner->descriptorSetSlots.retire_if(
 			[arena](const DescriptorSetSlot & slot) noexcept
 			{
 				return slot.arena == arena;
 			}));
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	const DescriptorArenaApi & DescriptorArenaBlock() noexcept
+	const DescriptorArenaApi & descriptor_arena_block() noexcept
 	{
 		static const DescriptorArenaApi block{
-			.allocate = &VulkanArenaAllocate,
-			.reset	  = &VulkanArenaReset,
+			.allocate = &vulkan_arena_allocate,
+			.reset	  = &vulkan_arena_reset,
 		};
 
 		return block;
 	}
 
-	bool VulkanUpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept
+	bool vulkan_update_descriptors_buffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept
 	{
 		auto * device = static_cast<VulkanDevice *>(impl);
 		detail::HostVector<vk::DescriptorBufferInfo> bufferInfos;
@@ -271,21 +289,21 @@ namespace azo::rhi::vulkan
 
 		for (const DescriptorWriteBuffer & w : writes)
 		{
-			const vk::DescriptorSet set = ResolveDescriptorSet(device, w.set);
-			BufferSlot * buffer			= ResolveBuffer(device, w.buffer);
+			const vk::DescriptorSet set = resolve_descriptor_set(device, w.set);
+			BufferSlot * buffer			= resolve_buffer(device, w.buffer);
 			if (!set || buffer == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsBuffer with an invalid set or buffer handle");
+				return fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsBuffer with an invalid set or buffer handle");
 			}
 			bufferInfos.emplace_back(vk::Buffer(buffer->buffer), w.offset, w.range);
-			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, MapDescriptorType(w.type), nullptr, &bufferInfos.back());
+			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, map_descriptor_type(w.type), nullptr, &bufferInfos.back());
 		}
 
 		device->device.updateDescriptorSets(vkWrites, {}, device->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanUpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept
+	bool vulkan_update_descriptors_texture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept
 	{
 		auto * device = static_cast<VulkanDevice *>(impl);
 		detail::HostVector<vk::DescriptorImageInfo> imageInfos;
@@ -295,22 +313,22 @@ namespace azo::rhi::vulkan
 
 		for (const DescriptorWriteTexture & w : writes)
 		{
-			const vk::DescriptorSet set = ResolveDescriptorSet(device, w.set);
-			const vk::ImageView view	= ResolveTextureView(device, w.view);
+			const vk::DescriptorSet set = resolve_descriptor_set(device, w.set);
+			const vk::ImageView view	= resolve_texture_view(device, w.view);
 			if (!set || !view)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsTexture with an invalid set or view handle");
+				return fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsTexture with an invalid set or view handle");
 			}
-			const vk::Sampler sampler = w.sampler.IsValid() ? ResolveSampler(device, w.sampler) : vk::Sampler{};
-			imageInfos.emplace_back(sampler, view, LayoutForUse(w.expectedUse, device->unifiedImageLayouts));
-			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, MapDescriptorType(w.type), &imageInfos.back());
+			const vk::Sampler sampler = w.sampler.is_valid() ? resolve_sampler(device, w.sampler) : vk::Sampler{};
+			imageInfos.emplace_back(sampler, view, layout_for_use(w.expectedUse, device->unifiedImageLayouts));
+			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, map_descriptor_type(w.type), &imageInfos.back());
 		}
 
 		device->device.updateDescriptorSets(vkWrites, {}, device->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanUpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept
+	bool vulkan_update_descriptors_sampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept
 	{
 		auto * device = static_cast<VulkanDevice *>(impl);
 		detail::HostVector<vk::DescriptorImageInfo> imageInfos;
@@ -320,38 +338,38 @@ namespace azo::rhi::vulkan
 
 		for (const DescriptorWriteSampler & w : writes)
 		{
-			const vk::DescriptorSet set = ResolveDescriptorSet(device, w.set);
-			const vk::Sampler sampler	= ResolveSampler(device, w.sampler);
+			const vk::DescriptorSet set = resolve_descriptor_set(device, w.set);
+			const vk::Sampler sampler	= resolve_sampler(device, w.sampler);
 			if (!set || !sampler)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsSampler with an invalid set or sampler handle");
+				return fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsSampler with an invalid set or sampler handle");
 			}
 			imageInfos.emplace_back(sampler, vk::ImageView{}, vk::ImageLayout::eUndefined);
 			vkWrites.emplace_back(set, w.binding, w.arrayIndex, 1, vk::DescriptorType::eSampler, &imageInfos.back());
 		}
 
 		device->device.updateDescriptorSets(vkWrites, {}, device->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanCmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
+	bool vulkan_cmd_bind_descriptor_set(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
 		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
 	{
 		auto * list						  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device			  = list->owner;
-		const vk::PipelineLayout vkLayout = ResolvePipelineLayout(device, layout);
-		const vk::DescriptorSet vkSet	  = ResolveDescriptorSet(device, set);
+		const vk::PipelineLayout vkLayout = resolve_pipeline_layout(device, layout);
+		const vk::DescriptorSet vkSet	  = resolve_descriptor_set(device, set);
 		if (!vkLayout || !vkSet)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet with an invalid layout or set handle");
+			return fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet with an invalid layout or set handle");
 		}
 
-		const DescriptorSetSlot * const slot = device->descriptorSetSlots.Resolve(set, kHandleAlreadyChecked);
+		const DescriptorSetSlot * const slot = device->descriptorSetSlots.resolve(set, kHandleAlreadyChecked);
 		const DescriptorSetLayoutSlot * const setLayout =
-			slot != nullptr ? device->descriptorSetLayoutSlots.Resolve(slot->layout, kHandleAlreadyChecked) : nullptr;
+			slot != nullptr ? device->descriptorSetLayoutSlots.resolve(slot->layout, kHandleAlreadyChecked) : nullptr;
 		if (setLayout == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet cannot resolve the layout the set was allocated from");
+			return fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet cannot resolve the layout the set was allocated from");
 		}
 
 		detail::HostVector<const DescriptorBinding *> dynamics;
@@ -381,7 +399,7 @@ namespace azo::rhi::vulkan
 					{
 						if (offset.offset > std::numeric_limits<std::uint32_t>::max())
 						{
-							return Fail(error, ErrorCode::eInvalidArgument, "a dynamic descriptor offset does not fit the 32 bits Vulkan binds it in");
+							return fail(error, ErrorCode::eInvalidArgument, "a dynamic descriptor offset does not fit the 32 bits Vulkan binds it in");
 						}
 
 						chosen = static_cast<std::uint32_t>(offset.offset);
@@ -395,7 +413,7 @@ namespace azo::rhi::vulkan
 
 		list->buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, vkLayout, setIndex, vkSet, offsets, device->dispatch);
 		list->buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, vkLayout, setIndex, vkSet, offsets, device->dispatch);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

@@ -25,14 +25,14 @@ namespace azo::rhi
 
 	inline constexpr std::uint32_t kPushConstantRegisterSpace = 0;
 
-	[[nodiscard]] constexpr std::uint32_t D3D12RegisterSpaceForSet(const std::uint32_t set) noexcept
+	[[nodiscard]] constexpr std::uint32_t d3_d12_register_space_for_set(const std::uint32_t set) noexcept
 	{
 		return set + 1;
 	}
 
 	inline constexpr std::uint32_t kMetalPushConstantBufferIndex = 0;
 
-	[[nodiscard]] constexpr std::uint32_t MetalArgumentBufferIndexForSet(const std::uint32_t set) noexcept
+	[[nodiscard]] constexpr std::uint32_t metal_argument_buffer_index_for_set(const std::uint32_t set) noexcept
 	{
 		return set + 1;
 	}

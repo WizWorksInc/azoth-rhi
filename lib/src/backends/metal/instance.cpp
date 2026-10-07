@@ -7,22 +7,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/blocks/device.hpp"
+#include "azoth/rhi/backend/blocks/instance.hpp"
+#include "azoth/rhi/backend/device_tag.hpp"
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/core/constants.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/external.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/host/allocator.hpp"
+#include "azoth/rhi/native/device_config.hpp"
 #include "azoth/rhi/native/metal_config.hpp"
+#include "azoth/rhi/resources/pipeline.hpp"
 
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSArray.hpp>
+#include <Foundation/NSError.hpp>
+#include <Foundation/NSProcessInfo.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSString.hpp>
+#include <Foundation/NSTypes.hpp>
+#include <Metal/MTLCommandQueue.hpp>
+#include <Metal/MTLCounters.hpp>
+#include <Metal/MTLDevice.hpp>
+#include <Metal/MTLPixelFormat.hpp>
+#include <Metal/MTLResidencySet.hpp>
+#include <algorithm>
+#include <cstdint>
+#include <span>
+#include <string>
+#include <utility>
 
 namespace azo::rhi::metal
 {
-	GraphicsApiId MetalInstanceApiId([[maybe_unused]] void * impl) noexcept
+	GraphicsApiId metal_instance_api_id([[maybe_unused]] void * impl) noexcept
 	{
-		return MetalApi::id;
+		return MetalApi::kId;
 	}
 
-	bool MetalEnumerateAdapters([[maybe_unused]] void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
+	bool metal_enumerate_adapters([[maybe_unused]] void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "adapter count output pointer is null");
+			return fail(error, ErrorCode::eInvalidArgument, "adapter count output pointer is null");
 		}
 
 		*out = 0;
@@ -34,9 +65,9 @@ namespace azo::rhi::metal
 		for (std::uint32_t i = 0; i < fill; ++i)
 		{
 			auto * device = static_cast<MTL::Device *>(all->object(i));
-			adapters[i]	  = AdapterInfo{
+			azo::rhi::detail::at(adapters, i)	  = AdapterInfo{
 				.type					   = device->hasUnifiedMemory() ? AdapterType::eIntegrated : AdapterType::eDiscrete,
-				.apiId					   = MetalApi::id,
+				.apiId					   = MetalApi::kId,
 				.adapterIndex			   = i,
 				.dedicatedVideoMemoryBytes = device->recommendedMaxWorkingSetSize(),
 				.unifiedMemoryArchitecture = device->hasUnifiedMemory(),
@@ -45,10 +76,10 @@ namespace azo::rhi::metal
 		}
 
 		*out = count;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	void PopulateCaps(MetalDevice * device)
+	void populate_caps(MetalDevice * device)
 	{
 		MTL::Device * mtl		 = device->device.get();
 		const bool unifiedMemory = mtl->hasUnifiedMemory();
@@ -70,7 +101,7 @@ namespace azo::rhi::metal
 
 		device->adapter = AdapterInfo{
 			.type					   = unifiedMemory ? AdapterType::eIntegrated : AdapterType::eDiscrete,
-			.apiId					   = MetalApi::id,
+			.apiId					   = MetalApi::kId,
 			.adapterIndex			   = 0,
 			.dedicatedVideoMemoryBytes = mtl->recommendedMaxWorkingSetSize(),
 			.unifiedMemoryArchitecture = unifiedMemory,
@@ -80,7 +111,7 @@ namespace azo::rhi::metal
 		};
 
 		DeviceCaps caps{};
-		caps.apiId		  = MetalApi::id;
+		caps.apiId		  = MetalApi::kId;
 		caps.apiVersion	  = ApiVersion{ .major = 3, .minor = 0 };
 		const bool apple3 = mtl->supportsFamily(MTL::GPUFamilyApple3);
 		const bool apple5 = mtl->supportsFamily(MTL::GPUFamilyApple5);
@@ -181,7 +212,7 @@ namespace azo::rhi::metal
 		device->caps = caps;
 	}
 
-	[[nodiscard]] bool VersionIsOurs(const ApiVersion requested, Error & refusal) noexcept
+	[[nodiscard]] static bool version_is_ours(const ApiVersion requested, Error & refusal) noexcept
 	{
 		if (requested.major >= 4)
 		{
@@ -192,7 +223,7 @@ namespace azo::rhi::metal
 		return true;
 	}
 
-	[[nodiscard]] MetalDevice * MakeOwnedDevice(MetalInstance * instance, const DeviceDesc & desc, Error & refusal)
+	[[nodiscard]] MetalDevice * make_owned_device(MetalInstance * instance, const DeviceDesc & desc, Error & refusal)
 	{
 		NS::SharedPtr<MTL::Device> mtlDevice;
 
@@ -216,28 +247,28 @@ namespace azo::rhi::metal
 			return nullptr;
 		}
 
-		const auto config = native::FindDeviceConfig<MetalApi>(desc.backendConfigs);
+		const auto config = native::find_device_config<MetalApi>(desc.backendConfigs);
 		if (config.malformed)
 		{
 			refusal =
 				Error{ .code = ErrorCode::eInvalidArgument, .message = "the Metal 3 configuration block declares a size or version this backend cannot read" };
 			return nullptr;
 		}
-		if (!VersionIsOurs(config.block != nullptr ? config.block->generation : ApiVersion{}, refusal))
+		if (!version_is_ours(config.block != nullptr ? config.block->generation : ApiVersion{}, refusal))
 		{
 			return nullptr;
 		}
 
-		auto device	   = HostNew<MetalDevice>();
-		device->object = PublishingObject<Published<CoreDeviceApi, &CoreDeviceBlock>,
-			Published<PresentApi, &PresentBlock>,
-			Published<PlacedMemoryApi, &PlacedMemoryBlock>,
-			Published<RayTracingApi, &RayTracingBlock>,
-			Published<QueryApi, &QueryBlock>,
-			Published<ResidencyApi, &ResidencyBlock>,
-			Published<ResourceIntrospectionApi, &ResourceIntrospectionBlock>,
-			Published<AdoptionApi, &AdoptionBlock>,
-			Published<ExternalSharingApi, &ExternalSharingBlock>>();
+		auto device	   = host_new<MetalDevice>();
+		device->object = publishing_object<Published<CoreDeviceApi, &core_device_block>,
+			Published<PresentApi, &present_block>,
+			Published<PlacedMemoryApi, &placed_memory_block>,
+			Published<RayTracingApi, &ray_tracing_block>,
+			Published<QueryApi, &query_block>,
+			Published<ResidencyApi, &residency_block>,
+			Published<ResourceIntrospectionApi, &resource_introspection_block>,
+			Published<AdoptionApi, &adoption_block>,
+			Published<ExternalSharingApi, &external_sharing_block>>();
 
 		device->instanceWrapper = instance;
 		device->validation		= desc.validation;
@@ -247,11 +278,11 @@ namespace azo::rhi::metal
 		device->caps.deviceLocalMemoryIsHostVisible = device->device->hasUnifiedMemory();
 		device->allowDeviceLocalMapping				= desc.allowDeviceLocalMapping && device->caps.deviceLocalMemoryIsHostVisible;
 
-		device->openLists.SetBound(desc.maxOpenCommandListsPerQueue);
+		device->openLists.set_bound(desc.maxOpenCommandListsPerQueue);
 
-		const QueuePlan plan				   = PlanQueues(desc.queues);
+		const QueuePlan plan				   = plan_queues(desc.queues);
 		MTL::Device * mtl					   = device->device.get();
-		const std::uint32_t commandBufferCount = MetalDevice::CommandBuffersPerQueue(desc.maxOpenCommandListsPerQueue);
+		const std::uint32_t commandBufferCount = MetalDevice::command_buffers_per_queue(desc.maxOpenCommandListsPerQueue);
 		const auto makeQueues = [mtl, commandBufferCount](detail::HostVector<NS::SharedPtr<MTL::CommandQueue>> & out, std::uint32_t count) -> bool
 		{
 			for (std::uint32_t i = 0; i < count; ++i)
@@ -288,7 +319,7 @@ namespace azo::rhi::metal
 				set = NS::TransferPtr(made);
 				for (const QueueType type : { QueueType::eGraphics, QueueType::eCompute, QueueType::eCopy })
 				{
-					if (MTL::CommandQueue * queue = device->CommandQueueFor(type); queue != nullptr)
+					if (MTL::CommandQueue * queue = device->command_queue_for(type); queue != nullptr)
 					{
 						queue->addResidencySet(set.get());
 					}
@@ -296,11 +327,11 @@ namespace azo::rhi::metal
 			}
 		}
 
-		PopulateCaps(device.get());
+		populate_caps(device.get());
 
 		const auto queueCount = [&device](const QueueType type) -> std::uint32_t
 		{
-			return static_cast<std::uint32_t>(device->QueuesForType(type).size());
+			return static_cast<std::uint32_t>(device->queues_for_type(type).size());
 		};
 
 		device->caps.graphicsQueueCount		   = queueCount(QueueType::eGraphics);
@@ -316,44 +347,44 @@ namespace azo::rhi::metal
 		device->caps.supportsCommandListResubmit = false;
 
 		MetalDevice * raw		  = device.get();
-		MetalBackendOwner & owner = Owner();
+		MetalBackendOwner & owner = backend_owner();
 
 		std::uint32_t deviceTag = 0;
-		if (!detail::DeviceTags().Acquire(deviceTag))
+		if (!detail::device_tags().acquire(deviceTag))
 		{
 			refusal = Error{ .code = ErrorCode::eOutOfHostMemory, .message = "no device tag is available, too many devices are alive at once" };
 			return nullptr;
 		}
 		raw->deviceTag = deviceTag;
-		raw->tracked.Rebind(deviceTag);
-		raw->buffers.Rebind(deviceTag);
-		raw->textures.Rebind(deviceTag);
-		raw->textureViews.Rebind(deviceTag);
-		raw->samplers.Rebind(deviceTag);
-		raw->heaps.Rebind(deviceTag);
-		raw->timelines.Rebind(deviceTag);
-		raw->binarySemaphores.Rebind(deviceTag);
-		raw->graphicsPipelines.Rebind(deviceTag);
-		raw->computePipelines.Rebind(deviceTag);
-		raw->descriptorSets.Rebind(deviceTag);
+		raw->tracked.rebind(deviceTag);
+		raw->buffers.rebind(deviceTag);
+		raw->textures.rebind(deviceTag);
+		raw->textureViews.rebind(deviceTag);
+		raw->samplers.rebind(deviceTag);
+		raw->heaps.rebind(deviceTag);
+		raw->timelines.rebind(deviceTag);
+		raw->binarySemaphores.rebind(deviceTag);
+		raw->graphicsPipelines.rebind(deviceTag);
+		raw->computePipelines.rebind(deviceTag);
+		raw->descriptorSets.rebind(deviceTag);
 
 		owner.devices.push_back(std::move(device));
 		return raw;
 	}
 
-	[[nodiscard]] MetalInstance * MakeOwnedInstance()
+	[[nodiscard]] MetalInstance * make_owned_instance()
 	{
-		auto instance = HostNew<MetalInstance>();
+		auto instance = host_new<MetalInstance>();
 		if (instance == nullptr)
 		{
 			return nullptr;
 		}
 
-		instance->object = PublishingObject<Published<InstanceApi, &InstanceBlock>, Published<ExternalCapabilityApi, &ExternalCapabilityBlock>>();
+		instance->object = publishing_object<Published<InstanceApi, &instance_block>, Published<ExternalCapabilityApi, &external_capability_block>>();
 
 		MetalInstance * raw		  = instance.get();
-		MetalBackendOwner & owner = Owner();
-		if (!detail::TryPushBack(owner.instances, std::move(instance)))
+		MetalBackendOwner & owner = backend_owner();
+		if (!detail::try_push_back(owner.instances, std::move(instance)))
 		{
 			return nullptr;
 		}
@@ -361,9 +392,9 @@ namespace azo::rhi::metal
 		return raw;
 	}
 
-	void MetalDestroyDevice(void * impl) noexcept
+	void metal_destroy_device(void * impl) noexcept
 	{
-		MetalBackendOwner & owner = Owner();
+		MetalBackendOwner & owner = backend_owner();
 
 		MetalInstance * owningInstance = nullptr;
 		std::uint32_t releasedTag	   = 0;
@@ -382,7 +413,7 @@ namespace azo::rhi::metal
 			{
 				return device.get() == impl;
 			});
-		detail::DeviceTags().Release(releasedTag);
+		detail::device_tags().release(releasedTag);
 
 		if (owningInstance != nullptr)
 		{
@@ -406,9 +437,9 @@ namespace azo::rhi::metal
 		}
 	}
 
-	void MetalDestroyInstance(void * impl) noexcept
+	void metal_destroy_instance(void * impl) noexcept
 	{
-		MetalBackendOwner & owner = Owner();
+		MetalBackendOwner & owner = backend_owner();
 		std::erase_if(owner.instances,
 			[impl](const HostUniquePtr<MetalInstance> & instance)
 			{
@@ -416,12 +447,12 @@ namespace azo::rhi::metal
 			});
 	}
 
-	bool MetalQueryExternalHandleSupport(
+	bool metal_query_external_handle_support(
 		[[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external handle support needs somewhere to write the result");
+			return fail(error, ErrorCode::eInvalidArgument, "external handle support needs somewhere to write the result");
 		}
 
 		*out = {};
@@ -430,7 +461,7 @@ namespace azo::rhi::metal
 		const std::uint32_t count	 = (all.get() != nullptr) ? static_cast<std::uint32_t>(all->count()) : 0;
 		if (desc.adapterIndex >= count)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external handle support asked about an adapter index this instance does not have");
+			return fail(error, ErrorCode::eInvalidArgument, "external handle support asked about an adapter index this instance does not have");
 		}
 
 		switch (desc.kind)
@@ -458,30 +489,30 @@ namespace azo::rhi::metal
 		case ExternalObjectKind::eHeap:	  break;
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	void * MetalInstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept
+	void * metal_instance_create_device(void * impl, const DeviceDesc & desc, Error * error) noexcept
 	{
 		Error refusal{};
-		MetalDevice * device = MakeOwnedDevice(static_cast<MetalInstance *>(impl), desc, refusal);
+		MetalDevice * device = make_owned_device(static_cast<MetalInstance *>(impl), desc, refusal);
 		if (device == nullptr)
 		{
-			return refusal.code != ErrorCode::eOk ? FailValue<void *>(error, refusal.code, refusal.message)
-												  : FailValue<void *>(error, ErrorCode::eNativeApiError, "no Metal device available");
+			return refusal.code != ErrorCode::eOk ? fail_value<void *>(error, refusal.code, refusal.message)
+												  : fail_value<void *>(error, ErrorCode::eNativeApiError, "no Metal device available");
 		}
-		return ReturnValue(static_cast<void *>(device), error);
+		return return_value(static_cast<void *>(device), error);
 	}
 
-	void * MetalCreateInstance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept
+	void * metal_create_instance([[maybe_unused]] const void * instanceDesc, Error * error) noexcept
 	{
-		MetalInstance * instance = MakeOwnedInstance();
+		MetalInstance * instance = make_owned_instance();
 		if (instance == nullptr)
 		{
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Metal instance creation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Metal instance creation failed");
 		}
 
-		return ReturnValue(static_cast<void *>(instance), error);
+		return return_value(static_cast<void *>(instance), error);
 	}
 
 }

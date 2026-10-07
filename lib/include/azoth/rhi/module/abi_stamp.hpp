@@ -67,7 +67,7 @@ namespace azo::rhi
 		[[nodiscard]] friend constexpr bool operator==(const AbiStamp & lhs, const AbiStamp & rhs) noexcept = default;
 	};
 
-	[[nodiscard]] constexpr AbiStamp CurrentAbiStamp() noexcept
+	[[nodiscard]] constexpr AbiStamp current_abi_stamp() noexcept
 	{
 		return AbiStamp{};
 	}

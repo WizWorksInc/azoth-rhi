@@ -7,16 +7,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/resources/query.hpp"
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSError.hpp>
+#include <Foundation/NSRange.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSString.hpp>
+#include <Metal/MTLBlitCommandEncoder.hpp>
+#include <Metal/MTLBlitPass.hpp>
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLCounters.hpp>
+#include <Metal/MTLDevice.hpp>
+#include <Metal/MTLResource.hpp>
+#include <cstdint>
+#include <utility>
 
 namespace azo::rhi::metal
 {
-	[[nodiscard]] MetalQueryPool * ResolveQueryPool(MetalDevice * device, QueryPoolHandle handle) noexcept
+	[[nodiscard]] MetalQueryPool * resolve_query_pool(MetalDevice * device, QueryPoolHandle handle) noexcept
 	{
-		return device->queryPools.Resolve(handle, kHandleAlreadyChecked);
+		return device->queryPools.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	QueryPoolHandle MetalCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
+	QueryPoolHandle metal_create_query_pool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.createQueryPool");
 
@@ -24,16 +46,16 @@ namespace azo::rhi::metal
 
 		if (desc.type != QueryType::eTimestamp)
 		{
-			return FailValue<QueryPoolHandle>(
+			return fail_value<QueryPoolHandle>(
 				error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp query pools only, and this pool asked for another type");
 		}
 		if (device->timestampCounterSet.get() == nullptr)
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eUnsupportedFeature, "this Metal adapter exposes no timestamp counter set");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eUnsupportedFeature, "this Metal adapter exposes no timestamp counter set");
 		}
 		if (desc.queryCount == 0)
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool				= NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -50,10 +72,10 @@ namespace azo::rhi::metal
 		NS::SharedPtr<MTL::CounterSampleBuffer> buf = NS::TransferPtr(device->device->newCounterSampleBuffer(sbd.get(), &nativeError));
 		if (buf.get() == nullptr)
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "MTLDevice::newCounterSampleBuffer failed");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "MTLDevice::newCounterSampleBuffer failed");
 		}
 
-		return ReturnValue(device->queryPools.Store(MetalQueryPool{
+		return return_value(device->queryPools.store(MetalQueryPool{
 							   .sampleBuffer = std::move(buf),
 							   .type		 = desc.type,
 							   .queryCount	 = desc.queryCount,
@@ -61,16 +83,16 @@ namespace azo::rhi::metal
 			error);
 	}
 
-	bool MetalCalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
+	bool metal_calibrate_timestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
 	{
 		auto * device = static_cast<MetalDevice *>(impl);
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "calibrateTimestamp needs somewhere to write the result");
+			return fail(error, ErrorCode::eInvalidArgument, "calibrateTimestamp needs somewhere to write the result");
 		}
 		if (!device->caps.supportsTimestampCalibration)
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples no counters, so its clocks cannot be correlated");
+			return fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples no counters, so its clocks cannot be correlated");
 		}
 
 		MTL::Timestamp cpu = 0;
@@ -82,40 +104,40 @@ namespace azo::rhi::metal
 		out->cpuTimestampNanoseconds = cpu;
 		out->gpuPeriodNanoseconds	 = device->caps.timestampPeriodNanoseconds;
 		out->calibrated				 = cpu != 0 || gpu != 0;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
+	bool metal_cmd_reset_query_pool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * object			 = static_cast<MetalObject *>(impl);
-		MetalQueryPool * tracked = ResolveQueryPool(object->owner, pool);
+		MetalQueryPool * tracked = resolve_query_pool(object->owner, pool);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "resetQueryPool names a query pool this device never created");
 		}
 		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "resetQueryPool runs past the end of the pool");
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
+	bool metal_cmd_write_timestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * object			 = static_cast<MetalObject *>(impl);
 		MetalDevice * device	 = object->owner;
-		MetalQueryPool * tracked = ResolveQueryPool(device, pool);
+		MetalQueryPool * tracked = resolve_query_pool(device, pool);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "writeTimestamp names a query pool this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "writeTimestamp names a query pool this device never created");
 		}
 		if (query >= tracked->queryCount)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "writeTimestamp names a query past the end of the pool");
 		}
 		if (object->list == nullptr || object->list->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
 		MetalCmdList * rec = object->list;
@@ -123,26 +145,26 @@ namespace azo::rhi::metal
 		{
 			if (!device->samplesAtDrawBoundary)
 			{
-				return Fail(error,
+				return fail(error,
 					ErrorCode::eUnsupportedFeature,
 					"this Metal adapter samples counters at stage boundaries only, so a timestamp cannot be written inside a rendering scope. Time the "
 					"scope with BeginRenderingDesc::timestamps instead");
 			}
 			rec->renderEncoder->sampleCountersInBuffer(tracked->sampleBuffer.get(), query, false);
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		if (rec->computeEncoder.get() != nullptr)
 		{
 			if (!device->samplesAtDispatchBoundary)
 			{
-				return Fail(error,
+				return fail(error,
 					ErrorCode::eUnsupportedFeature,
 					"this Metal adapter samples counters at stage boundaries only, so a timestamp cannot be written inside a dispatch scope. Write it "
 					"before the scope's first binding or after the work that closes the scope");
 			}
 			rec->computeEncoder->sampleCountersInBuffer(tracked->sampleBuffer.get(), query, false);
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> autoreleasePool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -153,7 +175,7 @@ namespace azo::rhi::metal
 				rec->timestampFence = NS::TransferPtr(device->device->newFence());
 				if (rec->timestampFence.get() == nullptr)
 				{
-					return Fail(error, ErrorCode::eNativeApiError, "Metal timestamp fence allocation failed");
+					return fail(error, ErrorCode::eNativeApiError, "Metal timestamp fence allocation failed");
 				}
 			}
 
@@ -168,12 +190,12 @@ namespace azo::rhi::metal
 			MTL::BlitCommandEncoder * encoder = rec->commandBuffer->blitCommandEncoder(pass);
 			if (encoder == nullptr)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
+				return fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
 			}
-			ConsumeAliasWait(rec, encoder);
+			consume_alias_wait(rec, encoder);
 			encoder->updateFence(rec->timestampFence.get());
 			encoder->endEncoding();
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		if (device->samplesAtBlitBoundary)
@@ -181,56 +203,56 @@ namespace azo::rhi::metal
 			MTL::BlitCommandEncoder * encoder = rec->commandBuffer->blitCommandEncoder();
 			if (encoder == nullptr)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
+				return fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
 			}
-			ConsumeAliasWait(rec, encoder);
+			consume_alias_wait(rec, encoder);
 			encoder->sampleCountersInBuffer(tracked->sampleBuffer.get(), query, false);
 			encoder->endEncoding();
-			return Succeed(error);
+			return succeed(error);
 		}
 
-		return Fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples counters at no point a timestamp write can reach");
+		return fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples counters at no point a timestamp write can reach");
 	}
 
-	bool MetalCmdBeginQuery([[maybe_unused]] void * impl, [[maybe_unused]] QueryPoolHandle pool, [[maybe_unused]] std::uint32_t query, Error * error) noexcept
+	bool metal_cmd_begin_query([[maybe_unused]] void * impl, [[maybe_unused]] QueryPoolHandle pool, [[maybe_unused]] std::uint32_t query, Error * error) noexcept
 	{
-		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and beginQuery serves the counting kinds");
+		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and beginQuery serves the counting kinds");
 	}
 
-	bool MetalCmdEndQuery([[maybe_unused]] void * impl, [[maybe_unused]] QueryPoolHandle pool, [[maybe_unused]] std::uint32_t query, Error * error) noexcept
+	bool metal_cmd_end_query([[maybe_unused]] void * impl, [[maybe_unused]] QueryPoolHandle pool, [[maybe_unused]] std::uint32_t query, Error * error) noexcept
 	{
-		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and endQuery serves the counting kinds");
+		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and endQuery serves the counting kinds");
 	}
 
-	bool MetalCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
+	bool metal_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
 		std::uint64_t dstOffset, Error * error) noexcept
 	{
 		auto * object			  = static_cast<MetalObject *>(impl);
 		MetalDevice * device	  = object->owner;
-		MetalQueryPool * tracked  = ResolveQueryPool(device, pool);
-		MTL::Buffer * destination = ResolveBuffer(device, dst);
+		MetalQueryPool * tracked  = resolve_query_pool(device, pool);
+		MTL::Buffer * destination = resolve_buffer(device, dst);
 		if (tracked == nullptr || destination == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "resolveQueryData names a handle this device never created");
 		}
 		if (firstQuery > tracked->queryCount || queryCount > tracked->queryCount - firstQuery)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
+			return fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
 		if (object->list == nullptr || object->list->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> autoreleasePool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder						 = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder						 = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
 		}
 		encoder->resolveCounters(tracked->sampleBuffer.get(), NS::Range::Make(firstQuery, queryCount), destination, dstOffset);
 		encoder->endEncoding();
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

@@ -94,7 +94,7 @@ namespace azo::rhi::d3d12
 		sampler.MaxLOD		   = desc.maxLod;
 		FillBorderColor(sampler.BorderColor, desc.borderColor);
 
-		return ReturnValue(device->samplerSlots.Store(SamplerSlot{ .desc = sampler }), error);
+		return ReturnValue(device->samplerSlots.store(SamplerSlot{ .desc = sampler }), error);
 	}
 
 	bool D3D12DestroySampler(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -103,11 +103,11 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		if (device->samplerSlots.Resolve(slotHandle, true) == nullptr)
+		if (device->samplerSlots.resolve(slotHandle, true) == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid sampler handle");
 		}
-		static_cast<void>(device->samplerSlots.Retire(slotHandle, true));
+		static_cast<void>(device->samplerSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -125,7 +125,7 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] HeapSlot * ResolveHeap(D3D12Device * device, HeapHandle handle) noexcept
 	{
-		return device->heapSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->heapSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	HeapHandle D3D12CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
@@ -152,7 +152,7 @@ namespace azo::rhi::d3d12
 		heapDesc.Alignment		 = desc.alignment != 0 ? desc.alignment : D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 		heapDesc.Flags			 = desc.allowTextures ? D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES : D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
 
-		if (!desc.exportableHandleTypes.Empty())
+		if (!desc.exportableHandleTypes.empty())
 		{
 			if (heapDesc.Properties.Type != D3D12_HEAP_TYPE_DEFAULT)
 			{
@@ -169,7 +169,7 @@ namespace azo::rhi::d3d12
 			return FailValue<HeapHandle>(error, ErrorCode::eOutOfDeviceMemory, "ID3D12Device::CreateHeap failed");
 		}
 
-		return ReturnValue(device->heapSlots.Store(HeapSlot{
+		return ReturnValue(device->heapSlots.store(HeapSlot{
 							   .heap				  = std::move(heap),
 							   .type				  = heapDesc.Properties.Type,
 							   .size				  = desc.size,
@@ -211,7 +211,7 @@ namespace azo::rhi::d3d12
 		resourceDesc.Layout			  = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 		resourceDesc.Flags			  = MapBufferResourceFlags(desc.buffer.usage);
 
-		if (desc.buffer.usage.Contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
+		if (desc.buffer.usage.contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
 			return FailValue<BufferHandle>(error,
 				ErrorCode::eInvalidArgument,
@@ -226,12 +226,12 @@ namespace azo::rhi::d3d12
 		}
 
 		const bool hostVisible = heapType == D3D12_HEAP_TYPE_UPLOAD || heapType == D3D12_HEAP_TYPE_READBACK;
-		return ReturnValue(device->bufferSlots.Store(BufferSlot{
+		return ReturnValue(device->bufferSlots.store(BufferSlot{
 							   .resource	= std::move(resource),
 							   .size		= desc.buffer.size,
 							   .hostVisible = hostVisible,
 							   .heapType	= heapType,
-							   .desc		= detail::Recorded(desc.buffer),
+							   .desc		= detail::recorded(desc.buffer),
 						   }),
 			error);
 	}
@@ -281,7 +281,7 @@ namespace azo::rhi::d3d12
 			return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a texture");
 		}
 
-		return ReturnValue(device->textureSlots.Store(TextureSlot{ .resource = std::move(resource),
+		return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = std::move(resource),
 							   .format										 = format,
 							   .rhiFormat									 = desc.texture.format,
 							   .type										 = desc.texture.type,
@@ -289,7 +289,7 @@ namespace azo::rhi::d3d12
 							   .arrayLayers									 = static_cast<std::uint32_t>(resourceDesc.DepthOrArraySize),
 							   .usage										 = desc.texture.usage,
 							   .mutableFormat								 = desc.texture.allowFormatViews,
-							   .desc										 = detail::Recorded(desc.texture) }),
+							   .desc										 = detail::recorded(desc.texture) }),
 			error);
 	}
 
@@ -299,13 +299,13 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		HeapSlot * slot = device->heapSlots.Resolve(slotHandle, true);
+		HeapSlot * slot = device->heapSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid heap handle");
 		}
 		slot->heap.Reset();
-		static_cast<void>(device->heapSlots.Retire(slotHandle, true));
+		static_cast<void>(device->heapSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 

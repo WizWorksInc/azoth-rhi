@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/version_numbers.hpp"
 
@@ -27,7 +28,7 @@ namespace azo::rhi
 	{
 		inline constexpr std::size_t kVersionStringCapacity = 33;
 
-		[[nodiscard]] constexpr std::size_t DigitCount(std::uint32_t value) noexcept
+		[[nodiscard]] constexpr std::size_t digit_count(std::uint32_t value) noexcept
 		{
 			std::size_t digits = 1;
 			while (value >= 10)
@@ -39,33 +40,33 @@ namespace azo::rhi
 			return digits;
 		}
 
-		[[nodiscard]] consteval auto BuildVersionString(std::uint32_t major, std::uint32_t minor, std::uint32_t patch) noexcept
+		[[nodiscard]] consteval auto build_version_string(std::uint32_t major, std::uint32_t minor, std::uint32_t patch) noexcept
 		{
 			std::array<char, kVersionStringCapacity> text{};
 			std::size_t at = 0;
 
 			const auto append = [&text, &at](std::uint32_t value)
 			{
-				const std::size_t digits = DigitCount(value);
+				const std::size_t digits = digit_count(value);
 				for (std::size_t i = digits; i > 0; --i)
 				{
-					text[at + i - 1] = static_cast<char>('0' + (value % 10));
+					azo::rhi::detail::at(text, at + i - 1) = static_cast<char>('0' + (value % 10));
 					value /= 10;
 				}
 				at += digits;
 			};
 
 			append(major);
-			text[at++] = '.';
+			azo::rhi::detail::at(text, at++) = '.';
 			append(minor);
-			text[at++] = '.';
+			azo::rhi::detail::at(text, at++) = '.';
 			append(patch);
-			text[at] = '\0';
+			azo::rhi::detail::at(text, at) = '\0';
 
 			return text;
 		}
 
-		inline constexpr auto kVersionStringStorage = BuildVersionString(kVersionMajor, kVersionMinor, kVersionPatch);
+		inline constexpr auto kVersionStringStorage = build_version_string(kVersionMajor, kVersionMinor, kVersionPatch);
 	}
 
 	inline constexpr CString kVersionString = detail::kVersionStringStorage.data();
@@ -83,7 +84,7 @@ namespace azo::rhi
 		bool pixEnabled = false;
 	};
 
-	[[nodiscard]] constexpr BuildInfo GetBuildInfo() noexcept
+	[[nodiscard]] constexpr BuildInfo get_build_info() noexcept
 	{
 		BuildInfo info{};
 

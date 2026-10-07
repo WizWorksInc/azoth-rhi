@@ -105,57 +105,57 @@ namespace azo::rhi::d3d12
 	{
 		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
 
-		if (use.Contains(ResourceUse::eIndirectArgs))
+		if (use.contains(ResourceUse::eIndirectArgs))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
 		}
-		if (use.Contains(ResourceUse::eVertexBuffer))
+		if (use.contains(ResourceUse::eVertexBuffer))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_VERTEX_SHADING;
 		}
-		if (use.Contains(ResourceUse::eIndexBuffer))
+		if (use.contains(ResourceUse::eIndexBuffer))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_INDEX_INPUT;
 		}
-		if (use.Contains(ResourceUse::eUniformRead) || use.Contains(ResourceUse::eSampledRead) || use.Contains(ResourceUse::eStorageRead) ||
-			use.Contains(ResourceUse::eStorageWrite))
+		if (use.contains(ResourceUse::eUniformRead) || use.contains(ResourceUse::eSampledRead) || use.contains(ResourceUse::eStorageRead) ||
+			use.contains(ResourceUse::eStorageWrite))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_ALL_SHADING;
 		}
-		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		if (use.contains(ResourceUse::eStorageRead) || use.contains(ResourceUse::eStorageWrite))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
 		}
-		if (use.Contains(ResourceUse::eColorTarget))
+		if (use.contains(ResourceUse::eColorTarget))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RENDER_TARGET;
 		}
-		if (use.Contains(ResourceUse::eDepthStencilTarget) || use.Contains(ResourceUse::eDepthStencilRead))
+		if (use.contains(ResourceUse::eDepthStencilTarget) || use.contains(ResourceUse::eDepthStencilRead))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_DEPTH_STENCIL;
 		}
-		if (use.Contains(ResourceUse::eCopySrc) || use.Contains(ResourceUse::eCopyDst))
+		if (use.contains(ResourceUse::eCopySrc) || use.contains(ResourceUse::eCopyDst))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_COPY;
 		}
-		if (use.Contains(ResourceUse::eResolveSrc) || use.Contains(ResourceUse::eResolveDst))
+		if (use.contains(ResourceUse::eResolveSrc) || use.contains(ResourceUse::eResolveDst))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RESOLVE;
 		}
-		if (use.Contains(ResourceUse::eAccelBuildInput))
+		if (use.contains(ResourceUse::eAccelBuildInput))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
 		}
-		if (use.Contains(ResourceUse::eAccelWrite))
+		if (use.contains(ResourceUse::eAccelWrite))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
 				   D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 		}
-		if (use.Contains(ResourceUse::eAccelRead))
+		if (use.contains(ResourceUse::eAccelRead))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RAYTRACING | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
 		}
-		if (use.Contains(ResourceUse::eAccelBuildScratch))
+		if (use.contains(ResourceUse::eAccelBuildScratch))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_ALL;
 		}
@@ -202,69 +202,69 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] constexpr D3D12_BARRIER_SYNC MapBarrierSync(const Flags<Stage> stages, const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
-		if (stages.Empty())
+		if (stages.empty())
 		{
 			return ClampSyncToQueue(SyncReachableFrom(DeriveBarrierSync(use), MapBarrierAccess(use, queue)), queue);
 		}
 
 		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
 
-		if (stages.Contains(Stage::eIndirectFetch))
+		if (stages.contains(Stage::eIndirectFetch))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
 		}
-		if (stages.Contains(Stage::eVertexWork))
+		if (stages.contains(Stage::eVertexWork))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT;
 		}
-		if (stages.Contains(Stage::eFragmentShading))
+		if (stages.contains(Stage::eFragmentShading))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_PIXEL_SHADING;
 		}
-		if (stages.Contains(Stage::eDepthStencil))
+		if (stages.contains(Stage::eDepthStencil))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_DEPTH_STENCIL;
 		}
-		if (stages.Contains(Stage::eColorOutput))
+		if (stages.contains(Stage::eColorOutput))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RENDER_TARGET;
 		}
-		if (stages.Contains(Stage::eCompute))
+		if (stages.contains(Stage::eCompute))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
 		}
-		if (stages.Contains(Stage::eCopy))
+		if (stages.contains(Stage::eCopy))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_COPY;
 		}
 		// A barrier's sync bits have to be ones its access bits reach, which is why the clear rides here.
-		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		if (use.contains(ResourceUse::eStorageRead) || use.contains(ResourceUse::eStorageWrite))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
 		}
-		if (stages.Contains(Stage::eResolve))
+		if (stages.contains(Stage::eResolve))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RESOLVE;
 		}
-		if (stages.Contains(Stage::eRayTracing))
+		if (stages.contains(Stage::eRayTracing))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_RAYTRACING;
 		}
-		if (stages.Contains(Stage::eAccelBuild))
+		if (stages.contains(Stage::eAccelBuild))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
 				   D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO;
 		}
-		if (stages.Contains(Stage::eAllGraphics))
+		if (stages.contains(Stage::eAllGraphics))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_DRAW;
 		}
-		if (stages.Contains(Stage::eAllCommands))
+		if (stages.contains(Stage::eAllCommands))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_ALL;
 		}
 
-		if (use.Contains(ResourceUse::eAccelBuildScratch))
+		if (use.contains(ResourceUse::eAccelBuildScratch))
 		{
 			sync = sync | D3D12_BARRIER_SYNC_ALL;
 		}
@@ -274,78 +274,78 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS MapBarrierAccess(const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
-		if (use.Contains(ResourceUse::eDiscard))
+		if (use.contains(ResourceUse::eDiscard))
 		{
 			return D3D12_BARRIER_ACCESS_NO_ACCESS;
 		}
 
 		D3D12_BARRIER_ACCESS access = D3D12_BARRIER_ACCESS_COMMON;
 
-		if (use.Contains(ResourceUse::eIndirectArgs))
+		if (use.contains(ResourceUse::eIndirectArgs))
 		{
 			access = access | D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT;
 		}
-		if (use.Contains(ResourceUse::eVertexBuffer))
+		if (use.contains(ResourceUse::eVertexBuffer))
 		{
 			access = access | D3D12_BARRIER_ACCESS_VERTEX_BUFFER;
 		}
-		if (use.Contains(ResourceUse::eIndexBuffer))
+		if (use.contains(ResourceUse::eIndexBuffer))
 		{
 			access = access | D3D12_BARRIER_ACCESS_INDEX_BUFFER;
 		}
-		if (use.Contains(ResourceUse::eUniformRead))
+		if (use.contains(ResourceUse::eUniformRead))
 		{
 			access = access | D3D12_BARRIER_ACCESS_CONSTANT_BUFFER;
 		}
-		if (use.Contains(ResourceUse::eSampledRead))
+		if (use.contains(ResourceUse::eSampledRead))
 		{
 			access = access | D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
 		}
-		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		if (use.contains(ResourceUse::eStorageRead) || use.contains(ResourceUse::eStorageWrite))
 		{
 			access = access | D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
 		}
-		if (use.Contains(ResourceUse::eColorTarget))
+		if (use.contains(ResourceUse::eColorTarget))
 		{
 			access = access | D3D12_BARRIER_ACCESS_RENDER_TARGET;
 		}
-		if (use.Contains(ResourceUse::eDepthStencilTarget))
+		if (use.contains(ResourceUse::eDepthStencilTarget))
 		{
 			access = access | D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE;
 		}
-		if (use.Contains(ResourceUse::eDepthStencilRead))
+		if (use.contains(ResourceUse::eDepthStencilRead))
 		{
 			access = access | D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ;
 		}
-		if (use.Contains(ResourceUse::eCopySrc))
+		if (use.contains(ResourceUse::eCopySrc))
 		{
 			access = access | D3D12_BARRIER_ACCESS_COPY_SOURCE;
 		}
-		if (use.Contains(ResourceUse::eCopyDst))
+		if (use.contains(ResourceUse::eCopyDst))
 		{
 			access = access | D3D12_BARRIER_ACCESS_COPY_DEST;
 		}
-		if (use.Contains(ResourceUse::eResolveSrc))
+		if (use.contains(ResourceUse::eResolveSrc))
 		{
 			access = access | D3D12_BARRIER_ACCESS_RESOLVE_SOURCE;
 		}
-		if (use.Contains(ResourceUse::eResolveDst))
+		if (use.contains(ResourceUse::eResolveDst))
 		{
 			access = access | D3D12_BARRIER_ACCESS_RESOLVE_DEST;
 		}
-		if (use.Contains(ResourceUse::eAccelBuildInput))
+		if (use.contains(ResourceUse::eAccelBuildInput))
 		{
 			access = access | D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
 		}
-		if (use.Contains(ResourceUse::eAccelRead))
+		if (use.contains(ResourceUse::eAccelRead))
 		{
 			access = access | D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ;
 		}
-		if (use.Contains(ResourceUse::eAccelWrite))
+		if (use.contains(ResourceUse::eAccelWrite))
 		{
 			access = access | D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE;
 		}
-		if (use.Contains(ResourceUse::eAccelBuildScratch))
+		if (use.contains(ResourceUse::eAccelBuildScratch))
 		{
 			access = access | D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
 		}
@@ -359,19 +359,19 @@ namespace azo::rhi::d3d12
 		{
 			return D3D12_BARRIER_LAYOUT_COMMON;
 		}
-		if (use.Contains(ResourceUse::eDiscard))
+		if (use.contains(ResourceUse::eDiscard))
 		{
 			return D3D12_BARRIER_LAYOUT_UNDEFINED;
 		}
-		if (use.Contains(ResourceUse::ePresent))
+		if (use.contains(ResourceUse::ePresent))
 		{
 			return D3D12_BARRIER_LAYOUT_PRESENT;
 		}
-		if (use.Contains(ResourceUse::eStorageRead) || use.Contains(ResourceUse::eStorageWrite))
+		if (use.contains(ResourceUse::eStorageRead) || use.contains(ResourceUse::eStorageWrite))
 		{
 			return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
 		}
-		if (use.Contains(ResourceUse::eDepthStencilRead) && use.Contains(ResourceUse::eSampledRead))
+		if (use.contains(ResourceUse::eDepthStencilRead) && use.contains(ResourceUse::eSampledRead))
 		{
 			return ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ, queue);
 		}
@@ -380,45 +380,45 @@ namespace azo::rhi::d3d12
 		int distinct				= 0;
 		bool write					= false;
 
-		if (use.Contains(ResourceUse::eColorTarget))
+		if (use.contains(ResourceUse::eColorTarget))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_RENDER_TARGET;
 			write  = true;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eDepthStencilTarget))
+		if (use.contains(ResourceUse::eDepthStencilTarget))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
 			write  = true;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eDepthStencilRead))
+		if (use.contains(ResourceUse::eDepthStencilRead))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eSampledRead))
+		if (use.contains(ResourceUse::eSampledRead))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eCopySrc))
+		if (use.contains(ResourceUse::eCopySrc))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_COPY_SOURCE;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eCopyDst))
+		if (use.contains(ResourceUse::eCopyDst))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_COPY_DEST;
 			write  = true;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eResolveSrc))
+		if (use.contains(ResourceUse::eResolveSrc))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE;
 			++distinct;
 		}
-		if (use.Contains(ResourceUse::eResolveDst))
+		if (use.contains(ResourceUse::eResolveDst))
 		{
 			chosen = D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
 			write  = true;

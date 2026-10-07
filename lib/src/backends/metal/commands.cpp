@@ -7,27 +7,61 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
+#include "azoth/rhi/backend/support/format_info.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/commands/copy_types.hpp"
+#include "azoth/rhi/commands/render.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/c_string.hpp"
+#include "azoth/rhi/core/constants.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/resources/resources.hpp"
+#include "azoth/rhi/resources/texture_view.hpp"
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSString.hpp>
+#include <Foundation/NSTypes.hpp>
+#include <Metal/MTLArgument.hpp>
+#include <Metal/MTLBlitCommandEncoder.hpp>
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLCommandBuffer.hpp>
+#include <Metal/MTLCommandEncoder.hpp>
+#include <Metal/MTLCommandQueue.hpp>
+#include <Metal/MTLRenderCommandEncoder.hpp>
+#include <Metal/MTLRenderPass.hpp>
+#include <Metal/MTLResource.hpp>
+#include <Metal/MTLTexture.hpp>
+#include <Metal/MTLTypes.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <utility>
 
 namespace azo::rhi::metal
 {
-	bool MetalCmdBegin(void * impl, Error * error) noexcept
+	bool metal_cmd_begin(void * impl, Error * error) noexcept
 	{
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 
 		MetalDevice * device			 = object->owner;
-		MTL::CommandQueue * commandQueue = device->CommandQueueFor(object->queueType);
+		MTL::CommandQueue * commandQueue = device->command_queue_for(object->queueType);
 		if (commandQueue == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "Metal command list has no command queue for its type");
+			return fail(error, ErrorCode::eInvalidState, "Metal command list has no command queue for its type");
 		}
 
-		ReleaseCmdBuffer(device, rec, object->queueType);
+		release_cmd_buffer(device, rec, object->queueType);
 
-		if (!device->openLists.TryOpen(object->queueType))
+		if (!device->openLists.try_open(object->queueType))
 		{
-			return Fail(error, ErrorCode::eInvalidState, kOpenListBudgetExhausted);
+			return fail(error, ErrorCode::eInvalidState, kOpenListBudgetExhausted);
 		}
 		rec->holdsListSlot = true;
 
@@ -36,8 +70,8 @@ namespace azo::rhi::metal
 		if (commandBuffer == nullptr)
 		{
 			rec->holdsListSlot = false;
-			device->openLists.Close(object->queueType);
-			return Fail(error, ErrorCode::eNativeApiError, "Metal command buffer allocation failed");
+			device->openLists.close(object->queueType);
+			return fail(error, ErrorCode::eNativeApiError, "Metal command buffer allocation failed");
 		}
 		rec->commandBuffer = NS::RetainPtr(commandBuffer);
 		if (!rec->debugName.empty())
@@ -57,10 +91,10 @@ namespace azo::rhi::metal
 		rec->boundThreadGroup = MTL::Size{ 1, 1, 1 };
 
 		rec->lifecycle = ListLifecycle::eRecording;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	void PopEncoderDebugGroups(MetalCmdList * rec, MTL::CommandEncoder * encoder) noexcept
+	void pop_encoder_debug_groups(MetalCmdList * rec, MTL::CommandEncoder * encoder) noexcept
 	{
 		if (encoder == nullptr)
 		{
@@ -69,24 +103,24 @@ namespace azo::rhi::metal
 
 		for (std::size_t index = rec->debugLabelScopes.size(); index-- > 0;)
 		{
-			if (rec->debugLabelScopes[index] != rec->encoderEpoch)
+			if (azo::rhi::detail::at(rec->debugLabelScopes, index) != rec->encoderEpoch)
 			{
 				break;
 			}
 
 			encoder->popDebugGroup();
-			rec->debugLabelScopes[index] = kDebugScopeClosed;
+			azo::rhi::detail::at(rec->debugLabelScopes, index) = kDebugScopeClosed;
 		}
 	}
 
-	bool MetalCmdEnd(void * impl, Error * error) noexcept
+	bool metal_cmd_end(void * impl, Error * error) noexcept
 	{
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 
 		if (rec->renderEncoder.get() != nullptr)
 		{
-			PopEncoderDebugGroups(rec, rec->renderEncoder.get());
+			pop_encoder_debug_groups(rec, rec->renderEncoder.get());
 			if (rec->pendingEndTimestamp.get() != nullptr)
 			{
 				rec->renderEncoder->sampleCountersInBuffer(rec->pendingEndTimestamp.get(), rec->pendingEndQuery, false);
@@ -98,21 +132,21 @@ namespace azo::rhi::metal
 		}
 		if (rec->computeEncoder.get() != nullptr)
 		{
-			PopEncoderDebugGroups(rec, rec->computeEncoder.get());
+			pop_encoder_debug_groups(rec, rec->computeEncoder.get());
 			rec->computeEncoder->endEncoding();
 			rec->computeEncoder.reset();
 		}
 
 		rec->lifecycle = ListLifecycle::eEnded;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCmdBarriers([[maybe_unused]] void * impl, [[maybe_unused]] const BarrierBatch & barriers, Error * error) noexcept
+	bool metal_cmd_barriers([[maybe_unused]] void * impl, [[maybe_unused]] const BarrierBatch & barriers, Error * error) noexcept
 	{
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
+	bool metal_cmd_alias_barriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.aliasBarriers");
 
@@ -121,25 +155,25 @@ namespace azo::rhi::metal
 		MetalCmdList * rec	 = object->list;
 		if (rec == nullptr || rec->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 		if (barriers.empty())
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 		if (rec->renderEncoder.get() != nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
+			return fail(error, ErrorCode::eInvalidState, "aliasBarriers cannot be recorded inside a rendering scope, so record it between passes");
 		}
 
 		for (const AliasBarrier & barrier : barriers)
 		{
-			if ((barrier.beforeBuffer.IsValid() && device->buffers.Resolve(barrier.beforeBuffer, true) == nullptr) ||
-				(barrier.afterBuffer.IsValid() && device->buffers.Resolve(barrier.afterBuffer, true) == nullptr) ||
-				(barrier.beforeTexture.IsValid() && device->textures.Resolve(barrier.beforeTexture, true) == nullptr) ||
-				(barrier.afterTexture.IsValid() && device->textures.Resolve(barrier.afterTexture, true) == nullptr))
+			if ((barrier.beforeBuffer.is_valid() && device->buffers.resolve(barrier.beforeBuffer, true) == nullptr) ||
+				(barrier.afterBuffer.is_valid() && device->buffers.resolve(barrier.afterBuffer, true) == nullptr) ||
+				(barrier.beforeTexture.is_valid() && device->textures.resolve(barrier.beforeTexture, true) == nullptr) ||
+				(barrier.afterTexture.is_valid() && device->textures.resolve(barrier.afterTexture, true) == nullptr))
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
+				return fail(error, ErrorCode::eInvalidHandle, "aliasBarriers with an invalid resource handle");
 			}
 		}
 
@@ -148,14 +182,14 @@ namespace azo::rhi::metal
 			rec->aliasFence = NS::TransferPtr(object->owner->device->newFence());
 			if (rec->aliasFence.get() == nullptr)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Metal alias fence allocation failed");
+				return fail(error, ErrorCode::eNativeApiError, "Metal alias fence allocation failed");
 			}
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 		if (rec->computeEncoder.get() != nullptr)
 		{
-			PopEncoderDebugGroups(rec, rec->computeEncoder.get());
+			pop_encoder_debug_groups(rec, rec->computeEncoder.get());
 			rec->computeEncoder->updateFence(rec->aliasFence.get());
 			rec->computeEncoder->endEncoding();
 			rec->computeEncoder.reset();
@@ -165,28 +199,28 @@ namespace azo::rhi::metal
 			MTL::BlitCommandEncoder * encoder = rec->commandBuffer->blitCommandEncoder();
 			if (encoder == nullptr)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
+				return fail(error, ErrorCode::eNativeApiError, "Metal blit command encoder creation failed");
 			}
 			encoder->updateFence(rec->aliasFence.get());
 			encoder->endEncoding();
 		}
 
 		rec->aliasWaitPending = true;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCmdBeginDebugLabel(void * impl, CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
+	bool metal_cmd_begin_debug_label(void * impl, CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
 	{
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 		if (rec == nullptr || rec->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
 		if (!object->owner->debugLabels)
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -194,9 +228,9 @@ namespace azo::rhi::metal
 
 		MTL::CommandEncoder * encoder = rec->renderEncoder.get() != nullptr ? static_cast<MTL::CommandEncoder *>(rec->renderEncoder.get())
 																			: static_cast<MTL::CommandEncoder *>(rec->computeEncoder.get());
-		if (!detail::TryPushBack(rec->debugLabelScopes, encoder != nullptr ? rec->encoderEpoch : kDebugScopeCommandBuffer))
+		if (!detail::try_push_back(rec->debugLabelScopes, encoder != nullptr ? rec->encoderEpoch : kDebugScopeCommandBuffer))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "Metal debug label tracking allocation failed");
+			return fail(error, ErrorCode::eOutOfHostMemory, "Metal debug label tracking allocation failed");
 		}
 
 		if (encoder != nullptr)
@@ -207,26 +241,26 @@ namespace azo::rhi::metal
 		{
 			rec->commandBuffer->pushDebugGroup(label);
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCmdEndDebugLabel(void * impl, Error * error) noexcept
+	bool metal_cmd_end_debug_label(void * impl, Error * error) noexcept
 	{
 		auto * object	   = static_cast<MetalObject *>(impl);
 		MetalCmdList * rec = object->list;
 		if (rec == nullptr || rec->commandBuffer.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
 		if (!object->owner->debugLabels)
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		if (rec->debugLabelScopes.empty())
 		{
-			return Fail(error, ErrorCode::eValidationFailed, "endDebugLabel without a matching beginDebugLabel");
+			return fail(error, ErrorCode::eValidationFailed, "endDebugLabel without a matching beginDebugLabel");
 		}
 
 		const std::uint64_t opened = rec->debugLabelScopes.back();
@@ -234,13 +268,13 @@ namespace azo::rhi::metal
 
 		if (opened == kDebugScopeClosed)
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		if (opened == kDebugScopeCommandBuffer)
 		{
 			rec->commandBuffer->popDebugGroup();
-			return Succeed(error);
+			return succeed(error);
 		}
 
 		MTL::CommandEncoder * live = rec->renderEncoder.get() != nullptr ? static_cast<MTL::CommandEncoder *>(rec->renderEncoder.get())
@@ -249,67 +283,67 @@ namespace azo::rhi::metal
 		{
 			live->popDebugGroup();
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCopyBuffer(
+	bool metal_copy_buffer(
 		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.copyBuffer");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Buffer * source	  = ResolveBuffer(device, src);
-		MTL::Buffer * destination = ResolveBuffer(device, dst);
+		MTL::Buffer * source	  = resolve_buffer(device, src);
+		MTL::Buffer * destination = resolve_buffer(device, dst);
 		if (source == nullptr || destination == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyBuffer names a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "copyBuffer names a buffer this device never created");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder			  = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
 		}
 		encoder->copyFromBuffer(source, srcOffset, destination, dstOffset, size);
 		encoder->endEncoding();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
+	bool metal_copy_buffer_to_texture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.copyBufferToTexture");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Texture * texture = ResolveTexture(device, dst);
-		MTL::Buffer * buffer   = ResolveBuffer(device, src);
+		MTL::Texture * texture = resolve_texture(device, dst);
+		MTL::Buffer * buffer   = resolve_buffer(device, src);
 		if (texture == nullptr || buffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyBufferToTexture names a resource this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "copyBufferToTexture names a resource this device never created");
 		}
 
-		const Format format = ResolveTextureFormat(device, dst);
-		if (!detail::HasLinearLayout(format))
+		const Format format = resolve_texture_format(device, dst);
+		if (!detail::has_linear_layout(format))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "copyBufferToTexture on a combined depth-stencil format, whose aspects copy separately");
+			return fail(error, ErrorCode::eUnsupportedFeature, "copyBufferToTexture on a combined depth-stencil format, whose aspects copy separately");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder			  = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
@@ -318,8 +352,8 @@ namespace azo::rhi::metal
 		{
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
-			const NS::UInteger bytesPerRow	 = static_cast<NS::UInteger>(detail::TightRowPitch(format, rowTexels));
-			const NS::UInteger bytesPerImage = bytesPerRow * detail::BlockRows(format, imageRows);
+			const auto bytesPerRow	 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
+			const NS::UInteger bytesPerImage = bytesPerRow * detail::block_rows(format, imageRows);
 			encoder->copyFromBuffer(buffer,
 				region.bufferOffset,
 				bytesPerRow,
@@ -333,36 +367,36 @@ namespace azo::rhi::metal
 					static_cast<NS::UInteger>(region.textureOffset.z)));
 		}
 		encoder->endEncoding();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
+	bool metal_copy_texture_to_buffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.copyTextureToBuffer");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Texture * texture = ResolveTexture(device, src);
-		MTL::Buffer * buffer   = ResolveBuffer(device, dst);
+		MTL::Texture * texture = resolve_texture(device, src);
+		MTL::Buffer * buffer   = resolve_buffer(device, dst);
 		if (texture == nullptr || buffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyTextureToBuffer names a resource this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "copyTextureToBuffer names a resource this device never created");
 		}
 
-		const Format format = ResolveTextureFormat(device, src);
-		if (!detail::HasLinearLayout(format))
+		const Format format = resolve_texture_format(device, src);
+		if (!detail::has_linear_layout(format))
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "copyTextureToBuffer on a combined depth-stencil format, whose aspects copy separately");
+			return fail(error, ErrorCode::eUnsupportedFeature, "copyTextureToBuffer on a combined depth-stencil format, whose aspects copy separately");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder			  = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
@@ -371,8 +405,8 @@ namespace azo::rhi::metal
 		{
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
-			const NS::UInteger bytesPerRow	 = static_cast<NS::UInteger>(detail::TightRowPitch(format, rowTexels));
-			const NS::UInteger bytesPerImage = bytesPerRow * detail::BlockRows(format, imageRows);
+			const auto bytesPerRow	 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
+			const NS::UInteger bytesPerImage = bytesPerRow * detail::block_rows(format, imageRows);
 			encoder->copyFromTexture(texture,
 				region.subresource.layer,
 				region.subresource.mip,
@@ -386,30 +420,30 @@ namespace azo::rhi::metal
 				bytesPerImage);
 		}
 		encoder->endEncoding();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept
+	bool metal_copy_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.copyTexture");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Texture * source	   = ResolveTexture(device, src);
-		MTL::Texture * destination = ResolveTexture(device, dst);
+		MTL::Texture * source	   = resolve_texture(device, src);
+		MTL::Texture * destination = resolve_texture(device, dst);
 		if (source == nullptr || destination == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "copyTexture names a texture this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "copyTexture names a texture this device never created");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder			  = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
@@ -431,79 +465,79 @@ namespace azo::rhi::metal
 					static_cast<NS::UInteger>(region.dstOffset.z)));
 		}
 		encoder->endEncoding();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalBlit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src, [[maybe_unused]] std::span<const TextureBlit> regions,
+	bool metal_blit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src, [[maybe_unused]] std::span<const TextureBlit> regions,
 		[[maybe_unused]] Filter filter, Error * error) noexcept
 	{
 		[[maybe_unused]] auto * object = static_cast<MetalObject *>(impl);
-		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal has no scaled blit; use generateMips or a compute downsample");
+		return fail(error, ErrorCode::eUnsupportedFeature, "Metal has no scaled blit; use generateMips or a compute downsample");
 	}
 
-	bool MetalGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept
+	bool metal_generate_mips(void * impl, TextureHandle texture, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.generateMips");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Texture * tex = ResolveTexture(device, texture);
+		MTL::Texture * tex = resolve_texture(device, texture);
 		if (tex == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "generateMips names a texture this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "generateMips names a texture this device never created");
 		}
 
 		if (tex->mipmapLevelCount() <= 1)
 		{
-			return Succeed(error);
+			return succeed(error);
 		}
 
-		auto * const tracked = device->textures.Resolve(texture, kHandleAlreadyChecked);
-		if (tracked != nullptr && (IsCompressedFormat(tracked->format) || IsIntegerFormat(tracked->format) || IsDepthFormat(tracked->format)))
+		auto * const tracked = device->textures.resolve(texture, kHandleAlreadyChecked);
+		if (tracked != nullptr && (is_compressed_format(tracked->format) || is_integer_format(tracked->format) || is_depth_format(tracked->format)))
 		{
-			return Fail(
+			return fail(
 				error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder			  = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
 		}
 		encoder->generateMipmaps(tex);
 		encoder->endEncoding();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept
+	bool metal_clear_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.clearBuffer");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Buffer * destination = ResolveBuffer(device, buffer);
+		MTL::Buffer * destination = resolve_buffer(device, buffer);
 		if (destination == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "clearBuffer names a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "clearBuffer names a buffer this device never created");
 		}
 
 		NS::SharedPtr<MTL::Buffer> staging = NS::TransferPtr(device->device->newBuffer(size, MTL::ResourceStorageModeShared));
 		if (staging.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eOutOfDeviceMemory, "Metal clear staging buffer allocation failed");
+			return fail(error, ErrorCode::eOutOfDeviceMemory, "Metal clear staging buffer allocation failed");
 		}
 		auto * words				  = static_cast<std::uint32_t *>(staging->contents());
 		const std::uint64_t wordCount = size / 4;
@@ -513,7 +547,7 @@ namespace azo::rhi::metal
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
-		MTL::BlitCommandEncoder * encoder			  = BeginBlit(object, error);
+		MTL::BlitCommandEncoder * encoder			  = begin_blit(object, error);
 		if (encoder == nullptr)
 		{
 			return false;
@@ -521,50 +555,50 @@ namespace azo::rhi::metal
 		encoder->copyFromBuffer(staging.get(), 0, destination, offset, wordCount * 4);
 		encoder->endEncoding();
 		object->list->keepAlive.push_back(std::move(staging));
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalClearTexture(
+	bool metal_clear_texture(
 		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.clearTexture");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		const MetalTextureSlot * slot = device->textures.Resolve(texture, kHandleAlreadyChecked);
+		const MetalTextureSlot * slot = device->textures.resolve(texture, kHandleAlreadyChecked);
 		if (slot == nullptr || slot->texture.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "clearTexture names a texture this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "clearTexture names a texture this device never created");
 		}
 
 		MTL::Texture * tex = slot->texture.get();
 
-		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
+		if (!slot->usage.contains(TextureUsage::eColorAttachment))
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
+			return fail(error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Metal clears through");
 		}
 
-		EndActiveEncoders(object);
+		end_active_encoders(object);
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
 		for (const TextureSubresourceRange & range : ranges)
 		{
-			if (range.aspects.Contains(TextureAspect::eDepth) || range.aspects.Contains(TextureAspect::eStencil))
+			if (range.aspects.contains(TextureAspect::eDepth) || range.aspects.contains(TextureAspect::eStencil))
 			{
-				return Fail(error, ErrorCode::eUnsupportedFeature, "Metal clearTexture clears color aspects only");
+				return fail(error, ErrorCode::eUnsupportedFeature, "Metal clearTexture clears color aspects only");
 			}
 
 			const auto textureMips	 = static_cast<std::uint32_t>(tex->mipmapLevelCount());
 			const auto textureLayers = static_cast<std::uint32_t>(tex->arrayLength());
 			if (range.baseMip >= textureMips || range.baseLayer >= textureLayers)
 			{
-				return Fail(error, ErrorCode::eInvalidArgument, "clearTexture range starts past the end of the texture");
+				return fail(error, ErrorCode::eInvalidArgument, "clearTexture range starts past the end of the texture");
 			}
 
 			const std::uint32_t mipCount   = range.mipCount == kAllMips ? textureMips - range.baseMip : range.mipCount;
@@ -588,37 +622,37 @@ namespace azo::rhi::metal
 					MTL::RenderCommandEncoder * encoder = commandBuffer->renderCommandEncoder(pass);
 					if (encoder == nullptr)
 					{
-						return Fail(error, ErrorCode::eNativeApiError, "Metal clear render command encoder creation failed");
+						return fail(error, ErrorCode::eNativeApiError, "Metal clear render command encoder creation failed");
 					}
-					ConsumeAliasWait(object->list, encoder);
+					consume_alias_wait(object->list, encoder);
 					encoder->endEncoding();
 				}
 			}
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
+	bool metal_resolve_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.resolveTexture");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
-		MTL::Texture * source	   = ResolveTexture(device, src);
-		MTL::Texture * destination = ResolveTexture(device, dst);
+		MTL::Texture * source	   = resolve_texture(device, src);
+		MTL::Texture * destination = resolve_texture(device, dst);
 		if (source == nullptr || destination == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "resolveTexture names a texture this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "resolveTexture names a texture this device never created");
 		}
 
-		EndActiveEncoders(object);
+		end_active_encoders(object);
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
 		for (const TextureResolve & region : regions)
@@ -629,7 +663,7 @@ namespace azo::rhi::metal
 									region.extent.height == static_cast<std::uint32_t>(source->height() >> region.srcSubresource.mip);
 			if (!wholeSlice)
 			{
-				return Fail(error, ErrorCode::eUnsupportedFeature, "Metal resolveTexture resolves a whole subresource, not a sub-rectangle");
+				return fail(error, ErrorCode::eUnsupportedFeature, "Metal resolveTexture resolves a whole subresource, not a sub-rectangle");
 			}
 
 			MTL::RenderPassDescriptor * pass						 = MTL::RenderPassDescriptor::alloc()->init();
@@ -648,13 +682,13 @@ namespace azo::rhi::metal
 			MTL::RenderCommandEncoder * encoder = commandBuffer->renderCommandEncoder(pass);
 			if (encoder == nullptr)
 			{
-				return Fail(error, ErrorCode::eNativeApiError, "Metal resolve render command encoder creation failed");
+				return fail(error, ErrorCode::eNativeApiError, "Metal resolve render command encoder creation failed");
 			}
-			ConsumeAliasWait(object->list, encoder);
+			consume_alias_wait(object->list, encoder);
 			encoder->endEncoding();
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

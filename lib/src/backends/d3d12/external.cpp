@@ -28,12 +28,12 @@ namespace azo::rhi::d3d12
 			}
 
 			*out = {};
-			if (!declared.Contains(type))
+			if (!declared.contains(type))
 			{
 				return Fail(error, ErrorCode::eInvalidArgument, kUndeclared);
 			}
 
-			if (!accepted.Contains(type))
+			if (!accepted.contains(type))
 			{
 				return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 does not name this kind of object under that handle type");
 			}
@@ -53,7 +53,7 @@ namespace azo::rhi::d3d12
 		[[nodiscard]] bool OpenShared(
 			D3D12Device * device, const ExternalHandle & handle, const Flags<ExternalHandleType> accepted, ComPtr<Object> & out, Error * error) noexcept
 		{
-			if (!accepted.Contains(handle.type))
+			if (!accepted.contains(handle.type))
 			{
 				return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 cannot open a handle of that type as this kind of object");
 			}
@@ -148,8 +148,8 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.desc.debugName, device->debugNames);
 
-		return ReturnValue(device->bufferSlots.Store(BufferSlot{
-							   .resource = std::move(resource), .size = desc.desc.size, .hostVisible = false, .desc = detail::Recorded(desc.desc) }),
+		return ReturnValue(device->bufferSlots.store(BufferSlot{
+							   .resource = std::move(resource), .size = desc.desc.size, .hostVisible = false, .desc = detail::recorded(desc.desc) }),
 			error);
 	}
 
@@ -171,7 +171,7 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.desc.debugName, device->debugNames);
 
-		return ReturnValue(device->textureSlots.Store(TextureSlot{ .resource = std::move(resource),
+		return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = std::move(resource),
 							   .format										 = format,
 							   .rhiFormat									 = desc.desc.format,
 							   .type										 = desc.desc.type,
@@ -179,7 +179,7 @@ namespace azo::rhi::d3d12
 							   .arrayLayers									 = desc.desc.arrayLayers,
 							   .usage										 = desc.desc.usage,
 							   .mutableFormat								 = desc.desc.allowFormatViews,
-							   .desc										 = detail::Recorded(desc.desc) }),
+							   .desc										 = detail::recorded(desc.desc) }),
 			error);
 	}
 
@@ -195,7 +195,7 @@ namespace azo::rhi::d3d12
 		}
 
 		const D3D12_HEAP_DESC opened = heap->GetDesc();
-		return ReturnValue(device->heapSlots.Store(HeapSlot{
+		return ReturnValue(device->heapSlots.store(HeapSlot{
 							   .heap = std::move(heap),
 							   .type = opened.Properties.Type,
 							   .size = opened.SizeInBytes,
@@ -214,7 +214,7 @@ namespace azo::rhi::d3d12
 			return TimelineHandle{};
 		}
 
-		return ReturnValue(device->timelineSlots.Store(TimelineSlot{ .fence = std::move(fence) }), error);
+		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = std::move(fence) }), error);
 	}
 
 	BinarySemaphoreHandle D3D12ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept
@@ -228,7 +228,7 @@ namespace azo::rhi::d3d12
 			return BinarySemaphoreHandle{};
 		}
 
-		return ReturnValue(device->binarySemaphoreSlots.Store(BinarySemaphoreSlot{ .fence = std::move(fence) }), error);
+		return ReturnValue(device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence) }), error);
 	}
 
 	bool D3D12CloseExportedHandle([[maybe_unused]] void * impl, const ExternalHandle & handle, Error * error) noexcept

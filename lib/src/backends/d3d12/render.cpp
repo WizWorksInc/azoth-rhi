@@ -214,7 +214,7 @@ namespace azo::rhi::d3d12
 
 		const UINT num32Bit	 = size / sizeof(std::uint32_t);
 		const UINT dstOffset = (offset - target->offset) / sizeof(std::uint32_t);
-		if (stages.Contains(ShaderStage::eCompute))
+		if (stages.contains(ShaderStage::eCompute))
 		{
 			list->list->SetComputeRoot32BitConstants(target->rootParam, num32Bit, data, dstOffset);
 		}

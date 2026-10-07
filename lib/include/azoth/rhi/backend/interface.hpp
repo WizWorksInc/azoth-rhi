@@ -25,9 +25,9 @@ namespace azo::rhi
 		[[nodiscard]] friend constexpr bool operator==(InterfaceId lhs, InterfaceId rhs) noexcept = default;
 	};
 
-	[[nodiscard]] consteval InterfaceId MakeInterfaceId(const std::string_view name) noexcept
+	[[nodiscard]] consteval InterfaceId make_interface_id(const std::string_view name) noexcept
 	{
-		return InterfaceId{ hash::Fnv1a64Hash(name) };
+		return InterfaceId{ hash::fnv1a64_hash(name) };
 	}
 
 	struct InterfaceHeader final

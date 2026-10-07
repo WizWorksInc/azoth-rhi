@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/resources/pipeline.hpp"
 
 #include <cstddef>
@@ -27,14 +28,14 @@ namespace azo::rhi
 	public:
 		using DescType = decltype(std::declval<const BuilderT &>().BorrowedDesc());
 
-		[[nodiscard]] DescType Desc() const & noexcept
+		[[nodiscard]] DescType desc() const & noexcept
 		{
 			return m_storage.BorrowedDesc();
 		}
 
-		[[nodiscard]] DescType Desc() const && = delete;
+		[[nodiscard]] DescType desc() const && = delete;
 
-		// Implicit so a stored result passes straight to a creation call without naming the description type. NOLINTNEXTLINE(hicpp-explicit-conversions)
+		// NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor,hicpp-explicit-conversions,misc-explicit-constructor)
 		[[nodiscard]] operator DescType() const & noexcept
 		{
 			return m_storage.BorrowedDesc();
@@ -53,25 +54,25 @@ namespace azo::rhi
 	class PipelineCacheBuilder final
 	{
 	public:
-		PipelineCacheBuilder & InitialData(const void * data, std::size_t size) noexcept
+		PipelineCacheBuilder & initial_data(const void * data, std::size_t size) noexcept
 		{
 			m_desc.initialData = data;
 			m_desc.initialSize = size;
 			return *this;
 		}
 
-		PipelineCacheBuilder & DebugName(std::string_view name)
+		PipelineCacheBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] Built<PipelineCacheBuilder> Build() &&
+		[[nodiscard]] Built<PipelineCacheBuilder> build() &&
 		{
 			return Built<PipelineCacheBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<PipelineCacheBuilder> Build() const &
+		[[nodiscard]] Built<PipelineCacheBuilder> build() const &
 		{
 			return Built<PipelineCacheBuilder>{ *this };
 		}
@@ -93,59 +94,59 @@ namespace azo::rhi
 	class ShaderBinaryBuilder final
 	{
 	public:
-		ShaderBinaryBuilder & Stage(ShaderStage stage) noexcept
+		ShaderBinaryBuilder & stage(ShaderStage stage) noexcept
 		{
 			m_desc.stage = stage;
 			return *this;
 		}
 
-		ShaderBinaryBuilder & Format(ShaderBinaryFormat format) noexcept
+		ShaderBinaryBuilder & format(ShaderBinaryFormat format) noexcept
 		{
 			m_desc.format = format;
 			return *this;
 		}
 
-		ShaderBinaryBuilder & SpirV() noexcept
+		ShaderBinaryBuilder & spir_v() noexcept
 		{
-			return Format(ShaderBinaryFormat::eSpirV);
+			return format(ShaderBinaryFormat::eSpirV);
 		}
 
-		ShaderBinaryBuilder & Dxil() noexcept
+		ShaderBinaryBuilder & dxil() noexcept
 		{
-			return Format(ShaderBinaryFormat::eDxil);
+			return format(ShaderBinaryFormat::eDxil);
 		}
 
-		ShaderBinaryBuilder & Data(const void * data, std::size_t size) noexcept
+		ShaderBinaryBuilder & data(const void * data, std::size_t size) noexcept
 		{
 			m_desc.data = data;
 			m_desc.size = size;
 			return *this;
 		}
 
-		ShaderBinaryBuilder & EntryPoint(const char * entryPoint) noexcept
+		ShaderBinaryBuilder & entry_point(const char * entryPoint) noexcept
 		{
 			m_desc.entryPoint = entryPoint;
 			return *this;
 		}
 
-		ShaderBinaryBuilder & BindingMap(const ShaderBindingMap * map) noexcept
+		ShaderBinaryBuilder & binding_map(const ShaderBindingMap * map) noexcept
 		{
 			m_desc.bindingMap = map;
 			return *this;
 		}
 
-		ShaderBinaryBuilder & DebugName(std::string_view name)
+		ShaderBinaryBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] Built<ShaderBinaryBuilder> Build() &&
+		[[nodiscard]] Built<ShaderBinaryBuilder> build() &&
 		{
 			return Built<ShaderBinaryBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<ShaderBinaryBuilder> Build() const &
+		[[nodiscard]] Built<ShaderBinaryBuilder> build() const &
 		{
 			return Built<ShaderBinaryBuilder>{ *this };
 		}
@@ -167,25 +168,25 @@ namespace azo::rhi
 	class VertexBindingBuilder final
 	{
 	public:
-		VertexBindingBuilder & Binding(std::uint32_t binding) noexcept
+		VertexBindingBuilder & binding(std::uint32_t binding) noexcept
 		{
 			m_desc.binding = binding;
 			return *this;
 		}
 
-		VertexBindingBuilder & Stride(std::uint32_t stride) noexcept
+		VertexBindingBuilder & stride(std::uint32_t stride) noexcept
 		{
 			m_desc.stride = stride;
 			return *this;
 		}
 
-		VertexBindingBuilder & PerInstance(bool enabled = true) noexcept
+		VertexBindingBuilder & per_instance(bool enabled = true) noexcept
 		{
 			m_desc.perInstance = enabled;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr VertexBindingDesc Build() const noexcept
+		[[nodiscard]] constexpr VertexBindingDesc build() const noexcept
 		{
 			return m_desc;
 		}
@@ -197,31 +198,31 @@ namespace azo::rhi
 	class VertexAttributeBuilder final
 	{
 	public:
-		VertexAttributeBuilder & Location(std::uint32_t location) noexcept
+		VertexAttributeBuilder & location(std::uint32_t location) noexcept
 		{
 			m_desc.location = location;
 			return *this;
 		}
 
-		VertexAttributeBuilder & Binding(std::uint32_t binding) noexcept
+		VertexAttributeBuilder & binding(std::uint32_t binding) noexcept
 		{
 			m_desc.binding = binding;
 			return *this;
 		}
 
-		VertexAttributeBuilder & Format(Format format) noexcept
+		VertexAttributeBuilder & format(Format format) noexcept
 		{
 			m_desc.format = format;
 			return *this;
 		}
 
-		VertexAttributeBuilder & Offset(std::uint32_t offset) noexcept
+		VertexAttributeBuilder & offset(std::uint32_t offset) noexcept
 		{
 			m_desc.offset = offset;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr VertexAttributeDesc Build() const noexcept
+		[[nodiscard]] constexpr VertexAttributeDesc build() const noexcept
 		{
 			return m_desc;
 		}
@@ -233,37 +234,37 @@ namespace azo::rhi
 	class RasterStateBuilder final
 	{
 	public:
-		RasterStateBuilder & Fill(FillMode fillMode) noexcept
+		RasterStateBuilder & fill(FillMode fillMode) noexcept
 		{
 			m_desc.fillMode = fillMode;
 			return *this;
 		}
 
-		RasterStateBuilder & Cull(CullMode cullMode) noexcept
+		RasterStateBuilder & cull(CullMode cullMode) noexcept
 		{
 			m_desc.cullMode = cullMode;
 			return *this;
 		}
 
-		RasterStateBuilder & FrontFace(FrontFace frontFace) noexcept
+		RasterStateBuilder & front_face(FrontFace frontFace) noexcept
 		{
 			m_desc.frontFace = frontFace;
 			return *this;
 		}
 
-		RasterStateBuilder & DepthClamp(bool enabled = true) noexcept
+		RasterStateBuilder & depth_clamp(bool enabled = true) noexcept
 		{
 			m_desc.depthClampEnable = enabled;
 			return *this;
 		}
 
-		RasterStateBuilder & RasterizerDiscard(bool enabled = true) noexcept
+		RasterStateBuilder & rasterizer_discard(bool enabled = true) noexcept
 		{
 			m_desc.rasterizerDiscardEnable = enabled;
 			return *this;
 		}
 
-		RasterStateBuilder & DepthBias(float constantFactor, float slopeFactor, float clamp = 0.0f) noexcept
+		RasterStateBuilder & depth_bias(float constantFactor, float slopeFactor, float clamp = 0.0f) noexcept
 		{
 			m_desc.depthBiasEnable		   = true;
 			m_desc.depthBiasConstantFactor = constantFactor;
@@ -272,13 +273,13 @@ namespace azo::rhi
 			return *this;
 		}
 
-		RasterStateBuilder & DisableDepthBias() noexcept
+		RasterStateBuilder & disable_depth_bias() noexcept
 		{
 			m_desc.depthBiasEnable = false;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr RasterStateDesc Build() const noexcept
+		[[nodiscard]] constexpr RasterStateDesc build() const noexcept
 		{
 			return m_desc;
 		}
@@ -290,25 +291,25 @@ namespace azo::rhi
 	class DepthStencilStateBuilder final
 	{
 	public:
-		DepthStencilStateBuilder & DepthTest(bool enabled = true) noexcept
+		DepthStencilStateBuilder & depth_test(bool enabled = true) noexcept
 		{
 			m_desc.depthTestEnable = enabled;
 			return *this;
 		}
 
-		DepthStencilStateBuilder & DepthWrite(bool enabled = true) noexcept
+		DepthStencilStateBuilder & depth_write(bool enabled = true) noexcept
 		{
 			m_desc.depthWriteEnable = enabled;
 			return *this;
 		}
 
-		DepthStencilStateBuilder & DepthCompare(CompareOp op) noexcept
+		DepthStencilStateBuilder & depth_compare(CompareOp op) noexcept
 		{
 			m_desc.depthCompareOp = op;
 			return *this;
 		}
 
-		DepthStencilStateBuilder & DepthBounds(float minDepth, float maxDepth, bool enabled = true) noexcept
+		DepthStencilStateBuilder & depth_bounds(float minDepth, float maxDepth, bool enabled = true) noexcept
 		{
 			m_desc.depthBoundsTestEnable = enabled;
 			m_desc.minDepthBounds		 = minDepth;
@@ -316,25 +317,25 @@ namespace azo::rhi
 			return *this;
 		}
 
-		DepthStencilStateBuilder & StencilTest(bool enabled = true) noexcept
+		DepthStencilStateBuilder & stencil_test(bool enabled = true) noexcept
 		{
 			m_desc.stencilTestEnable = enabled;
 			return *this;
 		}
 
-		DepthStencilStateBuilder & Front(StencilFaceDesc front) noexcept
+		DepthStencilStateBuilder & front(StencilFaceDesc front) noexcept
 		{
 			m_desc.front = front;
 			return *this;
 		}
 
-		DepthStencilStateBuilder & Back(StencilFaceDesc back) noexcept
+		DepthStencilStateBuilder & back(StencilFaceDesc back) noexcept
 		{
 			m_desc.back = back;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr DepthStencilStateDesc Build() const noexcept
+		[[nodiscard]] constexpr DepthStencilStateDesc build() const noexcept
 		{
 			return m_desc;
 		}
@@ -346,13 +347,13 @@ namespace azo::rhi
 	class ColorBlendAttachmentBuilder final
 	{
 	public:
-		ColorBlendAttachmentBuilder & Enable(bool enabled = true) noexcept
+		ColorBlendAttachmentBuilder & enable(bool enabled = true) noexcept
 		{
 			m_desc.blendEnable = enabled;
 			return *this;
 		}
 
-		ColorBlendAttachmentBuilder & Color(BlendFactor src, BlendFactor dst, BlendOp op = BlendOp::eAdd) noexcept
+		ColorBlendAttachmentBuilder & color(BlendFactor src, BlendFactor dst, BlendOp op = BlendOp::eAdd) noexcept
 		{
 			m_desc.srcColorBlendFactor = src;
 			m_desc.dstColorBlendFactor = dst;
@@ -360,7 +361,7 @@ namespace azo::rhi
 			return *this;
 		}
 
-		ColorBlendAttachmentBuilder & Alpha(BlendFactor src, BlendFactor dst, BlendOp op = BlendOp::eAdd) noexcept
+		ColorBlendAttachmentBuilder & alpha(BlendFactor src, BlendFactor dst, BlendOp op = BlendOp::eAdd) noexcept
 		{
 			m_desc.srcAlphaBlendFactor = src;
 			m_desc.dstAlphaBlendFactor = dst;
@@ -368,13 +369,13 @@ namespace azo::rhi
 			return *this;
 		}
 
-		ColorBlendAttachmentBuilder & WriteMask(Flags<ColorWrite> mask) noexcept
+		ColorBlendAttachmentBuilder & write_mask(Flags<ColorWrite> mask) noexcept
 		{
 			m_desc.colorWriteMask = mask;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr ColorBlendAttachmentDesc Build() const noexcept
+		[[nodiscard]] constexpr ColorBlendAttachmentDesc build() const noexcept
 		{
 			return m_desc;
 		}
@@ -386,34 +387,34 @@ namespace azo::rhi
 	class BlendStateBuilder final
 	{
 	public:
-		BlendStateBuilder & LogicOp(bool enabled = true) noexcept
+		BlendStateBuilder & logic_op(bool enabled = true) noexcept
 		{
 			m_desc.logicOpEnable = enabled;
 			return *this;
 		}
 
-		BlendStateBuilder & Constants(float r, float g, float b, float a) noexcept
+		BlendStateBuilder & constants(float r, float g, float b, float a) noexcept
 		{
 			m_desc.blendConstants = { r, g, b, a };
 			return *this;
 		}
 
-		BlendStateBuilder & Attachment(ColorBlendAttachmentDesc attachment)
+		BlendStateBuilder & attachment(ColorBlendAttachmentDesc attachment)
 		{
 			if (m_desc.attachmentCount < m_desc.attachments.size())
 			{
-				m_desc.attachments[m_desc.attachmentCount] = attachment;
+				azo::rhi::detail::at(m_desc.attachments, m_desc.attachmentCount) = attachment;
 				++m_desc.attachmentCount;
 			}
 
 			return *this;
 		}
 
-		BlendStateBuilder & Attachment(std::uint32_t index, ColorBlendAttachmentDesc attachment) noexcept
+		BlendStateBuilder & attachment(std::uint32_t index, ColorBlendAttachmentDesc attachment) noexcept
 		{
 			if (index < m_desc.attachments.size())
 			{
-				m_desc.attachments[index] = attachment;
+				azo::rhi::detail::at(m_desc.attachments, index) = attachment;
 
 				if (m_desc.attachmentCount <= index)
 				{
@@ -424,13 +425,13 @@ namespace azo::rhi
 			return *this;
 		}
 
-		BlendStateBuilder & AttachmentCount(std::uint32_t count) noexcept
+		BlendStateBuilder & attachment_count(std::uint32_t count) noexcept
 		{
 			m_desc.attachmentCount = count;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr BlendStateDesc Build() const noexcept
+		[[nodiscard]] constexpr BlendStateDesc build() const noexcept
 		{
 			return m_desc;
 		}
@@ -442,100 +443,100 @@ namespace azo::rhi
 	class GraphicsPipelineBuilder final
 	{
 	public:
-		GraphicsPipelineBuilder & Layout(PipelineLayoutHandle layout) noexcept
+		GraphicsPipelineBuilder & layout(PipelineLayoutHandle layout) noexcept
 		{
 			m_desc.layout = layout;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & Shader(ShaderBinary shader)
+		GraphicsPipelineBuilder & shader(ShaderBinary shader)
 		{
 			m_shaders.push_back(shader);
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & Shaders(std::span<const ShaderBinary> shaders)
+		GraphicsPipelineBuilder & shaders(std::span<const ShaderBinary> shaders)
 		{
 			m_shaders.assign(shaders.begin(), shaders.end());
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & VertexBinding(VertexBindingDesc binding)
+		GraphicsPipelineBuilder & vertex_binding(VertexBindingDesc binding)
 		{
 			m_vertexBindings.push_back(binding);
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & VertexBindings(std::span<const VertexBindingDesc> bindings)
+		GraphicsPipelineBuilder & vertex_bindings(std::span<const VertexBindingDesc> bindings)
 		{
 			m_vertexBindings.assign(bindings.begin(), bindings.end());
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & VertexAttribute(VertexAttributeDesc attribute)
+		GraphicsPipelineBuilder & vertex_attribute(VertexAttributeDesc attribute)
 		{
 			m_vertexAttributes.push_back(attribute);
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & VertexAttributes(std::span<const VertexAttributeDesc> attributes)
+		GraphicsPipelineBuilder & vertex_attributes(std::span<const VertexAttributeDesc> attributes)
 		{
 			m_vertexAttributes.assign(attributes.begin(), attributes.end());
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & Topology(PrimitiveTopology topology) noexcept
+		GraphicsPipelineBuilder & topology(PrimitiveTopology topology) noexcept
 		{
 			m_vertexInput.topology = topology;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & PrimitiveRestart(bool enabled = true) noexcept
+		GraphicsPipelineBuilder & primitive_restart(bool enabled = true) noexcept
 		{
 			m_vertexInput.primitiveRestartEnable = enabled;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & NoVertexInput() noexcept
+		GraphicsPipelineBuilder & no_vertex_input() noexcept
 		{
 			m_sourcesVertices = false;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & Raster(RasterStateDesc raster) noexcept
+		GraphicsPipelineBuilder & raster(RasterStateDesc raster) noexcept
 		{
 			m_desc.raster = raster;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & DepthStencil(DepthStencilStateDesc depthStencil) noexcept
+		GraphicsPipelineBuilder & depth_stencil(DepthStencilStateDesc depthStencil) noexcept
 		{
 			m_desc.depthStencil = depthStencil;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & Blend(BlendStateDesc blend) noexcept
+		GraphicsPipelineBuilder & blend(BlendStateDesc blend) noexcept
 		{
 			m_desc.blend = blend;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & ColorFormat(Format format)
+		GraphicsPipelineBuilder & color_format(Format format)
 		{
 			if (m_renderTarget.colorFormatCount < m_renderTarget.colorFormats.size())
 			{
-				m_renderTarget.colorFormats[m_renderTarget.colorFormatCount] = format;
+				azo::rhi::detail::at(m_renderTarget.colorFormats, m_renderTarget.colorFormatCount) = format;
 				++m_renderTarget.colorFormatCount;
 			}
 
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & ColorFormat(std::uint32_t index, Format format) noexcept
+		GraphicsPipelineBuilder & color_format(std::uint32_t index, Format format) noexcept
 		{
 			if (index < m_renderTarget.colorFormats.size())
 			{
-				m_renderTarget.colorFormats[index] = format;
+				azo::rhi::detail::at(m_renderTarget.colorFormats, index) = format;
 
 				if (m_renderTarget.colorFormatCount <= index)
 				{
@@ -546,65 +547,65 @@ namespace azo::rhi
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & DepthStencilFormat(Format format) noexcept
+		GraphicsPipelineBuilder & depth_stencil_format(Format format) noexcept
 		{
 			m_renderTarget.depthStencilFormat = format;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & Samples(SampleCount samples) noexcept
+		GraphicsPipelineBuilder & samples(SampleCount samples) noexcept
 		{
 			m_renderTarget.samples = samples;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & SampleMask(std::uint32_t sampleMask) noexcept
+		GraphicsPipelineBuilder & sample_mask(std::uint32_t sampleMask) noexcept
 		{
 			m_renderTarget.sampleMask = sampleMask;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & AlphaToCoverage(bool enabled = true) noexcept
+		GraphicsPipelineBuilder & alpha_to_coverage(bool enabled = true) noexcept
 		{
 			m_renderTarget.alphaToCoverageEnable = enabled;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & PipelineCache(PipelineCacheHandle pipelineCache) noexcept
+		GraphicsPipelineBuilder & pipeline_cache(PipelineCacheHandle pipelineCache) noexcept
 		{
 			m_desc.pipelineCache = pipelineCache;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & DynamicStates(Flags<DynamicState> dynamicStates) noexcept
+		GraphicsPipelineBuilder & dynamic_states(Flags<DynamicState> dynamicStates) noexcept
 		{
 			m_desc.dynamicStates = dynamicStates;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & AddDynamicState(DynamicState state) noexcept
+		GraphicsPipelineBuilder & add_dynamic_state(DynamicState state) noexcept
 		{
 			m_desc.dynamicStates = m_desc.dynamicStates | state;
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & DynamicViewportScissor() noexcept
+		GraphicsPipelineBuilder & dynamic_viewport_scissor() noexcept
 		{
-			return AddDynamicState(DynamicState::eViewport).AddDynamicState(DynamicState::eScissor);
+			return add_dynamic_state(DynamicState::eViewport).add_dynamic_state(DynamicState::eScissor);
 		}
 
-		GraphicsPipelineBuilder & DebugName(std::string_view name)
+		GraphicsPipelineBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] Built<GraphicsPipelineBuilder> Build() &&
+		[[nodiscard]] Built<GraphicsPipelineBuilder> build() &&
 		{
 			return Built<GraphicsPipelineBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<GraphicsPipelineBuilder> Build() const &
+		[[nodiscard]] Built<GraphicsPipelineBuilder> build() const &
 		{
 			return Built<GraphicsPipelineBuilder>{ *this };
 		}
@@ -640,36 +641,36 @@ namespace azo::rhi
 	class ComputePipelineBuilder final
 	{
 	public:
-		ComputePipelineBuilder & Layout(PipelineLayoutHandle layout) noexcept
+		ComputePipelineBuilder & layout(PipelineLayoutHandle layout) noexcept
 		{
 			m_desc.layout = layout;
 			return *this;
 		}
 
-		ComputePipelineBuilder & Shader(ShaderBinary shader) noexcept
+		ComputePipelineBuilder & shader(ShaderBinary shader) noexcept
 		{
 			m_desc.shader = shader;
 			return *this;
 		}
 
-		ComputePipelineBuilder & PipelineCache(PipelineCacheHandle pipelineCache) noexcept
+		ComputePipelineBuilder & pipeline_cache(PipelineCacheHandle pipelineCache) noexcept
 		{
 			m_desc.pipelineCache = pipelineCache;
 			return *this;
 		}
 
-		ComputePipelineBuilder & DebugName(std::string_view name)
+		ComputePipelineBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] Built<ComputePipelineBuilder> Build() &&
+		[[nodiscard]] Built<ComputePipelineBuilder> build() &&
 		{
 			return Built<ComputePipelineBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<ComputePipelineBuilder> Build() const &
+		[[nodiscard]] Built<ComputePipelineBuilder> build() const &
 		{
 			return Built<ComputePipelineBuilder>{ *this };
 		}
@@ -691,23 +692,23 @@ namespace azo::rhi
 	class AccelerationStructureBuilder final
 	{
 	public:
-		AccelerationStructureBuilder & Type(AccelerationStructureType type) noexcept
+		AccelerationStructureBuilder & type(AccelerationStructureType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		AccelerationStructureBuilder & BottomLevel() noexcept
+		AccelerationStructureBuilder & bottom_level() noexcept
 		{
-			return Type(AccelerationStructureType::eBottomLevel);
+			return type(AccelerationStructureType::eBottomLevel);
 		}
 
-		AccelerationStructureBuilder & TopLevel() noexcept
+		AccelerationStructureBuilder & top_level() noexcept
 		{
-			return Type(AccelerationStructureType::eTopLevel);
+			return type(AccelerationStructureType::eTopLevel);
 		}
 
-		AccelerationStructureBuilder & Storage(BufferHandle storage, std::uint64_t offset, std::uint64_t size) noexcept
+		AccelerationStructureBuilder & storage(BufferHandle storage, std::uint64_t offset, std::uint64_t size) noexcept
 		{
 			m_desc.storage		 = storage;
 			m_desc.storageOffset = offset;
@@ -715,18 +716,18 @@ namespace azo::rhi
 			return *this;
 		}
 
-		AccelerationStructureBuilder & DebugName(std::string_view name)
+		AccelerationStructureBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] Built<AccelerationStructureBuilder> Build() &&
+		[[nodiscard]] Built<AccelerationStructureBuilder> build() &&
 		{
 			return Built<AccelerationStructureBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<AccelerationStructureBuilder> Build() const &
+		[[nodiscard]] Built<AccelerationStructureBuilder> build() const &
 		{
 			return Built<AccelerationStructureBuilder>{ *this };
 		}
@@ -748,49 +749,49 @@ namespace azo::rhi
 	class AccelerationStructureBuildBuilder final
 	{
 	public:
-		AccelerationStructureBuildBuilder & Dst(AccelerationStructureHandle dst) noexcept
+		AccelerationStructureBuildBuilder & dst(AccelerationStructureHandle dst) noexcept
 		{
 			m_desc.dst = dst;
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Src(AccelerationStructureHandle src) noexcept
+		AccelerationStructureBuildBuilder & src(AccelerationStructureHandle src) noexcept
 		{
 			m_desc.src = src;
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Mode(AccelerationStructureBuildMode mode) noexcept
+		AccelerationStructureBuildBuilder & mode(AccelerationStructureBuildMode mode) noexcept
 		{
 			m_desc.mode = mode;
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Flags(Flags<AccelerationStructureBuildFlag> flags) noexcept
+		AccelerationStructureBuildBuilder & flags(Flags<AccelerationStructureBuildFlag> flags) noexcept
 		{
 			m_desc.flags = flags;
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & AddFlag(AccelerationStructureBuildFlag flag) noexcept
+		AccelerationStructureBuildBuilder & add_flag(AccelerationStructureBuildFlag flag) noexcept
 		{
 			m_desc.flags = m_desc.flags | flag;
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Geometry(AccelerationStructureGeometryDesc geometry)
+		AccelerationStructureBuildBuilder & geometry(AccelerationStructureGeometryDesc geometry)
 		{
 			m_geometries.push_back(geometry);
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Geometries(std::span<const AccelerationStructureGeometryDesc> geometries)
+		AccelerationStructureBuildBuilder & geometries(std::span<const AccelerationStructureGeometryDesc> geometries)
 		{
 			m_geometries.assign(geometries.begin(), geometries.end());
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Instances(BufferHandle instanceBuffer, std::uint64_t offset, std::uint32_t count) noexcept
+		AccelerationStructureBuildBuilder & instances(BufferHandle instanceBuffer, std::uint64_t offset, std::uint32_t count) noexcept
 		{
 			m_desc.instanceBuffer = instanceBuffer;
 			m_desc.instanceOffset = offset;
@@ -798,19 +799,19 @@ namespace azo::rhi
 			return *this;
 		}
 
-		AccelerationStructureBuildBuilder & Scratch(BufferHandle scratchBuffer, std::uint64_t offset) noexcept
+		AccelerationStructureBuildBuilder & scratch(BufferHandle scratchBuffer, std::uint64_t offset) noexcept
 		{
 			m_desc.scratchBuffer = scratchBuffer;
 			m_desc.scratchOffset = offset;
 			return *this;
 		}
 
-		[[nodiscard]] Built<AccelerationStructureBuildBuilder> Build() &&
+		[[nodiscard]] Built<AccelerationStructureBuildBuilder> build() &&
 		{
 			return Built<AccelerationStructureBuildBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<AccelerationStructureBuildBuilder> Build() const &
+		[[nodiscard]] Built<AccelerationStructureBuildBuilder> build() const &
 		{
 			return Built<AccelerationStructureBuildBuilder>{ *this };
 		}
@@ -832,72 +833,72 @@ namespace azo::rhi
 	class RayTracingPipelineBuilder final
 	{
 	public:
-		RayTracingPipelineBuilder & Layout(PipelineLayoutHandle layout) noexcept
+		RayTracingPipelineBuilder & layout(PipelineLayoutHandle layout) noexcept
 		{
 			m_desc.layout = layout;
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & Shader(ShaderBinary shader)
+		RayTracingPipelineBuilder & shader(ShaderBinary shader)
 		{
 			m_shaders.push_back(shader);
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & Shaders(std::span<const ShaderBinary> shaders)
+		RayTracingPipelineBuilder & shaders(std::span<const ShaderBinary> shaders)
 		{
 			m_shaders.assign(shaders.begin(), shaders.end());
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & Group(RayTracingShaderGroupDesc group)
+		RayTracingPipelineBuilder & group(RayTracingShaderGroupDesc group)
 		{
 			m_groups.push_back(group);
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & Groups(std::span<const RayTracingShaderGroupDesc> groups)
+		RayTracingPipelineBuilder & groups(std::span<const RayTracingShaderGroupDesc> groups)
 		{
 			m_groups.assign(groups.begin(), groups.end());
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & MaxRayRecursionDepth(std::uint32_t depth) noexcept
+		RayTracingPipelineBuilder & max_ray_recursion_depth(std::uint32_t depth) noexcept
 		{
 			m_desc.maxRayRecursionDepth = depth;
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & MaxPayloadBytes(std::uint32_t bytes) noexcept
+		RayTracingPipelineBuilder & max_payload_bytes(std::uint32_t bytes) noexcept
 		{
 			m_desc.maxPayloadBytes = bytes;
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & MaxAttributeBytes(std::uint32_t bytes) noexcept
+		RayTracingPipelineBuilder & max_attribute_bytes(std::uint32_t bytes) noexcept
 		{
 			m_desc.maxAttributeBytes = bytes;
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & PipelineCache(PipelineCacheHandle pipelineCache) noexcept
+		RayTracingPipelineBuilder & pipeline_cache(PipelineCacheHandle pipelineCache) noexcept
 		{
 			m_desc.pipelineCache = pipelineCache;
 			return *this;
 		}
 
-		RayTracingPipelineBuilder & DebugName(std::string_view name)
+		RayTracingPipelineBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] Built<RayTracingPipelineBuilder> Build() &&
+		[[nodiscard]] Built<RayTracingPipelineBuilder> build() &&
 		{
 			return Built<RayTracingPipelineBuilder>{ std::move(*this) };
 		}
 
-		[[nodiscard]] Built<RayTracingPipelineBuilder> Build() const &
+		[[nodiscard]] Built<RayTracingPipelineBuilder> build() const &
 		{
 			return Built<RayTracingPipelineBuilder>{ *this };
 		}

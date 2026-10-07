@@ -24,16 +24,16 @@ namespace azo::rhi
 	class AZO_RHI_API TracyProfiler final : public Profiler
 	{
 	public:
-		void BeginZone(const ZoneLocation & location) override;
-		void EndZone() override;
+		void begin_zone(const ZoneLocation & location) override;
+		void end_zone() override;
 
-		void Plot(CString name, std::int64_t value) override;
+		void plot(CString name, std::int64_t value) override;
 
-		void GpuAllocate(const void * address, std::uint64_t size, CString pool) override;
-		void GpuFree(const void * address, CString pool) override;
+		void gpu_allocate(const void * address, std::uint64_t size, CString pool) override;
+		void gpu_free(const void * address, CString pool) override;
 
-		void EnterFiber(FiberId fiber, CString name) override;
-		void LeaveFiber(FiberId fiber) override;
+		void enter_fiber(FiberId fiber, CString name) override;
+		void leave_fiber(FiberId fiber) override;
 	};
 
 }

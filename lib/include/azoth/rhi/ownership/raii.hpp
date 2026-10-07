@@ -41,13 +41,13 @@ namespace azo::rhi::raii
 	using Timeline				= Unique<TimelineHandle>;
 	using BinarySemaphore		= Unique<BinarySemaphoreHandle>;
 
-	using CommandList	= rhi::CommandList;
+	using 	rhi::CommandList;
 	using DescriptorSet = DescriptorSetHandle;
 
-	using Queue			  = rhi::Queue;
-	using CommandPool	  = rhi::CommandPool;
-	using DescriptorArena = rhi::DescriptorArena;
-	using Swapchain		  = rhi::Swapchain;
+	using 			  rhi::Queue;
+	using 	  rhi::CommandPool;
+	using rhi::DescriptorArena;
+	using 		  rhi::Swapchain;
 
 	class Device final
 	{
@@ -63,114 +63,114 @@ namespace azo::rhi::raii
 
 		~Device() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
-			return m_owner.IsValid();
+			return m_owner.is_valid();
 		}
 
-		[[nodiscard]] rhi::Device Get() const noexcept
+		[[nodiscard]] rhi::Device get() const noexcept
 		{
-			return m_owner.Get();
+			return m_owner.get();
 		}
 
-		[[nodiscard]] Result<Buffer> CreateBuffer(const BufferDesc & desc) noexcept
+		[[nodiscard]] Result<Buffer> create_buffer(const BufferDesc & desc) noexcept
 		{
-			return Own<Buffer>(m_owner.Get().CreateBufferWithResult(desc));
+			return Own<Buffer>(m_owner.get().create_buffer_with_result(desc));
 		}
 
-		[[nodiscard]] Result<Buffer> CreatePlacedBuffer(const PlacedBufferDesc & desc) noexcept
+		[[nodiscard]] Result<Buffer> create_placed_buffer(const PlacedBufferDesc & desc) noexcept
 		{
-			return Own<Buffer>(m_owner.Get().CreatePlacedBufferWithResult(desc));
+			return Own<Buffer>(m_owner.get().create_placed_buffer_with_result(desc));
 		}
 
-		[[nodiscard]] Result<Texture> CreateTexture(const TextureDesc & desc) noexcept
+		[[nodiscard]] Result<Texture> create_texture(const TextureDesc & desc) noexcept
 		{
-			return Own<Texture>(m_owner.Get().CreateTextureWithResult(desc));
+			return Own<Texture>(m_owner.get().create_texture_with_result(desc));
 		}
 
-		[[nodiscard]] Result<Texture> CreatePlacedTexture(const PlacedTextureDesc & desc) noexcept
+		[[nodiscard]] Result<Texture> create_placed_texture(const PlacedTextureDesc & desc) noexcept
 		{
-			return Own<Texture>(m_owner.Get().CreatePlacedTextureWithResult(desc));
+			return Own<Texture>(m_owner.get().create_placed_texture_with_result(desc));
 		}
 
-		[[nodiscard]] Result<TextureView> CreateTextureView(const TextureHandle texture, const TextureViewDesc & desc) noexcept
+		[[nodiscard]] Result<TextureView> create_texture_view(const TextureHandle texture, const TextureViewDesc & desc) noexcept
 		{
-			return Own<TextureView>(m_owner.Get().CreateTextureViewWithResult(texture, desc));
+			return Own<TextureView>(m_owner.get().create_texture_view_with_result(texture, desc));
 		}
 
-		[[nodiscard]] Result<Sampler> CreateSampler(const SamplerDesc & desc) noexcept
+		[[nodiscard]] Result<Sampler> create_sampler(const SamplerDesc & desc) noexcept
 		{
-			return Own<Sampler>(m_owner.Get().CreateSamplerWithResult(desc));
+			return Own<Sampler>(m_owner.get().create_sampler_with_result(desc));
 		}
 
-		[[nodiscard]] Result<Heap> CreateHeap(const HeapDesc & desc) noexcept
+		[[nodiscard]] Result<Heap> create_heap(const HeapDesc & desc) noexcept
 		{
-			return Own<Heap>(m_owner.Get().CreateHeapWithResult(desc));
+			return Own<Heap>(m_owner.get().create_heap_with_result(desc));
 		}
 
-		[[nodiscard]] Result<DescriptorSetLayout> CreateDescriptorSetLayout(const DescriptorSetLayoutDesc & desc) noexcept
+		[[nodiscard]] Result<DescriptorSetLayout> create_descriptor_set_layout(const DescriptorSetLayoutDesc & desc) noexcept
 		{
-			return Own<DescriptorSetLayout>(m_owner.Get().CreateDescriptorSetLayoutWithResult(desc));
+			return Own<DescriptorSetLayout>(m_owner.get().create_descriptor_set_layout_with_result(desc));
 		}
 
-		[[nodiscard]] Result<PipelineLayout> CreatePipelineLayout(const PipelineLayoutDesc & desc) noexcept
+		[[nodiscard]] Result<PipelineLayout> create_pipeline_layout(const PipelineLayoutDesc & desc) noexcept
 		{
-			return Own<PipelineLayout>(m_owner.Get().CreatePipelineLayoutWithResult(desc));
+			return Own<PipelineLayout>(m_owner.get().create_pipeline_layout_with_result(desc));
 		}
 
-		[[nodiscard]] Result<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc & desc) noexcept
+		[[nodiscard]] Result<GraphicsPipeline> create_graphics_pipeline(const GraphicsPipelineDesc & desc) noexcept
 		{
-			return Own<GraphicsPipeline>(m_owner.Get().CreateGraphicsPipelineWithResult(desc));
+			return Own<GraphicsPipeline>(m_owner.get().create_graphics_pipeline_with_result(desc));
 		}
 
-		[[nodiscard]] Result<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc & desc) noexcept
+		[[nodiscard]] Result<ComputePipeline> create_compute_pipeline(const ComputePipelineDesc & desc) noexcept
 		{
-			return Own<ComputePipeline>(m_owner.Get().CreateComputePipelineWithResult(desc));
+			return Own<ComputePipeline>(m_owner.get().create_compute_pipeline_with_result(desc));
 		}
 
-		[[nodiscard]] Result<RayTracingPipeline> CreateRayTracingPipeline(const RayTracingPipelineDesc & desc) noexcept
+		[[nodiscard]] Result<RayTracingPipeline> create_ray_tracing_pipeline(const RayTracingPipelineDesc & desc) noexcept
 		{
-			return Own<RayTracingPipeline>(m_owner.Get().CreateRayTracingPipelineWithResult(desc));
+			return Own<RayTracingPipeline>(m_owner.get().create_ray_tracing_pipeline_with_result(desc));
 		}
 
-		[[nodiscard]] Result<PipelineCache> CreatePipelineCache(const PipelineCacheDesc & desc) noexcept
+		[[nodiscard]] Result<PipelineCache> create_pipeline_cache(const PipelineCacheDesc & desc) noexcept
 		{
-			return Own<PipelineCache>(m_owner.Get().CreatePipelineCacheWithResult(desc));
+			return Own<PipelineCache>(m_owner.get().create_pipeline_cache_with_result(desc));
 		}
 
-		[[nodiscard]] Result<AccelerationStructure> CreateAccelerationStructure(const AccelerationStructureDesc & desc) noexcept
+		[[nodiscard]] Result<AccelerationStructure> create_acceleration_structure(const AccelerationStructureDesc & desc) noexcept
 		{
-			return Own<AccelerationStructure>(m_owner.Get().CreateAccelerationStructureWithResult(desc));
+			return Own<AccelerationStructure>(m_owner.get().create_acceleration_structure_with_result(desc));
 		}
 
-		[[nodiscard]] Result<QueryPool> CreateQueryPool(const QueryPoolDesc & desc) noexcept
+		[[nodiscard]] Result<QueryPool> create_query_pool(const QueryPoolDesc & desc) noexcept
 		{
-			return Own<QueryPool>(m_owner.Get().CreateQueryPoolWithResult(desc));
+			return Own<QueryPool>(m_owner.get().create_query_pool_with_result(desc));
 		}
 
-		[[nodiscard]] Result<Timeline> CreateTimeline(const TimelineDesc & desc) noexcept
+		[[nodiscard]] Result<Timeline> create_timeline(const TimelineDesc & desc) noexcept
 		{
-			return Own<Timeline>(m_owner.Get().CreateTimelineWithResult(desc));
+			return Own<Timeline>(m_owner.get().create_timeline_with_result(desc));
 		}
 
-		[[nodiscard]] Result<BinarySemaphore> CreateBinarySemaphore(const BinarySemaphoreDesc & desc) noexcept
+		[[nodiscard]] Result<BinarySemaphore> create_binary_semaphore(const BinarySemaphoreDesc & desc) noexcept
 		{
-			return Own<BinarySemaphore>(m_owner.Get().CreateBinarySemaphoreWithResult(desc));
+			return Own<BinarySemaphore>(m_owner.get().create_binary_semaphore_with_result(desc));
 		}
 
-		[[nodiscard]] Result<CommandPool> CreateCommandPool(const CommandPoolDesc & desc) noexcept
+		[[nodiscard]] Result<CommandPool> create_command_pool(const CommandPoolDesc & desc) noexcept
 		{
-			return m_owner.Get().CreateCommandPoolWithResult(desc);
+			return m_owner.get().create_command_pool_with_result(desc);
 		}
 
-		[[nodiscard]] Result<DescriptorArena> CreateDescriptorArena(const DescriptorArenaDesc & desc) noexcept
+		[[nodiscard]] Result<DescriptorArena> create_descriptor_arena(const DescriptorArenaDesc & desc) noexcept
 		{
-			return m_owner.Get().CreateDescriptorArenaWithResult(desc);
+			return m_owner.get().create_descriptor_arena_with_result(desc);
 		}
 
-		[[nodiscard]] Result<Swapchain> CreateSwapchain(const SwapchainDesc & desc) noexcept
+		[[nodiscard]] Result<Swapchain> create_swapchain(const SwapchainDesc & desc) noexcept
 		{
-			return m_owner.Get().CreateSwapchainWithResult(desc);
+			return m_owner.get().create_swapchain_with_result(desc);
 		}
 
 	private:
@@ -179,10 +179,10 @@ namespace azo::rhi::raii
 		{
 			if (!made)
 			{
-				return made.GetError();
+				return made.get_error();
 			}
 
-			return OwnerT{ m_owner.Get(), made.Value() };
+			return OwnerT{ m_owner.get(), made.value() };
 		}
 
 		UniqueDevice m_owner;
@@ -202,24 +202,24 @@ namespace azo::rhi::raii
 
 		~Instance() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
-			return m_owner.IsValid();
+			return m_owner.is_valid();
 		}
 
-		[[nodiscard]] rhi::Instance Get() const noexcept
+		[[nodiscard]] rhi::Instance get() const noexcept
 		{
-			return m_owner.Get();
+			return m_owner.get();
 		}
 
-		[[nodiscard]] GraphicsApiId GetGraphicsApiId() const noexcept
+		[[nodiscard]] GraphicsApiId get_graphics_api_id() const noexcept
 		{
-			return m_owner.Get().GetGraphicsApiId();
+			return m_owner.get().get_graphics_api_id();
 		}
 
-		[[nodiscard]] Result<std::uint32_t> EnumerateAdapters(const std::span<AdapterInfo> adapters) const noexcept
+		[[nodiscard]] Result<std::uint32_t> enumerate_adapters(const std::span<AdapterInfo> adapters) const noexcept
 		{
-			return m_owner.Get().EnumerateAdaptersWithResult(adapters);
+			return m_owner.get().enumerate_adapters_with_result(adapters);
 		}
 
 	private:
@@ -240,36 +240,36 @@ namespace azo::rhi::raii
 
 		~Selection() = default;
 
-		[[nodiscard]] BackendSelection & Get() noexcept
+		[[nodiscard]] BackendSelection & get() noexcept
 		{
 			return m_backends;
 		}
 
-		[[nodiscard]] const BackendSelection & Get() const noexcept
+		[[nodiscard]] const BackendSelection & get() const noexcept
 		{
 			return m_backends;
 		}
 
-		[[nodiscard]] Result<Instance> CreateInstance(const InstanceDesc & desc = {})
+		[[nodiscard]] Result<Instance> create_instance(const InstanceDesc & desc = {})
 		{
-			Result<UniqueInstance> made = m_backends.CreateInstance(desc);
+			Result<UniqueInstance> made = m_backends.create_instance(desc);
 			if (!made)
 			{
-				return made.GetError();
+				return made.get_error();
 			}
 
-			return Instance{ std::move(made.Value()) };
+			return Instance{ std::move(made.value()) };
 		}
 
-		[[nodiscard]] Result<Device> CreateDevice(const DeviceDesc & desc = {})
+		[[nodiscard]] Result<Device> create_device(const DeviceDesc & desc = {})
 		{
-			Result<UniqueDevice> made = m_backends.CreateDevice(desc);
+			Result<UniqueDevice> made = m_backends.create_device(desc);
 			if (!made)
 			{
-				return made.GetError();
+				return made.get_error();
 			}
 
-			return Device{ std::move(made.Value()) };
+			return Device{ std::move(made.value()) };
 		}
 
 	private:
@@ -290,7 +290,7 @@ namespace azo::rhi::raii
 
 		template <class HandleT>
 		concept DeviceDestroyable = requires(rhi::Device device, HandleT handle) {
-			{ device.Destroy(handle, DestroyDesc{}) } -> std::same_as<bool>;
+			{ device.destroy(handle, DestroyDesc{}) } -> std::same_as<bool>;
 		};
 
 	}

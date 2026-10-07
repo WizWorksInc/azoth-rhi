@@ -96,7 +96,7 @@ namespace azo::rhi::null
 
 		~NullDevice()
 		{
-			objects.Reset();
+			objects.reset();
 		}
 
 		NullDevice()							   = default;

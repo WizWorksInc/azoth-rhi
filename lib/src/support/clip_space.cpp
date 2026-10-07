@@ -20,24 +20,24 @@ namespace azo::rhi
 
 		constexpr std::uint8_t kUnsettled = 0;
 
-		std::atomic<std::uint8_t> g_clipSpace{ kUnsettled };
+		std::atomic<std::uint8_t> g_ClipSpace{ kUnsettled };
 
-		[[nodiscard]] constexpr std::uint8_t Encode(const ClipSpaceConvention convention) noexcept
+		[[nodiscard]] constexpr std::uint8_t encode(const ClipSpaceConvention convention) noexcept
 		{
 			return static_cast<std::uint8_t>(static_cast<std::uint8_t>(convention) + 1);
 		}
 
 	}
 
-	bool SetClipSpace(const ClipSpaceConvention convention) noexcept
+	bool set_clip_space(const ClipSpaceConvention convention) noexcept
 	{
 		std::uint8_t expected = kUnsettled;
-		return g_clipSpace.compare_exchange_strong(expected, Encode(convention), std::memory_order_relaxed);
+		return g_ClipSpace.compare_exchange_strong(expected, encode(convention), std::memory_order_relaxed);
 	}
 
-	ClipSpaceConvention GetClipSpace() noexcept
+	ClipSpaceConvention get_clip_space() noexcept
 	{
-		return g_clipSpace.load(std::memory_order_relaxed) == Encode(ClipSpaceConvention::eYDown) ? ClipSpaceConvention::eYDown : ClipSpaceConvention::eYUp;
+		return g_ClipSpace.load(std::memory_order_relaxed) == encode(ClipSpaceConvention::eYDown) ? ClipSpaceConvention::eYDown : ClipSpaceConvention::eYUp;
 	}
 
 }

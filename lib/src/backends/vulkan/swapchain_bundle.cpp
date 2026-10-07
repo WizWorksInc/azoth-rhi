@@ -8,6 +8,11 @@
 // limitations under the License.
 
 #include "backends/vulkan/swapchain_bundle.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/host/allocator.hpp"
+#include "vulkan/vulkan.hpp"
+#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -17,7 +22,7 @@
 namespace azo::rhi::vulkan
 {
 
-	vk::PresentModeKHR SelectPresentMode(
+	vk::PresentModeKHR select_present_mode(
 		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, vk::SurfaceKHR surface, std::span<const vk::PresentModeKHR> desired)
 	{
 		const auto supported = phys.getSurfacePresentModesKHR<HostAllocatorAdapter<vk::PresentModeKHR>>(surface, dispatch);
@@ -37,7 +42,7 @@ namespace azo::rhi::vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	SwapchainBundle CreateSwapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, vk::PhysicalDevice phys, VmaAllocator allocator,
+	SwapchainBundle create_swapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, vk::PhysicalDevice phys, VmaAllocator allocator,
 		vk::SurfaceKHR surface, std::uint32_t width, std::uint32_t height, vk::SwapchainKHR old, std::span<const vk::Format> desiredFormats,
 		std::span<const vk::PresentModeKHR> desiredPresentModes, std::uint32_t desiredImageCount)
 	{
@@ -107,7 +112,7 @@ namespace azo::rhi::vulkan
 			imageCount = caps.maxImageCount;
 		}
 
-		sc.PresentMode = SelectPresentMode(phys, dispatch, surface, desiredPresentModes);
+		sc.PresentMode = select_present_mode(phys, dispatch, surface, desiredPresentModes);
 
 		vk::ImageUsageFlags scUsage = vk::ImageUsageFlagBits::eColorAttachment;
 		if (caps.supportedUsageFlags & vk::ImageUsageFlagBits::eTransferSrc)
@@ -143,7 +148,7 @@ namespace azo::rhi::vulkan
 		const auto images = device.getSwapchainImagesKHR<HostAllocatorAdapter<vk::Image>>(sc.Swapchain, dispatch);
 		if (images.result != vk::Result::eSuccess)
 		{
-			DestroySwapchain(device, dispatch, allocator, sc);
+			destroy_swapchain(device, dispatch, allocator, sc);
 			return failed(images.result);
 		}
 
@@ -156,14 +161,14 @@ namespace azo::rhi::vulkan
 					{}, img, vk::ImageViewType::e2D, sc.ColorFormat, {}, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)),
 				nullptr,
 				dispatch);
-			if (view.result != vk::Result::eSuccess || !detail::TryPushBack(sc.Views, view.value))
+			if (view.result != vk::Result::eSuccess || !detail::try_push_back(sc.Views, view.value))
 			{
 				if (view.result == vk::Result::eSuccess)
 				{
 					device.destroyImageView(view.value, nullptr, dispatch);
 				}
 
-				DestroySwapchain(device, dispatch, allocator, sc);
+				destroy_swapchain(device, dispatch, allocator, sc);
 				return failed(view.result);
 			}
 		}
@@ -185,7 +190,7 @@ namespace azo::rhi::vulkan
 		if (const VkResult depthCreated = vmaCreateImage(allocator, &depthInfo, &depthAllocInfo, &rawDepth, &sc.DepthAllocation, nullptr);
 			depthCreated != VK_SUCCESS)
 		{
-			DestroySwapchain(device, dispatch, allocator, sc);
+			destroy_swapchain(device, dispatch, allocator, sc);
 			return failed(static_cast<vk::Result>(depthCreated));
 		}
 
@@ -197,7 +202,7 @@ namespace azo::rhi::vulkan
 			dispatch);
 		if (depthView.result != vk::Result::eSuccess)
 		{
-			DestroySwapchain(device, dispatch, allocator, sc);
+			destroy_swapchain(device, dispatch, allocator, sc);
 			return failed(depthView.result);
 		}
 
@@ -206,7 +211,7 @@ namespace azo::rhi::vulkan
 		return sc;
 	}
 
-	void DestroySwapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, VmaAllocator allocator, SwapchainBundle & sc)
+	void destroy_swapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, VmaAllocator allocator, SwapchainBundle & sc)
 	{
 		if (sc.DepthView)
 		{

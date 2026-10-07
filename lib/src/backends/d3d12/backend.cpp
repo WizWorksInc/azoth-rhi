@@ -51,9 +51,9 @@
 namespace azo::rhi
 {
 
-	Result<D3D12NativeDevice> GetD3D12NativeDevice(Device device)
+	Result<D3D12NativeDevice> get_d3_d12_native_device(Device device)
 	{
-		if (device.GetGraphicsApiId() != D3D12Api::id)
+		if (device.get_graphics_api_id() != D3D12Api::kId)
 		{
 			return Error{
 				.code	 = ErrorCode::eUnsupportedApi,
@@ -61,7 +61,7 @@ namespace azo::rhi
 			};
 		}
 
-		auto * impl = static_cast<d3d12::D3D12Device *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(device), d3d12::CoreDeviceBlock()));
+		auto * impl = static_cast<d3d12::D3D12Device *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(device), d3d12::CoreDeviceBlock()));
 		if (impl == nullptr)
 		{
 			return Error{
@@ -83,9 +83,9 @@ namespace azo::rhi
 			.allocator					  = impl->allocator.Get() };
 	}
 
-	Result<D3D12NativeSwapchain> GetD3D12NativeSwapchain(Swapchain swapchain)
+	Result<D3D12NativeSwapchain> get_d3_d12_native_swapchain(Swapchain swapchain)
 	{
-		auto * impl = static_cast<d3d12::D3D12Swapchain *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(swapchain), d3d12::SwapchainBlock()));
+		auto * impl = static_cast<d3d12::D3D12Swapchain *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(swapchain), d3d12::SwapchainBlock()));
 		if (impl == nullptr)
 		{
 			return Error{
@@ -99,9 +99,9 @@ namespace azo::rhi
 		};
 	}
 
-	Result<native::D3D12QueueView> GetD3D12QueueView(Queue queue)
+	Result<native::D3D12QueueView> get_d3_d12_queue_view(Queue queue)
 	{
-		const auto * impl = static_cast<d3d12::D3D12Queue *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(queue), d3d12::QueueBlock()));
+		const auto * impl = static_cast<d3d12::D3D12Queue *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(queue), d3d12::QueueBlock()));
 		if (impl == nullptr)
 		{
 			return Error{
@@ -113,25 +113,25 @@ namespace azo::rhi
 		return native::D3D12QueueView{ .queue = impl->queue.Get() };
 	}
 
-	ID3D12GraphicsCommandList * GetD3D12CommandList(CommandList commandList)
+	ID3D12GraphicsCommandList * get_d3_d12_command_list(CommandList commandList)
 	{
 		const auto * impl =
-			static_cast<d3d12::D3D12CommandList *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandList), d3d12::RenderCommandBlock()));
+			static_cast<d3d12::D3D12CommandList *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), d3d12::RenderCommandBlock()));
 		return impl != nullptr ? impl->list.Get() : nullptr;
 	}
 
-	ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandList commandList)
+	ID3D12CommandAllocator * get_d3_d12_command_allocator(CommandList commandList)
 	{
 		const auto * impl =
-			static_cast<d3d12::D3D12CommandList *>(detail::NativeImplOf(detail::FacadeBuilder::ImplOf(commandList), d3d12::RenderCommandBlock()));
+			static_cast<d3d12::D3D12CommandList *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), d3d12::RenderCommandBlock()));
 		return impl != nullptr ? impl->allocator.Get() : nullptr;
 	}
 
-	Result<void> RegisterD3D12Backend(GraphicsApiRegistry & registry)
+	Result<void> register_d3_d12_backend(GraphicsApiRegistry & registry)
 	{
 		BackendCreateInfo info{};
-		info.info.canonicalName				   = D3D12Api::canonicalName;
-		info.info.displayName				   = D3D12Api::displayName;
+		info.info.canonicalName				   = D3D12Api::kCanonicalName;
+		info.info.displayName				   = D3D12Api::kDisplayName;
 		info.info.apiVersionMajor			   = 12;
 		info.info.supportsSurfaces			   = true;
 		info.info.supportsDebugMarkers		   = true;
@@ -141,11 +141,11 @@ namespace azo::rhi
 	}
 
 	template <>
-	Result<UniqueDevice> CreateDevice<D3D12Api>(const DeviceDesc & desc)
+	Result<UniqueDevice> create_device<D3D12Api>(const DeviceDesc & desc)
 	{
-		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
+		if (const Result<void> checked = detail::check_device_desc(desc); !checked)
 		{
-			return checked.GetError();
+			return checked.get_error();
 		}
 
 		Error error{};
@@ -163,20 +163,20 @@ namespace azo::rhi
 		}
 
 		void * deviceImpl		 = device;
-		BackendBlockSet * blocks = detail::ResolveDeviceBlocks(deviceImpl, desc, &error);
+		BackendBlockSet * blocks = detail::resolve_device_blocks(deviceImpl, desc, &error);
 		if (blocks == nullptr)
 		{
 			return error;
 		}
 
-		return detail::FacadeBuilder::MakeUniqueDevice(deviceImpl, blocks);
+		return detail::FacadeBuilder::make_unique_device(deviceImpl, blocks);
 	}
 
 	namespace native
 	{
-		D3D12CommandListView NativeAccess<D3D12Api>::MakeCommandListView(void * commandListImpl) noexcept
+		D3D12CommandListView NativeAccess<D3D12Api>::make_command_list_view(void * commandListImpl) noexcept
 		{
-			const auto * impl = static_cast<d3d12::D3D12CommandList *>(detail::NativeImplOf(commandListImpl, d3d12::RenderCommandBlock()));
+			const auto * impl = static_cast<d3d12::D3D12CommandList *>(detail::native_impl_of(commandListImpl, d3d12::RenderCommandBlock()));
 			return D3D12CommandListView{ .commandList = impl != nullptr ? impl->list.Get() : nullptr };
 		}
 	}

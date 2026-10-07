@@ -7,13 +7,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/external.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
 #include "backends/metal4/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSSharedPtr.hpp>
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLEvent.hpp>
+#include <Metal/MTLTexture.hpp>
+#include <utility>
 
 namespace azo::rhi::metal4
 {
-	TimelineHandle Metal4CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
+	TimelineHandle metal4_create_timeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
 	{
-		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes,
+		if (!metal4_refuse_unexportable(desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedEvent,
 				"Metal exports a timeline only through MTLSharedEventHandle, and this asked for another handle type",
 				error))
@@ -28,42 +41,42 @@ namespace azo::rhi::metal4
 		MTL::SharedEvent * raw = device->device->newSharedEvent();
 		if (raw == nullptr)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eNativeApiError, "Metal shared event creation failed");
+			return fail_value<TimelineHandle>(error, ErrorCode::eNativeApiError, "Metal shared event creation failed");
 		}
 
 		NS::SharedPtr<MTL::SharedEvent> event = NS::TransferPtr(raw);
 		event->setSignaledValue(desc.initialValue);
 
-		const TimelineHandle handle = device->timelines.Store(Metal4Timeline{ .event = std::move(event), .exportableHandleTypes = desc.exportableHandleTypes });
-		if (!handle.IsValid())
+		const TimelineHandle handle = device->timelines.store(Metal4Timeline{ .event = std::move(event), .exportableHandleTypes = desc.exportableHandleTypes });
+		if (!handle.is_valid())
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal timeline tracking failed");
+			return fail_value<TimelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal timeline tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	[[nodiscard]] MTL::Buffer * ResolveBuffer(Metal4Device * device, BufferHandle handle) noexcept
+	[[nodiscard]] MTL::Buffer * resolve_buffer(Metal4Device * device, BufferHandle handle) noexcept
 	{
-		const auto * tracked = device->buffers.Resolve(handle, kHandleAlreadyChecked);
+		const auto * tracked = device->buffers.resolve(handle, kHandleAlreadyChecked);
 		return tracked != nullptr ? tracked->buffer.get() : nullptr;
 	}
 
-	[[nodiscard]] MTL::Texture * ResolveTexture(Metal4Device * device, TextureHandle handle) noexcept
+	[[nodiscard]] MTL::Texture * resolve_texture(Metal4Device * device, TextureHandle handle) noexcept
 	{
-		const auto * tracked = device->textures.Resolve(handle, kHandleAlreadyChecked);
+		const auto * tracked = device->textures.resolve(handle, kHandleAlreadyChecked);
 		return tracked != nullptr ? tracked->texture.get() : nullptr;
 	}
 
-	[[nodiscard]] Format ResolveTextureFormat(Metal4Device * device, TextureHandle handle) noexcept
+	[[nodiscard]] Format resolve_texture_format(Metal4Device * device, TextureHandle handle) noexcept
 	{
-		auto * const tracked = device->textures.Resolve(handle, kHandleAlreadyChecked);
+		auto * const tracked = device->textures.resolve(handle, kHandleAlreadyChecked);
 		return tracked != nullptr ? tracked->format : Format::eRGBA8UNorm;
 	}
 
-	BinarySemaphoreHandle Metal4CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept
+	BinarySemaphoreHandle metal4_create_binary_semaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept
 	{
-		if (!Metal4RefuseUnexportable(desc.exportableHandleTypes,
+		if (!metal4_refuse_unexportable(desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedEvent,
 				"Metal exports a binary semaphore only through MTLSharedEventHandle, and this asked for another handle type",
 				error))
@@ -77,22 +90,22 @@ namespace azo::rhi::metal4
 		MTL::SharedEvent * raw = device->device->newSharedEvent();
 		if (raw == nullptr)
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "Metal shared event creation failed");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eNativeApiError, "Metal shared event creation failed");
 		}
 		NS::SharedPtr<MTL::SharedEvent> event = NS::TransferPtr(raw);
 		event->setSignaledValue(0);
 
-		const BinarySemaphoreHandle handle = device->binarySemaphores.Store(Metal4BinarySemaphore{
+		const BinarySemaphoreHandle handle = device->binarySemaphores.store(Metal4BinarySemaphore{
 			.event				   = std::move(event),
 			.value				   = 0,
 			.exportableHandleTypes = desc.exportableHandleTypes,
 		});
-		if (!handle.IsValid())
+		if (!handle.is_valid())
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal binary semaphore tracking failed");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal binary semaphore tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
 }

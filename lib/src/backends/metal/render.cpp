@@ -7,22 +7,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/commands/command.hpp"
+#include "azoth/rhi/commands/render.hpp"
 #include "azoth/rhi/core/build_config.hpp"
+#include "azoth/rhi/core/constants.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/resources/descriptors.hpp"
 
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSTypes.hpp>
+#include <Metal/MTLArgument.hpp>
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLCommandBuffer.hpp>
+#include <Metal/MTLComputeCommandEncoder.hpp>
+#include <Metal/MTLCounters.hpp>
+#include <Metal/MTLRenderCommandEncoder.hpp>
+#include <Metal/MTLRenderPass.hpp>
+#include <Metal/MTLTexture.hpp>
+#include <cstdint>
 
 namespace azo::rhi::metal
 {
-	bool MetalBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
+	bool metal_begin_rendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.beginRendering");
 
 		auto * object					   = static_cast<MetalObject *>(impl);
 		MetalDevice * device			   = object->owner;
-		MTL::CommandBuffer * commandBuffer = CmdBufferOf(object);
+		MTL::CommandBuffer * commandBuffer = cmd_buffer_of(object);
 		if (commandBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
+			return fail(error, ErrorCode::eInvalidState, "command list has no command buffer");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool			 = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -32,45 +54,45 @@ namespace azo::rhi::metal
 		std::uint32_t colorIndex = 0;
 		for (const RenderingAttachment & color : desc.colors)
 		{
-			MTL::Texture * view = ResolveTextureView(device, color.view);
+			MTL::Texture * view = resolve_texture_view(device, color.view);
 			if (view == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering color attachment names an unknown texture view");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering color attachment names an unknown texture view");
 			}
 			MTL::RenderPassColorAttachmentDescriptor * attachment = pass->colorAttachments()->object(colorIndex);
 			attachment->setTexture(view);
-			attachment->setLoadAction(MetalLoadAction(color.load));
-			attachment->setStoreAction(MetalStoreAction(color.store));
+			attachment->setLoadAction(metal_load_action(color.load));
+			attachment->setStoreAction(metal_store_action(color.store));
 			attachment->setClearColor(MTL::ClearColor::Make(color.clearColor.r, color.clearColor.g, color.clearColor.b, color.clearColor.a));
 			++colorIndex;
 		}
 
 		if (desc.depthStencil != nullptr)
 		{
-			MTL::Texture * view = ResolveTextureView(device, desc.depthStencil->view);
+			MTL::Texture * view = resolve_texture_view(device, desc.depthStencil->view);
 			if (view == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment names an unknown texture view");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment names an unknown texture view");
 			}
 			MTL::RenderPassDepthAttachmentDescriptor * depth = pass->depthAttachment();
 			depth->setTexture(view);
-			depth->setLoadAction(MetalLoadAction(desc.depthStencil->load));
-			depth->setStoreAction(MetalStoreAction(desc.depthStencil->store));
+			depth->setLoadAction(metal_load_action(desc.depthStencil->load));
+			depth->setStoreAction(metal_store_action(desc.depthStencil->store));
 			depth->setClearDepth(desc.depthStencil->clearDepthStencil.depth);
 		}
 
 		MetalQueryPool * timestamps = nullptr;
 		if (desc.timestamps != nullptr)
 		{
-			timestamps = ResolveQueryPool(device, desc.timestamps->pool);
+			timestamps = resolve_query_pool(device, desc.timestamps->pool);
 			if (timestamps == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "rendering timestamp writes name a query pool this device never created");
+				return fail(error, ErrorCode::eInvalidHandle, "rendering timestamp writes name a query pool this device never created");
 			}
 			if ((desc.timestamps->beginQuery != kInvalidIndex && desc.timestamps->beginQuery >= timestamps->queryCount) ||
 				(desc.timestamps->endQuery != kInvalidIndex && desc.timestamps->endQuery >= timestamps->queryCount))
 			{
-				return Fail(error, ErrorCode::eInvalidArgument, "rendering timestamp writes name a query past the end of the pool");
+				return fail(error, ErrorCode::eInvalidArgument, "rendering timestamp writes name a query past the end of the pool");
 			}
 
 			if (device->samplesAtStageBoundary)
@@ -87,13 +109,13 @@ namespace azo::rhi::metal
 			}
 		}
 
-		EndActiveEncoders(object);
+		end_active_encoders(object);
 		MTL::RenderCommandEncoder * encoder = commandBuffer->renderCommandEncoder(pass);
 		if (encoder == nullptr)
 		{
-			return Fail(error, ErrorCode::eNativeApiError, "Metal render command encoder creation failed");
+			return fail(error, ErrorCode::eNativeApiError, "Metal render command encoder creation failed");
 		}
-		ConsumeAliasWait(object->list, encoder);
+		consume_alias_wait(object->list, encoder);
 		object->list->renderEncoder = NS::RetainPtr(encoder);
 		++object->list->encoderEpoch;
 
@@ -109,10 +131,10 @@ namespace azo::rhi::metal
 				object->list->pendingEndQuery	  = desc.timestamps->endQuery;
 			}
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalEndRendering(void * impl, Error * error) noexcept
+	bool metal_end_rendering(void * impl, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list != nullptr && object->list->renderEncoder.get() != nullptr)
@@ -123,26 +145,26 @@ namespace azo::rhi::metal
 				object->list->pendingEndTimestamp.reset();
 			}
 
-			PopEncoderDebugGroups(object->list, object->list->renderEncoder.get());
+			pop_encoder_debug_groups(object->list, object->list->renderEncoder.get());
 			object->list->renderEncoder->endEncoding();
 			object->list->renderEncoder.reset();
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
+	bool metal_set_graphics_pipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = object->owner;
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setGraphicsPipeline outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setGraphicsPipeline outside a rendering scope");
 		}
 
-		const auto * tracked = device->graphicsPipelines.Resolve(pipeline, kHandleAlreadyChecked);
+		const auto * tracked = device->graphicsPipelines.resolve(pipeline, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setGraphicsPipeline names a pipeline this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "setGraphicsPipeline names a pipeline this device never created");
 		}
 
 		const MetalGraphicsPipeline & pipe	= (*tracked);
@@ -160,139 +182,139 @@ namespace azo::rhi::metal
 			encoder->setDepthBias(pipe.depthBiasConstant, pipe.depthBiasSlope, pipe.depthBiasClamp);
 		}
 		object->list->boundPrimitive = pipe.primitive;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
+	bool metal_set_viewport(void * impl, const Viewport & viewport, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setViewport outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setViewport outside a rendering scope");
 		}
 		double originY = viewport.y;
 		double height  = viewport.height;
-		if (GetClipSpace() == ClipSpaceConvention::eYDown)
+		if (get_clip_space() == ClipSpaceConvention::eYDown)
 		{
 			originY = static_cast<double>(viewport.y) + static_cast<double>(viewport.height);
 			height	= -static_cast<double>(viewport.height);
 		}
 
 		const MTL::Viewport vp{
-			.originX = viewport.x, .originY = originY, .width = viewport.width, .height = height, .znear = viewport.minDepth, .zfar = viewport.maxDepth
+			.originX = viewport.x, .originY = originY, .width = viewport.width, .height = height, .znear = viewport.minDepth, .zfar = viewport.maxDepth,
 		};
 		object->list->renderEncoder->setViewport(vp);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept
+	bool metal_set_scissor(void * impl, const Rect2D & scissor, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setScissor outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setScissor outside a rendering scope");
 		}
 		const MTL::ScissorRect rect{
-			.x = static_cast<NS::UInteger>(scissor.x), .y = static_cast<NS::UInteger>(scissor.y), .width = scissor.width, .height = scissor.height
+			.x = static_cast<NS::UInteger>(scissor.x), .y = static_cast<NS::UInteger>(scissor.y), .width = scissor.width, .height = scissor.height,
 		};
 		object->list->renderEncoder->setScissorRect(rect);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept
+	bool metal_set_blend_constants(void * impl, float r, float g, float b, float a, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setBlendConstants outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setBlendConstants outside a rendering scope");
 		}
 		object->list->renderEncoder->setBlendColor(r, g, b, a);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetStencilReference(void * impl, std::uint32_t reference, Error * error) noexcept
+	bool metal_set_stencil_reference(void * impl, std::uint32_t reference, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setStencilReference outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setStencilReference outside a rendering scope");
 		}
 		object->list->renderEncoder->setStencilReferenceValue(reference);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetDepthBias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept
+	bool metal_set_depth_bias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setDepthBias outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setDepthBias outside a rendering scope");
 		}
 		object->list->renderEncoder->setDepthBias(constantFactor, slopeFactor, clamp);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept
+	bool metal_set_vertex_buffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = object->owner;
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "setVertexBuffer outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "setVertexBuffer outside a rendering scope");
 		}
-		MTL::Buffer * resolved = ResolveBuffer(device, buffer);
+		MTL::Buffer * resolved = resolve_buffer(device, buffer);
 		if (resolved == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setVertexBuffer names a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "setVertexBuffer names a buffer this device never created");
 		}
 		object->list->renderEncoder->setVertexBuffer(resolved, offset, kMetalVertexBufferBase + slot);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept
+	bool metal_set_index_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept
 	{
 		auto * object		   = static_cast<MetalObject *>(impl);
 		MetalDevice * device   = object->owner;
-		MTL::Buffer * resolved = ResolveBuffer(device, buffer);
+		MTL::Buffer * resolved = resolve_buffer(device, buffer);
 		if (resolved == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer names a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer names a buffer this device never created");
 		}
 		object->list->boundIndexBuffer = resolved;
 		object->list->boundIndexOffset = offset;
 		object->list->boundIndexType   = index32 ? MTL::IndexTypeUInt32 : MTL::IndexTypeUInt16;
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalPushConstants(void * impl, [[maybe_unused]] const PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset,
+	bool metal_push_constants(void * impl, [[maybe_unused]] const PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset,
 		std::uint32_t size, const void * data, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "pushConstants outside a recording scope");
+			return fail(error, ErrorCode::eInvalidState, "pushConstants outside a recording scope");
 		}
 
 		if (offset != 0)
 		{
-			return Fail(error, ErrorCode::eUnsupportedFeature, "Metal pushConstants only supports a full update from offset 0");
+			return fail(error, ErrorCode::eUnsupportedFeature, "Metal pushConstants only supports a full update from offset 0");
 		}
 
-		constexpr std::uint32_t index = kMetalPushConstantIndex;
+		constexpr std::uint32_t kIndex = kMetalPushConstantIndex;
 		if (MTL::RenderCommandEncoder * render = object->list->renderEncoder.get(); render != nullptr)
 		{
-			if (stages.Contains(ShaderStage::eVertex))
+			if (stages.contains(ShaderStage::eVertex))
 			{
-				render->setVertexBytes(data, size, index);
+				render->setVertexBytes(data, size, kIndex);
 			}
-			if (stages.Contains(ShaderStage::eFragment))
+			if (stages.contains(ShaderStage::eFragment))
 			{
-				render->setFragmentBytes(data, size, index);
+				render->setFragmentBytes(data, size, kIndex);
 			}
-			return Succeed(error);
+			return succeed(error);
 		}
 
-		if (!EnsureComputeEncoder(object, error))
+		if (!ensure_compute_encoder(object, error))
 		{
 			return false;
 		}
@@ -300,58 +322,58 @@ namespace azo::rhi::metal
 		MTL::ComputeCommandEncoder * compute = object->list->computeEncoder.get();
 		if (compute == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "pushConstants outside a render or compute scope");
+			return fail(error, ErrorCode::eInvalidState, "pushConstants outside a render or compute scope");
 		}
 
-		compute->setBytes(data, size, index);
-		return Succeed(error);
+		compute->setBytes(data, size, kIndex);
+		return succeed(error);
 	}
 
-	bool MetalDraw(
+	bool metal_draw(
 		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "draw outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "draw outside a rendering scope");
 		}
 		object->list->renderEncoder->drawPrimitives(object->list->boundPrimitive, firstVertex, vertexCount, instanceCount, firstInstance);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
+	bool metal_draw_indexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
 		std::uint32_t firstInstance, Error * error) noexcept
 	{
 		auto * object		= static_cast<MetalObject *>(impl);
 		MetalCmdList * list = object->list;
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "drawIndexed outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "drawIndexed outside a rendering scope");
 		}
 		if (list->boundIndexBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "drawIndexed without a bound index buffer");
+			return fail(error, ErrorCode::eInvalidState, "drawIndexed without a bound index buffer");
 		}
 		const std::uint64_t indexSize	= (list->boundIndexType == MTL::IndexTypeUInt32) ? 4 : 2;
 		const std::uint64_t indexOffset = list->boundIndexOffset + (static_cast<std::uint64_t>(firstIndex) * indexSize);
 		list->renderEncoder->drawIndexedPrimitives(
 			list->boundPrimitive, indexCount, list->boundIndexType, list->boundIndexBuffer, indexOffset, instanceCount, vertexOffset, firstInstance);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
+	bool metal_draw_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = object->owner;
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "drawIndirect outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "drawIndirect outside a rendering scope");
 		}
 
-		MTL::Buffer * indirect = ResolveBuffer(device, args);
+		MTL::Buffer * indirect = resolve_buffer(device, args);
 		if (indirect == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "drawIndirect names a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "drawIndirect names a buffer this device never created");
 		}
 
 		constexpr std::uint32_t kIndirectArgsSize = 16;
@@ -361,27 +383,27 @@ namespace azo::rhi::metal
 		{
 			encoder->drawPrimitives(object->list->boundPrimitive, indirect, offset + (static_cast<std::uint64_t>(draw) * step));
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalDrawIndexedIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
+	bool metal_draw_indexed_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = object->owner;
 		MetalCmdList * list	 = object->list;
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "drawIndexedIndirect outside a rendering scope");
+			return fail(error, ErrorCode::eInvalidState, "drawIndexedIndirect outside a rendering scope");
 		}
 		if (list->boundIndexBuffer == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "drawIndexedIndirect without a bound index buffer");
+			return fail(error, ErrorCode::eInvalidState, "drawIndexedIndirect without a bound index buffer");
 		}
 
-		MTL::Buffer * indirect = ResolveBuffer(device, args);
+		MTL::Buffer * indirect = resolve_buffer(device, args);
 		if (indirect == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirect names a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirect names a buffer this device never created");
 		}
 
 		constexpr std::uint32_t kIndexedIndirectArgsSize = 20;
@@ -395,7 +417,7 @@ namespace azo::rhi::metal
 				indirect,
 				offset + (static_cast<std::uint64_t>(draw) * step));
 		}
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

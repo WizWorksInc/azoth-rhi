@@ -36,7 +36,7 @@ namespace azo::rhi::d3d12
 		auto * queue		 = static_cast<D3D12Queue *>(impl);
 		D3D12Device * device = queue->owner;
 
-		if (const char * refusal = SubmitRefusalForLists(
+		if (const char * refusal = submit_refusal_for_lists(
 				desc.commandLists,
 				device->caps.supportsCommandListResubmit,
 				[](const CommandList & list)
@@ -54,7 +54,7 @@ namespace azo::rhi::d3d12
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			if (!sync.acquired.IsValid())
+			if (!sync.acquired.is_valid())
 			{
 				continue;
 			}
@@ -131,7 +131,7 @@ namespace azo::rhi::d3d12
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			if (!sync.renderFinished.IsValid())
+			if (!sync.renderFinished.is_valid())
 			{
 				continue;
 			}
@@ -166,7 +166,7 @@ namespace azo::rhi::d3d12
 
 	bool BindSparseBuffer(D3D12Device * device, D3D12Queue * queue, const SparseBufferBind & bind, Error * error) noexcept
 	{
-		const bool unbind = !bind.page.heap.IsValid();
+		const bool unbind = !bind.page.heap.is_valid();
 
 		if ((bind.resourceOffset % kD3D12TileSizeBytes) != 0 || (bind.page.size % kD3D12TileSizeBytes) != 0)
 		{
@@ -229,7 +229,7 @@ namespace azo::rhi::d3d12
 
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, Error * error) noexcept
 	{
-		const bool unbind = !bind.page.heap.IsValid();
+		const bool unbind = !bind.page.heap.is_valid();
 
 		ComPtr<ID3D12Resource> resource;
 		std::uint32_t mipLevels	  = 1;

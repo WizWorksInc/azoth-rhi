@@ -130,7 +130,7 @@ namespace azo::rhi
 	{
 		eFrameTransient,
 
-		ePersistent
+		ePersistent,
 	};
 
 	struct DescriptorArenaDesc final
@@ -199,16 +199,16 @@ namespace azo::rhi
 	public:
 		DescriptorArena() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_dispatch != nullptr;
 		}
 
-		[[nodiscard]] DescriptorSetHandle Allocate(const DescriptorSetAllocDesc & desc) noexcept;
-		[[nodiscard]] DescriptorSetHandle Allocate(const DescriptorSetAllocDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<DescriptorSetHandle> AllocateWithResult(const DescriptorSetAllocDesc & desc) noexcept;
-		[[nodiscard]] bool Reset(RetirePoint safeAfter) noexcept;
-		[[nodiscard]] bool Reset(RetirePoint safeAfter, Error & error) noexcept;
+		[[nodiscard]] DescriptorSetHandle allocate(const DescriptorSetAllocDesc & desc) noexcept;
+		[[nodiscard]] DescriptorSetHandle allocate(const DescriptorSetAllocDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<DescriptorSetHandle> allocate_with_result(const DescriptorSetAllocDesc & desc) noexcept;
+		[[nodiscard]] bool reset(RetirePoint safeAfter) noexcept;
+		[[nodiscard]] bool reset(RetirePoint safeAfter, Error & error) noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;

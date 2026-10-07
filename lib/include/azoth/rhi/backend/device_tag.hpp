@@ -22,7 +22,7 @@ namespace azo::rhi::detail
 	class DeviceTagPool final
 	{
 	public:
-		[[nodiscard]] bool Acquire(std::uint32_t & outTag) noexcept
+		[[nodiscard]] bool acquire(std::uint32_t & outTag) noexcept
 		{
 			const std::scoped_lock lock(m_mutex);
 			if (m_freeCount != 0)
@@ -44,7 +44,7 @@ namespace azo::rhi::detail
 			return true;
 		}
 
-		void Release(std::uint32_t tag) noexcept
+		void release(std::uint32_t tag) noexcept
 		{
 			if (tag == 0)
 			{
@@ -67,9 +67,9 @@ namespace azo::rhi::detail
 		std::uint32_t m_next	= 1;
 	};
 
-	[[nodiscard]] inline DeviceTagPool & DeviceTags() noexcept
+	[[nodiscard]] inline DeviceTagPool & device_tags() noexcept
 	{
-		static DeviceTagPool pool;
-		return pool;
+		static DeviceTagPool s_Pool;
+		return s_Pool;
 	}
 } // namespace azo::rhi

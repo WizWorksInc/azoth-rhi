@@ -7,17 +7,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/interface.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/external.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/device/device.hpp"
+
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+
+#include <Foundation/NSSharedPtr.hpp>
+#include <Metal/MTLAllocation.hpp>
+#include <Metal/MTLResidencySet.hpp>
+
+#include <cstddef>
+#include <string_view>
 
 namespace azo::rhi::metal
 {
-	bool MetalRefuseUnexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
+	bool metal_refuse_unexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
 	{
 		const Flags<ExternalHandleType> unsupported = declared & ~allowed;
-		return unsupported.Empty() ? true : Fail(error, ErrorCode::eUnsupportedFeature, what);
+		return unsupported.empty() ? true : fail(error, ErrorCode::eUnsupportedFeature, what);
 	}
 
-	[[nodiscard]] void * AllocObject(MetalDevice * device, const BackendObject * published, QueueType queueType)
+	[[nodiscard]] void * alloc_object(MetalDevice * device, const BackendObject * published, QueueType queueType)
 	{
 		MetalObject * object = device->objects.New();
 		if (object == nullptr)
@@ -32,10 +49,10 @@ namespace azo::rhi::metal
 		return object;
 	}
 
-	void MetalDevice::NoteAllocation(const Residency kind, const MTL::Allocation * allocation) noexcept
+	void MetalDevice::note_allocation(const Residency kind, const MTL::Allocation * allocation) noexcept
 	{
 		// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index): kind is an enumerator of the array's own size.
-		const NS::SharedPtr<MTL::ResidencySet> & set = residencySets[static_cast<std::size_t>(kind)];
+		const NS::SharedPtr<MTL::ResidencySet> & set = azo::rhi::detail::at(residencySets, static_cast<std::size_t>(kind));
 		if (allocation == nullptr || set.get() == nullptr)
 		{
 			return;
@@ -47,33 +64,33 @@ namespace azo::rhi::metal
 		set->requestResidency();
 	}
 
-	[[nodiscard]] MetalBackendOwner & Owner()
+	[[nodiscard]] MetalBackendOwner & backend_owner()
 	{
-		static MetalBackendOwner owner;
-		return owner;
+		static MetalBackendOwner s_Owner;
+		return s_Owner;
 	}
 
-	GraphicsApiId MetalDeviceApiId([[maybe_unused]] void * impl) noexcept
+	GraphicsApiId metal_device_api_id([[maybe_unused]] void * impl) noexcept
 	{
-		return MetalApi::id;
+		return MetalApi::kId;
 	}
 
-	std::string_view MetalDeviceApiName([[maybe_unused]] void * impl) noexcept
+	std::string_view metal_device_api_name([[maybe_unused]] void * impl) noexcept
 	{
-		return MetalApi::displayName;
+		return MetalApi::kDisplayName;
 	}
 
-	const DeviceCaps & MetalDeviceCaps(void * impl) noexcept
+	const DeviceCaps & metal_device_caps(void * impl) noexcept
 	{
 		return static_cast<MetalDevice *>(impl)->caps;
 	}
 
-	const AdapterInfo & MetalDeviceAdapterInfo(void * impl) noexcept
+	const AdapterInfo & metal_device_adapter_info(void * impl) noexcept
 	{
 		return static_cast<MetalDevice *>(impl)->adapter;
 	}
 
-	ValidationMessageCounts MetalDeviceValidationMessageCounts([[maybe_unused]] void * impl) noexcept
+	ValidationMessageCounts metal_device_validation_message_counts([[maybe_unused]] void * impl) noexcept
 	{
 		return {};
 	}

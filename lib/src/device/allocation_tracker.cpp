@@ -8,8 +8,14 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/allocation_tracker.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/core/handle.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/host/allocator.hpp"
 
-#include <mutex>
+#include <cstddef>
+#include <cstdint>
 #include <utility>
 
 namespace azo::rhi::detail
@@ -20,14 +26,14 @@ namespace azo::rhi::detail
 		return (static_cast<std::uint64_t>(type) << 56u) ^ (static_cast<std::uint64_t>(handle.generation) << 32u) ^ handle.index;
 	}
 
-	bool AllocationTracker::Record(const ResourceType type, const RawHandle handle, const MemorySpan & span) noexcept
+	bool AllocationTracker::record(const ResourceType type, const RawHandle handle, const MemorySpan & span) noexcept
 	{
-		return TryInsertOrAssign(m_records[static_cast<std::size_t>(type)].live, KeyOf(type, handle), span);
+		return try_insert_or_assign(azo::rhi::detail::at(m_records, static_cast<std::size_t>(type)).live, KeyOf(type, handle), span);
 	}
 
-	bool AllocationTracker::Retire(const ResourceType type, const RawHandle handle, const DestroyDesc & desc, MemorySpan & out) noexcept
+	bool AllocationTracker::retire(const ResourceType type, const RawHandle handle, const DestroyDesc & desc, MemorySpan & out) noexcept
 	{
-		DeviceRecords & records = m_records[static_cast<std::size_t>(type)];
+		DeviceRecords & records = azo::rhi::detail::at(m_records, static_cast<std::size_t>(type));
 
 		const auto tracked = records.live.find(KeyOf(type, handle));
 		if (tracked == records.live.end())
@@ -44,7 +50,7 @@ namespace azo::rhi::detail
 			return true;
 		}
 
-		if (!TryPushBack(records.pending,
+		if (!try_push_back(records.pending,
 				Pending{
 					.span	   = span,
 					.safeAfter = desc.safeAfter,
@@ -57,24 +63,24 @@ namespace azo::rhi::detail
 		return false;
 	}
 
-	void AllocationTracker::TakeReleasable(
+	void AllocationTracker::take_releasable(
 		const ResourceType type, const TimelineHandle timeline, const std::uint64_t completedValue, HostVector<MemorySpan> & out) noexcept
 	{
-		DeviceRecords & records = m_records[static_cast<std::size_t>(type)];
+		DeviceRecords & records = azo::rhi::detail::at(m_records, static_cast<std::size_t>(type));
 
 		HostVector<Pending> kept;
-		if (!TryReserve(kept, records.pending.size()))
+		if (!try_reserve(kept, records.pending.size()))
 		{
 			return;
 		}
 
 		for (const Pending & entry : records.pending)
 		{
-			const bool untimed	 = !entry.safeAfter.timeline.IsValid();
+			const bool untimed	 = !entry.safeAfter.timeline.is_valid();
 			const bool thisOne	 = entry.safeAfter.timeline == timeline;
 			const bool completed = untimed || (thisOne && completedValue >= entry.safeAfter.value);
 
-			if (completed && TryPushBack(out, entry.span))
+			if (completed && try_push_back(out, entry.span))
 			{
 				continue;
 			}
@@ -85,14 +91,14 @@ namespace azo::rhi::detail
 		records.pending = std::move(kept);
 	}
 
-	void AllocationTracker::TakeAll(const ResourceType type, HostVector<MemorySpan> & out) noexcept
+	void AllocationTracker::take_all(const ResourceType type, HostVector<MemorySpan> & out) noexcept
 	{
-		DeviceRecords & records = m_records[static_cast<std::size_t>(type)];
+		DeviceRecords & records = azo::rhi::detail::at(m_records, static_cast<std::size_t>(type));
 
 		std::size_t taken = 0;
 		for (const Pending & entry : records.pending)
 		{
-			if (!TryPushBack(out, entry.span))
+			if (!try_push_back(out, entry.span))
 			{
 				break;
 			}
@@ -103,7 +109,7 @@ namespace azo::rhi::detail
 		records.pending.erase(records.pending.begin(), records.pending.begin() + static_cast<std::ptrdiff_t>(taken));
 	}
 
-	void AllocationTracker::Forget() noexcept
+	void AllocationTracker::forget() noexcept
 	{
 		for (DeviceRecords & records : m_records)
 		{
@@ -112,7 +118,7 @@ namespace azo::rhi::detail
 		}
 	}
 
-	std::size_t AllocationTracker::LiveCount() const noexcept
+	std::size_t AllocationTracker::live_count() const noexcept
 	{
 		std::size_t live = 0;
 		for (const DeviceRecords & records : m_records)

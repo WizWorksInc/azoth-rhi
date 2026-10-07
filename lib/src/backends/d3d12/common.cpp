@@ -16,7 +16,7 @@ namespace azo::rhi::d3d12
 	bool D3D12RefuseUnexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
 	{
 		const Flags<ExternalHandleType> unsupported = declared & ~allowed;
-		return unsupported.Empty() ? true : Fail(error, ErrorCode::eUnsupportedFeature, what);
+		return unsupported.empty() ? true : Fail(error, ErrorCode::eUnsupportedFeature, what);
 	}
 
 	[[nodiscard]] detail::HostString NarrowAdapterName(const wchar_t * wide)

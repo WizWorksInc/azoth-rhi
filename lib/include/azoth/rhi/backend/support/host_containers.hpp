@@ -12,8 +12,11 @@
 #include "azoth/rhi/host/allocator.hpp"
 
 #include <cstddef>
+#include <cstdlib>
 #include <deque>
 #include <functional>
+#include <iterator>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,6 +25,23 @@
 
 namespace azo::rhi::detail
 {
+	template <class Container>
+	[[nodiscard]] constexpr decltype(auto) at(Container & values, const std::size_t index)
+	{
+		if (index >= std::size(values)) [[unlikely]]
+		{
+			std::abort();
+		}
+
+		return values[index]; // NOLINT(*-pro-bounds-avoid-unchecked-container-access,*-pro-bounds-constant-array-index)
+	}
+
+	template <class T, std::size_t Extent>
+	[[nodiscard]] constexpr T & at(std::span<T, Extent> values, const std::size_t index)
+	{
+		return at<std::span<T, Extent>>(values, index);
+	}
+
 	template <class T>
 	using HostVector = std::vector<T, HostAllocatorAdapter<T>>;
 
@@ -37,7 +57,7 @@ namespace azo::rhi::detail
 	using HostSet = std::unordered_set<Key, Hash, Eq, HostAllocatorAdapter<Key>>;
 
 	template <class T, class U>
-	[[nodiscard]] bool TryPushBack(HostVector<T> & into, U && value) noexcept
+	[[nodiscard]] bool try_push_back(HostVector<T> & into, U && value) noexcept
 	{
 #ifdef AZOTH_RHI_NO_EXCEPTIONS
 		into.push_back(std::forward<U>(value));
@@ -56,7 +76,7 @@ namespace azo::rhi::detail
 	}
 
 	template <class T>
-	[[nodiscard]] bool TryReserve(HostVector<T> & vec, const std::size_t count) noexcept
+	[[nodiscard]] bool try_reserve(HostVector<T> & vec, const std::size_t count) noexcept
 	{
 #ifdef AZOTH_RHI_NO_EXCEPTIONS
 		vec.reserve(count);
@@ -75,7 +95,7 @@ namespace azo::rhi::detail
 	}
 
 	template <class Map, class Key, class Value>
-	[[nodiscard]] bool TryInsertOrAssign(Map & into, const Key & key, Value && value) noexcept
+	[[nodiscard]] bool try_insert_or_assign(Map & into, const Key & key, Value && value) noexcept
 	{
 #ifdef AZOTH_RHI_NO_EXCEPTIONS
 		into.insert_or_assign(key, std::forward<Value>(value));

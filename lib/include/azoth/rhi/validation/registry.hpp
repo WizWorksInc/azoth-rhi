@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/handle.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 
@@ -70,61 +71,61 @@ namespace azo::rhi::validation
 		{
 			for (Table & table : m_tables)
 			{
-				table.Release();
+				table.release();
 			}
 		}
 
-		[[nodiscard]] bool Record(const RegisteredHandle handle) noexcept
+		[[nodiscard]] bool record(const RegisteredHandle handle) noexcept
 		{
 			if (handle.index == kInvalidHandleIndex)
 			{
 				return false;
 			}
 
-			return TableFor(handle.type).Claim(handle.index, handle.generation) != nullptr;
+			return TableFor(handle.type).claim(handle.index, handle.generation) != nullptr;
 		}
 
-		[[nodiscard]] ResourceRecord * Lookup(const RegisteredHandle handle) noexcept
+		[[nodiscard]] ResourceRecord * lookup(const RegisteredHandle handle) noexcept
 		{
-			return TableFor(handle.type).Find(handle.index, handle.generation);
+			return TableFor(handle.type).find(handle.index, handle.generation);
 		}
 
-		[[nodiscard]] const ResourceRecord * Lookup(const RegisteredHandle handle) const noexcept
+		[[nodiscard]] const ResourceRecord * lookup(const RegisteredHandle handle) const noexcept
 		{
-			return const_cast<HandleRegistry *>(this)->Lookup(handle);
+			return const_cast<HandleRegistry *>(this)->lookup(handle);
 		}
 
-		[[nodiscard]] bool IsLive(const RegisteredHandle handle) const noexcept
+		[[nodiscard]] bool is_live(const RegisteredHandle handle) const noexcept
 		{
-			return Lookup(handle) != nullptr;
+			return lookup(handle) != nullptr;
 		}
 
-		[[nodiscard]] bool Retire(const RegisteredHandle handle) noexcept
+		[[nodiscard]] bool retire(const RegisteredHandle handle) noexcept
 		{
-			return TableFor(handle.type).Retire(handle.index, handle.generation);
+			return TableFor(handle.type).retire(handle.index, handle.generation);
 		}
 
-		[[nodiscard]] bool Restore(const RegisteredHandle handle) noexcept
+		[[nodiscard]] bool restore(const RegisteredHandle handle) noexcept
 		{
-			return TableFor(handle.type).Restore(handle.index, handle.generation);
+			return TableFor(handle.type).restore(handle.index, handle.generation);
 		}
 
-		std::size_t RetireFrom(const ResourceType type, const std::uint64_t origin) noexcept
+		std::size_t retire_from(const ResourceType type, const std::uint64_t origin) noexcept
 		{
-			return TableFor(type).RetireFrom(origin);
+			return TableFor(type).retire_from(origin);
 		}
 
-		[[nodiscard]] std::size_t LiveCount(const ResourceType type) const noexcept
+		[[nodiscard]] std::size_t live_count(const ResourceType type) const noexcept
 		{
-			return const_cast<HandleRegistry *>(this)->TableFor(type).LiveCount();
+			return const_cast<HandleRegistry *>(this)->TableFor(type).live_count();
 		}
 
-		[[nodiscard]] std::size_t LiveCount() const noexcept
+		[[nodiscard]] std::size_t live_count() const noexcept
 		{
 			std::size_t live = 0;
 			for (std::size_t kind = 0; kind < kResourceTypeCount; ++kind)
 			{
-				live += LiveCount(static_cast<ResourceType>(kind));
+				live += live_count(static_cast<ResourceType>(kind));
 			}
 
 			return live;
@@ -138,9 +139,9 @@ namespace azo::rhi::validation
 
 			static constexpr std::uint32_t kMaxChunks = 17;
 
-			[[nodiscard]] ResourceRecord * Claim(const std::uint32_t index, const std::uint32_t generation) noexcept
+			[[nodiscard]] ResourceRecord * claim(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = EnsureSlot(detail::SlotOfIndex(index));
+				Slot * slot = EnsureSlot(detail::slot_of_index(index));
 				if (slot == nullptr)
 				{
 					return nullptr;
@@ -165,9 +166,9 @@ namespace azo::rhi::validation
 				return &slot->record;
 			}
 
-			[[nodiscard]] ResourceRecord * Find(const std::uint32_t index, const std::uint32_t generation) noexcept
+			[[nodiscard]] ResourceRecord * find(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = At(detail::SlotOfIndex(index));
+				Slot * slot = At(detail::slot_of_index(index));
 				if (slot == nullptr || !slot->live.load(std::memory_order_acquire))
 				{
 					return nullptr;
@@ -176,9 +177,9 @@ namespace azo::rhi::validation
 				return Identifies(*slot, index, generation) ? &slot->record : nullptr;
 			}
 
-			[[nodiscard]] bool Retire(const std::uint32_t index, const std::uint32_t generation) noexcept
+			[[nodiscard]] bool retire(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = At(detail::SlotOfIndex(index));
+				Slot * slot = At(detail::slot_of_index(index));
 				if (slot == nullptr || !Identifies(*slot, index, generation))
 				{
 					return false;
@@ -193,9 +194,9 @@ namespace azo::rhi::validation
 				return true;
 			}
 
-			[[nodiscard]] bool Restore(const std::uint32_t index, const std::uint32_t generation) noexcept
+			[[nodiscard]] bool restore(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = At(detail::SlotOfIndex(index));
+				Slot * slot = At(detail::slot_of_index(index));
 				if (slot == nullptr || !Identifies(*slot, index, generation))
 				{
 					return false;
@@ -210,7 +211,7 @@ namespace azo::rhi::validation
 				return true;
 			}
 
-			[[nodiscard]] std::size_t RetireFrom(const std::uint64_t origin) noexcept
+			[[nodiscard]] std::size_t retire_from(const std::uint64_t origin) noexcept
 			{
 				if (origin == 0)
 				{
@@ -238,16 +239,16 @@ namespace azo::rhi::validation
 				return retired;
 			}
 
-			[[nodiscard]] std::size_t LiveCount() const noexcept
+			[[nodiscard]] std::size_t live_count() const noexcept
 			{
 				return m_live.load(std::memory_order_relaxed);
 			}
 
-			void Release() noexcept
+			void release() noexcept
 			{
 				for (std::uint32_t chunk = 0; chunk < kMaxChunks; ++chunk)
 				{
-					Slot * slots = m_chunks[chunk].load(std::memory_order_relaxed);
+					Slot * slots = azo::rhi::detail::at(m_chunks, chunk).load(std::memory_order_relaxed);
 					if (slots == nullptr)
 					{
 						continue;
@@ -255,8 +256,8 @@ namespace azo::rhi::validation
 
 					const std::uint32_t size = SizeOfChunk(chunk);
 					std::destroy_n(slots, size);
-					HostFree(slots, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
-					m_chunks[chunk].store(nullptr, std::memory_order_relaxed);
+					host_free(slots, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
+					azo::rhi::detail::at(m_chunks, chunk).store(nullptr, std::memory_order_relaxed);
 				}
 
 				m_count.store(0, std::memory_order_relaxed);
@@ -300,7 +301,7 @@ namespace azo::rhi::validation
 				}
 
 				const std::uint32_t chunk = ChunkOfSlot(index);
-				Slot * slots			  = m_chunks[chunk].load(std::memory_order_acquire);
+				Slot * slots			  = azo::rhi::detail::at(m_chunks, chunk).load(std::memory_order_acquire);
 				return slots != nullptr ? slots + (index - BaseOfChunk(chunk)) : nullptr; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 			}
 
@@ -312,11 +313,11 @@ namespace azo::rhi::validation
 					return nullptr;
 				}
 
-				Slot * slots = m_chunks[chunk].load(std::memory_order_acquire);
+				Slot * slots = azo::rhi::detail::at(m_chunks, chunk).load(std::memory_order_acquire);
 				if (slots == nullptr)
 				{
 					const std::uint32_t size = SizeOfChunk(chunk);
-					void * storage			 = HostAllocate(static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
+					void * storage			 = host_allocate(static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
 					if (storage == nullptr)
 					{
 						return nullptr;
@@ -326,10 +327,10 @@ namespace azo::rhi::validation
 					std::uninitialized_value_construct_n(built, size);
 
 					slots = nullptr;
-					if (!m_chunks[chunk].compare_exchange_strong(slots, built, std::memory_order_release, std::memory_order_acquire))
+					if (!azo::rhi::detail::at(m_chunks, chunk).compare_exchange_strong(slots, built, std::memory_order_release, std::memory_order_acquire))
 					{
 						std::destroy_n(built, size);
-						HostFree(built, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
+						host_free(built, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
 					}
 					else
 					{
@@ -354,7 +355,7 @@ namespace azo::rhi::validation
 
 		[[nodiscard]] Table & TableFor(const ResourceType type) noexcept
 		{
-			return m_tables[static_cast<std::size_t>(type)];
+			return azo::rhi::detail::at(m_tables, static_cast<std::size_t>(type));
 		}
 
 		std::array<Table, kResourceTypeCount> m_tables;

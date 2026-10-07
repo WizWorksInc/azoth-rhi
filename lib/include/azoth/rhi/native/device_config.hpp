@@ -42,7 +42,7 @@ namespace azo::rhi
 		};
 
 		template <class Config>
-		[[nodiscard]] constexpr DeviceConfigLookup<Config> FindConfigBlock(std::span<const DeviceConfigEntry> entries, GraphicsApiId api) noexcept
+		[[nodiscard]] constexpr DeviceConfigLookup<Config> find_config_block(std::span<const DeviceConfigEntry> entries, GraphicsApiId api) noexcept
 		{
 			for (const DeviceConfigEntry & entry : entries)
 			{
@@ -64,15 +64,15 @@ namespace azo::rhi
 		}
 
 		template <GraphicsApiTag Api>
-		[[nodiscard]] constexpr auto FindDeviceConfig(std::span<const DeviceConfigEntry> entries) noexcept
+		[[nodiscard]] constexpr auto find_device_config(std::span<const DeviceConfigEntry> entries) noexcept
 		{
-			return FindConfigBlock<typename DeviceConfigFor<Api>::Config>(entries, Api::id);
+			return find_config_block<typename DeviceConfigFor<Api>::Config>(entries, Api::kId);
 		}
 
 		template <GraphicsApiTag Api>
-		[[nodiscard]] constexpr auto FindInstanceConfig(std::span<const InstanceConfigEntry> entries) noexcept
+		[[nodiscard]] constexpr auto find_instance_config(std::span<const InstanceConfigEntry> entries) noexcept
 		{
-			return FindConfigBlock<typename InstanceConfigFor<Api>::Config>(entries, Api::id);
+			return find_config_block<typename InstanceConfigFor<Api>::Config>(entries, Api::kId);
 		}
 
 	}

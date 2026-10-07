@@ -29,7 +29,7 @@ namespace azo::rhi::native
 		using QueueView		  = NullQueueView;
 		using CommandListView = NullCommandListView;
 
-		[[nodiscard]] static NullCommandListView MakeCommandListView([[maybe_unused]] void * commandListImpl) noexcept
+		[[nodiscard]] static NullCommandListView make_command_list_view([[maybe_unused]] void * commandListImpl) noexcept
 		{
 			return {};
 		}

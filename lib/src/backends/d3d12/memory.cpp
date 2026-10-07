@@ -103,7 +103,7 @@ namespace azo::rhi::d3d12
 		for (const ResidencyPriorityDesc & desc : priorities)
 		{
 			ID3D12Resource * resource = nullptr;
-			if (desc.buffer.IsValid())
+			if (desc.buffer.is_valid())
 			{
 				BufferSlot * slot = ResolveBuffer(device, desc.buffer);
 				if (slot == nullptr)
@@ -112,7 +112,7 @@ namespace azo::rhi::d3d12
 				}
 				resource = slot->resource.Get();
 			}
-			else if (desc.texture.IsValid())
+			else if (desc.texture.is_valid())
 			{
 				TextureSlot * slot = ResolveTexture(device, desc.texture);
 				if (slot == nullptr)

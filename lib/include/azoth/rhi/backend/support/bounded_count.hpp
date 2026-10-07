@@ -30,17 +30,17 @@ namespace azo::rhi
 	public:
 		BoundedCount() = default;
 
-		BoundedCount(const BoundedCount & other) noexcept : m_count(other.Load()) {}
+		BoundedCount(const BoundedCount & other) noexcept : m_count(other.load()) {}
 
 		BoundedCount & operator=(const BoundedCount & other) noexcept
 		{
-			m_count.store(other.Load(), std::memory_order_relaxed);
+			m_count.store(other.load(), std::memory_order_relaxed);
 			return *this;
 		}
 
 		~BoundedCount() = default;
 
-		[[nodiscard]] bool TryAcquire(const std::uint32_t bound) noexcept
+		[[nodiscard]] bool try_acquire(const std::uint32_t bound) noexcept
 		{
 			std::uint32_t held = m_count.load(std::memory_order_relaxed);
 			while (held < bound)
@@ -54,12 +54,12 @@ namespace azo::rhi
 			return false;
 		}
 
-		[[nodiscard]] bool TryAcquire() noexcept
+		[[nodiscard]] bool try_acquire() noexcept
 		{
-			return TryAcquire(std::numeric_limits<std::uint32_t>::max());
+			return try_acquire(std::numeric_limits<std::uint32_t>::max());
 		}
 
-		[[nodiscard]] bool TryRelease() noexcept
+		[[nodiscard]] bool try_release() noexcept
 		{
 			std::uint32_t held = m_count.load(std::memory_order_relaxed);
 			while (held > 0)
@@ -73,12 +73,12 @@ namespace azo::rhi
 			return false;
 		}
 
-		[[nodiscard]] std::uint32_t Exchange(const std::uint32_t value) noexcept
+		[[nodiscard]] std::uint32_t exchange(const std::uint32_t value) noexcept
 		{
 			return m_count.exchange(value, std::memory_order_acq_rel);
 		}
 
-		[[nodiscard]] std::uint32_t Load() const noexcept
+		[[nodiscard]] std::uint32_t load() const noexcept
 		{
 			return m_count.load(std::memory_order_acquire);
 		}
@@ -103,7 +103,7 @@ namespace azo::rhi
 		"submit of a command list whose earlier submission is still executing, so wait for that submission to complete first";
 
 	// A fresh or recording list is refused everywhere, and a submitted one only where the backend or the pending work forbids it.
-	[[nodiscard]] inline constexpr const char * SubmitRefusalFor(
+	[[nodiscard]] constexpr const char * submit_refusal_for(
 		const ListLifecycle lifecycle, const bool backendResubmits, const bool earlierSubmitPending) noexcept
 	{
 		switch (lifecycle)
@@ -125,7 +125,7 @@ namespace azo::rhi
 
 	// The whole pre-submit sweep, so the loop, the null skip and the unwrap are not copied once per backend alongside the message table.
 	template <typename Lists, typename RecordOf, typename Pending>
-	[[nodiscard]] const char * SubmitRefusalForLists(const Lists & lists, const bool backendResubmits, RecordOf recordOf, Pending pending)
+	[[nodiscard]] const char * submit_refusal_for_lists(const Lists & lists, const bool backendResubmits, RecordOf recordOf, Pending pending)
 	{
 		for (const auto * list : lists)
 		{
@@ -140,7 +140,7 @@ namespace azo::rhi
 				continue;
 			}
 
-			if (const char * refusal = SubmitRefusalFor(record->lifecycle, backendResubmits, pending(*record)); refusal != nullptr)
+			if (const char * refusal = submit_refusal_for(record->lifecycle, backendResubmits, pending(*record)); refusal != nullptr)
 			{
 				return refusal;
 			}
@@ -156,24 +156,24 @@ namespace azo::rhi
 	class OpenListBudget final
 	{
 	public:
-		void SetBound(const std::uint32_t bound) noexcept
+		void set_bound(const std::uint32_t bound) noexcept
 		{
 			m_bound = bound;
 		}
 
-		[[nodiscard]] bool TryOpen(const QueueType type) noexcept
+		[[nodiscard]] bool try_open(const QueueType type) noexcept
 		{
-			return CountFor(type).TryAcquire(m_bound);
+			return CountFor(type).try_acquire(m_bound);
 		}
 
-		void Close(const QueueType type) noexcept
+		void close(const QueueType type) noexcept
 		{
-			static_cast<void>(CountFor(type).TryRelease());
+			static_cast<void>(CountFor(type).try_release());
 		}
 
-		[[nodiscard]] std::uint32_t Open(const QueueType type) const noexcept
+		[[nodiscard]] std::uint32_t open(const QueueType type) const noexcept
 		{
-			return CountFor(type).Load();
+			return CountFor(type).load();
 		}
 
 	private:

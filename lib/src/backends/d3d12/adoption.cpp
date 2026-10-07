@@ -25,7 +25,7 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.adoptBuffer");
 
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
 		}
@@ -37,11 +37,11 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(device->bufferSlots.Store(BufferSlot{
+		return ReturnValue(device->bufferSlots.store(BufferSlot{
 							   .resource = external,
 							   .size	 = desc.desc.size,
 							   .lifetime = LifetimeOf(desc.lifetime),
-							   .desc	 = detail::Recorded(desc.desc),
+							   .desc	 = detail::recorded(desc.desc),
 						   }),
 			error);
 	}
@@ -50,7 +50,7 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.adoptTexture");
 
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
 		}
@@ -62,7 +62,7 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(device->textureSlots.Store(TextureSlot{ .resource = external,
+		return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = external,
 							   .format										 = MapFormat(desc.desc.format),
 							   .rhiFormat									 = desc.desc.format,
 							   .type										 = desc.desc.type,
@@ -71,19 +71,19 @@ namespace azo::rhi::d3d12
 							   .usage										 = desc.desc.usage,
 							   .mutableFormat								 = desc.desc.allowFormatViews,
 							   .lifetime									 = LifetimeOf(desc.lifetime),
-							   .desc										 = detail::Recorded(desc.desc) }),
+							   .desc										 = detail::recorded(desc.desc) }),
 			error);
 	}
 
 	bool D3D12GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return Fail(error, ErrorCode::eUnsupportedApi, "export payload API does not match the device backend");
 		}
 
 		auto * device			= static_cast<D3D12Device *>(impl);
-		const BufferSlot * slot = device->bufferSlots.Resolve(buffer, true);
+		const BufferSlot * slot = device->bufferSlots.resolve(buffer, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of a buffer this device never created");
@@ -95,13 +95,13 @@ namespace azo::rhi::d3d12
 
 	bool D3D12GetNativeTexture(void * impl, GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return Fail(error, ErrorCode::eUnsupportedApi, "export payload API does not match the device backend");
 		}
 
 		auto * device			 = static_cast<D3D12Device *>(impl);
-		const TextureSlot * slot = device->textureSlots.Resolve(texture, true);
+		const TextureSlot * slot = device->textureSlots.resolve(texture, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of a texture this device never created");
@@ -140,7 +140,7 @@ namespace azo::rhi::d3d12
 	TimelineHandle D3D12AdoptTimeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.adoptTimeline");
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return FailValue<TimelineHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
 		}
@@ -152,7 +152,7 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(device->timelineSlots.Store(TimelineSlot{ .fence = adopted, .lifetime = LifetimeOf(desc.lifetime) }), error);
+		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = adopted, .lifetime = LifetimeOf(desc.lifetime) }), error);
 	}
 
 	BinarySemaphoreHandle D3D12AdoptBinarySemaphore([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api,
@@ -165,7 +165,7 @@ namespace azo::rhi::d3d12
 
 	bool D3D12GetNativeTimeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return Fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
 		}
@@ -183,7 +183,7 @@ namespace azo::rhi::d3d12
 
 	bool D3D12GetNativeBinarySemaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return Fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
 		}

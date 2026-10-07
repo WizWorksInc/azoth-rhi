@@ -41,7 +41,7 @@ namespace azo::rhi
 
 		FiberId (*currentFiber)(void * context) noexcept = nullptr;
 
-		[[nodiscard]] constexpr bool IsComplete() const noexcept
+		[[nodiscard]] constexpr bool is_complete() const noexcept
 		{
 			return create != nullptr && destroy != nullptr && acquire != nullptr && tryAcquire != nullptr && release != nullptr;
 		}

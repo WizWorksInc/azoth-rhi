@@ -9,7 +9,10 @@
 
 #include "azoth/rhi/device/selection.hpp"
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/device/device.hpp"
 
 #include "backends/registration.hpp"
 
@@ -18,8 +21,10 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdlib>
+#include <mutex>
 #include <span>
 #include <string_view>
+#include <utility>
 
 namespace azo::rhi
 {
@@ -33,14 +38,14 @@ namespace azo::rhi
 			std::array<BackendEntry, kMaxAvailableBackends> entries{};
 			std::size_t count = 0;
 
-			constexpr void Add(const BackendEntry & entry) noexcept
+			constexpr void add(const BackendEntry & entry) noexcept
 			{
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index, cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				entries[count] = entry;
 				++count;
 			}
 
-			constexpr void SortByRank() noexcept
+			constexpr void sort_by_rank() noexcept
 			{
 				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index, cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				for (std::size_t index = 1; index < count; ++index)
@@ -60,33 +65,33 @@ namespace azo::rhi
 			}
 		};
 
-		[[nodiscard]] consteval AvailableTable MakeAvailableTable()
+		[[nodiscard]] consteval AvailableTable make_available_table()
 		{
 			AvailableTable table;
 
 #ifdef AZOTH_RHI_BACKEND_METAL4
-			table.Add(MakeBackendEntry<Metal4Api>(&RegisterMetal4Backend));
+			table.add(make_backend_entry<Metal4Api>(&register_metal4_backend));
 #endif
 
 #ifdef AZOTH_RHI_BACKEND_METAL
-			table.Add(MakeBackendEntry<MetalApi>(&RegisterMetalBackend));
+			table.add(make_backend_entry<MetalApi>(&register_metal_backend));
 #endif
 
 #ifdef AZOTH_RHI_BACKEND_D3D12
-			table.Add(MakeBackendEntry<D3D12Api>(&RegisterD3D12Backend));
+			table.add(make_backend_entry<D3D12Api>(&register_d3_d12_backend));
 #endif
 
 #ifdef AZOTH_RHI_BACKEND_VULKAN
-			table.Add(MakeBackendEntry<VulkanApi>(&RegisterVulkanBackend));
+			table.add(make_backend_entry<VulkanApi>(&register_vulkan_backend));
 #endif
 
-			table.Add(MakeBackendEntry<NullApi>(&RegisterNullBackend, BackendRank::eFallback));
+			table.add(make_backend_entry<NullApi>(&register_null_backend, BackendRank::eFallback));
 
-			table.SortByRank();
+			table.sort_by_rank();
 			return table;
 		}
 
-		constexpr AvailableTable kAvailableTable = MakeAvailableTable();
+		constexpr AvailableTable kAvailableTable = make_available_table();
 
 		struct ResolvedRequest final
 		{
@@ -95,7 +100,7 @@ namespace azo::rhi
 			bool asked = false;
 		};
 
-		[[nodiscard]] ResolvedRequest ResolveRequestedName(const BackendPreference & preference)
+		[[nodiscard]] ResolvedRequest resolve_requested_name(const BackendPreference & preference)
 		{
 			if (preference.requested != nullptr && *preference.requested != '\0')
 			{
@@ -115,7 +120,7 @@ namespace azo::rhi
 			return ResolvedRequest{ .name = AZOTH_RHI_BACKEND_DEFAULT, .asked = false };
 		}
 
-		[[nodiscard]] BackendRequest ResolveRequest(const BackendPreference & preference)
+		[[nodiscard]] BackendRequest resolve_request(const BackendPreference & preference)
 		{
 			if (preference.request == BackendRequest::eForce || !preference.consultEnvironment)
 			{
@@ -128,14 +133,14 @@ namespace azo::rhi
 			return forced ? BackendRequest::eForce : BackendRequest::eTry;
 		}
 
-		[[nodiscard]] bool NameRefersTo(const std::string_view name, const std::string_view canonicalName) noexcept
+		[[nodiscard]] bool name_refers_to(const std::string_view name, const std::string_view canonicalName) noexcept
 		{
-			return name == canonicalName || name == ShortApiName(canonicalName);
+			return name == canonicalName || name == short_api_name(canonicalName);
 		}
 
-		constinit std::atomic<const StaticBackendRegistration *> g_selfRegistered{ nullptr };
+		constinit std::atomic<const StaticBackendRegistration *> g_SelfRegistered{ nullptr };
 
-		void SortForReproducibleOrder(detail::HostVector<BackendEntry> & entries)
+		void sort_for_reproducible_order(detail::HostVector<BackendEntry> & entries)
 		{
 			std::ranges::sort(entries,
 				[](const BackendEntry & lhs, const BackendEntry & rhs)
@@ -148,29 +153,29 @@ namespace azo::rhi
 
 	StaticBackendRegistration::StaticBackendRegistration(const BackendEntry & entry) noexcept
 		: m_entry(entry),
-		  m_next(g_selfRegistered.load(std::memory_order_relaxed))
+		  m_next(g_SelfRegistered.load(std::memory_order_relaxed))
 	{
 
-		while (!g_selfRegistered.compare_exchange_weak(m_next, this, std::memory_order_release, std::memory_order_relaxed))
+		while (!g_SelfRegistered.compare_exchange_weak(m_next, this, std::memory_order_release, std::memory_order_relaxed))
 		{
 		}
 	}
 
-	const StaticBackendRegistration * SelfRegisteredBackends() noexcept
+	const StaticBackendRegistration * self_registered_backends() noexcept
 	{
-		return g_selfRegistered.load(std::memory_order_acquire);
+		return g_SelfRegistered.load(std::memory_order_acquire);
 	}
 
-	std::span<const BackendEntry> AvailableBackends() noexcept
+	std::span<const BackendEntry> available_backends() noexcept
 	{
 		return std::span<const BackendEntry>{ kAvailableTable.entries.data(), kAvailableTable.count };
 	}
 
-	const BackendEntry * FindAvailableBackend(const std::string_view name) noexcept
+	const BackendEntry * find_available_backend(const std::string_view name) noexcept
 	{
-		for (const BackendEntry & entry : AvailableBackends())
+		for (const BackendEntry & entry : available_backends())
 		{
-			if (NameRefersTo(name, entry.canonicalName))
+			if (name_refers_to(name, entry.canonicalName))
 			{
 				return &entry;
 			}
@@ -179,9 +184,9 @@ namespace azo::rhi
 		return nullptr;
 	}
 
-	const BackendEntry * FindAvailableBackend(const GraphicsApiId id) noexcept
+	const BackendEntry * find_available_backend(const GraphicsApiId id) noexcept
 	{
-		for (const BackendEntry & entry : AvailableBackends())
+		for (const BackendEntry & entry : available_backends())
 		{
 			if (entry.id == id)
 			{
@@ -192,9 +197,9 @@ namespace azo::rhi
 		return nullptr;
 	}
 
-	Result<void> RegisterBackend(GraphicsApiRegistry & registry, const GraphicsApiId id)
+	Result<void> register_backend(GraphicsApiRegistry & registry, const GraphicsApiId id)
 	{
-		const BackendEntry * entry = FindAvailableBackend(id);
+		const BackendEntry * entry = find_available_backend(id);
 		if (entry == nullptr || entry->Register == nullptr)
 		{
 			return Error{
@@ -206,15 +211,15 @@ namespace azo::rhi
 		return entry->Register(registry);
 	}
 
-	BackendSelection::BackendSelection(const BackendPreference & preference) : m_includeNull(preference.includeNull), m_request(ResolveRequest(preference))
+	BackendSelection::BackendSelection(const BackendPreference & preference) : m_includeNull(preference.includeNull), m_request(resolve_request(preference))
 	{
-		const ResolvedRequest requested = ResolveRequestedName(preference);
+		const ResolvedRequest requested = resolve_requested_name(preference);
 		m_requestedName					= requested.name;
 		m_wasAskedFor					= requested.asked;
 
 		if (preference.includeAvailable)
 		{
-			AddAvailable();
+			add_available();
 		}
 	}
 
@@ -273,13 +278,13 @@ namespace azo::rhi
 		return {};
 	}
 
-	Result<void> BackendSelection::Add(const BackendEntry & entry)
+	Result<void> BackendSelection::add(const BackendEntry & entry)
 	{
 		const std::scoped_lock guard(m_guard);
 		return AddOne(entry);
 	}
 
-	Result<void> BackendSelection::AddAll(const std::span<const BackendEntry> entries)
+	Result<void> BackendSelection::add_all(const std::span<const BackendEntry> entries)
 	{
 		const std::scoped_lock guard(m_guard);
 
@@ -290,7 +295,7 @@ namespace azo::rhi
 			const Result<void> added = AddOne(entry);
 			if (!added && firstFailure)
 			{
-				firstFailure = added.GetError();
+				firstFailure = added.get_error();
 			}
 		}
 
@@ -299,18 +304,18 @@ namespace azo::rhi
 
 	void BackendSelection::Take(const BackendEntry & entry, Result<void> & firstFailure)
 	{
-		if (m_registry.IsRegistered(entry.id))
+		if (m_registry.is_registered(entry.id))
 		{
 			return;
 		}
 
-		const bool unwantedFallback = !m_includeNull && entry.rank == BackendRank::eFallback && !NameRefersTo(m_requestedName, entry.canonicalName);
+		const bool unwantedFallback = !m_includeNull && entry.rank == BackendRank::eFallback && !name_refers_to(m_requestedName, entry.canonicalName);
 		if (unwantedFallback)
 		{
 			return;
 		}
 
-		const bool notTheOneAskedFor = m_request == BackendRequest::eForce && m_wasAskedFor && !NameRefersTo(m_requestedName, entry.canonicalName);
+		const bool notTheOneAskedFor = m_request == BackendRequest::eForce && m_wasAskedFor && !name_refers_to(m_requestedName, entry.canonicalName);
 		if (notTheOneAskedFor)
 		{
 			return;
@@ -318,7 +323,7 @@ namespace azo::rhi
 
 		if (const Result<void> added = AddOne(entry); !added && firstFailure)
 		{
-			firstFailure = added.GetError();
+			firstFailure = added.get_error();
 		}
 	}
 
@@ -329,7 +334,7 @@ namespace azo::rhi
 		const auto named = std::ranges::find_if(entries,
 			[this](const BackendEntry & entry)
 			{
-				return NameRefersTo(m_requestedName, entry.canonicalName);
+				return name_refers_to(m_requestedName, entry.canonicalName);
 			});
 
 		if (named != entries.end())
@@ -345,48 +350,48 @@ namespace azo::rhi
 		return firstFailure;
 	}
 
-	Result<void> BackendSelection::AddAvailable()
+	Result<void> BackendSelection::add_available()
 	{
 		const std::scoped_lock guard(m_guard);
-		return AddInOrder(AvailableBackends());
+		return AddInOrder(available_backends());
 	}
 
-	Result<void> BackendSelection::AddSelfRegistered()
+	Result<void> BackendSelection::add_self_registered()
 	{
 		const std::scoped_lock guard(m_guard);
 
 		detail::HostVector<BackendEntry> registered;
-		for (const StaticBackendRegistration * node = SelfRegisteredBackends(); node != nullptr; node = node->Next())
+		for (const StaticBackendRegistration * node = self_registered_backends(); node != nullptr; node = node->next())
 		{
-			registered.push_back(node->Entry());
+			registered.push_back(node->entry());
 		}
 
-		SortForReproducibleOrder(registered);
+		sort_for_reproducible_order(registered);
 		return AddInOrder(registered);
 	}
 
-	Result<void> BackendSelection::AddModule(const std::span<const BackendEntry> entries)
+	Result<void> BackendSelection::add_module(const std::span<const BackendEntry> entries)
 	{
 		const std::scoped_lock guard(m_guard);
 
 		detail::HostVector<BackendEntry> fromModule(entries.begin(), entries.end());
-		SortForReproducibleOrder(fromModule);
+		sort_for_reproducible_order(fromModule);
 		return AddInOrder(fromModule);
 	}
 
-	Result<void> BackendSelection::AddCatalog()
+	Result<void> BackendSelection::add_catalog()
 	{
 		const std::scoped_lock guard(m_guard);
 
 		detail::HostVector<BackendEntry> catalog;
-		for (const StaticBackendRegistration * node = SelfRegisteredBackends(); node != nullptr; node = node->Next())
+		for (const StaticBackendRegistration * node = self_registered_backends(); node != nullptr; node = node->next())
 		{
-			catalog.push_back(node->Entry());
+			catalog.push_back(node->entry());
 		}
 
 		const std::size_t selfRegistered = catalog.size();
 
-		for (const BackendEntry & entry : AvailableBackends())
+		for (const BackendEntry & entry : available_backends())
 		{
 			const std::span<const BackendEntry> mine{ catalog.data(), selfRegistered };
 			const bool shadowed = std::ranges::any_of(mine,
@@ -401,7 +406,7 @@ namespace azo::rhi
 			}
 		}
 
-		SortForReproducibleOrder(catalog);
+		sort_for_reproducible_order(catalog);
 		return AddInOrder(catalog);
 	}
 
@@ -409,13 +414,13 @@ namespace azo::rhi
 	{
 		for (std::size_t index = firstNew; index < Registered(); ++index)
 		{
-			Record(m_registry.EnumerateBackends()[index]);
+			Record(azo::rhi::detail::at(m_registry.enumerate_backends(), index));
 		}
 	}
 
 	void BackendSelection::Record(const BackendInfo & info)
 	{
-		const bool matchesRequest = !m_honoredRequest && NameRefersTo(m_requestedName, info.canonicalName);
+		const bool matchesRequest = !m_honoredRequest && name_refers_to(m_requestedName, info.canonicalName);
 		if (matchesRequest)
 		{
 			m_honoredRequest = true;
@@ -432,7 +437,7 @@ namespace azo::rhi
 		m_preferredApis.push_back(info.id);
 	}
 
-	Result<UniqueInstance> BackendSelection::CreateInstance(const InstanceDesc & desc)
+	Result<UniqueInstance> BackendSelection::create_instance(const InstanceDesc & desc)
 	{
 		detail::HostVector<GraphicsApiId> order;
 		{
@@ -440,10 +445,10 @@ namespace azo::rhi
 			order = m_preferredApis;
 		}
 
-		return azo::rhi::CreateInstance(m_registry, order, desc);
+		return azo::rhi::create_instance(m_registry, order, desc);
 	}
 
-	Result<UniqueDevice> BackendSelection::CreateDevice(const DeviceDesc & desc)
+	Result<UniqueDevice> BackendSelection::create_device(const DeviceDesc & desc)
 	{
 		detail::HostVector<GraphicsApiId> order;
 		{
@@ -451,19 +456,19 @@ namespace azo::rhi
 			order = m_preferredApis;
 		}
 
-		return azo::rhi::CreateDevice(m_registry, order, desc);
+		return azo::rhi::create_device(m_registry, order, desc);
 	}
 
-	Result<UniqueInstance> BackendSelection::CreateInstance(const GraphicsApiId api, const InstanceDesc & desc)
+	Result<UniqueInstance> BackendSelection::create_instance(const GraphicsApiId api, const InstanceDesc & desc)
 	{
 		const std::array<GraphicsApiId, 1> only{ api };
-		return azo::rhi::CreateInstance(m_registry, only, desc);
+		return azo::rhi::create_instance(m_registry, only, desc);
 	}
 
-	Result<UniqueDevice> BackendSelection::CreateDevice(const GraphicsApiId api, const DeviceDesc & desc)
+	Result<UniqueDevice> BackendSelection::create_device(const GraphicsApiId api, const DeviceDesc & desc)
 	{
 		const std::array<GraphicsApiId, 1> only{ api };
-		return azo::rhi::CreateDevice(m_registry, only, desc);
+		return azo::rhi::create_device(m_registry, only, desc);
 	}
 
 }
