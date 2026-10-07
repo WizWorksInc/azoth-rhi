@@ -39,6 +39,7 @@ namespace azo::rhi
 		 * \brief Starts a new recording on the command list.
 		 * \param impl Backend command list instance.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*begin)(void * impl, Error * error) noexcept = nullptr;
 
@@ -46,6 +47,7 @@ namespace azo::rhi
 		 * \brief Finishes recording so the command list can be submitted.
 		 * \param impl Backend command list instance.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*end)(void * impl, Error * error) noexcept = nullptr;
 
@@ -54,6 +56,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param barriers Resource transitions and memory dependencies.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*barriers)(void * impl, const BarrierBatch & barriers, Error * error) noexcept = nullptr;
 
@@ -62,6 +65,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param desc Rendering attachments and render area.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*beginRendering)(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept = nullptr;
 
@@ -69,6 +73,7 @@ namespace azo::rhi
 		 * \brief Ends the current rendering scope.
 		 * \param impl Backend command list instance.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*endRendering)(void * impl, Error * error) noexcept = nullptr;
 
@@ -77,6 +82,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param pipeline Graphics pipeline to bind.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setGraphicsPipeline)(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept = nullptr;
 
@@ -85,6 +91,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param pipeline Compute pipeline to bind.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setComputePipeline)(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept = nullptr;
 
@@ -96,6 +103,7 @@ namespace azo::rhi
 		 * \param set Descriptor set to bind.
 		 * \param dynamicOffsets Byte offsets for dynamic buffer bindings.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*bindDescriptorSet)(
 			void * impl,
@@ -115,6 +123,7 @@ namespace azo::rhi
 		 * \param size Number of bytes to write.
 		 * \param data Source bytes.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*pushConstants)(
 			void * impl,
@@ -131,6 +140,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param viewport Viewport bounds and depth range.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setViewport)(void * impl, const Viewport & viewport, Error * error) noexcept = nullptr;
 
@@ -139,6 +149,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param scissor Scissor rectangle in pixels.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setScissor)(void * impl, const Rect2D & scissor, Error * error) noexcept = nullptr;
 
@@ -150,6 +161,7 @@ namespace azo::rhi
 		 * \param b Blue blend constant.
 		 * \param a Alpha blend constant.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setBlendConstants)(void * impl, float r, float g, float b, float a, Error * error) noexcept = nullptr;
 
@@ -158,6 +170,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param reference Stencil reference value for both faces.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setStencilReference)(void * impl, std::uint32_t reference, Error * error) noexcept = nullptr;
 
@@ -168,6 +181,7 @@ namespace azo::rhi
 		 * \param clamp Depth bias clamp.
 		 * \param slopeFactor Slope scaled depth bias.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setDepthBias)(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept = nullptr;
 
@@ -178,6 +192,7 @@ namespace azo::rhi
 		 * \param buffer Vertex buffer to bind.
 		 * \param offset Byte offset into the buffer.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setVertexBuffer)(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept = nullptr;
 
@@ -188,6 +203,7 @@ namespace azo::rhi
 		 * \param offset Byte offset into the buffer.
 		 * \param index32 True for 32 bit indices, false for 16 bit.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setIndexBuffer)(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept = nullptr;
 
@@ -199,6 +215,7 @@ namespace azo::rhi
 		 * \param firstVertex First vertex to draw.
 		 * \param firstInstance First instance index.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*draw)(
 			void * impl,
@@ -218,6 +235,7 @@ namespace azo::rhi
 		 * \param vertexOffset Offset added to each vertex index.
 		 * \param firstInstance First instance index.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*drawIndexed)(
 			void * impl,
@@ -236,6 +254,7 @@ namespace azo::rhi
 		 * \param groupCountY Workgroup count along the Y axis.
 		 * \param groupCountZ Workgroup count along the Z axis.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*dispatch)(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept = nullptr;
 
@@ -248,6 +267,7 @@ namespace azo::rhi
 		 * \param srcOffset Byte offset in the source buffer.
 		 * \param size Number of bytes to copy.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*copyBuffer)(
 			void * impl,
@@ -266,6 +286,7 @@ namespace azo::rhi
 		 * \param src Source buffer.
 		 * \param regions Source buffer regions and destination texture subresources.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*copyBufferToTexture)(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept =
 			nullptr;
@@ -277,6 +298,7 @@ namespace azo::rhi
 		 * \param src Source texture.
 		 * \param regions Source texture subresources and destination buffer regions.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*copyTextureToBuffer)(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept =
 			nullptr;
@@ -288,6 +310,7 @@ namespace azo::rhi
 		 * \param src Source texture.
 		 * \param regions Source and destination texture regions.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*copyTexture)(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept = nullptr;
 
@@ -299,6 +322,7 @@ namespace azo::rhi
 		 * \param size Number of bytes to fill.
 		 * \param value 32 bit value to repeat.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*clearBuffer)(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept = nullptr;
 
@@ -309,6 +333,7 @@ namespace azo::rhi
 		 * \param color Clear color.
 		 * \param ranges Texture subresources to clear.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*clearTexture)(
 			void * impl,
@@ -325,6 +350,7 @@ namespace azo::rhi
 		 * \param src Multisampled source texture.
 		 * \param regions Source and destination resolve regions.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*resolveTexture)(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept = nullptr;
 
@@ -336,6 +362,7 @@ namespace azo::rhi
 		 * \param regions Source and destination texture regions.
 		 * \param filter Filter used when scaling.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*blit)(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept = nullptr;
 
@@ -344,6 +371,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param texture Texture whose mip levels are generated.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*generateMips)(void * impl, TextureHandle texture, Error * error) noexcept = nullptr;
 
@@ -353,6 +381,7 @@ namespace azo::rhi
 		 * \param name Debug label text.
 		 * \param color Debug label color.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*beginDebugLabel)(void * impl, CString name, std::uint32_t color, Error * error) noexcept = nullptr;
 
@@ -360,6 +389,7 @@ namespace azo::rhi
 		 * \brief Ends the most recent debug label.
 		 * \param impl Backend command list instance.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*endDebugLabel)(void * impl, Error * error) noexcept = nullptr;
 	};
@@ -382,6 +412,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param barriers Resource handoffs for shared memory.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*aliasBarriers)(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept = nullptr;
 	};
@@ -404,6 +435,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param pipeline Ray tracing pipeline to bind.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*setRayTracingPipeline)(void * impl, RayTracingPipelineHandle pipeline, Error * error) noexcept = nullptr;
 
@@ -412,6 +444,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param builds Acceleration structure build descriptions.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*buildAccelerationStructures)(void * impl, std::span<const AccelerationStructureBuildDesc> builds, Error * error) noexcept = nullptr;
 
@@ -421,6 +454,7 @@ namespace azo::rhi
 		 * \param dst Destination acceleration structure.
 		 * \param src Source acceleration structure.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*copyAccelerationStructure)(void * impl, AccelerationStructureHandle dst, AccelerationStructureHandle src, Error * error) noexcept = nullptr;
 
@@ -430,6 +464,7 @@ namespace azo::rhi
 		 * \param dst Destination for the compacted acceleration structure.
 		 * \param src Acceleration structure to compact.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*compactAccelerationStructure)(void * impl, AccelerationStructureHandle dst, AccelerationStructureHandle src, Error * error) noexcept = nullptr;
 
@@ -441,6 +476,7 @@ namespace azo::rhi
 		 * \param height Ray dispatch height.
 		 * \param depth Ray dispatch depth.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*traceRays)(
 			void * impl,
@@ -472,6 +508,7 @@ namespace azo::rhi
 		 * \param firstQuery First query index.
 		 * \param queryCount Number of queries to reset.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*resetQueryPool)(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept = nullptr;
 
@@ -482,6 +519,7 @@ namespace azo::rhi
 		 * \param query Destination query index.
 		 * \param stage Single pipeline stage for the timestamp.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*writeTimestamp)(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept = nullptr;
 
@@ -491,6 +529,7 @@ namespace azo::rhi
 		 * \param pool Query pool containing the query.
 		 * \param query Query index to begin.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*beginQuery)(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept = nullptr;
 
@@ -500,6 +539,7 @@ namespace azo::rhi
 		 * \param pool Query pool containing the query.
 		 * \param query Query index to end.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*endQuery)(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept = nullptr;
 
@@ -512,6 +552,7 @@ namespace azo::rhi
 		 * \param dst Destination buffer for query results.
 		 * \param dstOffset Byte offset in the destination buffer.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*resolveQueryData)(
 			void * impl,
@@ -545,6 +586,7 @@ namespace azo::rhi
 		 * \param drawCount Number of draws to record.
 		 * \param stride Byte distance between argument records.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*drawIndirect)(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept =
 			nullptr;
@@ -557,6 +599,7 @@ namespace azo::rhi
 		 * \param drawCount Number of indexed draws to record.
 		 * \param stride Byte distance between argument records.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*drawIndexedIndirect)(
 			void * impl,
@@ -573,6 +616,7 @@ namespace azo::rhi
 		 * \param args Buffer containing dispatch arguments.
 		 * \param offset Byte offset of the dispatch arguments.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*dispatchIndirect)(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept = nullptr;
 	};
@@ -600,6 +644,7 @@ namespace azo::rhi
 		 * \param maxDrawCount Maximum number of draws to record.
 		 * \param stride Byte distance between argument records.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*drawIndirectCount)(
 			void * impl,
@@ -622,6 +667,7 @@ namespace azo::rhi
 		 * \param maxDrawCount Maximum number of indexed draws to record.
 		 * \param stride Byte distance between argument records.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*drawIndexedIndirectCount)(
 			void * impl,
@@ -654,6 +700,7 @@ namespace azo::rhi
 		 * \param api Graphics API used by the native commands.
 		 * \param desc Resources touched and their final states.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*beginNativeMutation)(void * impl, GraphicsApiId api, const NativeMutationDesc & desc, Error * error) noexcept = nullptr;
 
@@ -662,6 +709,7 @@ namespace azo::rhi
 		 * \param impl Backend command list instance.
 		 * \param desc Resources touched and their final states.
 		 * \param[out] error Optional output for failure details.
+		 * \return True on success, false on failure.
 		 */
 		bool (*endNativeMutation)(void * impl, const NativeMutationDesc & desc, Error * error) noexcept = nullptr;
 	};
