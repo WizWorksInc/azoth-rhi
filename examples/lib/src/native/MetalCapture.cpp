@@ -48,13 +48,13 @@ namespace fw
 	#ifdef AZOTH_RHI_EXAMPLES_HAVE_METAL3
 			if (const rhi::Result<rhi::MetalNativeDevice> three = rhi::get_metal_native_device(device); three)
 			{
-				return three.Value().device;
+				return three.value().device;
 			}
 	#endif
 	#ifdef AZOTH_RHI_EXAMPLES_HAVE_METAL4
 			if (const rhi::Result<rhi::Metal4NativeDevice> four = rhi::get_metal4_native_device(device); four)
 			{
-				return four.Value().device;
+				return four.value().device;
 			}
 	#endif
 

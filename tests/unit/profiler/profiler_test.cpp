@@ -244,8 +244,8 @@ namespace
 		const test::ScopedProfiler scope(&m_sink);
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		EXPECT_EQ(m_sink.beginZoneCalls, 0) << "instrumentation ran with AZOTH_RHI_ENABLE_PROFILING off";
 		EXPECT_EQ(m_sink.endZoneCalls, 0);
@@ -262,8 +262,8 @@ namespace
 		const test::ScopedProfiler scope(&tracy);
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		EXPECT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		EXPECT_TRUE(test::Ok(buffer.is_valid(), error));
 	}
 
 	TEST(ProfilerSeam, TheTracySinkKeepsOneStableNamePerFiber)
@@ -278,8 +278,8 @@ namespace
 			{
 				const rhi::FiberId fiber{ id };
 
-				tracy.EnterFiber(fiber, pass == 0 ? "azoth.rhi.test.fiber" : nullptr);
-				tracy.LeaveFiber(fiber);
+				tracy.enter_fiber(fiber, pass == 0 ? "azoth.rhi.test.fiber" : nullptr);
+				tracy.leave_fiber(fiber);
 			}
 		}
 	}

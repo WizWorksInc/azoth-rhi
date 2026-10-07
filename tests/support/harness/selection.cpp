@@ -41,7 +41,7 @@ namespace azo::rhi::test
 			static const std::vector<Backend> table = []
 			{
 				std::vector<Backend> entries;
-				for (const BackendEntry & entry : rhi::AvailableBackends())
+				for (const BackendEntry & entry : rhi::available_backends())
 				{
 					entries.push_back(Backend{ .id = entry.id,
 						.canonicalName			   = names.emplace_back(entry.canonicalName).c_str(),

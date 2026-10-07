@@ -68,7 +68,7 @@ namespace azo::rhi
 		return out;
 	}
 
-	detail::HostString format_d3_d12_driver_version(const std::uint64_t umdVersion)
+	detail::HostString format_d3d12_driver_version(const std::uint64_t umdVersion)
 	{
 		const auto product	  = static_cast<std::uint32_t>((umdVersion >> 48) & 0xFFFFU);
 		const auto version	  = static_cast<std::uint32_t>((umdVersion >> 32) & 0xFFFFU);

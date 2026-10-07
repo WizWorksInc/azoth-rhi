@@ -252,7 +252,7 @@ namespace deccer
 				error);
 
 			const rhi::MappedMemory mapped =
-				out.staging.is_valid() ? dev.Map(out.staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error) : rhi::MappedMemory{};
+				out.staging.is_valid() ? dev.map(out.staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error) : rhi::MappedMemory{};
 
 			if (!out.texture.is_valid() || !out.view.is_valid() || mapped.data == nullptr)
 			{
@@ -261,7 +261,7 @@ namespace deccer
 
 			std::memcpy(mapped.data, photo.pixels.get(), photo.Bytes());
 
-			return (mapped.coherent || dev.flush_mapped_range(out.staging, 0, photo.Bytes(), error)) && dev.Unmap(out.staging, error);
+			return (mapped.coherent || dev.flush_mapped_range(out.staging, 0, photo.Bytes(), error)) && dev.unmap(out.staging, error);
 		}
 
 	}
@@ -446,10 +446,10 @@ namespace deccer
 		};
 
 		const rhi::DescriptorSetHandle equirectDescriptors =
-			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.equirect" }, rhiError);
+			arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.equirect" }, rhiError);
 
 		const rhi::DescriptorSetHandle irradianceDescriptors =
-			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.irradiance" }, rhiError);
+			arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.irradiance" }, rhiError);
 
 		if (!equirectDescriptors.is_valid() || !irradianceDescriptors.is_valid() ||
 			!writeSet(equirectDescriptors, environmentStorage, source.view, equirectSampler) ||
@@ -462,7 +462,7 @@ namespace deccer
 		for (std::uint32_t mip = 0; mip < kSpecularMips; ++mip)
 		{
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			specularDescriptors[mip] = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.specular" }, rhiError);
+			specularDescriptors[mip] = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.specular" }, rhiError);
 
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			if (!specularDescriptors[mip].is_valid() || !writeSet(specularDescriptors[mip], specularStorage[mip], environmentCube, sampler))
@@ -472,9 +472,9 @@ namespace deccer
 		}
 
 		rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "deccer.environment.pool" }, rhiError);
-		rhi::CommandList list = pool.Allocate("deccer.environment", rhiError);
+		rhi::CommandList list = pool.allocate("deccer.environment", rhiError);
 
-		if (!pool.is_valid() || !list.is_valid() || !list.Begin(rhiError))
+		if (!pool.is_valid() || !list.is_valid() || !list.begin(rhiError))
 		{
 			return fail("failed to start the environment build");
 		}
@@ -520,14 +520,14 @@ namespace deccer
 			list.barriers(rhi::BarrierBatch{ .textures = sourceToSampled }, rhiError) && list.barriers(rhi::BarrierBatch{ .textures = toWritten }, rhiError) &&
 			list.set_compute_pipeline(equirectPipeline, rhiError) && list.bind_descriptor_set(convolveLayout, 0, equirectDescriptors, {}, rhiError) &&
 			list.push_constants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(equirectConstants), &equirectConstants, rhiError) &&
-			list.Dispatch(GroupCount(environmentSize), GroupCount(environmentSize), kCubeFaces, rhiError) &&
+			list.dispatch(GroupCount(environmentSize), GroupCount(environmentSize), kCubeFaces, rhiError) &&
 			list.barriers(rhi::BarrierBatch{ .textures = toMipSource }, rhiError) &&
 
 			list.generate_mips(environment, rhiError) && list.barriers(rhi::BarrierBatch{ .textures = toSampled }, rhiError) &&
 
 			list.set_compute_pipeline(irradiancePipeline, rhiError) && list.bind_descriptor_set(convolveLayout, 0, irradianceDescriptors, {}, rhiError) &&
 			list.push_constants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(irradianceConstants), &irradianceConstants, rhiError) &&
-			list.Dispatch(GroupCount(kIrradianceSize), GroupCount(kIrradianceSize), kCubeFaces, rhiError) &&
+			list.dispatch(GroupCount(kIrradianceSize), GroupCount(kIrradianceSize), kCubeFaces, rhiError) &&
 			list.set_compute_pipeline(prefilterPipeline, rhiError);
 
 		for (std::uint32_t mip = 0; recorded && mip < kSpecularMips; ++mip)
@@ -542,10 +542,10 @@ namespace deccer
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): the loop bound is the vector's size.
 			recorded = list.bind_descriptor_set(convolveLayout, 0, specularDescriptors[mip], {}, rhiError) &&
 					   list.push_constants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(constants), &constants, rhiError) &&
-					   list.Dispatch(GroupCount(size), GroupCount(size), kCubeFaces, rhiError);
+					   list.dispatch(GroupCount(size), GroupCount(size), kCubeFaces, rhiError);
 		}
 
-		recorded = recorded && list.barriers(rhi::BarrierBatch{ .textures = toRead }, rhiError) && list.End(rhiError);
+		recorded = recorded && list.barriers(rhi::BarrierBatch{ .textures = toRead }, rhiError) && list.end(rhiError);
 		if (!recorded)
 		{
 			return fail("failed to record the environment build");
@@ -555,7 +555,7 @@ namespace deccer
 		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = signalValue } };
 		const rhi::SubmitDesc submit{ .commandLists = lists, .signals = signals, .debugName = "deccer.environmentSubmit" };
 		constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
-		if (!queue.submit(submit, rhiError) || !queue.Wait(timeline, signalValue, kNoTimeout, rhiError))
+		if (!queue.submit(submit, rhiError) || !queue.wait(timeline, signalValue, kNoTimeout, rhiError))
 		{
 			return fail("failed to submit the environment build");
 		}

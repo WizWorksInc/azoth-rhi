@@ -78,7 +78,7 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept
+	const ResourceIntrospectionApi & resource_introspection_block() noexcept
 	{
 		static const ResourceIntrospectionApi block{
 			.getTextureInfo = &D3D12GetTextureInfo,
@@ -150,7 +150,7 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept
+	const ExternalCapabilityApi & external_capability_block() noexcept
 	{
 		static const ExternalCapabilityApi block{
 			.queryExternalHandleSupport = &D3D12QueryExternalHandleSupport,

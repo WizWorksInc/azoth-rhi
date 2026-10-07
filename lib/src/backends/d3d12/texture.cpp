@@ -18,7 +18,7 @@
 
 namespace azo::rhi::d3d12
 {
-	[[nodiscard]] DXGI_FORMAT MapFormat(Format format) noexcept
+	[[nodiscard]] DXGI_FORMAT map_format(Format format) noexcept
 	{
 		switch (format)
 		{
@@ -67,7 +67,7 @@ namespace azo::rhi::d3d12
 		return DXGI_FORMAT_UNKNOWN;
 	}
 
-	[[nodiscard]] UINT MapSampleCount(SampleCount samples) noexcept
+	[[nodiscard]] UINT map_sample_count(SampleCount samples) noexcept
 	{
 		switch (samples)
 		{
@@ -186,7 +186,7 @@ namespace azo::rhi::d3d12
 		resourceDesc.Height			  = desc.height;
 		resourceDesc.DepthOrArraySize = static_cast<UINT16>(arrayOrDepth);
 		resourceDesc.MipLevels		  = static_cast<UINT16>(desc.mipLevels);
-		resourceDesc.Format			  = MapFormat(desc.format);
+		resourceDesc.Format			  = map_format(desc.format);
 		if (desc.usage.contains(TextureUsage::eDepthStencilAttachment) && desc.usage.contains(TextureUsage::eSampled))
 		{
 			resourceDesc.Format = DepthTypelessResourceFormat(resourceDesc.Format);
@@ -195,7 +195,7 @@ namespace azo::rhi::d3d12
 		{
 			resourceDesc.Format = TypelessResourceFormat(resourceDesc.Format);
 		}
-		resourceDesc.SampleDesc.Count = MapSampleCount(desc.samples);
+		resourceDesc.SampleDesc.Count = map_sample_count(desc.samples);
 		resourceDesc.Layout			  = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 		resourceDesc.Flags			  = MapTextureResourceFlags(desc.usage);
 		return resourceDesc;
@@ -216,14 +216,14 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createTexture");
 
 		auto * device			 = static_cast<D3D12Device *>(impl);
-		const DXGI_FORMAT format = MapFormat(desc.format);
+		const DXGI_FORMAT format = map_format(desc.format);
 		if (format == DXGI_FORMAT_UNKNOWN)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "texture format is undefined or unsupported");
+			return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "texture format is undefined or unsupported");
 		}
 		if (desc.allowFormatViews && TypelessResourceFormat(format) == format)
 		{
-			return FailValue<TextureHandle>(
+			return fail_value<TextureHandle>(
 				error,
 				ErrorCode::eUnsupportedFormat,
 				"allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not"
@@ -231,16 +231,16 @@ namespace azo::rhi::d3d12
 		}
 		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
 		}
 
-		if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, desc.type == TextureType::eTex3D ? desc.depth : 1))
+		if (desc.mipLevels > detail::max_mip_levels(desc.width, desc.height, desc.type == TextureType::eTex3D ? desc.depth : 1))
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
 		}
 		else if (desc.arrayLayers == 0)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "a texture must have at least one array layer");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "a texture must have at least one array layer");
 		}
 
 		const D3D12_RESOURCE_DESC resourceDesc = MakeTextureResourceDesc(desc);
@@ -264,7 +264,7 @@ namespace azo::rhi::d3d12
 		{
 			if (!desc.exportableHandleTypes.empty())
 			{
-				return FailValue<TextureHandle>(
+				return fail_value<TextureHandle>(
 					error,
 					ErrorCode::eUnsupportedFeature,
 					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse texture cannot also be exportable"
@@ -277,12 +277,12 @@ namespace azo::rhi::d3d12
 			ComPtr<ID3D12Resource> reserved;
 			if (FAILED(device->device->CreateReservedResource(&reservedDesc, D3D12_RESOURCE_STATE_COMMON, clearPtr, IID_PPV_ARGS(reserved.GetAddressOf()))))
 			{
-				return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreateReservedResource failed for a sparse texture");
+				return fail_value<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreateReservedResource failed for a sparse texture");
 			}
 
 			NameD3D12Object(reserved.Get(), desc.debugName, device->debugNames);
 
-			return ReturnValue(
+			return return_value(
 				device->textureSlots.store(
 					TextureSlot{ .resource = std::move(reserved),
 						.format			   = format,
@@ -320,12 +320,12 @@ namespace azo::rhi::d3d12
 		);
 		if (FAILED(hr))
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a texture");
+			return fail_value<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a texture");
 		}
 
 		NameD3D12Object(resource.Get(), desc.debugName, device->debugNames);
 
-		return ReturnValue(
+		return return_value(
 			device->textureSlots.store(
 				TextureSlot{ .allocation   = std::move(allocation),
 					.resource			   = std::move(resource),
@@ -405,7 +405,7 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "memory info output is null");
 		}
-		if (MapFormat(desc.format) == DXGI_FORMAT_UNKNOWN)
+		if (map_format(desc.format) == DXGI_FORMAT_UNKNOWN)
 		{
 			return Fail(error, ErrorCode::eUnsupportedFormat, "texture format is undefined or unsupported");
 		}
@@ -448,7 +448,7 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	[[nodiscard]] TextureSlot * ResolveTexture(D3D12Device * device, TextureHandle handle) noexcept
+	[[nodiscard]] TextureSlot * resolve_texture(D3D12Device * device, TextureHandle handle) noexcept
 	{
 		TextureSlot * slot = device->textureSlots.resolve(handle, kHandleAlreadyChecked);
 		return slot != nullptr && slot->resource != nullptr ? slot : nullptr;
@@ -564,10 +564,10 @@ namespace azo::rhi::d3d12
 		std::uint32_t texMips	  = 1;
 		std::uint32_t texLayers	  = 1;
 		{
-			TextureSlot * slot = ResolveTexture(device, texture);
+			TextureSlot * slot = resolve_texture(device, texture);
 			if (slot == nullptr)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "texture view of an invalid texture handle");
+				return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "texture view of an invalid texture handle");
 			}
 			resource	  = slot->resource;
 			usage		  = slot->usage;
@@ -581,7 +581,7 @@ namespace azo::rhi::d3d12
 		const TextureSubresourceRange & r = desc.range;
 		if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 		{
-			return FailValue<TextureViewHandle>(
+			return fail_value<TextureViewHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes"
@@ -589,17 +589,17 @@ namespace azo::rhi::d3d12
 		}
 		if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip)
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
 		}
 		if (r.baseLayer >= texLayers || r.layerCount > texLayers - r.baseLayer)
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
 		}
 
-		const std::uint32_t plane = PlaneIndexOf(desc.range.aspects);
+		const std::uint32_t plane = plane_index_of(desc.range.aspects);
 		if (desc.ycbcrConversion != nullptr)
 		{
-			return FailValue<TextureViewHandle>(
+			return fail_value<TextureViewHandle>(
 				error,
 				ErrorCode::eUnsupportedFeature,
 				"Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views"
@@ -607,7 +607,7 @@ namespace azo::rhi::d3d12
 		}
 		if (plane == kNoPlane && is_multi_planar_format(rhiFormat))
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "a texture view of a multi-planar format must name a plane aspect");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "a texture view of a multi-planar format must name a plane aspect");
 		}
 
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
@@ -616,31 +616,35 @@ namespace azo::rhi::d3d12
 			const Format planeFormat = plane_format_of(rhiFormat, plane);
 			if (planeFormat == Format::eUndefined)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "texture view names a plane the source texture's format does not have");
+				return fail_value<TextureViewHandle>(
+					error,
+					ErrorCode::eInvalidArgument,
+					"texture view names a plane the source texture's format does not have"
+				);
 			}
-			format = desc.format == Format::eUndefined ? MapFormat(planeFormat) : MapFormat(desc.format);
+			format = desc.format == Format::eUndefined ? map_format(planeFormat) : map_format(desc.format);
 		}
 		else
 		{
-			format = desc.format == Format::eUndefined ? textureFormat : MapFormat(desc.format);
+			format = desc.format == Format::eUndefined ? textureFormat : map_format(desc.format);
 		}
 		if (format == DXGI_FORMAT_UNKNOWN)
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eUnsupportedFormat, "texture view format is unsupported");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eUnsupportedFormat, "texture view format is unsupported");
 		}
 
 		if (plane == kNoPlane && format != textureFormat && !mutableFormat)
 		{
-			return FailValue<TextureViewHandle>(
+			return fail_value<TextureViewHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"texture view names a format the source texture was not created with allowFormatViews for"
 			);
 		}
 
-		if (!desc.swizzle.IsIdentity() && UsageForbidsSwizzle(ResolveViewUsage(desc.usage, usage)))
+		if (!desc.swizzle.is_identity() && usage_forbids_swizzle(resolve_view_usage(desc.usage, usage)))
 		{
-			return FailValue<TextureViewHandle>(
+			return fail_value<TextureViewHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled"
@@ -654,7 +658,7 @@ namespace azo::rhi::d3d12
 			dsvIndex = device->dsvHeap.Allocate();
 			if (dsvIndex == kInvalidIndex)
 			{
-				return FailValue<TextureViewHandle>(error, ErrorCode::eOutOfDeviceMemory, "out of D3D12 depth-stencil view descriptors");
+				return fail_value<TextureViewHandle>(error, ErrorCode::eOutOfDeviceMemory, "out of D3D12 depth-stencil view descriptors");
 			}
 			D3D12_DEPTH_STENCIL_VIEW_DESC dsv{};
 			FillDsvDesc(dsv, format, desc);
@@ -666,14 +670,14 @@ namespace azo::rhi::d3d12
 			if (rtvIndex == kInvalidIndex)
 			{
 				device->dsvHeap.Free(dsvIndex);
-				return FailValue<TextureViewHandle>(error, ErrorCode::eOutOfDeviceMemory, "out of D3D12 render-target view descriptors");
+				return fail_value<TextureViewHandle>(error, ErrorCode::eOutOfDeviceMemory, "out of D3D12 render-target view descriptors");
 			}
 			D3D12_RENDER_TARGET_VIEW_DESC rtv{};
 			FillRtvDesc(rtv, format, desc);
 			device->device->CreateRenderTargetView(resource.Get(), &rtv, device->rtvHeap.Handle(rtvIndex));
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->textureViewSlots.store(
 				TextureViewSlot{ .texture	= texture,
 					.format					= format,

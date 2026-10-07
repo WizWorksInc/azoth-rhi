@@ -48,10 +48,10 @@ namespace
 		rhi::native::MetalSurfacePayload metal{};
 		const rhi::SurfaceRequest request = RequestFor(metal);
 
-		EXPECT_EQ(rhi::SurfacePayloadOf<rhi::native::MetalSurfacePayload>(request), &metal);
+		EXPECT_EQ(rhi::surface_payload_of<rhi::native::MetalSurfacePayload>(request), &metal);
 
-		EXPECT_EQ(rhi::SurfacePayloadOf<rhi::native::VulkanSurfacePayload>(request), nullptr);
-		EXPECT_EQ(rhi::SurfacePayloadOf<rhi::native::Win32SurfacePayload>(request), nullptr);
+		EXPECT_EQ(rhi::surface_payload_of<rhi::native::VulkanSurfacePayload>(request), nullptr);
+		EXPECT_EQ(rhi::surface_payload_of<rhi::native::Win32SurfacePayload>(request), nullptr);
 	}
 
 	TEST(SurfaceRequest, ARequestShorterThanThePayloadIsRefused)
@@ -60,11 +60,11 @@ namespace
 
 		rhi::SurfaceRequest older = RequestFor(payload);
 		older.byteSize			  = sizeof(payload) - 1;
-		EXPECT_EQ(rhi::SurfacePayloadOf<rhi::native::VulkanSurfacePayload>(older), nullptr) << "a request too short to hold the payload was accepted";
+		EXPECT_EQ(rhi::surface_payload_of<rhi::native::VulkanSurfacePayload>(older), nullptr) << "a request too short to hold the payload was accepted";
 
 		rhi::SurfaceRequest newer = RequestFor(payload);
 		newer.byteSize			  = sizeof(payload) + 64;
-		EXPECT_EQ(rhi::SurfacePayloadOf<rhi::native::VulkanSurfacePayload>(newer), &payload)
+		EXPECT_EQ(rhi::surface_payload_of<rhi::native::VulkanSurfacePayload>(newer), &payload)
 			<< "a request from newer headers was refused, not read as a prefix";
 	}
 
@@ -74,7 +74,7 @@ namespace
 		empty.id	   = rhi::native::MetalSurfacePayload::kId;
 		empty.byteSize = sizeof(rhi::native::MetalSurfacePayload);
 
-		EXPECT_EQ(rhi::SurfacePayloadOf<rhi::native::MetalSurfacePayload>(empty), nullptr) << "a request with no payload behind it was accepted";
+		EXPECT_EQ(rhi::surface_payload_of<rhi::native::MetalSurfacePayload>(empty), nullptr) << "a request with no payload behind it was accepted";
 	}
 
 	TEST(SurfaceSource, AHostAnswersOneRequestAndDeclinesTheRest)
@@ -84,7 +84,7 @@ namespace
 		public:
 			[[nodiscard]] bool provide(const rhi::SurfaceRequest & request) override
 			{
-				auto * metal = rhi::SurfacePayloadOf<rhi::native::MetalSurfacePayload>(request);
+				auto * metal = rhi::surface_payload_of<rhi::native::MetalSurfacePayload>(request);
 				if (metal == nullptr)
 				{
 					return false;

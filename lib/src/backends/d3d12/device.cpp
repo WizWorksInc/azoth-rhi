@@ -56,7 +56,7 @@ namespace azo::rhi::d3d12
 		return query_published<Published<QueueApi, &QueueBlock>, Published<SparseApi, &SparseBlock>>(object, id, minVersion);
 	}
 
-	const BackendObject * QueueObject() noexcept
+	const BackendObject * queue_object() noexcept
 	{
 		static constexpr BackendObject object{ .queryInterface = &D3D12QueueQueryInterface };
 		return &object;
@@ -127,7 +127,7 @@ namespace azo::rhi::d3d12
 			return {};
 		}
 		const std::uint64_t raw = static_cast<std::uint64_t>(umd.QuadPart);
-		return { format_d3_d12_driver_version(raw), raw };
+		return { format_d3d12_driver_version(raw), raw };
 	}
 
 	void NegotiateCaps(D3D12Device & dev, D3D_FEATURE_LEVEL level) noexcept
@@ -254,7 +254,7 @@ namespace azo::rhi::d3d12
 				{
 					// Releasing an object the GPU still reads is the caller's mistake to avoid here, so the record is released
 					// rather than destroyed, which leaves every ComPtr it holds unreleased, and its tag stays taken.
-					(*it)->ReportTeardownStall();
+					(*it)->report_teardown_stall();
 					static_cast<void>(it->release());
 				}
 
@@ -348,7 +348,7 @@ namespace azo::rhi::d3d12
 	FormatSupport D3D12DeviceFormatSupport(void * impl, Format format) noexcept
 	{
 		FormatSupport support{ .format = format };
-		const DXGI_FORMAT dxgi = MapFormat(format);
+		const DXGI_FORMAT dxgi = map_format(format);
 		if (dxgi == DXGI_FORMAT_UNKNOWN)
 		{
 			return support;
@@ -385,7 +385,7 @@ namespace azo::rhi::d3d12
 	void * D3D12GetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept
 	{
 		auto * device						  = static_cast<D3D12Device *>(impl);
-		detail::HostVector<D3D12Queue> & pool = device->QueuesForType(type);
+		detail::HostVector<D3D12Queue> & pool = device->queues_for_type(type);
 		if (index >= pool.size())
 		{
 			Fail(error, ErrorCode::eInvalidArgument, "queue index is out of range for the requested queue type");
@@ -516,10 +516,10 @@ namespace azo::rhi::d3d12
 
 	void * D3D12InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept;
 
-	[[nodiscard]] HostUniquePtr<D3D12Instance> BuildInstance(const InstanceDesc & desc, Error * error)
+	[[nodiscard]] HostUniquePtr<D3D12Instance> build_instance(const InstanceDesc & desc, Error * error)
 	{
 		auto instance			  = host_new<D3D12Instance>();
-		instance->object		  = publishing_object<Published<InstanceApi, &InstanceBlock>, Published<ExternalCapabilityApi, &ExternalCapabilityBlock>>();
+		instance->object		  = publishing_object<Published<InstanceApi, &InstanceBlock>, Published<ExternalCapabilityApi, &external_capability_block>>();
 		instance->onMessage		  = desc.nativeValidation.onMessage;
 		instance->messageUserData = desc.nativeValidation.messageUserData;
 
@@ -572,7 +572,7 @@ namespace azo::rhi::d3d12
 		return queue;
 	}
 
-	[[nodiscard]] D3D12Device * MakeOwnedDevice(D3D12Instance * instance, HostUniquePtr<D3D12Instance> ownedInstance, const DeviceDesc & desc, Error * error)
+	[[nodiscard]] D3D12Device * make_owned_device(D3D12Instance * instance, HostUniquePtr<D3D12Instance> ownedInstance, const DeviceDesc & desc, Error * error)
 	{
 		D3D12BackendOwner & owner = Owner();
 
@@ -650,9 +650,9 @@ namespace azo::rhi::d3d12
 			Published<QueryApi, &QueryBlock>,
 			Published<PipelineCacheApi, &PipelineCacheBlock>,
 			Published<ResidencyApi, &ResidencyBlock>,
-			Published<ResourceIntrospectionApi, &ResourceIntrospectionBlock>,
+			Published<ResourceIntrospectionApi, &resource_introspection_block>,
 			Published<AdoptionApi, &AdoptionBlock>,
-			Published<ExternalSharingApi, &ExternalSharingBlock>>();
+			Published<ExternalSharingApi, &external_sharing_block>>();
 		dev->factory		 = instance->factory;
 		dev->adapter		 = chosenAdapter;
 		dev->device			 = chosenDevice;
@@ -748,7 +748,7 @@ namespace azo::rhi::d3d12
 			for (std::uint32_t i = 0; i < count; ++i)
 			{
 				D3D12Queue queue{
-					.object = QueueObject(),
+					.object = queue_object(),
 					.queue	= CreateQueue(chosenDevice.Get(), d3dType, error),
 					.type	= type,
 					.owner	= dev.get(),
@@ -861,13 +861,13 @@ namespace azo::rhi::d3d12
 
 	void * D3D12InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept
 	{
-		return MakeOwnedDevice(static_cast<D3D12Instance *>(impl), nullptr, desc, error);
+		return make_owned_device(static_cast<D3D12Instance *>(impl), nullptr, desc, error);
 	}
 
 	void * D3D12CreateInstance(const void * instanceDesc, Error * error) noexcept
 	{
 		D3D12BackendOwner & owner			  = Owner();
-		HostUniquePtr<D3D12Instance> instance = BuildInstance(*static_cast<const InstanceDesc *>(instanceDesc), error);
+		HostUniquePtr<D3D12Instance> instance = build_instance(*static_cast<const InstanceDesc *>(instanceDesc), error);
 		if (!instance)
 		{
 			return nullptr;

@@ -229,4 +229,4 @@ namespace azo::rhi
 		return {};
 	}
 
-}
+} // namespace azo::rhi

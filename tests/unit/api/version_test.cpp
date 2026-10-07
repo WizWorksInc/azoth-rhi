@@ -59,7 +59,7 @@ namespace
 		static_assert(info.versionMajor == rhi::kVersionMajor);
 
 		EXPECT_FALSE(rhi::available_backends().empty()) << "the Null backend is always compiled in, so this is never empty";
-		EXPECT_NE(rhi::find_available_backend(rhi::NullApi::id), nullptr);
+		EXPECT_NE(rhi::find_available_backend(rhi::NullApi::kId), nullptr);
 	}
 
 	TEST(BuildInfo, ReportsWhetherInstrumentationIsLive)

@@ -40,7 +40,7 @@ namespace
 			const std::array<rhi::GraphicsApiId, 1> only{ CurrentBackend().id };
 			rhi::Result<rhi::UniqueDevice> owner = rhi::create_device(Harness().Registry(), only, MakeDeviceDesc());
 			EXPECT_TRUE(test::Ok(owner));
-			return raii::Device{ std::move(owner.Value()) };
+			return raii::Device{ std::move(owner.value()) };
 		}
 	};
 
@@ -100,10 +100,10 @@ namespace
 		const rhi::TextureHandle never{};
 
 		rhi::Error flat{};
-		const rhi::TextureViewHandle fromFlat = device.Get().CreateTextureView(never, rhi::TextureViewDesc{}, flat);
+		const rhi::TextureViewHandle fromFlat = device.get().create_texture_view(never, rhi::TextureViewDesc{}, flat);
 		ASSERT_FALSE(fromFlat.is_valid()) << "the flat API accepted a texture it never handed out, so there is no failure to compare";
 
-		const rhi::Result<rhi::TextureViewHandle> fromTierOne = device.Get().CreateTextureViewWithResult(never, rhi::TextureViewDesc{});
+		const rhi::Result<rhi::TextureViewHandle> fromTierOne = device.get().create_texture_view_with_result(never, rhi::TextureViewDesc{});
 		ASSERT_FALSE(fromTierOne.has_value());
 
 		const rhi::Result<raii::TextureView> fromTierTwo = device.create_texture_view(never, rhi::TextureViewDesc{});
@@ -123,14 +123,14 @@ namespace
 		{
 			rhi::Result<raii::Buffer> buffer = device.create_buffer(test::samples::StorageBuffer());
 			ASSERT_TRUE(test::Ok(buffer));
-			ASSERT_TRUE(buffer.Value().IsValid());
-			raw = buffer.Value().Get();
+			ASSERT_TRUE(buffer.value().is_valid());
+			raw = buffer.value().get();
 		}
 
 		if (test::kValidatesHandles)
 		{
 			rhi::Error error{};
-			EXPECT_FALSE(device.Get().Destroy(raw, {}, error)) << "the scope ended without destroying the buffer tier two vended";
+			EXPECT_FALSE(device.get().destroy(raw, {}, error)) << "the scope ended without destroying the buffer tier two vended";
 		}
 	}
 
@@ -144,11 +144,11 @@ namespace
 
 			rhi::Result<raii::Buffer> buffer = device.create_buffer(test::samples::StorageBuffer());
 			ASSERT_TRUE(test::Ok(buffer));
-			raw = buffer.Value().Get();
+			raw = buffer.value().get();
 
 			rhi::Error error{};
-			EXPECT_TRUE(test::Ok(buffer.Value().Reset(error), error));
-			EXPECT_FALSE(buffer.Value().IsValid());
+			EXPECT_TRUE(test::Ok(buffer.value().reset(error), error));
+			EXPECT_FALSE(buffer.value().is_valid());
 		}
 
 		EXPECT_TRUE(raw.is_valid()) << "the handle value itself is unaffected by any of this, which is why the hazard is silent";
@@ -167,28 +167,28 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::Result<rhi::DescriptorSetLayoutHandle> setLayout = device.Get().CreateDescriptorSetLayoutWithResult(layout.Desc());
+		const rhi::Result<rhi::DescriptorSetLayoutHandle> setLayout = device.get().create_descriptor_set_layout_with_result(layout.Desc());
 		ASSERT_TRUE(test::Ok(setLayout));
 
 		rhi::Result<raii::DescriptorArena> arena = device.create_descriptor_arena(test::samples::DescriptorArena());
 		ASSERT_TRUE(test::Ok(arena));
 
-		const raii::DescriptorSet borrowed = arena.Value().Allocate(
+		const raii::DescriptorSet borrowed = arena.value().allocate(
 			rhi::DescriptorSetAllocDesc{
-				.layout					 = setLayout.Value(),
+				.layout					 = setLayout.value(),
 				.variableDescriptorCount = 0,
 				.debugName				 = "azoth.rhi.test.borrowed",
 			},
 			error);
 		ASSERT_TRUE(test::Ok(borrowed.is_valid(), error));
 
-		ASSERT_TRUE(test::Ok(arena.Value().Reset(rhi::RetirePoint{}, error), error));
+		ASSERT_TRUE(test::Ok(arena.value().reset(rhi::RetirePoint{}, error), error));
 
 		error = {};
-		EXPECT_FALSE(device.Get().Destroy(borrowed, {}, error)) << "a descriptor set survived the reset of the arena that owns it";
+		EXPECT_FALSE(device.get().destroy(borrowed, {}, error)) << "a descriptor set survived the reset of the arena that owns it";
 		EXPECT_TRUE(test::ErrorIsPopulated(error)) << "the refusal came back with no diagnostic";
 
-		static_cast<void>(device.Get().Destroy(setLayout.Value(), {}, error));
+		static_cast<void>(device.get().destroy(setLayout.value(), {}, error));
 	}
 
 }

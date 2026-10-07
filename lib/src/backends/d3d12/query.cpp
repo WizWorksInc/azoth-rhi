@@ -21,7 +21,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resetQueryPool with an invalid handle");
@@ -42,7 +42,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "writeTimestamp with an invalid query pool");
@@ -65,7 +65,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "beginQuery with an invalid query pool");
@@ -74,14 +74,14 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "beginQuery names a query past the end of the pool");
 		}
-		list->list->BeginQuery(slot->heap.Get(), MapQueryType(slot->type), query);
+		list->list->BeginQuery(slot->heap.Get(), map_query_type(slot->type), query);
 		return Succeed(error);
 	}
 
 	bool D3D12CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "endQuery with an invalid query pool");
@@ -90,7 +90,7 @@ namespace azo::rhi::d3d12
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "endQuery names a query past the end of the pool");
 		}
-		list->list->EndQuery(slot->heap.Get(), MapQueryType(slot->type), query);
+		list->list->EndQuery(slot->heap.Get(), map_query_type(slot->type), query);
 		return Succeed(error);
 	}
 
@@ -105,8 +105,8 @@ namespace azo::rhi::d3d12
 	) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
-		BufferSlot * dstSlot = ResolveBuffer(list->owner, dst);
+		QueryPoolSlot * slot = resolve_query_pool(list->owner, pool);
+		BufferSlot * dstSlot = resolve_buffer(list->owner, dst);
 		if (slot == nullptr || dstSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveQueryData with an invalid handle");
@@ -121,7 +121,7 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eUnsupportedFeature, "this adapter does not support timestamp queries on a copy queue");
 		}
 
-		list->list->ResolveQueryData(heap, MapQueryType(slot->type), firstQuery, queryCount, dstSlot->resource.Get(), dstOffset);
+		list->list->ResolveQueryData(heap, map_query_type(slot->type), firstQuery, queryCount, dstSlot->resource.Get(), dstOffset);
 		return Succeed(error);
 	}
 

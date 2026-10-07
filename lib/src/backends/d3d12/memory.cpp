@@ -25,7 +25,7 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "timestamp calibration output is null");
 		}
 		auto * device						  = static_cast<D3D12Device *>(impl);
-		detail::HostVector<D3D12Queue> & pool = device->QueuesForType(queueType);
+		detail::HostVector<D3D12Queue> & pool = device->queues_for_type(queueType);
 		if (pool.empty() || !pool.front().queue)
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "requested queue type is not available");
@@ -110,7 +110,7 @@ namespace azo::rhi::d3d12
 			ID3D12Resource * resource = nullptr;
 			if (desc.buffer.is_valid())
 			{
-				BufferSlot * slot = ResolveBuffer(device, desc.buffer);
+				BufferSlot * slot = resolve_buffer(device, desc.buffer);
 				if (slot == nullptr)
 				{
 					return Fail(error, ErrorCode::eInvalidHandle, "setResidencyPriority with an invalid buffer handle");
@@ -119,7 +119,7 @@ namespace azo::rhi::d3d12
 			}
 			else if (desc.texture.is_valid())
 			{
-				TextureSlot * slot = ResolveTexture(device, desc.texture);
+				TextureSlot * slot = resolve_texture(device, desc.texture);
 				if (slot == nullptr)
 				{
 					return Fail(error, ErrorCode::eInvalidHandle, "setResidencyPriority with an invalid texture handle");

@@ -87,11 +87,11 @@ namespace
 		rhi::CommandPool pool = first.create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.coexistence", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.coexistence", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 		EXPECT_TRUE(test::Ok(list.clear_buffer(buffer, 0, test::samples::kBufferSize, 0, error), error));
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 
 		EXPECT_TRUE(test::Ok(first.destroy(buffer, {}, error), error));
 		EXPECT_TRUE(test::Ok(first.collect_garbage(error), error));

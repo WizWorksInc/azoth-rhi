@@ -18,7 +18,7 @@
 
 namespace azo::rhi::d3d12
 {
-	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept
+	[[nodiscard]] BufferSlot * resolve_buffer(D3D12Device * device, BufferHandle handle) noexcept
 	{
 		BufferSlot * slot = device->bufferSlots.resolve(handle, kHandleAlreadyChecked);
 		return slot != nullptr && slot->resource != nullptr ? slot : nullptr;
@@ -61,7 +61,7 @@ namespace azo::rhi::d3d12
 		return flags;
 	}
 
-	[[nodiscard]] bool BoundBufferRange(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept
+	[[nodiscard]] bool bound_buffer_range(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept
 	{
 		if (offset > bufferSize)
 		{
@@ -92,7 +92,7 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (desc.size == 0)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
+			return fail_value<BufferHandle>(error, ErrorCode::eInvalidArgument, "buffer size must be greater than zero");
 		}
 
 		bool hostVisible			   = false;
@@ -100,7 +100,7 @@ namespace azo::rhi::d3d12
 
 		if (desc.usage.contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
-			return FailValue<BufferHandle>(
+			return fail_value<BufferHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"an acceleration structure buffer must be device local, since Direct3D 12 places one only in the default heap"
@@ -131,7 +131,7 @@ namespace azo::rhi::d3d12
 		{
 			if (!desc.exportableHandleTypes.empty())
 			{
-				return FailValue<BufferHandle>(
+				return fail_value<BufferHandle>(
 					error,
 					ErrorCode::eUnsupportedFeature,
 					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse buffer cannot also be exportable"
@@ -146,12 +146,12 @@ namespace azo::rhi::d3d12
 					IID_PPV_ARGS(reserved.GetAddressOf())
 				)))
 			{
-				return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreateReservedResource failed for a sparse buffer");
+				return fail_value<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreateReservedResource failed for a sparse buffer");
 			}
 
 			NameD3D12Object(reserved.Get(), desc.debugName, device->debugNames);
 
-			return ReturnValue(
+			return return_value(
 				device->bufferSlots.store(
 					BufferSlot{
 						.resource	 = std::move(reserved),
@@ -172,7 +172,7 @@ namespace azo::rhi::d3d12
 		{
 			if (heapType != D3D12_HEAP_TYPE_DEFAULT)
 			{
-				return FailValue<BufferHandle>(
+				return fail_value<BufferHandle>(
 					error,
 					ErrorCode::eUnsupportedFeature,
 					"Direct3D 12 cannot share upload or readback memory, so an exportable buffer must be device local"
@@ -195,12 +195,12 @@ namespace azo::rhi::d3d12
 		);
 		if (FAILED(hr))
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a buffer");
+			return fail_value<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a buffer");
 		}
 
 		NameD3D12Object(resource.Get(), desc.debugName, device->debugNames);
 
-		return ReturnValue(
+		return return_value(
 			device->bufferSlots.store(
 				BufferSlot{ .allocation	   = std::move(allocation),
 					.resource			   = std::move(resource),
@@ -219,25 +219,25 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.map");
 
 		auto * device	  = static_cast<D3D12Device *>(impl);
-		BufferSlot * slot = ResolveBuffer(device, handle);
+		BufferSlot * slot = resolve_buffer(device, handle);
 		if (slot == nullptr)
 		{
-			return FailValue<MappedMemory>(error, ErrorCode::eInvalidHandle, "map of an invalid buffer handle");
+			return fail_value<MappedMemory>(error, ErrorCode::eInvalidHandle, "map of an invalid buffer handle");
 		}
 		if (!slot->hostVisible)
 		{
-			return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map of a buffer whose memory is not host visible");
+			return fail_value<MappedMemory>(error, ErrorCode::eInvalidArgument, "map of a buffer whose memory is not host visible");
 		}
 
 		std::uint64_t mapSize = desc.size;
-		if (!BoundBufferRange(slot->size, desc.offset, mapSize))
+		if (!bound_buffer_range(slot->size, desc.offset, mapSize))
 		{
-			return FailValue<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
+			return fail_value<MappedMemory>(error, ErrorCode::eInvalidArgument, "map range is outside the buffer");
 		}
 
 		if (!slot->mapCount.try_acquire())
 		{
-			return FailValue<MappedMemory>(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
+			return fail_value<MappedMemory>(error, ErrorCode::eInvalidState, kMapCountWouldOverflow);
 		}
 
 		const D3D12_RANGE readRange = desc.mode == MapMode::eWrite
@@ -252,7 +252,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<MappedMemory>(error, hr, "ID3D12Resource::Map failed");
 		}
 
-		return ReturnValue(
+		return return_value(
 			MappedMemory{
 				.data	  = static_cast<std::uint8_t *>(mapped) + desc.offset,
 				.size	  = mapSize,
@@ -265,7 +265,7 @@ namespace azo::rhi::d3d12
 	bool D3D12Unmap(void * impl, BufferHandle handle, Error * error) noexcept
 	{
 		auto * device	  = static_cast<D3D12Device *>(impl);
-		BufferSlot * slot = ResolveBuffer(device, handle);
+		BufferSlot * slot = resolve_buffer(device, handle);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "unmap of an invalid buffer handle");
@@ -287,20 +287,20 @@ namespace azo::rhi::d3d12
 	) noexcept
 	{
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ResolveBuffer(device, handle) != nullptr ? Succeed(error) : Fail(error, ErrorCode::eInvalidHandle, "flush of an invalid buffer handle");
+		return resolve_buffer(device, handle) != nullptr ? Succeed(error) : Fail(error, ErrorCode::eInvalidHandle, "flush of an invalid buffer handle");
 	}
 
 	bool D3D12InvalidateMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept
 	{
 		auto * device	  = static_cast<D3D12Device *>(impl);
-		BufferSlot * slot = ResolveBuffer(device, handle);
+		BufferSlot * slot = resolve_buffer(device, handle);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "invalidate of an invalid buffer handle");
 		}
 
 		std::uint64_t bounded = size;
-		if (!BoundBufferRange(slot->size, offset, bounded))
+		if (!bound_buffer_range(slot->size, offset, bounded))
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "invalidate range is outside the buffer");
 		}

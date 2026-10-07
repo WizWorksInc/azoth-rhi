@@ -118,8 +118,8 @@ namespace
 			return false;
 		}
 
-		fixture.owned  = std::move(created).Value();
-		fixture.device = fixture.owned.Get();
+		fixture.owned  = std::move(created).value();
+		fixture.device = fixture.owned.get();
 
 		rhi::Device dev = fixture.device;
 		rhi::Error error{};
@@ -182,7 +182,7 @@ namespace
 			return false;
 		}
 
-		fixture.work.set = fixture.arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = fixture.setLayout, .debugName = "bench.set" }, error);
+		fixture.work.set = fixture.arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = fixture.setLayout, .debugName = "bench.set" }, error);
 		if (!fixture.work.set.is_valid())
 		{
 			bench::ReportError("failed to allocate the descriptor set", error);
@@ -447,14 +447,14 @@ namespace
 
 		const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 
-		if (!fixture.pool.Reset(rhi::RetirePoint{ .timeline = fixture.timeline, .value = fixture.submitted }, error))
+		if (!fixture.pool.reset(rhi::RetirePoint{ .timeline = fixture.timeline, .value = fixture.submitted }, error))
 		{
 			bench::ReportError("failed to reset the command pool", error);
 			return false;
 		}
 
-		rhi::CommandList list = fixture.pool.Allocate("bench.list", error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = fixture.pool.allocate("bench.list", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			bench::ReportError("failed to begin recording", error);
 			return false;
@@ -510,7 +510,7 @@ namespace
 			return false;
 		}
 
-		if (!list.End(error))
+		if (!list.end(error))
 		{
 			bench::ReportError("failed to close the command list", error);
 			return false;
@@ -525,7 +525,7 @@ namespace
 			.debugName	  = "bench.pass",
 		};
 
-		if (!fixture.queue.submit(submit, error) || !fixture.queue.Wait(fixture.timeline, fixture.submitted, kPassTimeoutNanoseconds, error))
+		if (!fixture.queue.submit(submit, error) || !fixture.queue.wait(fixture.timeline, fixture.submitted, kPassTimeoutNanoseconds, error))
 		{
 			bench::ReportError("failed to drain the recorded pass, which a timeout here means nothing finished it inside thirty seconds", error);
 			return false;

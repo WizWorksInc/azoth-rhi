@@ -99,10 +99,10 @@ namespace azo::rhi::test::oracle
 		EXPECT_TRUE(recording.End()) << Describe(recording.GetError());
 
 		Error error{};
-		CommandList second = recording.Pool().Allocate("azoth.rhi.test.secondList", error);
+		CommandList second = recording.Pool().allocate("azoth.rhi.test.secondList", error);
 		ASSERT_TRUE(Ok(second.is_valid(), error));
-		EXPECT_TRUE(Ok(second.Begin(error), error));
-		EXPECT_TRUE(Ok(second.End(error), error));
+		EXPECT_TRUE(Ok(second.begin(error), error));
+		EXPECT_TRUE(Ok(second.end(error), error));
 	}
 
 	void CheckGarbageCollection(Device device)

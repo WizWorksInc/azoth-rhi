@@ -48,7 +48,7 @@ namespace bench::native
 		{
 			rhi::NativeTexture<rhi::D3D12Api> texture{};
 			rhi::Error error{};
-			if (!device.GetNativeTexture<rhi::D3D12Api>(work.target, texture, error))
+			if (!device.get_native_texture<rhi::D3D12Api>(work.target, texture, error))
 			{
 				ReportError("failed to reach the ID3D12Resource behind the target", error);
 				return false;
@@ -179,13 +179,14 @@ namespace bench::native
 	{
 		rhi::Error error{};
 		bool shaped			= false;
-		const bool recorded = list.ModifyNative<rhi::D3D12Api>(
+		const bool recorded = list.modify_native<rhi::D3D12Api>(
 			mutation,
 			[&](const rhi::native::D3D12CommandListView & view)
 			{
 				shaped = RecordShape(kind, view.commandList, work, commands, elapsed);
 			},
-			error);
+			error
+		);
 		if (!recorded)
 		{
 			ReportError("the native mutation scope was refused", error);

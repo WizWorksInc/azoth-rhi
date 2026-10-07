@@ -82,12 +82,12 @@ namespace
 			const std::array<rhi::GraphicsApiId, 1> only{ CurrentBackend().id };
 			rhi::Result<rhi::UniqueInstance> created = rhi::create_instance(Harness().Registry(), only, desc);
 			ASSERT_TRUE(test::Ok(created)) << "the backend under test could not make an instance to ask";
-			m_instance = std::move(created).Value();
+			m_instance = std::move(created).value();
 		}
 
 		[[nodiscard]] rhi::Instance Inst() const noexcept
 		{
-			return m_instance.Get();
+			return m_instance.get();
 		}
 
 	private:
@@ -154,7 +154,7 @@ namespace
 		const rhi::BufferHandle upload = Dev().create_buffer(test::samples::UploadBuffer(kImageBytes), error);
 		ASSERT_TRUE(test::Ok(upload.is_valid(), error));
 		{
-			const rhi::MappedMemory staging = Dev().Map(upload, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+			const rhi::MappedMemory staging = Dev().map(upload, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 			ASSERT_NE(staging.data, nullptr) << "the upload buffer could not be mapped, so there was nothing to share";
 			for (std::uint64_t texel = 0; texel < kImageBytes; texel += kTexel.size())
 			{
@@ -166,7 +166,7 @@ namespace
 				ASSERT_TRUE(test::Ok(Dev().flush_mapped_range(upload, 0, kImageBytes, error), error));
 			}
 
-			ASSERT_TRUE(test::Ok(Dev().Unmap(upload, error), error));
+			ASSERT_TRUE(test::Ok(Dev().unmap(upload, error), error));
 		}
 
 		{
@@ -229,10 +229,10 @@ namespace
 			ASSERT_TRUE(
 				test::Ok(consumerQueue.submit({ .commandLists = lists, .waits = waits, .signals = signals, .debugName = "external.consume" }, error), error));
 
-			ASSERT_TRUE(test::Ok(consumerQueue.Wait(done, 1, kNoTimeout, error), error)) << "the consumer never reached its own completion signal";
+			ASSERT_TRUE(test::Ok(consumerQueue.wait(done, 1, kNoTimeout, error), error)) << "the consumer never reached its own completion signal";
 		}
 
-		const rhi::MappedMemory mapped = consumer.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+		const rhi::MappedMemory mapped = consumer.map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 		ASSERT_NE(mapped.data, nullptr) << "the readback buffer could not be mapped, so nothing was checked";
 		if (!mapped.coherent)
 		{
@@ -241,7 +241,7 @@ namespace
 
 		std::array<std::uint8_t, kTexel.size()> texel{};
 		std::memcpy(texel.data(), mapped.data, texel.size());
-		static_cast<void>(consumer.Unmap(readback, error));
+		static_cast<void>(consumer.unmap(readback, error));
 
 		EXPECT_EQ(texel, kTexel) << "the imported texture does not carry what the exporting device wrote";
 

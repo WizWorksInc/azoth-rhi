@@ -127,7 +127,7 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (!device->factory)
 		{
-			return FailValue<void *>(error, ErrorCode::eNativeApiError, "the device has no DXGI factory for swapchain creation");
+			return fail_value<void *>(error, ErrorCode::eNativeApiError, "the device has no DXGI factory for swapchain creation");
 		}
 
 		auto sc				= host_new<D3D12Swapchain>();
@@ -138,7 +138,7 @@ namespace azo::rhi::d3d12
 		sc->height			= std::max<std::uint32_t>(desc.height, 1);
 		sc->imageCount		= std::max<std::uint32_t>(desc.imageCount, 2);
 		sc->format			= desc.preferredFormat;
-		sc->viewFormat		= MapFormat(desc.preferredFormat);
+		sc->viewFormat		= map_format(desc.preferredFormat);
 		sc->swapchainFormat = StripSrgbFormat(sc->viewFormat);
 
 		BOOL tearingSupported = FALSE;
@@ -164,7 +164,7 @@ namespace azo::rhi::d3d12
 
 		if (device->graphicsQueues.empty())
 		{
-			return FailValue<void *>(error, ErrorCode::eInvalidState, "swapchain creation requires a graphics queue");
+			return fail_value<void *>(error, ErrorCode::eInvalidState, "swapchain creation requires a graphics queue");
 		}
 
 		ComPtr<IDXGISwapChain1> swapchain1;

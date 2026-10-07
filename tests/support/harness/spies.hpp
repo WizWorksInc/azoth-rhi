@@ -33,7 +33,7 @@ namespace azo::rhi::test
 	class CountingHostAllocator final : public HostAllocator
 	{
 	public:
-		void * Allocate(const std::size_t size, const std::size_t alignment) override
+		void * allocate(const std::size_t size, const std::size_t alignment) override
 		{
 			void * memory = ::operator new(size, std::align_val_t{ alignment });
 
@@ -183,7 +183,7 @@ namespace azo::rhi::test
 	class RecordingDeviceAllocator final : public DeviceMemoryAllocator
 	{
 	public:
-		bool Allocate(Device device, const MemoryRequest & request, MemorySpan & out) override
+		bool allocate(Device device, const MemoryRequest & request, MemorySpan & out) override
 		{
 			const std::scoped_lock lock(m_mutex);
 

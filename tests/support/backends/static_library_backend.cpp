@@ -23,9 +23,9 @@ namespace
 
 	struct StaticLibraryApi final : azo::rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "studio.rhi.staticlib";
-		static constexpr std::string_view displayName	= "Studio Static Library";
-		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::make_graphics_api_id(canonicalName);
+		static constexpr std::string_view kCanonicalName = "studio.rhi.staticlib";
+		static constexpr std::string_view kDisplayName	= "Studio Static Library";
+		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<StaticLibraryApi>);
@@ -33,8 +33,8 @@ namespace
 	[[nodiscard]] azo::rhi::BackendCreateInfo CreateInfo() noexcept
 	{
 		azo::rhi::BackendCreateInfo info{};
-		info.info.canonicalName = StaticLibraryApi::canonicalName;
-		info.info.displayName	= StaticLibraryApi::displayName;
+		info.info.canonicalName = StaticLibraryApi::kCanonicalName;
+		info.info.displayName	= StaticLibraryApi::kDisplayName;
 		info.createInstance		= [](const void *, azo::rhi::Error *) noexcept
 		{
 			return static_cast<void *>(nullptr);
@@ -50,4 +50,4 @@ namespace
 
 }
 
-AZO_RHI_REGISTER_BACKEND(azo::rhi::MakeBackendEntry<StaticLibraryApi>(&RegisterStaticLibraryBackend));
+AZO_RHI_REGISTER_BACKEND(azo::rhi::make_backend_entry<StaticLibraryApi>(&RegisterStaticLibraryBackend));

@@ -24,7 +24,7 @@ namespace azo::rhi::d3d12
 
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device = list->owner;
-		BufferSlot * slot	 = ResolveBuffer(device, buffer);
+		BufferSlot * slot	 = resolve_buffer(device, buffer);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "clearBuffer with an invalid buffer handle");
@@ -104,7 +104,7 @@ namespace azo::rhi::d3d12
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device = list->owner;
-		TextureSlot * slot	 = ResolveTexture(device, texture);
+		TextureSlot * slot	 = resolve_texture(device, texture);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "clearTexture with an invalid texture handle");
@@ -171,8 +171,8 @@ namespace azo::rhi::d3d12
 	{
 		auto * list			  = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device  = list->owner;
-		TextureSlot * dstSlot = ResolveTexture(device, dst);
-		TextureSlot * srcSlot = ResolveTexture(device, src);
+		TextureSlot * dstSlot = resolve_texture(device, dst);
+		TextureSlot * srcSlot = resolve_texture(device, src);
 		if (dstSlot == nullptr || srcSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "resolveTexture with an invalid handle");
@@ -239,7 +239,7 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.generateMips");
 
 		auto * list				 = static_cast<D3D12CommandList *>(impl);
-		const TextureSlot * slot = ResolveTexture(list->owner, texture);
+		const TextureSlot * slot = resolve_texture(list->owner, texture);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "generateMips with an invalid or stale texture handle");

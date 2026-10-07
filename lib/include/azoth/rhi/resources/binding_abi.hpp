@@ -46,7 +46,7 @@ namespace azo::rhi
 			return type == DescriptorType::eSampler || type == DescriptorType::eCombinedImageSampler;
 		}
 
-		[[nodiscard]] constexpr NativeSlotClass abi_d3_d12_class(const DescriptorType type) noexcept
+		[[nodiscard]] constexpr NativeSlotClass abi_d3d12_class(const DescriptorType type) noexcept
 		{
 			switch (type)
 			{
@@ -199,7 +199,7 @@ namespace azo::rhi
 			for (const DescriptorBinding & entry : azo::rhi::detail::at(layout.sets, setIndex).bindings)
 			{
 				const bool wanted			= setIndex == set && entry.binding == binding;
-				const NativeSlotClass klass = detail::abi_d3_d12_class(entry.type);
+				const NativeSlotClass klass = detail::abi_d3d12_class(entry.type);
 
 				if (entry.flags.contains(DescriptorBindingFlag::eBindless))
 				{
@@ -239,7 +239,7 @@ namespace azo::rhi
 
 				if (wanted)
 				{
-					const std::uint32_t space = d3_d12_register_space_for_set(static_cast<std::uint32_t>(setIndex));
+					const std::uint32_t space = d3d12_register_space_for_set(static_cast<std::uint32_t>(setIndex));
 					NativeBinding result{
 						.resource = NativeSlot{ .space = space, .index = taken, .klass = klass },
 						.exists	  = true,

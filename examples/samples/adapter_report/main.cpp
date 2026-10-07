@@ -167,7 +167,7 @@ int main(int argc, char ** argv)
 			continue;
 		}
 
-		const std::vector<rhi::AdapterInfo> adapters = CollectAdapters(instance.Value().Get());
+		const std::vector<rhi::AdapterInfo> adapters = CollectAdapters(instance.value().get());
 		if (adapters.empty())
 		{
 			LOG_INFO(fw::Log(), "  no adapters");

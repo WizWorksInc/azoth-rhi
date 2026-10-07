@@ -21,7 +21,7 @@ namespace azo::rhi
 {
 
 	Result<void> register_vulkan_backend(GraphicsApiRegistry & registry);
-	Result<void> register_d3_d12_backend(GraphicsApiRegistry & registry);
+	Result<void> register_d3d12_backend(GraphicsApiRegistry & registry);
 	Result<void> register_metal_backend(GraphicsApiRegistry & registry);
 	Result<void> register_metal4_backend(GraphicsApiRegistry & registry);
 	Result<void> register_null_backend(GraphicsApiRegistry & registry);

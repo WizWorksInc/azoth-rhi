@@ -45,12 +45,12 @@ namespace azo::rhi::d3d12
 		return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	}
 
-	[[nodiscard]] D3D12_FILL_MODE MapFillMode(FillMode mode) noexcept
+	[[nodiscard]] D3D12_FILL_MODE map_fill_mode(FillMode mode) noexcept
 	{
 		return mode == FillMode::eWireframe ? D3D12_FILL_MODE_WIREFRAME : D3D12_FILL_MODE_SOLID;
 	}
 
-	[[nodiscard]] D3D12_CULL_MODE MapCullMode(CullMode mode) noexcept
+	[[nodiscard]] D3D12_CULL_MODE map_cull_mode(CullMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -61,7 +61,7 @@ namespace azo::rhi::d3d12
 		return D3D12_CULL_MODE_NONE;
 	}
 
-	[[nodiscard]] D3D12_STENCIL_OP MapStencilOp(StencilOp op) noexcept
+	[[nodiscard]] D3D12_STENCIL_OP map_stencil_op(StencilOp op) noexcept
 	{
 		switch (op)
 		{
@@ -77,17 +77,17 @@ namespace azo::rhi::d3d12
 		return D3D12_STENCIL_OP_KEEP;
 	}
 
-	[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC MapStencilFace(const StencilFaceDesc & face) noexcept
+	[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC map_stencil_face(const StencilFaceDesc & face) noexcept
 	{
 		D3D12_DEPTH_STENCILOP_DESC out{};
-		out.StencilFailOp	   = MapStencilOp(face.failOp);
-		out.StencilDepthFailOp = MapStencilOp(face.depthFailOp);
-		out.StencilPassOp	   = MapStencilOp(face.passOp);
-		out.StencilFunc		   = MapCompareOp(face.compareOp);
+		out.StencilFailOp	   = map_stencil_op(face.failOp);
+		out.StencilDepthFailOp = map_stencil_op(face.depthFailOp);
+		out.StencilPassOp	   = map_stencil_op(face.passOp);
+		out.StencilFunc		   = map_compare_op(face.compareOp);
 		return out;
 	}
 
-	[[nodiscard]] D3D12_BLEND MapBlendFactor(BlendFactor factor) noexcept
+	[[nodiscard]] D3D12_BLEND map_blend_factor(BlendFactor factor) noexcept
 	{
 		switch (factor)
 		{
@@ -123,7 +123,7 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	[[nodiscard]] D3D12_BLEND_OP MapBlendOp(BlendOp op) noexcept
+	[[nodiscard]] D3D12_BLEND_OP map_blend_op(BlendOp op) noexcept
 	{
 		switch (op)
 		{
@@ -136,7 +136,7 @@ namespace azo::rhi::d3d12
 		return D3D12_BLEND_OP_ADD;
 	}
 
-	[[nodiscard]] UINT8 MapColorWriteMask(Flags<ColorWrite> mask) noexcept
+	[[nodiscard]] UINT8 map_color_write_mask(Flags<ColorWrite> mask) noexcept
 	{
 		UINT8 out = 0;
 		if (mask.contains(ColorWrite::eR))
@@ -158,17 +158,17 @@ namespace azo::rhi::d3d12
 		return out;
 	}
 
-	[[nodiscard]] PipelineLayoutSlot * ResolvePipelineLayout(D3D12Device * device, PipelineLayoutHandle handle) noexcept
+	[[nodiscard]] PipelineLayoutSlot * resolve_pipeline_layout(D3D12Device * device, PipelineLayoutHandle handle) noexcept
 	{
 		return device->pipelineLayoutSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	[[nodiscard]] GraphicsPipelineSlot * ResolveGraphicsPipeline(D3D12Device * device, GraphicsPipelineHandle handle) noexcept
+	[[nodiscard]] GraphicsPipelineSlot * resolve_graphics_pipeline(D3D12Device * device, GraphicsPipelineHandle handle) noexcept
 	{
 		return device->graphicsPipelineSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	[[nodiscard]] ComputePipelineSlot * ResolveComputePipeline(D3D12Device * device, ComputePipelineHandle handle) noexcept
+	[[nodiscard]] ComputePipelineSlot * resolve_compute_pipeline(D3D12Device * device, ComputePipelineHandle handle) noexcept
 	{
 		return device->computePipelineSlots.resolve(handle, kHandleAlreadyChecked);
 	}
@@ -197,7 +197,7 @@ namespace azo::rhi::d3d12
 			D3D12_INPUT_ELEMENT_DESC element{};
 			element.SemanticName		 = semanticName;
 			element.SemanticIndex		 = attr.location;
-			element.Format				 = MapFormat(attr.format);
+			element.Format				 = map_format(attr.format);
 			element.InputSlot			 = attr.binding;
 			element.AlignedByteOffset	 = attr.offset;
 			element.InputSlotClass		 = perInstance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
@@ -206,7 +206,7 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	[[nodiscard]] bool ShaderBytesUsable(const ShaderBinary & shader, Error * error) noexcept
+	[[nodiscard]] bool shader_bytes_usable(const ShaderBinary & shader, Error * error) noexcept
 	{
 		if (shader.format != ShaderBinaryFormat::eDxil)
 		{
@@ -226,7 +226,7 @@ namespace azo::rhi::d3d12
 		return true;
 	}
 
-	[[nodiscard]] bool BindingMapsAgree(
+	[[nodiscard]] bool binding_maps_agree(
 		D3D12Device * device,
 		const PipelineLayoutSlot & layout,
 		const std::span<const ShaderBinary> shaders,
@@ -249,7 +249,7 @@ namespace azo::rhi::d3d12
 		abiSets.reserve(layout.sets.size());
 		for (const DescriptorSetLayoutHandle setHandle : layout.sets)
 		{
-			const DescriptorSetLayoutSlot * const setLayout = ResolveDescriptorSetLayout(device, setHandle);
+			const DescriptorSetLayoutSlot * const setLayout = resolve_descriptor_set_layout(device, setHandle);
 			if (setLayout == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "a descriptor set layout this pipeline layout was built from has been destroyed");
@@ -298,7 +298,7 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createGraphicsPipeline");
 		if (desc.vertexInput == nullptr)
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error,
 				ErrorCode::eUnsupportedFeature,
 				"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have"
@@ -308,13 +308,13 @@ namespace azo::rhi::d3d12
 		const VertexInputDesc & vertexInput = *desc.vertexInput;
 		if (vertexInput.topology == PrimitiveTopology::ePatchList && vertexInput.patchControlPoints == 0)
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "a patch list needs a non-zero patchControlPoints");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eInvalidArgument, "a patch list needs a non-zero patchControlPoints");
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (desc.raster.conservativeRasterEnable && device->caps.conservativeRasterTier == ConservativeRasterTier::eNone)
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error,
 				ErrorCode::eUnsupportedFeature,
 				"conservative rasterization was requested on a device that reports none"
@@ -323,20 +323,20 @@ namespace azo::rhi::d3d12
 
 		if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 		{
-			return FailValue<GraphicsPipelineHandle>(
+			return fail_value<GraphicsPipelineHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"graphics pipeline names more color attachments than a render target can hold"
 			);
 		}
 
-		PipelineLayoutSlot * layout = ResolvePipelineLayout(device, desc.layout);
+		PipelineLayoutSlot * layout = resolve_pipeline_layout(device, desc.layout);
 		if (layout == nullptr)
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eInvalidHandle, "graphics pipeline references an invalid pipeline layout");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eInvalidHandle, "graphics pipeline references an invalid pipeline layout");
 		}
 
-		if (!BindingMapsAgree(device, *layout, desc.shaders, error))
+		if (!binding_maps_agree(device, *layout, desc.shaders, error))
 		{
 			return {};
 		}
@@ -348,7 +348,7 @@ namespace azo::rhi::d3d12
 
 		for (const ShaderBinary & shader : desc.shaders)
 		{
-			if (!ShaderBytesUsable(shader, error))
+			if (!shader_bytes_usable(shader, error))
 			{
 				return {};
 			}
@@ -375,8 +375,8 @@ namespace azo::rhi::d3d12
 		BuildInputElements(vertexInput, vertexSemanticName, inputElements);
 		psoDesc.InputLayout = { inputElements.data(), static_cast<UINT>(inputElements.size()) };
 
-		psoDesc.RasterizerState.FillMode			  = MapFillMode(desc.raster.fillMode);
-		psoDesc.RasterizerState.CullMode			  = MapCullMode(desc.raster.cullMode);
+		psoDesc.RasterizerState.FillMode			  = map_fill_mode(desc.raster.fillMode);
+		psoDesc.RasterizerState.CullMode			  = map_cull_mode(desc.raster.cullMode);
 		psoDesc.RasterizerState.FrontCounterClockwise = desc.raster.frontFace == FrontFace::eCounterClockwise ? TRUE : FALSE;
 		psoDesc.RasterizerState.DepthBias			  = desc.raster.depthBiasEnable ? static_cast<INT>(desc.raster.depthBiasConstantFactor) : 0;
 		psoDesc.RasterizerState.DepthBiasClamp		  = desc.raster.depthBiasEnable ? desc.raster.depthBiasClamp : 0.0f;
@@ -388,12 +388,12 @@ namespace azo::rhi::d3d12
 
 		psoDesc.DepthStencilState.DepthEnable	   = desc.depthStencil.depthTestEnable ? TRUE : FALSE;
 		psoDesc.DepthStencilState.DepthWriteMask   = desc.depthStencil.depthWriteEnable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-		psoDesc.DepthStencilState.DepthFunc		   = MapCompareOp(desc.depthStencil.depthCompareOp);
+		psoDesc.DepthStencilState.DepthFunc		   = map_compare_op(desc.depthStencil.depthCompareOp);
 		psoDesc.DepthStencilState.StencilEnable	   = desc.depthStencil.stencilTestEnable ? TRUE : FALSE;
 		psoDesc.DepthStencilState.StencilReadMask  = static_cast<UINT8>(desc.depthStencil.front.compareMask);
 		psoDesc.DepthStencilState.StencilWriteMask = static_cast<UINT8>(desc.depthStencil.front.writeMask);
-		psoDesc.DepthStencilState.FrontFace		   = MapStencilFace(desc.depthStencil.front);
-		psoDesc.DepthStencilState.BackFace		   = MapStencilFace(desc.depthStencil.back);
+		psoDesc.DepthStencilState.FrontFace		   = map_stencil_face(desc.depthStencil.front);
+		psoDesc.DepthStencilState.BackFace		   = map_stencil_face(desc.depthStencil.back);
 
 		psoDesc.BlendState.AlphaToCoverageEnable  = desc.renderTarget.alphaToCoverageEnable ? TRUE : FALSE;
 		psoDesc.BlendState.IndependentBlendEnable = TRUE;
@@ -404,14 +404,14 @@ namespace azo::rhi::d3d12
 			D3D12_RENDER_TARGET_BLEND_DESC & rt = psoDesc.BlendState.RenderTarget[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 			rt.BlendEnable						= a.blendEnable ? TRUE : FALSE;
 			rt.LogicOpEnable					= (i == 0 && desc.blend.logicOpEnable) ? TRUE : FALSE;
-			rt.SrcBlend							= MapBlendFactor(a.srcColorBlendFactor);
-			rt.DestBlend						= MapBlendFactor(a.dstColorBlendFactor);
-			rt.BlendOp							= MapBlendOp(a.colorBlendOp);
-			rt.SrcBlendAlpha					= ToAlphaBlendFactor(MapBlendFactor(a.srcAlphaBlendFactor));
-			rt.DestBlendAlpha					= ToAlphaBlendFactor(MapBlendFactor(a.dstAlphaBlendFactor));
-			rt.BlendOpAlpha						= MapBlendOp(a.alphaBlendOp);
+			rt.SrcBlend							= map_blend_factor(a.srcColorBlendFactor);
+			rt.DestBlend						= map_blend_factor(a.dstColorBlendFactor);
+			rt.BlendOp							= map_blend_op(a.colorBlendOp);
+			rt.SrcBlendAlpha					= ToAlphaBlendFactor(map_blend_factor(a.srcAlphaBlendFactor));
+			rt.DestBlendAlpha					= ToAlphaBlendFactor(map_blend_factor(a.dstAlphaBlendFactor));
+			rt.BlendOpAlpha						= map_blend_op(a.alphaBlendOp);
 			rt.LogicOp							= D3D12_LOGIC_OP_COPY;
-			rt.RenderTargetWriteMask			= MapColorWriteMask(a.colorWriteMask);
+			rt.RenderTargetWriteMask			= map_color_write_mask(a.colorWriteMask);
 		}
 
 		psoDesc.SampleMask			  = desc.renderTarget.sampleMask;
@@ -421,24 +421,24 @@ namespace azo::rhi::d3d12
 		psoDesc.NumRenderTargets = desc.renderTarget.colorFormatCount;
 		for (std::uint32_t i = 0; i < desc.renderTarget.colorFormatCount && i < 8; ++i)
 		{
-			psoDesc.RTVFormats[i] = MapFormat(desc.renderTarget.colorFormats[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+			psoDesc.RTVFormats[i] = map_format(desc.renderTarget.colorFormats[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 		}
 		// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access) A depth format with no DXGI equivalent maps to UNKNOWN and would silently disable
-		const DXGI_FORMAT dsvFormat = MapFormat(desc.renderTarget.depthStencilFormat);
+		const DXGI_FORMAT dsvFormat = map_format(desc.renderTarget.depthStencilFormat);
 		if (desc.renderTarget.depthStencilFormat != Format::eUndefined && dsvFormat == DXGI_FORMAT_UNKNOWN)
 		{
-			return FailValue<GraphicsPipelineHandle>(error, ErrorCode::eUnsupportedFormat, "the depth-stencil format is not supported by the D3D12 backend");
+			return fail_value<GraphicsPipelineHandle>(error, ErrorCode::eUnsupportedFormat, "the depth-stencil format is not supported by the D3D12 backend");
 		}
 		psoDesc.DSVFormat		 = dsvFormat;
-		psoDesc.SampleDesc.Count = MapSampleCount(desc.renderTarget.samples);
+		psoDesc.SampleDesc.Count = map_sample_count(desc.renderTarget.samples);
 
 		ComPtr<ID3D12PipelineState> pipeline;
 		ID3D12PipelineLibrary * library = ResolvePipelineLibrary(device, desc.pipelineCache);
 		HRESULT hr						= S_OK;
 		if (library != nullptr)
 		{
-			std::uint64_t h		= 0xcbf29ce484222325ULL;
-			const auto mixBytes = [&h](const void * data, std::size_t size) noexcept
+			std::uint64_t h		 = 0xcbf29ce484222325ULL;
+			const auto mix_bytes = [&h](const void * data, std::size_t size) noexcept
 			{
 				const auto * bytes = static_cast<const unsigned char *>(data);
 				for (std::size_t i = 0; i < size; ++i)
@@ -448,33 +448,33 @@ namespace azo::rhi::d3d12
 			};
 			for (const ShaderBinary & shader : desc.shaders)
 			{
-				mixBytes(&shader.stage, sizeof(shader.stage));
-				mixBytes(shader.data, shader.size);
+				mix_bytes(&shader.stage, sizeof(shader.stage));
+				mix_bytes(shader.data, shader.size);
 			}
 			for (const D3D12_INPUT_ELEMENT_DESC & element : inputElements)
 			{
 				for (const char * s = element.SemanticName; s != nullptr && *s != '\0'; ++s)
 				{
-					mixBytes(s, 1);
+					mix_bytes(s, 1);
 				}
-				mixBytes(&element.SemanticIndex, sizeof(element.SemanticIndex));
-				mixBytes(&element.Format, sizeof(element.Format));
-				mixBytes(&element.InputSlot, sizeof(element.InputSlot));
-				mixBytes(&element.AlignedByteOffset, sizeof(element.AlignedByteOffset));
-				mixBytes(&element.InputSlotClass, sizeof(element.InputSlotClass));
-				mixBytes(&element.InstanceDataStepRate, sizeof(element.InstanceDataStepRate));
+				mix_bytes(&element.SemanticIndex, sizeof(element.SemanticIndex));
+				mix_bytes(&element.Format, sizeof(element.Format));
+				mix_bytes(&element.InputSlot, sizeof(element.InputSlot));
+				mix_bytes(&element.AlignedByteOffset, sizeof(element.AlignedByteOffset));
+				mix_bytes(&element.InputSlotClass, sizeof(element.InputSlotClass));
+				mix_bytes(&element.InstanceDataStepRate, sizeof(element.InstanceDataStepRate));
 			}
-			mixBytes(&psoDesc.RasterizerState, sizeof(psoDesc.RasterizerState));
-			mixBytes(&psoDesc.DepthStencilState, sizeof(psoDesc.DepthStencilState));
-			mixBytes(&psoDesc.BlendState, sizeof(psoDesc.BlendState));
-			mixBytes(&psoDesc.RTVFormats, sizeof(psoDesc.RTVFormats));
-			mixBytes(&psoDesc.NumRenderTargets, sizeof(psoDesc.NumRenderTargets));
-			mixBytes(&psoDesc.DSVFormat, sizeof(psoDesc.DSVFormat));
-			mixBytes(&psoDesc.SampleDesc, sizeof(psoDesc.SampleDesc));
-			mixBytes(&psoDesc.SampleMask, sizeof(psoDesc.SampleMask));
-			mixBytes(&psoDesc.PrimitiveTopologyType, sizeof(psoDesc.PrimitiveTopologyType));
-			mixBytes(&psoDesc.IBStripCutValue, sizeof(psoDesc.IBStripCutValue));
-			mixBytes(&desc.layout, sizeof(desc.layout));
+			mix_bytes(&psoDesc.RasterizerState, sizeof(psoDesc.RasterizerState));
+			mix_bytes(&psoDesc.DepthStencilState, sizeof(psoDesc.DepthStencilState));
+			mix_bytes(&psoDesc.BlendState, sizeof(psoDesc.BlendState));
+			mix_bytes(&psoDesc.RTVFormats, sizeof(psoDesc.RTVFormats));
+			mix_bytes(&psoDesc.NumRenderTargets, sizeof(psoDesc.NumRenderTargets));
+			mix_bytes(&psoDesc.DSVFormat, sizeof(psoDesc.DSVFormat));
+			mix_bytes(&psoDesc.SampleDesc, sizeof(psoDesc.SampleDesc));
+			mix_bytes(&psoDesc.SampleMask, sizeof(psoDesc.SampleMask));
+			mix_bytes(&psoDesc.PrimitiveTopologyType, sizeof(psoDesc.PrimitiveTopologyType));
+			mix_bytes(&psoDesc.IBStripCutValue, sizeof(psoDesc.IBStripCutValue));
+			mix_bytes(&desc.layout, sizeof(desc.layout));
 			const std::wstring name = L"gfx" + std::to_wstring(h);
 			if (FAILED(library->LoadGraphicsPipeline(name.c_str(), &psoDesc, IID_PPV_ARGS(pipeline.GetAddressOf()))))
 			{
@@ -507,7 +507,7 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->graphicsPipelineSlots.store(
 				GraphicsPipelineSlot{ .pipeline = std::move(pipeline),
 					.rootSignature				= layout->rootSignature,
@@ -529,9 +529,9 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createComputePipeline");
 
-		if (!desc.shader.threadgroupSize.IsStated())
+		if (!desc.shader.threadgroupSize.is_stated())
 		{
-			return FailValue<ComputePipelineHandle>(
+			return fail_value<ComputePipelineHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary"
@@ -539,21 +539,21 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device				= static_cast<D3D12Device *>(impl);
-		PipelineLayoutSlot * layout = ResolvePipelineLayout(device, desc.layout);
+		PipelineLayoutSlot * layout = resolve_pipeline_layout(device, desc.layout);
 		if (layout == nullptr)
 		{
-			return FailValue<ComputePipelineHandle>(error, ErrorCode::eInvalidHandle, "compute pipeline references an invalid pipeline layout");
+			return fail_value<ComputePipelineHandle>(error, ErrorCode::eInvalidHandle, "compute pipeline references an invalid pipeline layout");
 		}
 
 		const std::array<ShaderBinary, 1> stages{ desc.shader };
-		if (!BindingMapsAgree(device, *layout, stages, error))
+		if (!binding_maps_agree(device, *layout, stages, error))
 		{
 			return {};
 		}
 
 		D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
 		psoDesc.pRootSignature = layout->rootSignature.Get();
-		if (!ShaderBytesUsable(desc.shader, error))
+		if (!shader_bytes_usable(desc.shader, error))
 		{
 			return {};
 		}
@@ -584,7 +584,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<ComputePipelineHandle>(error, hr, "ID3D12Device::CreateComputePipelineState failed");
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->computePipelineSlots.store(
 				ComputePipelineSlot{
 					.pipeline	   = std::move(pipeline),
@@ -604,7 +604,7 @@ namespace azo::rhi::d3d12
 		ComPtr<ID3D12Device1> device1;
 		if (FAILED(device->device.As(&device1)))
 		{
-			return FailValue<PipelineCacheHandle>(error, ErrorCode::eUnsupportedFeature, "pipeline cache requires ID3D12Device1");
+			return fail_value<PipelineCacheHandle>(error, ErrorCode::eUnsupportedFeature, "pipeline cache requires ID3D12Device1");
 		}
 
 		ComPtr<ID3D12PipelineLibrary> library;
@@ -618,7 +618,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<PipelineCacheHandle>(error, hr, "ID3D12Device1::CreatePipelineLibrary failed");
 		}
 
-		return ReturnValue(device->pipelineCacheSlots.store(PipelineCacheSlot{ .library = std::move(library) }), error);
+		return return_value(device->pipelineCacheSlots.store(PipelineCacheSlot{ .library = std::move(library) }), error);
 	}
 
 	bool D3D12GetPipelineCacheData(void * impl, PipelineCacheHandle cache, PipelineCacheData * out, Error * error) noexcept

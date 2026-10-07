@@ -103,7 +103,7 @@ namespace
 			return {};
 		}
 
-		const rhi::MappedMemory staging = device.Map(upload, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+		const rhi::MappedMemory staging = device.map(upload, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (staging.data == nullptr)
 		{
 			return {};
@@ -114,7 +114,7 @@ namespace
 		{
 			static_cast<void>(device.flush_mapped_range(upload, 0, test::samples::kBufferSize, error));
 		}
-		static_cast<void>(device.Unmap(upload, error));
+		static_cast<void>(device.unmap(upload, error));
 
 		return upload;
 	}
@@ -306,10 +306,10 @@ namespace
 			std::array<const rhi::CommandList *, 1> lists{ &recording.List() };
 			const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
 			ASSERT_TRUE(test::Ok(queue.submit({ .commandLists = lists, .signals = signals, .debugName = "alias.roundTrip" }, error), error));
-			ASSERT_TRUE(test::Ok(queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error), error)) << "the aliased round trip never completed";
+			ASSERT_TRUE(test::Ok(queue.wait(done, 1, test::kWaitTimeoutNanoseconds, error), error)) << "the aliased round trip never completed";
 		}
 
-		const rhi::MappedMemory mapped = Dev().Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+		const rhi::MappedMemory mapped = Dev().map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 		ASSERT_NE(mapped.data, nullptr) << "the readback buffer could not be mapped, so nothing was checked";
 		if (!mapped.coherent)
 		{
@@ -318,7 +318,7 @@ namespace
 
 		std::vector<std::uint8_t> observed(test::samples::kBufferSize, 0);
 		std::memcpy(observed.data(), mapped.data, observed.size());
-		static_cast<void>(Dev().Unmap(readback, error));
+		static_cast<void>(Dev().unmap(readback, error));
 
 		if (!IsNullBackend())
 		{

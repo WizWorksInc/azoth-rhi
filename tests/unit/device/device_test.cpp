@@ -111,7 +111,7 @@ namespace
 				});
 		};
 
-		if (CurrentBackend().id == rhi::VulkanApi::id)
+		if (CurrentBackend().id == rhi::VulkanApi::kId)
 		{
 			EXPECT_TRUE(anySet(adapter.deviceUUID)) << "Vulkan reported an all-zero device UUID, which no conformant driver produces";
 			EXPECT_TRUE(anySet(adapter.driverUUID)) << "Vulkan reported an all-zero driver UUID, which is what gates whether sharing is possible at all";
@@ -493,7 +493,7 @@ namespace
 		rhi::Result<rhi::UniqueDevice> created = rhi::create_device(registry, preferred, MakeDeviceDesc());
 		ASSERT_TRUE(test::Ok(created));
 
-		rhi::UniqueDevice owner = std::move(created).Value();
+		rhi::UniqueDevice owner = std::move(created).value();
 		ASSERT_TRUE(owner.is_valid());
 
 		rhi::UniqueDevice moved = std::move(owner);
@@ -501,7 +501,7 @@ namespace
 		EXPECT_FALSE(owner.is_valid()) << "the moved-from owner still claims to own a device"; // NOLINT(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = moved.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		const rhi::BufferHandle buffer = moved.get().create_buffer(test::samples::StorageBuffer(), error);
 		EXPECT_TRUE(test::Ok(buffer.is_valid(), error)) << "the moved device stopped working";
 	}
 
@@ -519,8 +519,8 @@ namespace
 		rhi::Result<rhi::UniqueDevice> second = rhi::create_device(secondRegistry, preferred, MakeDeviceDesc());
 		ASSERT_TRUE(test::Ok(second));
 
-		rhi::UniqueDevice target = std::move(first).Value();
-		rhi::UniqueDevice source = std::move(second).Value();
+		rhi::UniqueDevice target = std::move(first).value();
+		rhi::UniqueDevice source = std::move(second).value();
 
 		target = std::move(source);
 
@@ -528,7 +528,7 @@ namespace
 		EXPECT_FALSE(source.is_valid()); // NOLINT(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = target.Get().CreateBuffer(test::samples::StorageBuffer(), error);
+		const rhi::BufferHandle buffer = target.get().create_buffer(test::samples::StorageBuffer(), error);
 		EXPECT_TRUE(test::Ok(buffer.is_valid(), error));
 	}
 
@@ -552,7 +552,7 @@ namespace
 				return false;
 			}
 
-			const rhi::UniqueDevice device = std::move(created).Value();
+			const rhi::UniqueDevice device = std::move(created).value();
 			return device.is_valid();
 		};
 

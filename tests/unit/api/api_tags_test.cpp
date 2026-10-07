@@ -30,34 +30,34 @@ namespace
 
 	TEST(GraphicsApiId, IsDerivedFromTheCanonicalName)
 	{
-		static_assert(rhi::make_graphics_api_id("azoth.rhi.vulkan") == rhi::VulkanApi::id);
-		static_assert(rhi::make_graphics_api_id("azoth.rhi.d3d12") == rhi::D3D12Api::id);
-		static_assert(rhi::make_graphics_api_id("azoth.rhi.metal") == rhi::MetalApi::id);
-		static_assert(rhi::make_graphics_api_id("azoth.rhi.metal4") == rhi::Metal4Api::id);
-		static_assert(rhi::make_graphics_api_id("azoth.rhi.null") == rhi::NullApi::id);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.vulkan") == rhi::VulkanApi::kId);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.d3d12") == rhi::D3D12Api::kId);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.metal") == rhi::MetalApi::kId);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.metal4") == rhi::Metal4Api::kId);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.null") == rhi::NullApi::kId);
 
-		static_assert(rhi::make_graphics_api_id(rhi::VulkanApi::canonicalName) == rhi::VulkanApi::id);
-		static_assert(rhi::make_graphics_api_id(rhi::NullApi::canonicalName) == rhi::NullApi::id);
+		static_assert(rhi::make_graphics_api_id(rhi::VulkanApi::kCanonicalName) == rhi::VulkanApi::kId);
+		static_assert(rhi::make_graphics_api_id(rhi::NullApi::kCanonicalName) == rhi::NullApi::kId);
 
 		SUCCEED();
 	}
 
 	TEST(GraphicsApiId, HoldsTheValuesThisReleasePublished)
 	{
-		static_assert(rhi::VulkanApi::id.value == 0x299d772fb8075109ULL);
-		static_assert(rhi::D3D12Api::id.value == 0x7941a2f4ac8cf74eULL);
-		static_assert(rhi::MetalApi::id.value == 0x3cfc979e01c9c8cdULL);
-		static_assert(rhi::NullApi::id.value == 0x0a57d2b2badd572fULL);
+		static_assert(rhi::VulkanApi::kId.value == 0x299d772fb8075109ULL);
+		static_assert(rhi::D3D12Api::kId.value == 0x7941a2f4ac8cf74eULL);
+		static_assert(rhi::MetalApi::kId.value == 0x3cfc979e01c9c8cdULL);
+		static_assert(rhi::NullApi::kId.value == 0x0a57d2b2badd572fULL);
 
-		EXPECT_EQ(rhi::Metal4Api::id.value, rhi::hash::fnv1a64_hash("azoth.rhi.metal4"));
+		EXPECT_EQ(rhi::Metal4Api::kId.value, rhi::hash::fnv1a64_hash("azoth.rhi.metal4"));
 
-		EXPECT_EQ(rhi::VulkanApi::id.value, rhi::hash::fnv1a64_hash("azoth.rhi.vulkan"));
-		EXPECT_EQ(rhi::NullApi::id.value, rhi::hash::fnv1a64_hash("azoth.rhi.null"));
+		EXPECT_EQ(rhi::VulkanApi::kId.value, rhi::hash::fnv1a64_hash("azoth.rhi.vulkan"));
+		EXPECT_EQ(rhi::NullApi::kId.value, rhi::hash::fnv1a64_hash("azoth.rhi.null"));
 	}
 
 	TEST(GraphicsApiId, IsDistinctForEveryBackend)
 	{
-		constexpr std::array ids{ rhi::VulkanApi::id, rhi::D3D12Api::id, rhi::MetalApi::id, rhi::Metal4Api::id, rhi::NullApi::id };
+		constexpr std::array ids{ rhi::VulkanApi::kId, rhi::D3D12Api::kId, rhi::MetalApi::kId, rhi::Metal4Api::kId, rhi::NullApi::kId };
 
 		for (std::size_t lhs = 0; lhs < ids.size(); ++lhs)
 		{
@@ -77,7 +77,7 @@ namespace
 
 		constexpr rhi::GraphicsApiId unset{};
 		static_assert(unset.value == 0);
-		static_assert(unset != rhi::VulkanApi::id);
+		static_assert(unset != rhi::VulkanApi::kId);
 
 		SUCCEED();
 	}
@@ -95,23 +95,23 @@ namespace
 
 	struct NotDerived final
 	{
-		static constexpr std::string_view canonicalName = "test.tag";
-		static constexpr std::string_view displayName	= "Test Tag";
+		static constexpr std::string_view kCanonicalName = "test.tag";
+		static constexpr std::string_view kDisplayName	= "Test Tag";
 		static constexpr rhi::GraphicsApiId id{ 1 };
 	};
 
 	struct NotEmpty final : rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "test.tag";
-		static constexpr std::string_view displayName	= "Test Tag";
+		static constexpr std::string_view kCanonicalName = "test.tag";
+		static constexpr std::string_view kDisplayName	= "Test Tag";
 		static constexpr rhi::GraphicsApiId id{ 1 };
 		int state = 0;
 	};
 
 	struct NotFinal : rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "test.tag";
-		static constexpr std::string_view displayName	= "Test Tag";
+		static constexpr std::string_view kCanonicalName = "test.tag";
+		static constexpr std::string_view kDisplayName	= "Test Tag";
 		static constexpr rhi::GraphicsApiId id{ 1 };
 	};
 
@@ -133,29 +133,29 @@ namespace
 
 	TEST(ShortApiName, DistinguishesTheTwoMetalBackends)
 	{
-		static_assert(rhi::short_api_name(rhi::MetalApi::canonicalName) == "metal");
-		static_assert(rhi::short_api_name(rhi::Metal4Api::canonicalName) == "metal4");
+		static_assert(rhi::short_api_name(rhi::MetalApi::kCanonicalName) == "metal");
+		static_assert(rhi::short_api_name(rhi::Metal4Api::kCanonicalName) == "metal4");
 
-		static_assert(rhi::is_metal_family(rhi::MetalApi::id));
-		static_assert(rhi::is_metal_family(rhi::Metal4Api::id));
-		static_assert(!rhi::is_metal_family(rhi::VulkanApi::id));
-		static_assert(!rhi::is_metal_family(rhi::NullApi::id));
+		static_assert(rhi::is_metal_family(rhi::MetalApi::kId));
+		static_assert(rhi::is_metal_family(rhi::Metal4Api::kId));
+		static_assert(!rhi::is_metal_family(rhi::VulkanApi::kId));
+		static_assert(!rhi::is_metal_family(rhi::NullApi::kId));
 
 		SUCCEED();
 	}
 
 	TEST(GraphicsApiTag, CarriesBothANameForCodeAndANameForPeople)
 	{
-		static_assert(rhi::VulkanApi::canonicalName == "azoth.rhi.vulkan");
-		static_assert(rhi::VulkanApi::displayName == "Vulkan");
-		static_assert(rhi::D3D12Api::canonicalName == "azoth.rhi.d3d12");
-		static_assert(rhi::D3D12Api::displayName == "Direct3D 12");
-		static_assert(rhi::MetalApi::canonicalName == "azoth.rhi.metal");
-		static_assert(rhi::MetalApi::displayName == "Metal 3");
-		static_assert(rhi::Metal4Api::canonicalName == "azoth.rhi.metal4");
-		static_assert(rhi::Metal4Api::displayName == "Metal 4");
-		static_assert(rhi::NullApi::canonicalName == "azoth.rhi.null");
-		static_assert(rhi::NullApi::displayName == "Null RHI");
+		static_assert(rhi::VulkanApi::kCanonicalName == "azoth.rhi.vulkan");
+		static_assert(rhi::VulkanApi::kDisplayName == "Vulkan");
+		static_assert(rhi::D3D12Api::kCanonicalName == "azoth.rhi.d3d12");
+		static_assert(rhi::D3D12Api::kDisplayName == "Direct3D 12");
+		static_assert(rhi::MetalApi::kCanonicalName == "azoth.rhi.metal");
+		static_assert(rhi::MetalApi::kDisplayName == "Metal 3");
+		static_assert(rhi::Metal4Api::kCanonicalName == "azoth.rhi.metal4");
+		static_assert(rhi::Metal4Api::kDisplayName == "Metal 4");
+		static_assert(rhi::NullApi::kCanonicalName == "azoth.rhi.null");
+		static_assert(rhi::NullApi::kDisplayName == "Null RHI");
 
 		SUCCEED();
 	}
@@ -173,11 +173,11 @@ namespace
 
 	TEST(GraphicsApiTag, IsNameableOnEveryPlatform)
 	{
-		constexpr std::array names{ rhi::VulkanApi::canonicalName,
-			rhi::D3D12Api::canonicalName,
-			rhi::MetalApi::canonicalName,
-			rhi::Metal4Api::canonicalName,
-			rhi::NullApi::canonicalName };
+		constexpr std::array names{ rhi::VulkanApi::kCanonicalName,
+			rhi::D3D12Api::kCanonicalName,
+			rhi::MetalApi::kCanonicalName,
+			rhi::Metal4Api::kCanonicalName,
+			rhi::NullApi::kCanonicalName };
 
 		for (const std::string_view name : names)
 		{

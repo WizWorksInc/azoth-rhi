@@ -71,7 +71,7 @@ namespace
 
 	[[nodiscard]] rhi::Built<rhi::ShaderBinaryBuilder> MakeShader(const rhi::ShaderStage stage, const void * data, const std::size_t size)
 	{
-		return rhi::ShaderBinaryBuilder{}.Stage(stage).SpirV().Data(data, size).EntryPoint("main").Build();
+		return rhi::ShaderBinaryBuilder{}.stage(stage).spir_v().data(data, size).entry_point("main").build();
 	}
 
 	TEST(GraphicsPipelineBuilder, DefaultsToAnEmptyDescRatherThanAUsableOne)
@@ -106,9 +106,9 @@ namespace
 		const auto fragmentHeld			 = MakeShader(rhi::ShaderStage::eFragment, fragmentCode.data(), sizeof(fragmentCode));
 		const rhi::ShaderBinary fragment = fragmentHeld.desc();
 
-		const rhi::VertexBindingDesc binding	= rhi::VertexBindingBuilder{}.Binding(0).Stride(32).Build();
-		const rhi::VertexAttributeDesc position = rhi::VertexAttributeBuilder{}.location(0).Binding(0).Format(rhi::Format::eRGB32Float).Offset(0).Build();
-		const rhi::VertexAttributeDesc normal	= rhi::VertexAttributeBuilder{}.location(1).Binding(0).Format(rhi::Format::eRGB32Float).Offset(12).Build();
+		const rhi::VertexBindingDesc binding	= rhi::VertexBindingBuilder{}.binding(0).stride(32).build();
+		const rhi::VertexAttributeDesc position = rhi::VertexAttributeBuilder{}.location(0).binding(0).format(rhi::Format::eRGB32Float).offset(0).build();
+		const rhi::VertexAttributeDesc normal	= rhi::VertexAttributeBuilder{}.location(1).binding(0).format(rhi::Format::eRGB32Float).offset(12).build();
 
 		const rhi::RasterStateDesc raster = rhi::RasterStateBuilder{}.fill(rhi::FillMode::eSolid).cull(rhi::CullMode::eBack).depth_bias(1.0f, 2.0f).build();
 		const rhi::DepthStencilStateDesc depthStencil = rhi::DepthStencilStateBuilder{}.depth_test().depth_write().depth_compare(rhi::CompareOp::eLess).build();
@@ -129,13 +129,13 @@ namespace
 														 .blend(blend)
 														 .color_format(rhi::Format::eRGBA8UNorm)
 														 .depth_stencil_format(rhi::Format::eD32Float)
-														 .Samples(rhi::SampleCount::e4)
-														 .SampleMask(0x0000ffffu)
-														 .AlphaToCoverage()
-														 .DynamicViewportScissor()
-														 .DebugName("gbuffer");
+														 .samples(rhi::SampleCount::e4)
+														 .sample_mask(0x0000ffffu)
+														 .alpha_to_coverage()
+														 .dynamic_viewport_scissor()
+														 .debug_name("gbuffer");
 		const auto held							   = builder.build();
-		const rhi::GraphicsPipelineDesc built	   = held.Desc();
+		const rhi::GraphicsPipelineDesc built	   = held.desc();
 
 		rhi::GraphicsPipelineDesc direct{};
 		direct.shaders = shaders;

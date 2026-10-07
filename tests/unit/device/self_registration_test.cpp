@@ -88,7 +88,7 @@ namespace
 
 		EXPECT_TRUE(OrderContains(backends, kObjectLibraryBackend)) << "the backend registered itself and AddCatalog did not pick it up";
 
-		EXPECT_TRUE(OrderContains(backends, rhi::NullApi::canonicalName)) << "AddCatalog dropped the bundled backends";
+		EXPECT_TRUE(OrderContains(backends, rhi::NullApi::kCanonicalName)) << "AddCatalog dropped the bundled backends";
 	}
 
 	TEST(SelfRegistration, gate_StaticLibraryIsDeadStripped)

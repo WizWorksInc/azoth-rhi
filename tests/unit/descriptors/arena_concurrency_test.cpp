@@ -62,7 +62,7 @@ namespace
 			for (int index = 0; index < kPerThread; ++index)
 			{
 				rhi::Error allocError{};
-				out.push_back(arena.Allocate(
+				out.push_back(arena.allocate(
 					rhi::DescriptorSetAllocDesc{
 						.layout					 = setLayout,
 						.variableDescriptorCount = 0,

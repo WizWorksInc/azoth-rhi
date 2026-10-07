@@ -38,7 +38,7 @@ namespace
 
 	TEST(TextureViewBuilder, SlicesMipsAndLayersIndependently)
 	{
-		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}.Type(rhi::TextureViewType::eTex2DArray).Mips(2, 3).Layers(4, 2).Build();
+		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}.type(rhi::TextureViewType::eTex2DArray).mips(2, 3).layers(4, 2).build();
 
 		EXPECT_EQ(desc.range.baseMip, 2u);
 		EXPECT_EQ(desc.range.mipCount, 3u);
@@ -50,14 +50,14 @@ namespace
 	{
 		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}
 											  .mips(5, 5)
-											  .Range(rhi::TextureSubresourceRange{
+											  .range(rhi::TextureSubresourceRange{
 												  .aspects	  = rhi::TextureAspect::eDepth,
 												  .baseMip	  = 0,
 												  .mipCount	  = 1,
 												  .baseLayer  = 0,
 												  .layerCount = 1,
 											  })
-											  .Build();
+											  .build();
 
 		EXPECT_EQ(desc.range.baseMip, 0u);
 		EXPECT_EQ(desc.range.mipCount, 1u);
@@ -67,12 +67,12 @@ namespace
 
 	TEST(TextureViewBuilder, SelectsTheDepthAspectForADepthStencilView)
 	{
-		const rhi::TextureViewDesc depth = rhi::TextureViewBuilder{}.Format(rhi::Format::eD32FloatS8UInt).Aspects(rhi::TextureAspect::eDepth).Build();
+		const rhi::TextureViewDesc depth = rhi::TextureViewBuilder{}.format(rhi::Format::eD32FloatS8UInt).aspects(rhi::TextureAspect::eDepth).build();
 
 		EXPECT_TRUE(depth.range.aspects.contains(rhi::TextureAspect::eDepth));
 		EXPECT_FALSE(depth.range.aspects.contains(rhi::TextureAspect::eStencil));
 
-		const rhi::TextureViewDesc stencil = rhi::TextureViewBuilder{}.Format(rhi::Format::eD32FloatS8UInt).Aspects(rhi::TextureAspect::eStencil).Build();
+		const rhi::TextureViewDesc stencil = rhi::TextureViewBuilder{}.format(rhi::Format::eD32FloatS8UInt).aspects(rhi::TextureAspect::eStencil).build();
 		EXPECT_TRUE(stencil.range.aspects.contains(rhi::TextureAspect::eStencil));
 	}
 
@@ -117,7 +117,7 @@ namespace
 		EXPECT_EQ(linear.magFilter, rhi::Filter::eLinear);
 		EXPECT_EQ(linear.minFilter, rhi::Filter::eLinear);
 
-		const rhi::SamplerDesc mixed = rhi::SamplerBuilder{}.Filter(rhi::Filter::eNearest, rhi::Filter::eLinear).Build();
+		const rhi::SamplerDesc mixed = rhi::SamplerBuilder{}.filter(rhi::Filter::eNearest, rhi::Filter::eLinear).build();
 		EXPECT_EQ(mixed.magFilter, rhi::Filter::eNearest);
 		EXPECT_EQ(mixed.minFilter, rhi::Filter::eLinear);
 	}

@@ -122,13 +122,13 @@ namespace
 			g_placed					 = rhi::PlacedMemoryApi{};
 			g_placed.getBufferMemoryInfo = &GetBufferMemoryInfo;
 
-			m_device.object = rhi::PublishingObject<rhi::Published<rhi::CoreDeviceApi, &CoreBlock>, rhi::Published<rhi::PlacedMemoryApi, &PlacedBlock>>();
+			m_device.object = rhi::publishing_object<rhi::Published<rhi::CoreDeviceApi, &CoreBlock>, rhi::Published<rhi::PlacedMemoryApi, &PlacedBlock>>();
 			m_blocks		= std::make_unique<rhi::BackendBlockSet>(&m_device, rhi::DeviceDesc{});
 		}
 
 		[[nodiscard]] rhi::Device Dev()
 		{
-			return rhi::detail::FacadeBuilder::MakeDevice(&m_device, m_blocks.get());
+			return rhi::detail::FacadeBuilder::make_device(&m_device, m_blocks.get());
 		}
 
 		FakeDevice m_device{};
@@ -179,7 +179,7 @@ namespace
 
 		const rhi::Result<rhi::BufferHandle> asResult = Dev().create_buffer_with_result(rhi::BufferDesc{});
 		ASSERT_TRUE(asResult.has_value());
-		EXPECT_EQ(asResult.Value(), kPlausible);
+		EXPECT_EQ(asResult.value(), kPlausible);
 	}
 
 	TEST_F(ErrorRoutingTest, AnAnsweredQueryBesideAFailureIsRefusedAndClearsItsOutput)
@@ -205,7 +205,7 @@ namespace
 		g_mapped.size = sizeof(storage);
 		Answer(rhi::Error{ .code = rhi::ErrorCode::eInvalidState, .message = "not mappable, here is a pointer anyway" });
 
-		EXPECT_EQ(Dev().Map(rhi::BufferHandle{}, rhi::MapDesc{}).data, nullptr);
+		EXPECT_EQ(Dev().map(rhi::BufferHandle{}, rhi::MapDesc{}).data, nullptr);
 
 		const rhi::Result<rhi::MappedMemory> asResult = Dev().map_with_result(rhi::BufferHandle{}, rhi::MapDesc{});
 		EXPECT_FALSE(asResult.has_value());

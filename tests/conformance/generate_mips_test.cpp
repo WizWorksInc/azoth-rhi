@@ -150,7 +150,7 @@ namespace
 
 	[[nodiscard]] bool FillUpload(rhi::Device device, const rhi::BufferHandle upload, const std::vector<std::uint8_t> & bytes, rhi::Error & error)
 	{
-		const rhi::MappedMemory staging = device.Map(upload, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+		const rhi::MappedMemory staging = device.map(upload, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (staging.data == nullptr)
 		{
 			return false;
@@ -161,7 +161,7 @@ namespace
 		{
 			return false;
 		}
-		return device.Unmap(upload, error);
+		return device.unmap(upload, error);
 	}
 
 	[[nodiscard]] bool Build(MipChain & chain, const std::uint32_t levels, rhi::Error & error)
@@ -221,7 +221,7 @@ namespace
 
 	[[nodiscard]] std::vector<std::uint8_t> ReadBack(rhi::Device device, const rhi::BufferHandle readback, rhi::Error & error)
 	{
-		const rhi::MappedMemory mapped = device.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+		const rhi::MappedMemory mapped = device.map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 		if (mapped.data == nullptr)
 		{
 			return {};
@@ -233,7 +233,7 @@ namespace
 
 		std::vector<std::uint8_t> observed(static_cast<std::size_t>(kReadbackBytes), 0);
 		std::memcpy(observed.data(), mapped.data, observed.size());
-		static_cast<void>(device.Unmap(readback, error));
+		static_cast<void>(device.unmap(readback, error));
 		return observed;
 	}
 
@@ -252,7 +252,7 @@ namespace
 		{
 			return ::testing::AssertionFailure() << "the submit was refused: " << test::Describe(error);
 		}
-		if (!queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error))
+		if (!queue.wait(done, 1, test::kWaitTimeoutNanoseconds, error))
 		{
 			return ::testing::AssertionFailure() << "the mip generation never completed: " << test::Describe(error);
 		}

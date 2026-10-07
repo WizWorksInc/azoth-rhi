@@ -43,7 +43,7 @@ namespace bench::native
 		g_api = device.get_graphics_api_id();
 
 #ifdef AZOTH_RHI_BENCH_VULKAN
-		if (g_api == rhi::VulkanApi::id)
+		if (g_api == rhi::VulkanApi::kId)
 		{
 			g_ready = PrepareVulkan(device, work);
 			return g_ready;
@@ -77,7 +77,7 @@ namespace bench::native
 		}
 
 #ifdef AZOTH_RHI_BENCH_VULKAN
-		if (g_api == rhi::VulkanApi::id)
+		if (g_api == rhi::VulkanApi::kId)
 		{
 			ReleaseVulkan();
 		}
@@ -96,7 +96,7 @@ namespace bench::native
 	std::string_view Gap([[maybe_unused]] const Kind kind)
 	{
 #ifdef AZOTH_RHI_BENCH_VULKAN
-		if (g_api == rhi::VulkanApi::id)
+		if (g_api == rhi::VulkanApi::kId)
 		{
 			return VulkanGap(kind);
 		}
@@ -145,7 +145,7 @@ namespace bench::native
 		const rhi::NativeMutationDesc mutation{ .textures = touched, .debugName = "bench.native" };
 
 #ifdef AZOTH_RHI_BENCH_VULKAN
-		if (g_api == rhi::VulkanApi::id)
+		if (g_api == rhi::VulkanApi::kId)
 		{
 			return RecordVulkan(kind, list, mutation, work, commands, elapsed);
 		}

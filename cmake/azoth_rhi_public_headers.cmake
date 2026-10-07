@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # A public header is the same header in every build. Which backends were compiled in is answered at
-# runtime by rhi::AvailableBackends, in the same terms a backend of your own answers in so nothing
+# runtime by rhi::available_backends, in the same terms a backend of your own answers in so nothing
 # under include has any business branching on it.
 #
 # The AZOTH_RHI_BACKEND_* definitions are PRIVATE to the library target, which means a public header
@@ -55,8 +55,8 @@ if(_violations)
     message(FATAL_ERROR
             "AzothRHI public header contract violated: a public header branches on which backends this build has.\n"
             "Those definitions are PRIVATE to the library, so a consumer compiling this header would not see them "
-            "and would get the other branch without a word about it. Ask rhi::AvailableBackends or "
-            "rhi::FindAvailableBackend at runtime instead, which is also the only form a backend of your own can "
+            "and would get the other branch without a word about it. Ask rhi::available_backends or "
+            "rhi::find_available_backend at runtime instead, which is also the only form a backend of your own can "
             "answer.\n\n${_report}\n")
 endif()
 message(STATUS "AzothRHI: public header contract OK, ${_scanned} headers scanned, none branch on the build's backends.")

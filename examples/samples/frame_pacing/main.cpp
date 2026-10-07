@@ -80,7 +80,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	LOG_INFO(fw::Log(), "backend: {}, timeline sync: {}", dev.get_graphics_api_name(), Yes(dev.get_caps().supportsTimelineSync));
 
 	rhi::Error error{};
@@ -120,7 +120,7 @@ int main(int argc, char ** argv)
 	{
 		FrameSlot & slot = slots[(frame - 1) % kFramesInFlight];
 
-		if (slot.submitted != 0 && !queue.Wait(timeline, slot.submitted, kNoTimeout, error))
+		if (slot.submitted != 0 && !queue.wait(timeline, slot.submitted, kNoTimeout, error))
 		{
 			fw::ReportError("failed to wait for a frame to retire", error);
 			return 1;
@@ -129,15 +129,15 @@ int main(int argc, char ** argv)
 		std::uint64_t completed = 0;
 		static_cast<void>(queue.get_completed_value(timeline, completed, error));
 
-		if (slot.submitted != 0 && !slot.pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = slot.submitted }, error))
+		if (slot.submitted != 0 && !slot.pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = slot.submitted }, error))
 		{
 			fw::ReportError("failed to reset a frame command pool", error);
 			return 1;
 		}
 
 		const rhi::BufferHandle scratch = dev.create_buffer(scratchDesc, error);
-		rhi::CommandList list			= slot.pool.Allocate("example.frameList", error);
-		if (!scratch.is_valid() || !list.is_valid() || !list.Begin(error))
+		rhi::CommandList list			= slot.pool.allocate("example.frameList", error);
+		if (!scratch.is_valid() || !list.is_valid() || !list.begin(error))
 		{
 			fw::ReportError("failed to start recording a frame", error);
 			return 1;
@@ -151,7 +151,7 @@ int main(int argc, char ** argv)
 		}
 		list.end_debug_label();
 
-		if (!list.End(error))
+		if (!list.end(error))
 		{
 			fw::ReportError("failed to close the frame's list", error);
 			return 1;

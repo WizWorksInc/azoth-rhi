@@ -29,9 +29,9 @@ namespace
 
 	struct LoadableApi final : azo::rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "studio.rhi.loadable";
-		static constexpr std::string_view displayName	= "Studio Loadable";
-		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::make_graphics_api_id(canonicalName);
+		static constexpr std::string_view kCanonicalName = "studio.rhi.loadable";
+		static constexpr std::string_view kDisplayName	= "Studio Loadable";
+		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<LoadableApi>);
@@ -67,8 +67,8 @@ namespace
 	[[nodiscard]] azo::rhi::BackendCreateInfo CreateInfo() noexcept
 	{
 		azo::rhi::BackendCreateInfo info{};
-		info.info.canonicalName = LoadableApi::canonicalName;
-		info.info.displayName	= LoadableApi::displayName;
+		info.info.canonicalName = LoadableApi::kCanonicalName;
+		info.info.displayName	= LoadableApi::kDisplayName;
 		info.createInstance		= [](const void *, azo::rhi::Error *) noexcept
 		{
 			g_liveInstances.fetch_add(1, std::memory_order_relaxed);
@@ -84,7 +84,7 @@ namespace
 		g_table					 = azo::rhi::InstanceApi{};
 		g_table.getGraphicsApiId = [](void *) noexcept
 		{
-			return LoadableApi::id;
+			return LoadableApi::kId;
 		};
 		g_table.enumerateAdapters = [](void *, std::span<azo::rhi::AdapterInfo>, std::uint32_t *, azo::rhi::Error *) noexcept
 		{
@@ -109,9 +109,9 @@ namespace
 	[[nodiscard]] bool Describe(azo::rhi::ModuleDescription & description) noexcept
 	{
 		g_entries[0] = azo::rhi::BackendEntry{
-			.id			   = LoadableApi::id,
-			.canonicalName = LoadableApi::canonicalName,
-			.displayName   = LoadableApi::displayName,
+			.id			   = LoadableApi::kId,
+			.canonicalName = LoadableApi::kCanonicalName,
+			.displayName   = LoadableApi::kDisplayName,
 			.Register	   = &RegisterLoadable,
 			.rank		   = azo::rhi::BackendRank::eHardware,
 		};

@@ -84,7 +84,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev				 = device.Value().Get();
+	rhi::Device dev				 = device.value().get();
 	const rhi::DeviceCaps & caps = dev.get_caps();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
@@ -210,7 +210,7 @@ int main(int argc, char ** argv)
 		error);
 
 	const rhi::DescriptorSetHandle set =
-		arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
+		arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
 	if (!set.is_valid())
 	{
 		fw::ReportError("the variable length set was refused", error);
@@ -248,8 +248,8 @@ int main(int argc, char ** argv)
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "bindless.timeline" }, error);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "bindless.pool" }, error);
-	rhi::CommandList list			   = pool.Allocate("bindless.gather", error);
-	if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
+	rhi::CommandList list			   = pool.allocate("bindless.gather", error);
+	if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.begin(error))
 	{
 		fw::ReportError("the submission objects were refused", error);
 		return 1;
@@ -301,8 +301,8 @@ int main(int argc, char ** argv)
 	recorded = recorded && list.barriers(rhi::BarrierBatch{ .buffers = outputToWrite, .textures = toShaderRead }, error) &&
 			   list.set_compute_pipeline(pipeline, error) && list.bind_descriptor_set(layout, 0, set, {}, error) &&
 			   list.push_constants(layout, rhi::ShaderStage::eCompute, 0, sizeof(params), &params, error) &&
-			   list.Dispatch(kTextures / gather.threadgroupSize.x, 1, 1, error) && list.barriers(rhi::BarrierBatch{ .buffers = outputToCopy }, error) &&
-			   list.copy_buffer(readback, 0, output, 0, kOutputBytes, error) && list.End(error);
+			   list.dispatch(kTextures / gather.threadgroupSize.x, 1, 1, error) && list.barriers(rhi::BarrierBatch{ .buffers = outputToCopy }, error) &&
+			   list.copy_buffer(readback, 0, output, 0, kOutputBytes, error) && list.end(error);
 
 	if (!recorded)
 	{
@@ -333,13 +333,13 @@ int main(int argc, char ** argv)
 	std::array<const rhi::CommandList *, 1> lists{ &list };
 	const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
 	if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "bindless.submit" }, error) ||
-		!queue.Wait(timeline, 1, kNoTimeout, error))
+		!queue.wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("the dispatch did not complete", error);
 		return 1;
 	}
 
-	const rhi::MappedMemory mapped = dev.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+	const rhi::MappedMemory mapped = dev.map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 	if (mapped.data == nullptr)
 	{
 		fw::ReportError("the readback could not be mapped", error);
@@ -354,7 +354,7 @@ int main(int argc, char ** argv)
 
 	std::array<float, kTextures * 4> gathered{};
 	std::memcpy(gathered.data(), mapped.data, kOutputBytes);
-	static_cast<void>(dev.Unmap(readback, error));
+	static_cast<void>(dev.unmap(readback, error));
 
 	int status			= 0;
 	std::uint32_t wrong = 0;

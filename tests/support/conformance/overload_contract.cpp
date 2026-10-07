@@ -96,11 +96,11 @@ namespace azo::rhi::test::oracle
 			"Device::Map",
 			[&]
 			{
-				return device.Map(BufferHandle{}, MapDesc{}).data != nullptr;
+				return device.map(BufferHandle{}, MapDesc{}).data != nullptr;
 			},
 			[&](Error & error)
 			{
-				return device.Map(BufferHandle{}, MapDesc{}, error).data != nullptr;
+				return device.map(BufferHandle{}, MapDesc{}, error).data != nullptr;
 			},
 			[&]
 			{
@@ -173,7 +173,7 @@ namespace azo::rhi::test::oracle
 				Result<BufferHandle> result = device.create_buffer_with_result(samples::StorageBuffer());
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -193,7 +193,7 @@ namespace azo::rhi::test::oracle
 				Result<TextureHandle> result = device.create_texture_with_result(samples::SampledTexture2D());
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -213,7 +213,7 @@ namespace azo::rhi::test::oracle
 				Result<SamplerHandle> result = device.create_sampler_with_result(samples::LinearSampler());
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -233,7 +233,7 @@ namespace azo::rhi::test::oracle
 				Result<HeapHandle> result = device.create_heap_with_result(samples::GpuHeap());
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -255,7 +255,7 @@ namespace azo::rhi::test::oracle
 					Result<DescriptorSetLayoutHandle> result = device.create_descriptor_set_layout_with_result(layout.Desc());
 					if (result.has_value())
 					{
-						static_cast<void>(CreatedAndReleased(device, result.Value()));
+						static_cast<void>(CreatedAndReleased(device, result.value()));
 					}
 					return result;
 				}));
@@ -278,7 +278,7 @@ namespace azo::rhi::test::oracle
 					Result<PipelineLayoutHandle> result = device.create_pipeline_layout_with_result(pipelineLayout.Desc());
 					if (result.has_value())
 					{
-						static_cast<void>(CreatedAndReleased(device, result.Value()));
+						static_cast<void>(CreatedAndReleased(device, result.value()));
 					}
 					return result;
 				}));
@@ -301,7 +301,7 @@ namespace azo::rhi::test::oracle
 				Result<TimelineHandle> result = device.create_timeline_with_result(samples::Timeline());
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -321,7 +321,7 @@ namespace azo::rhi::test::oracle
 				Result<BinarySemaphoreHandle> result = device.create_binary_semaphore_with_result(BinarySemaphoreDesc{});
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -341,7 +341,7 @@ namespace azo::rhi::test::oracle
 				Result<QueryPoolHandle> result = device.create_query_pool_with_result(samples::TimestampPool());
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -478,7 +478,7 @@ namespace azo::rhi::test::oracle
 					Result<PipelineCacheHandle> result = device.create_pipeline_cache_with_result(PipelineCacheDesc{});
 					if (result.has_value())
 					{
-						static_cast<void>(CreatedAndReleased(device, result.Value()));
+						static_cast<void>(CreatedAndReleased(device, result.value()));
 					}
 					return result;
 				}));
@@ -499,7 +499,7 @@ namespace azo::rhi::test::oracle
 				Result<GraphicsPipelineHandle> result = device.create_graphics_pipeline_with_result(GraphicsPipelineDesc{});
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -519,7 +519,7 @@ namespace azo::rhi::test::oracle
 				Result<ComputePipelineHandle> result = device.create_compute_pipeline_with_result(ComputePipelineDesc{});
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -539,7 +539,7 @@ namespace azo::rhi::test::oracle
 				Result<RayTracingPipelineHandle> result = device.create_ray_tracing_pipeline_with_result(RayTracingPipelineDesc{});
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -559,7 +559,7 @@ namespace azo::rhi::test::oracle
 				Result<AccelerationStructureHandle> result = device.create_acceleration_structure_with_result(AccelerationStructureDesc{});
 				if (result.has_value())
 				{
-					static_cast<void>(CreatedAndReleased(device, result.Value()));
+					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
 			}));
@@ -588,11 +588,11 @@ namespace azo::rhi::test::oracle
 					"CommandPool::Allocate",
 					[&]
 					{
-						return pool.Allocate("azoth.rhi.conformance.overloadPlain").IsValid();
+						return pool.allocate("azoth.rhi.conformance.overloadPlain").is_valid();
 					},
 					[&](Error & poolError)
 					{
-						return pool.Allocate("azoth.rhi.conformance.overloadErrored", poolError).IsValid();
+						return pool.allocate("azoth.rhi.conformance.overloadErrored", poolError).is_valid();
 					},
 					[&]
 					{
@@ -608,11 +608,11 @@ namespace azo::rhi::test::oracle
 					"DescriptorArena::Allocate",
 					[&]
 					{
-						return arena.Allocate(alloc).IsValid();
+						return arena.allocate(alloc).is_valid();
 					},
 					[&](Error & arenaError)
 					{
-						return arena.Allocate(alloc, arenaError).IsValid();
+						return arena.allocate(alloc, arenaError).is_valid();
 					},
 					[&]
 					{

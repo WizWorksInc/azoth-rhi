@@ -63,7 +63,7 @@ namespace
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "the sample storage buffer is device local, and it did not create";
 
 		rhi::Error mapError{};
-		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, mapError);
+		const rhi::MappedMemory mapped = Dev().map(buffer, {}, mapError);
 		EXPECT_EQ(mapped.data, nullptr) << "device-local memory was mapped without DeviceDesc::allowDeviceLocalMapping";
 		EXPECT_TRUE(test::ErrorIsPopulated(mapError));
 
@@ -101,14 +101,14 @@ namespace
 
 		const rhi::Result<rhi::BufferHandle> asResult = Dev().create_buffer_with_result(test::samples::StorageBuffer());
 		ASSERT_TRUE(test::Ok(asResult));
-		EXPECT_TRUE(asResult.Value().IsValid());
+		EXPECT_TRUE(asResult.value().is_valid());
 
 		EXPECT_NE(sentinel, withError);
-		EXPECT_NE(withError, asResult.Value());
+		EXPECT_NE(withError, asResult.value());
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(sentinel, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(withError, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().destroy(asResult.Value(), {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(asResult.value(), {}, error), error));
 	}
 
 	TEST_P(BufferTest, AcceptsEveryMemoryUsageTheBaselineNeeds)
@@ -268,20 +268,20 @@ namespace
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::Error neverMapped{};
-		EXPECT_FALSE(Dev().Unmap(buffer, neverMapped)) << "a buffer that was never mapped was unmapped";
+		EXPECT_FALSE(Dev().unmap(buffer, neverMapped)) << "a buffer that was never mapped was unmapped";
 		EXPECT_EQ(neverMapped.code, rhi::ErrorCode::eInvalidState);
 
-		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, error);
+		const rhi::MappedMemory mapped = Dev().map(buffer, {}, error);
 		if (mapped.data == nullptr)
 		{
 			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(buffer, error), error));
 
 		rhi::Error twice{};
-		EXPECT_FALSE(Dev().Unmap(buffer, twice)) << "the same mapping was unmapped twice";
+		EXPECT_FALSE(Dev().unmap(buffer, twice)) << "the same mapping was unmapped twice";
 		EXPECT_EQ(twice.code, rhi::ErrorCode::eInvalidState);
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
@@ -293,23 +293,23 @@ namespace
 		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		const rhi::MappedMemory outer = Dev().Map(buffer, {}, error);
+		const rhi::MappedMemory outer = Dev().map(buffer, {}, error);
 		if (outer.data == nullptr)
 		{
 			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
-		const rhi::MappedMemory inner = Dev().Map(buffer, {}, error);
+		const rhi::MappedMemory inner = Dev().map(buffer, {}, error);
 		ASSERT_TRUE(test::Ok(inner.data != nullptr, error)) << "a second map of a mapped buffer was refused";
 		EXPECT_EQ(inner.data, outer.data);
 
-		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(buffer, error), error));
 		std::memset(outer.data, 0x5A, static_cast<std::size_t>(test::samples::kBufferSize));
-		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(buffer, error), error));
 
 		rhi::Error extra{};
-		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
+		EXPECT_FALSE(Dev().unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
 		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState);
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
@@ -321,13 +321,13 @@ namespace
 		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, error);
+		const rhi::MappedMemory mapped = Dev().map(buffer, {}, error);
 		if (mapped.data == nullptr)
 		{
 			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
-		static_cast<void>(Dev().Map(buffer, {}, error));
+		static_cast<void>(Dev().map(buffer, {}, error));
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
@@ -341,7 +341,7 @@ namespace
 		const rhi::BufferHandle buffer = harness.Get().create_buffer(test::samples::UploadBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		if (harness.Get().Map(buffer, {}, error).data == nullptr)
+		if (harness.Get().map(buffer, {}, error).data == nullptr)
 		{
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
@@ -356,7 +356,7 @@ namespace
 		constexpr std::uint32_t kDepth = 300;
 		std::uint32_t held			   = 0;
 		rhi::Error refused{};
-		while (held < kDepth && Dev().Map(buffer, {}, refused).data != nullptr)
+		while (held < kDepth && Dev().map(buffer, {}, refused).data != nullptr)
 		{
 			++held;
 		}
@@ -370,11 +370,11 @@ namespace
 
 		for (std::uint32_t i = 0; i < held; ++i)
 		{
-			ASSERT_TRUE(test::Ok(Dev().Unmap(buffer, error), error)) << "unmap " << i << " of " << held;
+			ASSERT_TRUE(test::Ok(Dev().unmap(buffer, error), error)) << "unmap " << i << " of " << held;
 		}
 
 		rhi::Error extra{};
-		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
+		EXPECT_FALSE(Dev().unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
 		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState) << test::Describe(extra);
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
@@ -387,12 +387,12 @@ namespace
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::Error probe{};
-		if (Dev().Map(buffer, {}, probe).data == nullptr)
+		if (Dev().map(buffer, {}, probe).data == nullptr)
 		{
 			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(probe);
 		}
-		ASSERT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+		ASSERT_TRUE(test::Ok(Dev().unmap(buffer, error), error));
 
 		constexpr int kThreads		  = 8;
 		const std::uint32_t perThread = test::ScaledIterations(500);
@@ -417,14 +417,14 @@ namespace
 					for (std::uint32_t index = 0; index < perThread; ++index)
 					{
 						rhi::Error mapError{};
-						if (Dev().Map(buffer, {}, mapError).data == nullptr)
+						if (Dev().map(buffer, {}, mapError).data == nullptr)
 						{
 							mapsRefused.fetch_add(1, std::memory_order_relaxed);
 							continue;
 						}
 
 						rhi::Error unmapError{};
-						if (!Dev().Unmap(buffer, unmapError))
+						if (!Dev().unmap(buffer, unmapError))
 						{
 							unmapsRefused.fetch_add(1, std::memory_order_relaxed);
 						}
@@ -441,7 +441,7 @@ namespace
 		EXPECT_EQ(unmapsRefused.load(), 0) << "an unmap was refused for a map that had been taken";
 
 		rhi::Error extra{};
-		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "the maps and unmaps did not balance back to none outstanding";
+		EXPECT_FALSE(Dev().unmap(buffer, extra)) << "the maps and unmaps did not balance back to none outstanding";
 		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState) << test::Describe(extra);
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
@@ -455,12 +455,12 @@ namespace
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::Error wrapped{};
-		const rhi::MappedMemory mapped = Dev().Map(buffer, rhi::MapDesc{ .offset = 16, .size = ~std::uint64_t{ 0 } - 8 }, wrapped);
+		const rhi::MappedMemory mapped = Dev().map(buffer, rhi::MapDesc{ .offset = 16, .size = ~std::uint64_t{ 0 } - 8 }, wrapped);
 		EXPECT_EQ(mapped.data, nullptr) << "a map whose offset plus size wraps around was accepted, size " << mapped.size;
 		EXPECT_TRUE(test::ErrorIsPopulated(wrapped));
 		if (mapped.data != nullptr)
 		{
-			static_cast<void>(Dev().Unmap(buffer, error));
+			static_cast<void>(Dev().unmap(buffer, error));
 		}
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));

@@ -18,7 +18,7 @@
 
 namespace azo::rhi::d3d12
 {
-	[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE MapAddressMode(AddressMode mode) noexcept
+	[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE map_address_mode(AddressMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -31,7 +31,7 @@ namespace azo::rhi::d3d12
 		return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	}
 
-	[[nodiscard]] D3D12_COMPARISON_FUNC MapCompareOp(CompareOp op) noexcept
+	[[nodiscard]] D3D12_COMPARISON_FUNC map_compare_op(CompareOp op) noexcept
 	{
 		switch (op)
 		{
@@ -63,7 +63,7 @@ namespace azo::rhi::d3d12
 		}
 	}
 
-	[[nodiscard]] D3D12_FILTER MapFilter(const SamplerDesc & desc) noexcept
+	[[nodiscard]] D3D12_FILTER map_filter(const SamplerDesc & desc) noexcept
 	{
 		const D3D12_FILTER_REDUCTION_TYPE reduction = desc.compareEnable ? D3D12_FILTER_REDUCTION_TYPE_COMPARISON : D3D12_FILTER_REDUCTION_TYPE_STANDARD;
 		if (desc.anisotropyEnable)
@@ -83,7 +83,7 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (desc.ycbcrConversion != nullptr)
 		{
-			return FailValue<SamplerHandle>(
+			return fail_value<SamplerHandle>(
 				error,
 				ErrorCode::eUnsupportedFeature,
 				"Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views"
@@ -91,18 +91,18 @@ namespace azo::rhi::d3d12
 		}
 
 		D3D12_SAMPLER_DESC sampler{};
-		sampler.Filter		   = MapFilter(desc);
-		sampler.AddressU	   = MapAddressMode(desc.addressU);
-		sampler.AddressV	   = MapAddressMode(desc.addressV);
-		sampler.AddressW	   = MapAddressMode(desc.addressW);
+		sampler.Filter		   = map_filter(desc);
+		sampler.AddressU	   = map_address_mode(desc.addressU);
+		sampler.AddressV	   = map_address_mode(desc.addressV);
+		sampler.AddressW	   = map_address_mode(desc.addressW);
 		sampler.MipLODBias	   = desc.mipLodBias;
 		sampler.MaxAnisotropy  = static_cast<UINT>(desc.maxAnisotropy);
-		sampler.ComparisonFunc = desc.compareEnable ? MapCompareOp(desc.compareOp) : D3D12_COMPARISON_FUNC_NEVER;
+		sampler.ComparisonFunc = desc.compareEnable ? map_compare_op(desc.compareOp) : D3D12_COMPARISON_FUNC_NEVER;
 		sampler.MinLOD		   = desc.minLod;
 		sampler.MaxLOD		   = desc.maxLod;
 		FillBorderColor(sampler.BorderColor, desc.borderColor);
 
-		return ReturnValue(device->samplerSlots.store(SamplerSlot{ .desc = sampler }), error);
+		return return_value(device->samplerSlots.store(SamplerSlot{ .desc = sampler }), error);
 	}
 
 	bool D3D12DestroySampler(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -131,7 +131,7 @@ namespace azo::rhi::d3d12
 		return D3D12_HEAP_TYPE_DEFAULT;
 	}
 
-	[[nodiscard]] HeapSlot * ResolveHeap(D3D12Device * device, HeapHandle handle) noexcept
+	[[nodiscard]] HeapSlot * resolve_heap(D3D12Device * device, HeapHandle handle) noexcept
 	{
 		return device->heapSlots.resolve(handle, kHandleAlreadyChecked);
 	}
@@ -153,7 +153,7 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (desc.size == 0)
 		{
-			return FailValue<HeapHandle>(error, ErrorCode::eInvalidArgument, "heap size must be greater than zero");
+			return fail_value<HeapHandle>(error, ErrorCode::eInvalidArgument, "heap size must be greater than zero");
 		}
 
 		D3D12_HEAP_DESC heapDesc{};
@@ -166,7 +166,7 @@ namespace azo::rhi::d3d12
 		{
 			if (heapDesc.Properties.Type != D3D12_HEAP_TYPE_DEFAULT)
 			{
-				return FailValue<HeapHandle>(
+				return fail_value<HeapHandle>(
 					error,
 					ErrorCode::eUnsupportedFeature,
 					"Direct3D 12 cannot share upload or readback memory, so an exportable heap must be device local"
@@ -179,10 +179,10 @@ namespace azo::rhi::d3d12
 		ComPtr<ID3D12Heap> heap;
 		if (FAILED(device->device->CreateHeap(&heapDesc, IID_PPV_ARGS(heap.GetAddressOf()))))
 		{
-			return FailValue<HeapHandle>(error, ErrorCode::eOutOfDeviceMemory, "ID3D12Device::CreateHeap failed");
+			return fail_value<HeapHandle>(error, ErrorCode::eOutOfDeviceMemory, "ID3D12Device::CreateHeap failed");
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->heapSlots.store(
 				HeapSlot{
 					.heap				   = std::move(heap),
@@ -202,16 +202,16 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (desc.buffer.size == 0)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "placed buffer size must be greater than zero");
+			return fail_value<BufferHandle>(error, ErrorCode::eInvalidArgument, "placed buffer size must be greater than zero");
 		}
 
 		ComPtr<ID3D12Heap> heap;
 		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT;
 		{
-			HeapSlot * heapSlot = ResolveHeap(device, desc.heap);
+			HeapSlot * heapSlot = resolve_heap(device, desc.heap);
 			if (heapSlot == nullptr)
 			{
-				return FailValue<BufferHandle>(error, ErrorCode::eInvalidHandle, "placed buffer references an invalid heap");
+				return fail_value<BufferHandle>(error, ErrorCode::eInvalidHandle, "placed buffer references an invalid heap");
 			}
 			heap	 = heapSlot->heap;
 			heapType = heapSlot->type;
@@ -230,7 +230,7 @@ namespace azo::rhi::d3d12
 
 		if (desc.buffer.usage.contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
-			return FailValue<BufferHandle>(
+			return fail_value<BufferHandle>(
 				error,
 				ErrorCode::eInvalidArgument,
 				"an acceleration structure buffer must be placed in a device-local heap, since Direct3D 12 places one only in the default heap"
@@ -247,11 +247,11 @@ namespace azo::rhi::d3d12
 				IID_PPV_ARGS(resource.GetAddressOf())
 			)))
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a buffer");
+			return fail_value<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a buffer");
 		}
 
 		const bool hostVisible = heapType == D3D12_HEAP_TYPE_UPLOAD || heapType == D3D12_HEAP_TYPE_READBACK;
-		return ReturnValue(
+		return return_value(
 			device->bufferSlots.store(
 				BufferSlot{
 					.resource	 = std::move(resource),
@@ -270,14 +270,14 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.createPlacedTexture");
 
 		auto * device			 = static_cast<D3D12Device *>(impl);
-		const DXGI_FORMAT format = MapFormat(desc.texture.format);
+		const DXGI_FORMAT format = map_format(desc.texture.format);
 		if (format == DXGI_FORMAT_UNKNOWN)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "placed texture format is undefined or unsupported");
+			return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "placed texture format is undefined or unsupported");
 		}
 		if (desc.texture.allowFormatViews && TypelessResourceFormat(format) == format)
 		{
-			return FailValue<TextureHandle>(
+			return fail_value<TextureHandle>(
 				error,
 				ErrorCode::eUnsupportedFormat,
 				"allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not"
@@ -286,21 +286,21 @@ namespace azo::rhi::d3d12
 
 		if (desc.texture.width == 0 || desc.texture.height == 0 || desc.texture.depth == 0)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
 		}
 
 		if (desc.texture.mipLevels >
-			detail::MaxMipLevels(desc.texture.width, desc.texture.height, desc.texture.type == TextureType::eTex3D ? desc.texture.depth : 1))
+			detail::max_mip_levels(desc.texture.width, desc.texture.height, desc.texture.type == TextureType::eTex3D ? desc.texture.depth : 1))
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
 		}
 
 		ComPtr<ID3D12Heap> heap;
 		{
-			HeapSlot * heapSlot = ResolveHeap(device, desc.heap);
+			HeapSlot * heapSlot = resolve_heap(device, desc.heap);
 			if (heapSlot == nullptr)
 			{
-				return FailValue<TextureHandle>(error, ErrorCode::eInvalidHandle, "placed texture references an invalid heap");
+				return fail_value<TextureHandle>(error, ErrorCode::eInvalidHandle, "placed texture references an invalid heap");
 			}
 			heap = heapSlot->heap;
 		}
@@ -312,10 +312,10 @@ namespace azo::rhi::d3d12
 					->CreatePlacedResource(heap.Get(), desc.offset, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(resource.GetAddressOf()))
 			))
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a texture");
+			return fail_value<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a texture");
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->textureSlots.store(
 				TextureSlot{ .resource = std::move(resource),
 					.format			   = format,

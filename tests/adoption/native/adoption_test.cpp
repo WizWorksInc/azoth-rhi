@@ -57,7 +57,7 @@ namespace
 	template <rhi::GraphicsApiTag Api>
 	[[nodiscard]] bool ApiIsSelected() noexcept
 	{
-		const test::Backend * backend = test::FindBackend(Api::id);
+		const test::Backend * backend = test::FindBackend(Api::kId);
 		return backend != nullptr && test::BackendIsSelected(backend->shortName);
 	}
 
@@ -111,12 +111,12 @@ namespace
 			const auto plain = MakeDevice<Api>();
 			if (!plain.has_value())
 			{
-				const test::Backend * backend = test::FindBackend(Api::id);
-				if (test::BackendIsRequired(backend->shortName) && !test::NoAdapterHere(plain.GetError()))
+				const test::Backend * backend = test::FindBackend(Api::kId);
+				if (test::BackendIsRequired(backend->shortName) && !test::NoAdapterHere(plain.get_error()))
 				{
-					FAIL() << backend->displayName << " is required but produced no device: " << test::Describe(plain.GetError());
+					FAIL() << backend->displayName << " is required but produced no device: " << test::Describe(plain.get_error());
 				}
-				GTEST_SKIP() << backend->displayName << " produced no device on this machine: " << test::Describe(plain.GetError());
+				GTEST_SKIP() << backend->displayName << " produced no device on this machine: " << test::Describe(plain.get_error());
 			}
 		}
 	};
@@ -142,21 +142,21 @@ namespace
 			GTEST_SKIP() << "no device for this backend on this machine: " << test::Describe(created.get_error());
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		rhi::Error error{};
 		rhi::CommandPool pool = device.create_command_pool(rhi::CommandPoolDesc{ .queueType = rhi::QueueType::eGraphics }, error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.nativeScope", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.nativeScope", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		ASSERT_TRUE(static_cast<bool>(fromAccessor(list))) << "the accessor reports no native command list for an open recording";
 
 		bool ran = false;
-		EXPECT_TRUE(test::Ok(list.ModifyNative<Api>(
+		EXPECT_TRUE(test::Ok(list.modify_native<Api>(
 								 rhi::NativeMutationDesc{},
 								 [&](const auto & view)
 								 {
@@ -168,7 +168,7 @@ namespace
 								 error),
 			error));
 		EXPECT_TRUE(ran) << "the callback the scope brackets never ran";
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 	}
 
 #endif
@@ -183,14 +183,14 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value()) << "a Vulkan device did not hand back its native handles";
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
 
 		vk::ImageCreateInfo imageInfo{};
 		imageInfo.imageType		= vk::ImageType::e2D;
@@ -209,7 +209,7 @@ namespace
 		const vk::Image image = createdImage.value;
 
 		const vk::MemoryRequirements requirements			 = vkDevice.getImageMemoryRequirements(image, dispatch);
-		const vk::PhysicalDeviceMemoryProperties memoryProps = native.Value().physicalDevice.getMemoryProperties(dispatch);
+		const vk::PhysicalDeviceMemoryProperties memoryProps = native.value().physicalDevice.getMemoryProperties(dispatch);
 
 		std::uint32_t typeIndex = 0;
 		bool foundType			= false;
@@ -289,14 +289,14 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
 
 		const auto createdSampler = vkDevice.createSampler(vk::SamplerCreateInfo{}, nullptr, dispatch);
 		ASSERT_EQ(createdSampler.result, vk::Result::eSuccess);
@@ -321,14 +321,14 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
 
 		const vk::SemaphoreTypeCreateInfo typeInfo(vk::SemaphoreType::eTimeline, 7);
 		const auto createdSemaphore = vkDevice.createSemaphore(vk::SemaphoreCreateInfo({}, &typeInfo), nullptr, dispatch);
@@ -355,8 +355,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		rhi::Error error{};
 		const rhi::SamplerHandle adopted = device.adopt_sampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}, error);
@@ -372,8 +372,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
@@ -393,8 +393,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 		if (!device.get_caps().supportsSamplerYcbcrConversion)
 		{
 			GTEST_SKIP() << "this adapter has no Y'CbCr conversion, so there is nothing to adopt one of";
@@ -403,8 +403,8 @@ namespace
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
 
 		vk::SamplerYcbcrConversionCreateInfo conversionInfo{};
 		conversionInfo.format		= vk::Format::eG8B8R82Plane420Unorm;
@@ -433,7 +433,7 @@ namespace
 		const vk::Image image = createdImage.value;
 
 		const vk::MemoryRequirements requirements			 = vkDevice.getImageMemoryRequirements(image, dispatch);
-		const vk::PhysicalDeviceMemoryProperties memoryProps = native.Value().physicalDevice.getMemoryProperties(dispatch);
+		const vk::PhysicalDeviceMemoryProperties memoryProps = native.value().physicalDevice.getMemoryProperties(dispatch);
 
 		std::uint32_t typeIndex = 0;
 		bool foundType			= false;
@@ -602,15 +602,15 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
-		const OwnedImage produced						   = MakeImage(vkDevice, native.Value().physicalDevice, dispatch);
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
+		const OwnedImage produced						   = MakeImage(vkDevice, native.value().physicalDevice, dispatch);
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
 		const rhi::ResourceState arrived{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
@@ -625,9 +625,9 @@ namespace
 
 		rhi::CommandPool pool = device.create_command_pool({ .queueType = rhi::QueueType::eGraphics }, error);
 		ASSERT_TRUE(pool.is_valid()) << error.message;
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.adoptedAcquire", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.adoptedAcquire", error);
 		ASSERT_TRUE(list.is_valid()) << error.message;
-		ASSERT_TRUE(list.Begin(error)) << error.message;
+		ASSERT_TRUE(list.begin(error)) << error.message;
 
 		const std::array acquire{ rhi::TextureBarrier{
 			.texture   = adopted,
@@ -639,7 +639,7 @@ namespace
 		EXPECT_TRUE(list.barriers(rhi::BarrierBatch{ .textures = acquire }, error))
 			<< "a barrier naming exactly what the adoption declared was refused: " << error.message;
 
-		static_cast<void>(list.End(error));
+		static_cast<void>(list.end(error));
 		EXPECT_TRUE(device.destroy(adopted, {}, error)) << error.message;
 
 		vkDevice.destroyImage(produced.image, nullptr, dispatch);
@@ -654,14 +654,14 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned							  = std::move(created).Value();
-		rhi::Device device								  = owned.Get();
+		rhi::UniqueDevice owned							  = std::move(created).value();
+		rhi::Device device								  = owned.get();
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
-		const OwnedImage produced						   = MakeImage(vkDevice, native.Value().physicalDevice, dispatch);
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
+		const OwnedImage produced						   = MakeImage(vkDevice, native.value().physicalDevice, dispatch);
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
 		const rhi::ResourceState arrived{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
@@ -673,9 +673,9 @@ namespace
 
 		rhi::CommandPool pool = device.create_command_pool({ .queueType = rhi::QueueType::eGraphics }, error);
 		ASSERT_TRUE(pool.is_valid()) << error.message;
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.adoptedWrongState", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.adoptedWrongState", error);
 		ASSERT_TRUE(list.is_valid()) << error.message;
-		ASSERT_TRUE(list.Begin(error)) << error.message;
+		ASSERT_TRUE(list.begin(error)) << error.message;
 
 		const std::array wrong{ rhi::TextureBarrier{
 			.texture = adopted,
@@ -685,7 +685,7 @@ namespace
 
 		// An earlier list in the same submit could still leave the object in the claimed state, so the claim is judged at submit.
 		ASSERT_TRUE(list.barriers(rhi::BarrierBatch{ .textures = wrong }, error)) << error.message;
-		ASSERT_TRUE(list.End(error)) << error.message;
+		ASSERT_TRUE(list.end(error)) << error.message;
 
 		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
 		ASSERT_TRUE(queue.is_valid()) << error.message;
@@ -708,14 +708,14 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned							  = std::move(created).Value();
-		rhi::Device device								  = owned.Get();
+		rhi::UniqueDevice owned							  = std::move(created).value();
+		rhi::Device device								  = owned.get();
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value());
 
-		const vk::Device vkDevice						   = native.Value().device;
-		const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
-		const OwnedImage produced						   = MakeImage(vkDevice, native.Value().physicalDevice, dispatch);
+		const vk::Device vkDevice						   = native.value().device;
+		const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
+		const OwnedImage produced						   = MakeImage(vkDevice, native.value().physicalDevice, dispatch);
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
 		rhi::Error error{};
@@ -726,9 +726,9 @@ namespace
 
 		rhi::CommandPool pool = device.create_command_pool({ .queueType = rhi::QueueType::eGraphics }, error);
 		ASSERT_TRUE(pool.is_valid()) << error.message;
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.adoptedWrongFamily", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.adoptedWrongFamily", error);
 		ASSERT_TRUE(list.is_valid()) << error.message;
-		ASSERT_TRUE(list.Begin(error)) << error.message;
+		ASSERT_TRUE(list.begin(error)) << error.message;
 
 		const std::array wrong{ rhi::TextureBarrier{
 			.texture   = adopted,
@@ -739,7 +739,7 @@ namespace
 
 		// Ownership is judged at submit for the same reason, since an earlier list in that submit could hand the object over.
 		ASSERT_TRUE(list.barriers(rhi::BarrierBatch{ .textures = wrong }, error)) << error.message;
-		ASSERT_TRUE(list.End(error)) << error.message;
+		ASSERT_TRUE(list.end(error)) << error.message;
 
 		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
 		ASSERT_TRUE(queue.is_valid()) << error.message;
@@ -776,8 +776,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		rhi::Error error{};
 
@@ -872,8 +872,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		rhi::Error error{};
 		const rhi::SamplerHandle adopted = device.adopt_sampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}, error);
@@ -898,13 +898,13 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value()) << "a Vulkan device did not hand back its native handles";
 
-		const auto extensions = native.Value().physicalDevice.enumerateDeviceExtensionProperties(nullptr, *native.Value().dispatch);
+		const auto extensions = native.value().physicalDevice.enumerateDeviceExtensionProperties(nullptr, *native.value().dispatch);
 		ASSERT_EQ(extensions.result, vk::Result::eSuccess);
 
 		const bool advertised = std::ranges::any_of(extensions.value,
@@ -926,8 +926,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 		ASSERT_TRUE(native.has_value()) << "a Vulkan device did not hand back its native handles";
@@ -935,8 +935,8 @@ namespace
 		const rhi::Result<rhi::native::VulkanQueueView> view = rhi::get_vulkan_queue_view(device.get_queue(rhi::QueueType::eGraphics));
 		ASSERT_TRUE(view.has_value()) << "a Vulkan graphics queue did not hand back a queue view";
 
-		EXPECT_NE(static_cast<VkQueue>(view.Value().queue), VK_NULL_HANDLE) << "the queue view carries no queue";
-		EXPECT_EQ(view.Value().familyIndex, native.Value().graphicsQueueFamily)
+		EXPECT_NE(static_cast<VkQueue>(view.value().queue), VK_NULL_HANDLE) << "the queue view carries no queue";
+		EXPECT_EQ(view.value().familyIndex, native.value().graphicsQueueFamily)
 			<< "the family index on the queue view disagrees with the one the device reports for its graphics queue";
 	}
 
@@ -961,8 +961,8 @@ namespace
 			GTEST_SKIP() << "no Vulkan device on this machine";
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 		if (device.get_caps().supportsRayTracing)
 		{
 			GTEST_SKIP() << "this Vulkan device reports ray tracing, so the refusal under test no longer applies";
@@ -994,14 +994,14 @@ namespace
 	}
 
 	[[nodiscard]] rhi::Result<rhi::UniqueInstance> CreateConfiguredVulkanInstance(
-		const rhi::native::VulkanInstanceConfig & config, rhi::GraphicsApiId key = rhi::VulkanApi::id)
+		const rhi::native::VulkanInstanceConfig & config, rhi::GraphicsApiId key = rhi::VulkanApi::kId)
 	{
 		rhi::GraphicsApiRegistry registry;
 		if (const auto registered = rhi::register_backend<rhi::VulkanApi>(registry); !registered)
 		{
 			return registered.get_error();
 		}
-		const std::array preferred{ rhi::VulkanApi::id };
+		const std::array preferred{ rhi::VulkanApi::kId };
 		const std::array entries{ rhi::InstanceConfigEntry{ .api = key, .config = &config } };
 		rhi::InstanceDesc desc{};
 		desc.backendConfigs = entries;
@@ -1013,9 +1013,9 @@ namespace
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
 		const auto refused			  = CreateConfiguredVulkanInstance(asking);
-		ASSERT_FALSE(refused.HasValue());
-		EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
-		const auto unrelated = CreateConfiguredVulkanInstance(asking, rhi::MetalApi::id);
+		ASSERT_FALSE(refused.has_value());
+		EXPECT_EQ(refused.get_error().code, rhi::ErrorCode::eUnsupportedFeature);
+		const auto unrelated = CreateConfiguredVulkanInstance(asking, rhi::MetalApi::kId);
 		EXPECT_TRUE(test::Ok(unrelated));
 	}
 
@@ -1025,8 +1025,8 @@ namespace
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.instanceExtensions = kNoSuchExtension;
 		const auto refused		  = CreateConfiguredVulkanInstance(asking);
-		ASSERT_FALSE(refused.HasValue());
-		EXPECT_EQ(refused.GetError().code, rhi::ErrorCode::eUnsupportedFeature);
+		ASSERT_FALSE(refused.has_value());
+		EXPECT_EQ(refused.get_error().code, rhi::ErrorCode::eUnsupportedFeature);
 	}
 
 	TEST_F(VulkanConfigBlock, MalformedInstanceBlocksAreRefused)
@@ -1034,13 +1034,13 @@ namespace
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.header.byteSize = sizeof(rhi::InterfaceHeader);
 		const auto shortBlock  = CreateConfiguredVulkanInstance(asking);
-		ASSERT_FALSE(shortBlock.HasValue());
-		EXPECT_EQ(shortBlock.GetError().code, rhi::ErrorCode::eInvalidArgument);
+		ASSERT_FALSE(shortBlock.has_value());
+		EXPECT_EQ(shortBlock.get_error().code, rhi::ErrorCode::eInvalidArgument);
 		asking					= {};
 		asking.header.version	= 99;
 		const auto wrongVersion = CreateConfiguredVulkanInstance(asking);
-		ASSERT_FALSE(wrongVersion.HasValue());
-		EXPECT_EQ(wrongVersion.GetError().code, rhi::ErrorCode::eInvalidArgument);
+		ASSERT_FALSE(wrongVersion.has_value());
+		EXPECT_EQ(wrongVersion.get_error().code, rhi::ErrorCode::eInvalidArgument);
 	}
 
 	TEST_F(VulkanConfigBlock, InstanceExtensionsAcceptNullAndRepeatedSupportedNames)
@@ -1054,22 +1054,22 @@ namespace
 	TEST_F(VulkanConfigBlock, DefaultDeviceVersionHonorsTheInstanceTarget)
 	{
 		rhi::DeviceBuilder builder;
-		builder.headless().ConfigureInstance<rhi::VulkanApi>(
+		builder.headless().configure_instance<rhi::VulkanApi>(
 			[](auto & config)
 			{
 				config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 };
 			});
 		const auto device = builder.build<rhi::VulkanApi>();
 		ASSERT_TRUE(test::Ok(device));
-		EXPECT_EQ(device.Value().Get().GetCaps().apiVersion.major, 1u);
-		EXPECT_EQ(device.Value().Get().GetCaps().apiVersion.minor, 2u);
+		EXPECT_EQ(device.value().get().get_caps().apiVersion.major, 1u);
+		EXPECT_EQ(device.value().get().get_caps().apiVersion.minor, 2u);
 	}
 
 	TEST_F(VulkanConfigBlock, RegistryBuilderCarriesTheInstanceBlock)
 	{
 		rhi::GraphicsApiRegistry registry;
 		ASSERT_TRUE(test::Ok(rhi::register_backend<rhi::VulkanApi>(registry)));
-		const std::array preferred{ rhi::VulkanApi::id };
+		const std::array preferred{ rhi::VulkanApi::kId };
 		rhi::DeviceBuilder builder;
 		builder.configure_instance<rhi::VulkanApi>(
 			[](auto & config)
@@ -1100,14 +1100,14 @@ namespace
 	{
 		rhi::native::VulkanDeviceConfig asking{};
 		asking.header.version = 1;
-		EXPECT_TRUE(test::Failed(CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, asking), rhi::ErrorCode::eInvalidArgument));
+		EXPECT_TRUE(test::Failed(CreateWith<rhi::VulkanApi>(rhi::VulkanApi::kId, asking), rhi::ErrorCode::eInvalidArgument));
 	}
 
 	TEST_F(VulkanConfigBlock, AnInstanceVersionTheLoaderCannotMeetIsRefused)
 	{
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
-		const std::array entries{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::id, .config = &asking } };
+		const std::array entries{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::kId, .config = &asking } };
 		rhi::DeviceDesc desc{};
 		desc.instanceConfigs = entries;
 		const auto refused	 = rhi::create_device<rhi::VulkanApi>(desc);
@@ -1120,7 +1120,7 @@ namespace
 		static constexpr std::array<const char * const, 1> kNoSuchExtension{ "VK_AZO_not_an_extension" };
 		rhi::native::VulkanInstanceConfig asking{};
 		asking.instanceExtensions = kNoSuchExtension;
-		const std::array entries{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::id, .config = &asking } };
+		const std::array entries{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::kId, .config = &asking } };
 		rhi::DeviceDesc desc{};
 		desc.instanceConfigs = entries;
 		const auto refused	 = rhi::create_device<rhi::VulkanApi>(desc);
@@ -1138,7 +1138,7 @@ namespace
 		rhi::native::VulkanDeviceConfig pastTheAdapter{};
 		pastTheAdapter.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
 
-		const rhi::Result<rhi::UniqueDevice> refused = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, pastTheAdapter);
+		const rhi::Result<rhi::UniqueDevice> refused = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::kId, pastTheAdapter);
 		EXPECT_FALSE(refused.has_value()) << "a device version past what the adapter supports was accepted";
 		if (!refused.has_value())
 		{
@@ -1148,7 +1148,7 @@ namespace
 		rhi::native::VulkanDeviceConfig belowTheFloor{};
 		belowTheFloor.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 1 };
 
-		const rhi::Result<rhi::UniqueDevice> floored = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, belowTheFloor);
+		const rhi::Result<rhi::UniqueDevice> floored = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::kId, belowTheFloor);
 		EXPECT_FALSE(floored.has_value()) << "a device version below the 1.2 floor was accepted";
 	}
 
@@ -1162,7 +1162,7 @@ namespace
 		rhi::native::VulkanDeviceConfig truncated{};
 		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
 
-		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, truncated);
+		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::kId, truncated);
 		EXPECT_FALSE(tooShort.has_value()) << "a block declaring fewer bytes than the backend reads was accepted";
 		if (!tooShort.has_value())
 		{
@@ -1172,7 +1172,7 @@ namespace
 		rhi::native::VulkanDeviceConfig otherVersion{};
 		otherVersion.header.version = 99;
 
-		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, otherVersion);
+		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::kId, otherVersion);
 		EXPECT_FALSE(wrongVersion.has_value()) << "a block of a version this backend was not built against was accepted";
 		if (!wrongVersion.has_value())
 		{
@@ -1192,7 +1192,7 @@ namespace
 		rhi::native::VulkanDeviceConfig asking{};
 		asking.deviceExtensions = kNoSuchExtension;
 
-		const rhi::Result<rhi::UniqueDevice> refused = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::id, asking);
+		const rhi::Result<rhi::UniqueDevice> refused = CreateWith<rhi::VulkanApi>(rhi::VulkanApi::kId, asking);
 		EXPECT_FALSE(refused.has_value()) << "an extension no adapter advertises was accepted, so the block's list is being dropped";
 		if (!refused.has_value())
 		{
@@ -1220,7 +1220,7 @@ namespace
 		rhi::native::MetalDeviceConfig pinnedToFour{};
 		pinnedToFour.generation = rhi::ApiVersion{ .major = 4, .minor = 0 };
 
-		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, pinnedToFour);
+		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::MetalApi::kId, pinnedToFour);
 		EXPECT_FALSE(three.has_value()) << "Metal 3 accepted a block pinning it to a generation it is not";
 		if (!three.has_value())
 		{
@@ -1233,7 +1233,7 @@ namespace
 		rhi::native::Metal4DeviceConfig pinnedToThree{};
 		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
 
-		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::Metal4Api::id, pinnedToThree);
+		const rhi::Result<rhi::UniqueDevice> three = CreateWith<rhi::MetalApi>(rhi::Metal4Api::kId, pinnedToThree);
 		EXPECT_TRUE(three.has_value()) << "Metal 3 read a block keyed to Metal 4, so the entry is not matched on its api field";
 	}
 
@@ -1242,7 +1242,7 @@ namespace
 		rhi::native::MetalDeviceConfig truncated{};
 		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
 
-		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, truncated);
+		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::MetalApi>(rhi::MetalApi::kId, truncated);
 		EXPECT_FALSE(tooShort.has_value()) << "a block declaring fewer bytes than the backend reads was accepted";
 		if (!tooShort.has_value())
 		{
@@ -1252,7 +1252,7 @@ namespace
 		rhi::native::MetalDeviceConfig otherVersion{};
 		otherVersion.header.version = 99;
 
-		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::MetalApi>(rhi::MetalApi::id, otherVersion);
+		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::MetalApi>(rhi::MetalApi::kId, otherVersion);
 		EXPECT_FALSE(wrongVersion.has_value()) << "a block of a version this backend was not built against was accepted";
 		if (!wrongVersion.has_value())
 		{
@@ -1268,8 +1268,8 @@ namespace
 			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(created.get_error());
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::MetalNativeDevice> native = rhi::get_metal_native_device(device);
 		ASSERT_TRUE(native.has_value()) << "a Metal 3 device did not hand back its native handles";
@@ -1278,15 +1278,15 @@ namespace
 		{
 			const rhi::Result<rhi::native::MetalQueueView> view = rhi::get_metal_queue_view(device.get_queue(type));
 			ASSERT_TRUE(view.has_value()) << "a Metal 3 queue did not hand back a queue view";
-			EXPECT_NE(view.Value().queue, nullptr) << "the queue view carries no command queue";
+			EXPECT_NE(view.value().queue, nullptr) << "the queue view carries no command queue";
 
 			if (type == rhi::QueueType::eGraphics)
 			{
-				EXPECT_EQ(view.Value().queue, native.Value().queue) << "the graphics queue view disagrees with the queue the device reports";
+				EXPECT_EQ(view.value().queue, native.value().queue) << "the graphics queue view disagrees with the queue the device reports";
 			}
 			else
 			{
-				EXPECT_NE(view.Value().queue, native.Value().queue) << "a queue of another type answered with the graphics queue";
+				EXPECT_NE(view.value().queue, native.value().queue) << "a queue of another type answered with the graphics queue";
 			}
 		}
 	}
@@ -1299,8 +1299,8 @@ namespace
 			GTEST_SKIP() << "no Metal 3 device on this machine: " << test::Describe(created.get_error());
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		rhi::Error error{};
 		const rhi::HeapHandle heap = device.create_heap(test::samples::GpuHeap(), error);
@@ -1364,7 +1364,7 @@ namespace
 		rhi::native::Metal4DeviceConfig pinnedToThree{};
 		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
 
-		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, pinnedToThree);
+		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::kId, pinnedToThree);
 		EXPECT_FALSE(four.has_value()) << "Metal 4 accepted a block pinning it to a generation it is not";
 		if (!four.has_value())
 		{
@@ -1385,7 +1385,7 @@ namespace
 		rhi::native::MetalDeviceConfig pinnedToThree{};
 		pinnedToThree.generation = rhi::ApiVersion{ .major = 3, .minor = 0 };
 
-		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::MetalApi::id, pinnedToThree);
+		const rhi::Result<rhi::UniqueDevice> four = CreateWith<rhi::Metal4Api>(rhi::MetalApi::kId, pinnedToThree);
 		EXPECT_TRUE(four.has_value()) << "Metal 4 read a block keyed to Metal 3, so the entry is not matched on its api field";
 	}
 
@@ -1394,7 +1394,7 @@ namespace
 		rhi::native::Metal4DeviceConfig truncated{};
 		truncated.header.byteSize = sizeof(rhi::InterfaceHeader);
 
-		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, truncated);
+		const rhi::Result<rhi::UniqueDevice> tooShort = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::kId, truncated);
 		EXPECT_FALSE(tooShort.has_value()) << "a block declaring fewer bytes than the backend reads was accepted";
 		if (!tooShort.has_value())
 		{
@@ -1404,7 +1404,7 @@ namespace
 		rhi::native::Metal4DeviceConfig otherVersion{};
 		otherVersion.header.version = 99;
 
-		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::id, otherVersion);
+		const rhi::Result<rhi::UniqueDevice> wrongVersion = CreateWith<rhi::Metal4Api>(rhi::Metal4Api::kId, otherVersion);
 		EXPECT_FALSE(wrongVersion.has_value()) << "a block of a version this backend was not built against was accepted";
 		if (!wrongVersion.has_value())
 		{
@@ -1420,8 +1420,8 @@ namespace
 			GTEST_SKIP() << "no Metal 4 device on this machine: " << test::Describe(created.get_error());
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
 		const rhi::Result<rhi::Metal4NativeDevice> native = rhi::get_metal4_native_device(device);
 		ASSERT_TRUE(native.has_value()) << "a Metal 4 device did not hand back its native handles";
@@ -1430,15 +1430,15 @@ namespace
 		{
 			const rhi::Result<rhi::native::Metal4QueueView> view = rhi::get_metal4_queue_view(device.get_queue(type));
 			ASSERT_TRUE(view.has_value()) << "a Metal 4 queue did not hand back a queue view";
-			EXPECT_NE(view.Value().queue, nullptr) << "the queue view carries no command queue";
+			EXPECT_NE(view.value().queue, nullptr) << "the queue view carries no command queue";
 
 			if (type == rhi::QueueType::eGraphics)
 			{
-				EXPECT_EQ(view.Value().queue, native.Value().queue) << "the graphics queue view disagrees with the queue the device reports";
+				EXPECT_EQ(view.value().queue, native.value().queue) << "the graphics queue view disagrees with the queue the device reports";
 			}
 			else
 			{
-				EXPECT_NE(view.Value().queue, native.Value().queue) << "a queue of another type answered with the graphics queue";
+				EXPECT_NE(view.value().queue, native.value().queue) << "a queue of another type answered with the graphics queue";
 			}
 		}
 	}
@@ -1463,27 +1463,27 @@ namespace
 	TEST(D3D12Adoption, EveryQueueTypeExposesItsCommandQueueThroughTheNativePath)
 	{
 		rhi::Result<rhi::UniqueDevice> created = MakeDevice<rhi::D3D12Api>();
-		if (!created.HasValue())
+		if (!created.has_value())
 		{
-			GTEST_SKIP() << "no D3D12 device on this machine: " << test::Describe(created.GetError());
+			GTEST_SKIP() << "no D3D12 device on this machine: " << test::Describe(created.get_error());
 		}
 
-		rhi::UniqueDevice owned = std::move(created).Value();
-		rhi::Device device		= owned.Get();
+		rhi::UniqueDevice owned = std::move(created).value();
+		rhi::Device device		= owned.get();
 
-		const rhi::Result<rhi::D3D12NativeDevice> native = rhi::GetD3D12NativeDevice(device);
-		ASSERT_TRUE(native.HasValue()) << "a D3D12 device did not hand back its native handles";
+		const rhi::Result<rhi::D3D12NativeDevice> native = rhi::get_d3d12_native_device(device);
+		ASSERT_TRUE(native.has_value()) << "a D3D12 device did not hand back its native handles";
 
-		const std::array expected{ std::pair{ rhi::QueueType::eGraphics, native.Value().graphicsQueue },
-			std::pair{ rhi::QueueType::eCompute, native.Value().computeQueue },
-			std::pair{ rhi::QueueType::eCopy, native.Value().copyQueue } };
+		const std::array expected{ std::pair{ rhi::QueueType::eGraphics, native.value().graphicsQueue },
+			std::pair{ rhi::QueueType::eCompute, native.value().computeQueue },
+			std::pair{ rhi::QueueType::eCopy, native.value().copyQueue } };
 
 		for (const auto [type, reported] : expected)
 		{
-			const rhi::Result<rhi::native::D3D12QueueView> view = rhi::GetD3D12QueueView(device.GetQueue(type));
-			ASSERT_TRUE(view.HasValue()) << "a D3D12 queue did not hand back a queue view";
-			EXPECT_NE(view.Value().queue, nullptr) << "the queue view carries no command queue";
-			EXPECT_EQ(view.Value().queue, reported) << "the queue view disagrees with the queue the device reports for this type";
+			const rhi::Result<rhi::native::D3D12QueueView> view = rhi::get_d3d12_queue_view(device.get_queue(type));
+			ASSERT_TRUE(view.has_value()) << "a D3D12 queue did not hand back a queue view";
+			EXPECT_NE(view.value().queue, nullptr) << "the queue view carries no command queue";
+			EXPECT_EQ(view.value().queue, reported) << "the queue view disagrees with the queue the device reports for this type";
 		}
 	}
 
@@ -1496,8 +1496,9 @@ namespace
 			},
 			[](rhi::CommandList list)
 			{
-				return rhi::GetD3D12CommandList(list);
-			});
+				return rhi::get_d3d12_command_list(list);
+			}
+		);
 	}
 
 #endif

@@ -14,7 +14,7 @@
 
 # A facade's impl pointer is whatever the layer above the backend put there, which with validation on
 # is a wrapper and not the backend's own object. Casting it straight across reads a wrapper's
-# fields as a device's and because ImplOf hands back void, the compiler has nothing to say about it.
+# fields as a device's and because impl_of hands back void, the compiler has nothing to say about it.
 #
 # A native handle accessor doing that hands back an object that was never one and nothing fails
 # until a driver dereferences it several calls later. This is what makes that unspellable rather
@@ -22,8 +22,8 @@
 #
 # Two spellings are allowed and both say which question they are answering:
 #
-#   NativeImplOf     resolve through whatever is in front, for the native handle accessors
-#   UnwrappedImplOf  the caller already knows there is nothing in front, for the submit entries
+#   native_impl_of     resolve through whatever is in front, for the native handle accessors
+#   unwrapped_impl_of  the caller already knows there is nothing in front, for the submit entries
 #
 #     cmake -DAZOTH_RHI_SOURCE_ROOT=<repo> -P cmake/azoth_rhi_impl_casts.cmake
 
@@ -64,15 +64,15 @@ foreach(_file IN LISTS _files)
 
     file(STRINGS "${_file}" _lines REGEX "static_cast[ \t]*<")
     foreach(_line IN LISTS _lines)
-        # commandListImpl is the second way a facade's impl reaches a cast: MakeCommandListView is handed one
-        # by ModifyNative rather than calling ImplOf itself, so keying only on the call above left the whole
+        # commandListImpl is the second way a facade's impl reaches a cast: make_command_list_view is handed one
+        # by modify_native rather than calling impl_of itself, so keying only on the call above left the whole
         # native view customization point outside the gate, which is where it went wrong once.
-        if(NOT _line MATCHES "FacadeBuilder::ImplOf|commandListImpl")
+        if(NOT _line MATCHES "FacadeBuilder::impl_of|commandListImpl")
             continue()
         endif()
 
         # Either named resolution is what makes the cast answerable so a line carrying one is fine.
-        if(_line MATCHES "NativeImplOf|UnwrappedImplOf")
+        if(_line MATCHES "native_impl_of|unwrapped_impl_of")
             continue()
         endif()
 
@@ -88,7 +88,7 @@ if(_violations)
     message(FATAL_ERROR
             "AzothRHI impl cast violated: a facade's impl pointer was cast without saying what is in front of it.\n"
             "With validation on that pointer is a layer, not the backend's object, and the cast reads the layer's "
-            "fields as the backend's.\nUse detail::NativeImplOf to resolve through whatever is there, or "
-            "detail::UnwrappedImplOf where the caller already knows there is nothing.\n\n${_report}\n")
+            "fields as the backend's.\nUse detail::native_impl_of to resolve through whatever is there, or "
+            "detail::unwrapped_impl_of where the caller already knows there is nothing.\n\n${_report}\n")
 endif()
 message(STATUS "AzothRHI: impl casts OK, ${_scanned} files scanned, none cast a facade's impl without resolving it.")

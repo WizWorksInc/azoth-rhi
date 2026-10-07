@@ -53,7 +53,7 @@ namespace
 		EXPECT_TRUE(test::Ok(ring.is_valid(), error));
 		EXPECT_EQ(ring.frames_in_flight(), 3u);
 		EXPECT_EQ(ring.frame_index(), 0u);
-		EXPECT_TRUE(ring.Timeline().IsValid());
+		EXPECT_TRUE(ring.timeline().is_valid());
 	}
 
 	TEST_P(FrameRingTest, RefusesADepthOutsideWhatItCanHold)
@@ -77,7 +77,7 @@ namespace
 		ASSERT_FALSE(ring.is_valid());
 
 		rhi::Error error{};
-		const rhi::CommandList list = ring.Begin(error);
+		const rhi::CommandList list = ring.begin(error);
 
 		EXPECT_FALSE(list.is_valid());
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
@@ -101,7 +101,7 @@ namespace
 
 		rhi::Error begun{};
 		// NOLINTNEXTLINE(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
-		const rhi::CommandList list = source.Begin(begun);
+		const rhi::CommandList list = source.begin(begun);
 		EXPECT_FALSE(list.is_valid());
 		EXPECT_NE(begun.code, rhi::ErrorCode::eOk);
 	}
@@ -117,20 +117,20 @@ namespace
 
 		for (std::uint64_t frame = 1; frame <= 5; ++frame)
 		{
-			rhi::CommandList list = ring.Begin(error);
+			rhi::CommandList list = ring.begin(error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "frame " << frame;
 
 			EXPECT_EQ(ring.frame_index(), frame);
 			EXPECT_EQ(ring.slot_index(), frame % kDepth);
-			EXPECT_EQ(ring.Signal().value, frame);
+			EXPECT_EQ(ring.signal().value, frame);
 			EXPECT_EQ(ring.retire().value, frame);
-			EXPECT_TRUE(ring.Signal().timeline == ring.Timeline());
+			EXPECT_TRUE(ring.signal().timeline == ring.timeline());
 
-			ASSERT_TRUE(test::Ok(list.Begin(error), error));
-			ASSERT_TRUE(test::Ok(list.End(error), error));
+			ASSERT_TRUE(test::Ok(list.begin(error), error));
+			ASSERT_TRUE(test::Ok(list.end(error), error));
 
 			std::array<const rhi::CommandList *, 1> lists{ &list };
-			const std::array signals{ ring.Signal() };
+			const std::array signals{ ring.signal() };
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error));
 		}
 
@@ -146,7 +146,7 @@ namespace
 		{
 			const rhi::FrameRing ring = rhi::FrameRing::create(Dev(), queue, rhi::FrameRingDesc{ .framesInFlight = 2 }, error);
 			ASSERT_TRUE(test::Ok(ring.is_valid(), error));
-			timeline = ring.Timeline();
+			timeline = ring.timeline();
 		}
 
 		if (test::kValidatesHandles)
@@ -169,13 +169,13 @@ namespace
 		rhi::FrameRing ring = rhi::FrameRing::create(Dev(), queue, rhi::FrameRingDesc{ .framesInFlight = 1 }, error);
 		ASSERT_TRUE(test::Ok(ring.is_valid(), error));
 
-		const rhi::CommandList dropped = ring.Begin(error);
+		const rhi::CommandList dropped = ring.begin(error);
 		ASSERT_TRUE(test::Ok(dropped.is_valid(), error));
 
 		constexpr std::uint64_t kTenMilliseconds = 10'000'000;
 
 		rhi::Error waited{};
-		const rhi::CommandList list = ring.Begin(kTenMilliseconds, waited);
+		const rhi::CommandList list = ring.begin(kTenMilliseconds, waited);
 
 		EXPECT_FALSE(list.is_valid());
 		EXPECT_NE(waited.code, rhi::ErrorCode::eOk);
@@ -189,11 +189,11 @@ namespace
 		rhi::FrameRing ring = rhi::FrameRing::create(Dev(), queue, rhi::FrameRingDesc{ .framesInFlight = 1 }, error);
 		ASSERT_TRUE(test::Ok(ring.is_valid(), error));
 
-		rhi::CommandList list = ring.Begin(error);
+		rhi::CommandList list = ring.begin(error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(list.Begin(error), error));
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.begin(error), error));
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 	}
 
 }

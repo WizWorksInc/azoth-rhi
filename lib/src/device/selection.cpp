@@ -83,7 +83,7 @@ namespace azo::rhi
 #endif
 
 #ifdef AZOTH_RHI_BACKEND_D3D12
-			table.add(make_backend_entry<D3D12Api>(&register_d3_d12_backend));
+			table.add(make_backend_entry<D3D12Api>(&register_d3d12_backend));
 #endif
 
 #ifdef AZOTH_RHI_BACKEND_VULKAN

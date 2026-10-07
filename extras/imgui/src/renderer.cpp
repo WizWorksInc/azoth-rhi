@@ -102,7 +102,7 @@ namespace azo::rhi::imgui
 			stages[1].stage = ShaderStage::eFragment;
 
 #ifdef AZOTH_RHI_IMGUI_HAVE_SPIRV
-			if (api == VulkanApi::id)
+			if (api == VulkanApi::kId)
 			{
 				stages[0].format = ShaderBinaryFormat::eSpirV;
 				stages[0].data	 = shaders::kImgui_vertex_spirv;
@@ -129,7 +129,7 @@ namespace azo::rhi::imgui
 			}
 #endif
 #ifdef AZOTH_RHI_IMGUI_HAVE_METALLIB
-			if (IsMetalFamily(api))
+			if (is_metal_family(api))
 			{
 				stages[0].format = ShaderBinaryFormat::eBackendNative;
 				stages[0].data	 = shaders::kImgui_vertex_metallib;
@@ -149,12 +149,12 @@ namespace azo::rhi::imgui
 
 	Result<Renderer> Renderer::Create(Device & device, const RendererDesc & desc) noexcept
 	{
-		if (!device.IsValid())
+		if (!device.is_valid())
 		{
 			return Error{ .code = ErrorCode::eInvalidArgument, .message = "the ImGui renderer needs a valid device" };
 		}
 
-		if (desc.arena == nullptr || !desc.arena->IsValid())
+		if (desc.arena == nullptr || !desc.arena->is_valid())
 		{
 			return Error{ .code = ErrorCode::eInvalidArgument, .message = "the ImGui renderer needs a descriptor arena to allocate its sets from" };
 		}
@@ -169,7 +169,7 @@ namespace azo::rhi::imgui
 		renderer.m_arena  = desc.arena;
 		renderer.m_frames.resize(std::max(desc.framesInFlight, 1u));
 
-		const std::uint64_t reported = device.GetCaps().optimalBufferCopyOffsetAlignment;
+		const std::uint64_t reported = device.get_caps().optimalBufferCopyOffsetAlignment;
 		renderer.m_copyAlignment	 = reported != 0 ? reported : kFallbackCopyAlignment;
 		renderer.m_srgbTarget		 = IsSrgb(desc.colorFormat);
 
@@ -248,7 +248,7 @@ namespace azo::rhi::imgui
 
 	void Renderer::Release() noexcept
 	{
-		if (!m_device.IsValid())
+		if (!m_device.is_valid())
 		{
 			Clear();
 			return;
@@ -258,8 +258,8 @@ namespace azo::rhi::imgui
 		{
 			if (texture.owned)
 			{
-				static_cast<void>(m_device.Destroy(texture.view));
-				static_cast<void>(m_device.Destroy(texture.texture));
+				static_cast<void>(m_device.destroy(texture.view));
+				static_cast<void>(m_device.destroy(texture.texture));
 			}
 		}
 
@@ -267,8 +267,8 @@ namespace azo::rhi::imgui
 		{
 			if (texture.owned)
 			{
-				static_cast<void>(m_device.Destroy(texture.view));
-				static_cast<void>(m_device.Destroy(texture.texture));
+				static_cast<void>(m_device.destroy(texture.view));
+				static_cast<void>(m_device.destroy(texture.texture));
 			}
 		}
 
@@ -276,40 +276,40 @@ namespace azo::rhi::imgui
 		{
 			if (frame.vertexData != nullptr)
 			{
-				static_cast<void>(m_device.Unmap(frame.vertices));
+				static_cast<void>(m_device.unmap(frame.vertices));
 			}
 			if (frame.indexData != nullptr)
 			{
-				static_cast<void>(m_device.Unmap(frame.indices));
+				static_cast<void>(m_device.unmap(frame.indices));
 			}
 			if (frame.staging.data != nullptr)
 			{
-				static_cast<void>(m_device.Unmap(frame.staging.buffer));
+				static_cast<void>(m_device.unmap(frame.staging.buffer));
 			}
 
-			static_cast<void>(m_device.Destroy(frame.vertices));
-			static_cast<void>(m_device.Destroy(frame.indices));
-			static_cast<void>(m_device.Destroy(frame.staging.buffer));
+			static_cast<void>(m_device.destroy(frame.vertices));
+			static_cast<void>(m_device.destroy(frame.indices));
+			static_cast<void>(m_device.destroy(frame.staging.buffer));
 		}
 
-		static_cast<void>(m_device.Destroy(m_pipeline));
-		static_cast<void>(m_device.Destroy(m_pipelineLayout));
-		static_cast<void>(m_device.Destroy(m_setLayout));
-		static_cast<void>(m_device.Destroy(m_sampler));
+		static_cast<void>(m_device.destroy(m_pipeline));
+		static_cast<void>(m_device.destroy(m_pipelineLayout));
+		static_cast<void>(m_device.destroy(m_setLayout));
+		static_cast<void>(m_device.destroy(m_sampler));
 
 		Clear();
 	}
 
 	bool Renderer::CreatePipeline(const RendererDesc & desc, Error & error) noexcept
 	{
-		const std::array<ShaderBinary, 2> stages = ShadersFor(m_device.GetGraphicsApiId());
+		const std::array<ShaderBinary, 2> stages = ShadersFor(m_device.get_graphics_api_id());
 		if (stages[0].data == nullptr || stages[1].data == nullptr)
 		{
 			error = Error{ .code = ErrorCode::eUnsupportedFeature, .message = "azoth::rhi-imgui was not compiled with a shader for this backend" };
 			return false;
 		}
 
-		m_sampler = m_device.CreateSampler(
+		m_sampler = m_device.create_sampler(
 			SamplerDesc{
 				.addressU  = AddressMode::eClampToEdge,
 				.addressV  = AddressMode::eClampToEdge,
@@ -323,13 +323,13 @@ namespace azo::rhi::imgui
 			DescriptorBinding{ .binding = kSamplerBinding, .type = DescriptorType::eSampler, .stages = ShaderStage::eFragment },
 		};
 
-		m_setLayout = m_device.CreateDescriptorSetLayout(DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = desc.debugName }, error);
+		m_setLayout = m_device.create_descriptor_set_layout(DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = desc.debugName }, error);
 
 		const std::array sets{ m_setLayout };
 		const std::array pushConstants{ PushConstantRange{ .stages = kTransformStages, .offset = 0, .size = sizeof(Transform) } };
 
 		m_pipelineLayout =
-			m_device.CreatePipelineLayout(PipelineLayoutDesc{ .sets = sets, .pushConstants = pushConstants, .debugName = desc.debugName }, error);
+			m_device.create_pipeline_layout(PipelineLayoutDesc{ .sets = sets, .pushConstants = pushConstants, .debugName = desc.debugName }, error);
 
 		const std::array vertexBindings{ VertexBindingDesc{ .binding = 0, .stride = sizeof(ImDrawVert) } };
 
@@ -357,7 +357,7 @@ namespace azo::rhi::imgui
 		renderTarget.colorFormats[0]  = desc.colorFormat;
 		renderTarget.colorFormatCount = 1;
 
-		m_pipeline = m_device.CreateGraphicsPipeline(
+		m_pipeline = m_device.create_graphics_pipeline(
 			GraphicsPipelineDesc{
 				.layout		   = m_pipelineLayout,
 				.shaders	   = stages,
@@ -372,13 +372,13 @@ namespace azo::rhi::imgui
 			},
 			error);
 
-		return m_sampler.IsValid() && m_setLayout.IsValid() && m_pipelineLayout.IsValid() && m_pipeline.IsValid();
+		return m_sampler.is_valid() && m_setLayout.is_valid() && m_pipelineLayout.is_valid() && m_pipeline.is_valid();
 	}
 
 	DescriptorSetHandle Renderer::AllocateSet(const TextureViewHandle view, Error & error) noexcept
 	{
-		const DescriptorSetHandle set = m_arena->Allocate(DescriptorSetAllocDesc{ .layout = m_setLayout }, error);
-		if (!set.IsValid())
+		const DescriptorSetHandle set = m_arena->allocate(DescriptorSetAllocDesc{ .layout = m_setLayout }, error);
+		if (!set.is_valid())
 		{
 			return {};
 		}
@@ -386,7 +386,7 @@ namespace azo::rhi::imgui
 		const std::array textureWrites{ DescriptorWriteTexture{ .set = set, .binding = kImageBinding, .type = DescriptorType::eTextureSRV, .view = view } };
 		const std::array samplerWrites{ DescriptorWriteSampler{ .set = set, .binding = kSamplerBinding, .sampler = m_sampler } };
 
-		if (!m_device.UpdateDescriptors(std::span{ textureWrites }, error) || !m_device.UpdateDescriptors(std::span{ samplerWrites }, error))
+		if (!m_device.update_descriptors(std::span{ textureWrites }, error) || !m_device.update_descriptors(std::span{ samplerWrites }, error))
 		{
 			return {};
 		}
@@ -398,7 +398,7 @@ namespace azo::rhi::imgui
 	{
 		error = {};
 
-		if (!view.IsValid() || !IsValid())
+		if (!view.is_valid() || !IsValid())
 		{
 			error = Error{ .code = ErrorCode::eInvalidArgument, .message = "RegisterTexture needs a valid view and a created renderer" };
 			return ImTextureID_Invalid;
@@ -411,7 +411,7 @@ namespace azo::rhi::imgui
 		}
 
 		const DescriptorSetHandle set = AllocateSet(view, error);
-		if (!set.IsValid())
+		if (!set.is_valid())
 		{
 			return ImTextureID_Invalid;
 		}
@@ -439,7 +439,7 @@ namespace azo::rhi::imgui
 	{
 		error = {};
 
-		if (!m_device.IsValid())
+		if (!m_device.is_valid())
 		{
 			return true;
 		}
@@ -451,8 +451,8 @@ namespace azo::rhi::imgui
 		{
 			if (texture.owned)
 			{
-				ok = m_device.Destroy(texture.view, destroy, error) && ok;
-				ok = m_device.Destroy(texture.texture, destroy, error) && ok;
+				ok = m_device.destroy(texture.view, destroy, error) && ok;
+				ok = m_device.destroy(texture.texture, destroy, error) && ok;
 			}
 		}
 
@@ -514,15 +514,15 @@ namespace azo::rhi::imgui
 		{
 			if (frame.staging.data != nullptr)
 			{
-				static_cast<void>(m_device.Unmap(frame.staging.buffer));
+				static_cast<void>(m_device.unmap(frame.staging.buffer));
 			}
 
-			static_cast<void>(m_device.Destroy(frame.staging.buffer));
+			static_cast<void>(m_device.destroy(frame.staging.buffer));
 			frame.staging = Staging{};
 
 			const std::uint64_t want = required + (required / 2);
 
-			frame.staging.buffer = m_device.CreateBuffer(
+			frame.staging.buffer = m_device.create_buffer(
 				BufferDesc{
 					.size	   = want,
 					.usage	   = BufferUsage::eCopySrc,
@@ -532,7 +532,7 @@ namespace azo::rhi::imgui
 				error);
 
 			const MappedMemory mapped =
-				frame.staging.buffer.IsValid() ? m_device.Map(frame.staging.buffer, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
+				frame.staging.buffer.is_valid() ? m_device.map(frame.staging.buffer, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
 
 			if (mapped.data == nullptr)
 			{
@@ -571,7 +571,7 @@ namespace azo::rhi::imgui
 
 		Texture texture{ .owned = true };
 
-		texture.texture = m_device.CreateTexture(
+		texture.texture = m_device.create_texture(
 			TextureDesc{
 				.format	   = Format::eRGBA8UNorm,
 				.width	   = width,
@@ -581,19 +581,19 @@ namespace azo::rhi::imgui
 			},
 			error);
 
-		texture.view = m_device.CreateTextureView(texture.texture, TextureViewDesc{ .debugName = "imgui.textureView" }, error);
-		if (!texture.texture.IsValid() || !texture.view.IsValid())
+		texture.view = m_device.create_texture_view(texture.texture, TextureViewDesc{ .debugName = "imgui.textureView" }, error);
+		if (!texture.texture.is_valid() || !texture.view.is_valid())
 		{
-			static_cast<void>(m_device.Destroy(texture.view));
-			static_cast<void>(m_device.Destroy(texture.texture));
+			static_cast<void>(m_device.destroy(texture.view));
+			static_cast<void>(m_device.destroy(texture.texture));
 			return false;
 		}
 
 		texture.set = AllocateSet(texture.view, error);
-		if (!texture.set.IsValid())
+		if (!texture.set.is_valid())
 		{
-			static_cast<void>(m_device.Destroy(texture.view));
-			static_cast<void>(m_device.Destroy(texture.texture));
+			static_cast<void>(m_device.destroy(texture.view));
+			static_cast<void>(m_device.destroy(texture.texture));
 			return false;
 		}
 
@@ -603,8 +603,8 @@ namespace azo::rhi::imgui
 		std::uint8_t * staged = StageBytes(frameSlot, bytes, offset, error);
 		if (staged == nullptr)
 		{
-			static_cast<void>(m_device.Destroy(texture.view));
-			static_cast<void>(m_device.Destroy(texture.texture));
+			static_cast<void>(m_device.destroy(texture.view));
+			static_cast<void>(m_device.destroy(texture.texture));
 			return false;
 		}
 
@@ -644,12 +644,12 @@ namespace azo::rhi::imgui
 
 		const std::array regions{ BufferTextureCopy{ .bufferOffset = offset, .textureExtent = { .width = width, .height = height } } };
 
-		if (!list.Barriers(BarrierBatch{ .textures = toCopyDst }, error) ||
-			!list.CopyBufferToTexture(texture.texture, m_frames[frameSlot % m_frames.size()].staging.buffer, regions, error) ||
-			!list.Barriers(BarrierBatch{ .textures = toSample }, error))
+		if (!list.barriers(BarrierBatch{ .textures = toCopyDst }, error) ||
+			!list.copy_buffer_to_texture(texture.texture, m_frames[frameSlot % m_frames.size()].staging.buffer, regions, error) ||
+			!list.barriers(BarrierBatch{ .textures = toSample }, error))
 		{
-			static_cast<void>(m_device.Destroy(texture.view));
-			static_cast<void>(m_device.Destroy(texture.texture));
+			static_cast<void>(m_device.destroy(texture.view));
+			static_cast<void>(m_device.destroy(texture.texture));
 			return false;
 		}
 
@@ -735,9 +735,9 @@ namespace azo::rhi::imgui
 			},
 		};
 
-		if (!list.Barriers(BarrierBatch{ .textures = toCopyDst }, error) ||
-			!list.CopyBufferToTexture(found->texture, m_frames[frameSlot % m_frames.size()].staging.buffer, regions, error) ||
-			!list.Barriers(BarrierBatch{ .textures = toSample }, error))
+		if (!list.barriers(BarrierBatch{ .textures = toCopyDst }, error) ||
+			!list.copy_buffer_to_texture(found->texture, m_frames[frameSlot % m_frames.size()].staging.buffer, regions, error) ||
+			!list.barriers(BarrierBatch{ .textures = toSample }, error))
 		{
 			return false;
 		}
@@ -774,22 +774,22 @@ namespace azo::rhi::imgui
 
 		if (frame.vertexData != nullptr)
 		{
-			static_cast<void>(m_device.Unmap(frame.vertices));
+			static_cast<void>(m_device.unmap(frame.vertices));
 		}
 		if (frame.indexData != nullptr)
 		{
-			static_cast<void>(m_device.Unmap(frame.indices));
+			static_cast<void>(m_device.unmap(frame.indices));
 		}
 
-		static_cast<void>(m_device.Destroy(frame.vertices));
-		static_cast<void>(m_device.Destroy(frame.indices));
+		static_cast<void>(m_device.destroy(frame.vertices));
+		static_cast<void>(m_device.destroy(frame.indices));
 
 		frame.vertices	 = {};
 		frame.indices	 = {};
 		frame.vertexData = nullptr;
 		frame.indexData	 = nullptr;
 
-		frame.vertices = m_device.CreateBuffer(
+		frame.vertices = m_device.create_buffer(
 			BufferDesc{
 				.size	   = wantVertices,
 				.stride	   = sizeof(ImDrawVert),
@@ -799,7 +799,7 @@ namespace azo::rhi::imgui
 			},
 			error);
 
-		frame.indices = m_device.CreateBuffer(
+		frame.indices = m_device.create_buffer(
 			BufferDesc{
 				.size	   = wantIndices,
 				.stride	   = sizeof(ImDrawIdx),
@@ -809,8 +809,8 @@ namespace azo::rhi::imgui
 			},
 			error);
 
-		const MappedMemory vertexMap = frame.vertices.IsValid() ? m_device.Map(frame.vertices, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
-		const MappedMemory indexMap	 = frame.indices.IsValid() ? m_device.Map(frame.indices, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
+		const MappedMemory vertexMap = frame.vertices.is_valid() ? m_device.map(frame.vertices, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
+		const MappedMemory indexMap	 = frame.indices.is_valid() ? m_device.map(frame.indices, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
 
 		if (vertexMap.data == nullptr || indexMap.data == nullptr)
 		{
@@ -879,10 +879,10 @@ namespace azo::rhi::imgui
 
 		const Viewport viewport{ .width = static_cast<float>(targetWidth), .height = static_cast<float>(targetHeight) };
 
-		bool recorded = list.SetGraphicsPipeline(m_pipeline, error) && list.SetViewport(viewport, error) &&
-						list.PushConstants(m_pipelineLayout, kTransformStages, 0, sizeof(transform), &transform, error) &&
-						list.SetVertexBuffer(0, frame.vertices, 0, error) &&
-						list.SetIndexBuffer(frame.indices, 0, sizeof(ImDrawIdx) == sizeof(std::uint32_t), error);
+		bool recorded = list.set_graphics_pipeline(m_pipeline, error) && list.set_viewport(viewport, error) &&
+						list.push_constants(m_pipelineLayout, kTransformStages, 0, sizeof(transform), &transform, error) &&
+						list.set_vertex_buffer(0, frame.vertices, 0, error) &&
+						list.set_index_buffer(frame.indices, 0, sizeof(ImDrawIdx) == sizeof(std::uint32_t), error);
 
 		DescriptorSetHandle bound{};
 
@@ -917,9 +917,9 @@ namespace azo::rhi::imgui
 					continue;
 				}
 
-				if (const DescriptorSetHandle set = UnpackSet(command.GetTexID()); set.IsValid() && set != bound)
+				if (const DescriptorSetHandle set = UnpackSet(command.GetTexID()); set.is_valid() && set != bound)
 				{
-					recorded = list.BindDescriptorSet(m_pipelineLayout, kTextureSet, set, {}, error);
+					recorded = list.bind_descriptor_set(m_pipelineLayout, kTextureSet, set, {}, error);
 					bound	 = set;
 				}
 
@@ -931,8 +931,8 @@ namespace azo::rhi::imgui
 				};
 
 				recorded =
-					recorded && list.SetScissor(scissor, error) &&
-					list.DrawIndexed(command.ElemCount, 1, indexBase + command.IdxOffset, vertexBase + static_cast<std::int32_t>(command.VtxOffset), 0, error);
+					recorded && list.set_scissor(scissor, error) &&
+					list.draw_indexed(command.ElemCount, 1, indexBase + command.IdxOffset, vertexBase + static_cast<std::int32_t>(command.VtxOffset), 0, error);
 			}
 
 			vertexBase += cmdList->VtxBuffer.Size;

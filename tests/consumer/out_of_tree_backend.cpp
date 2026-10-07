@@ -32,9 +32,9 @@ namespace
 
 	struct ConsumerApi final : azo::rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "consumer.rhi.outoftree";
-		static constexpr std::string_view displayName	= "Out Of Tree Consumer";
-		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::MakeGraphicsApiId(canonicalName);
+		static constexpr std::string_view kCanonicalName = "consumer.rhi.outoftree";
+		static constexpr std::string_view kDisplayName	= "Out Of Tree Consumer";
+		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<ConsumerApi>);
@@ -61,7 +61,7 @@ namespace
 		g_table					 = azo::rhi::InstanceApi{};
 		g_table.getGraphicsApiId = [](void *) noexcept
 		{
-			return ConsumerApi::id;
+			return ConsumerApi::kId;
 		};
 		g_table.enumerateAdapters = [](void *, std::span<azo::rhi::AdapterInfo>, std::uint32_t *, azo::rhi::Error *) noexcept
 		{
@@ -77,8 +77,8 @@ namespace
 		};
 
 		azo::rhi::BackendCreateInfo info{};
-		info.info.canonicalName = ConsumerApi::canonicalName;
-		info.info.displayName	= ConsumerApi::displayName;
+		info.info.canonicalName = ConsumerApi::kCanonicalName;
+		info.info.displayName	= ConsumerApi::kDisplayName;
 		info.createInstance		= [](const void *, azo::rhi::Error *) noexcept
 		{
 			g_instance.object = &kPublished;
@@ -107,13 +107,13 @@ namespace
 		numbers.push_back(7);
 
 		azo::rhi::SlotMap<Tag, Payload> slots;
-		slots.Rebind(1);
-		const auto handle = slots.Store(Payload{ .value = 42 });
+		slots.rebind(1);
+		const auto handle = slots.store(Payload{ .value = 42 });
 
 		azo::rhi::detail::TypedObjectPool<Payload> pool{ 8 };
 		Payload * pooled = pool.New(Payload{ .value = 9 });
 
-		return numbers.size() == 1 && handle.IsValid() && pooled != nullptr && pooled->value == 9;
+		return numbers.size() == 1 && handle.is_valid() && pooled != nullptr && pooled->value == 9;
 	}
 
 }
@@ -128,12 +128,14 @@ int main()
 
 	azo::rhi::BackendSelection backends{ azo::rhi::BackendPreference{ .requested = "outoftree", .includeAvailable = false } };
 
-	const azo::rhi::Result<void> added = backends.Add(azo::rhi::BackendEntry{
-		.id			   = ConsumerApi::id,
-		.canonicalName = ConsumerApi::canonicalName,
-		.displayName   = ConsumerApi::displayName,
-		.Register	   = &RegisterConsumer,
-	});
+	const azo::rhi::Result<void> added = backends.add(
+		azo::rhi::BackendEntry{
+			.id			   = ConsumerApi::kId,
+			.canonicalName = ConsumerApi::kCanonicalName,
+			.displayName   = ConsumerApi::kDisplayName,
+			.Register	   = &RegisterConsumer,
+		}
+	);
 
 	if (!added)
 	{
@@ -142,14 +144,14 @@ int main()
 	}
 
 	{
-		const azo::rhi::Result<azo::rhi::UniqueInstance> instance = backends.CreateInstance();
+		const azo::rhi::Result<azo::rhi::UniqueInstance> instance = backends.create_instance();
 		if (!instance)
 		{
 			std::puts("the out of tree backend could not bring up an instance");
 			return 1;
 		}
 
-		if (instance.Value().Get().GetGraphicsApiId() != ConsumerApi::id)
+		if (instance.value().get().get_graphics_api_id() != ConsumerApi::kId)
 		{
 			std::puts("the selection reached a backend other than the one registered");
 			return 1;

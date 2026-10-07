@@ -41,13 +41,13 @@ namespace
 	TEST(BufferBuilder, ChainsEveryFieldOntoTheDesc)
 	{
 		const rhi::BufferDesc desc = rhi::BufferBuilder{}
-										 .Size(4096)
-										 .Stride(16)
-										 .Usage(rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eVertex) | rhi::BufferUsage::eCopyDst)
-										 .CpuUpload()
-										 .Aliasing()
-										 .SparseBinding()
-										 .Build();
+										 .size(4096)
+										 .stride(16)
+										 .usage(rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eVertex) | rhi::BufferUsage::eCopyDst)
+										 .cpu_upload()
+										 .aliasing()
+										 .sparse_binding()
+										 .build();
 
 		EXPECT_EQ(desc.size, 4096u);
 		EXPECT_EQ(desc.stride, 16u);
@@ -60,11 +60,11 @@ namespace
 
 	TEST(BufferBuilder, UsageReplacesWhileAddUsageAccumulates)
 	{
-		const rhi::BufferDesc replaced = rhi::BufferBuilder{}.Usage(rhi::BufferUsage::eVertex).Usage(rhi::BufferUsage::eIndex).Build();
+		const rhi::BufferDesc replaced = rhi::BufferBuilder{}.usage(rhi::BufferUsage::eVertex).usage(rhi::BufferUsage::eIndex).build();
 		EXPECT_FALSE(replaced.usage.contains(rhi::BufferUsage::eVertex));
 		EXPECT_TRUE(replaced.usage.contains(rhi::BufferUsage::eIndex));
 
-		const rhi::BufferDesc accumulated = rhi::BufferBuilder{}.Usage(rhi::BufferUsage::eVertex).AddUsage(rhi::BufferUsage::eIndex).Build();
+		const rhi::BufferDesc accumulated = rhi::BufferBuilder{}.usage(rhi::BufferUsage::eVertex).add_usage(rhi::BufferUsage::eIndex).build();
 		EXPECT_TRUE(accumulated.usage.contains(rhi::BufferUsage::eVertex));
 		EXPECT_TRUE(accumulated.usage.contains(rhi::BufferUsage::eIndex));
 	}
@@ -88,7 +88,7 @@ namespace
 	TEST(BufferBuilder, DebugNamePointsIntoTheBuilderAndSurvivesUntilItIsModified)
 	{
 		rhi::BufferBuilder builder;
-		builder.Size(64).DebugName("azoth.rhi.test.named");
+		builder.size(64).debug_name("azoth.rhi.test.named");
 
 		const rhi::BufferDesc first	 = builder.build();
 		const rhi::BufferDesc second = builder.build();
@@ -131,12 +131,12 @@ namespace
 
 	TEST(TextureBuilder, ExtentDefaultsTheDimensionsATwoDimensionalTextureDoesNotUse)
 	{
-		const rhi::TextureDesc flat = rhi::TextureBuilder{}.Extent(256).Build();
+		const rhi::TextureDesc flat = rhi::TextureBuilder{}.extent(256).build();
 		EXPECT_EQ(flat.width, 256u);
 		EXPECT_EQ(flat.height, 1u);
 		EXPECT_EQ(flat.depth, 1u);
 
-		const rhi::TextureDesc volume = rhi::TextureBuilder{}.Type(rhi::TextureType::eTex3D).Extent(32, 16, 8).Build();
+		const rhi::TextureDesc volume = rhi::TextureBuilder{}.type(rhi::TextureType::eTex3D).extent(32, 16, 8).build();
 		EXPECT_EQ(volume.width, 32u);
 		EXPECT_EQ(volume.height, 16u);
 		EXPECT_EQ(volume.depth, 8u);
@@ -145,16 +145,16 @@ namespace
 	TEST(TextureBuilder, CarriesTheShapeAndUsageThroughToTheDesc)
 	{
 		const rhi::TextureDesc desc = rhi::TextureBuilder{}
-										  .Type(rhi::TextureType::eTexCube)
-										  .Format(rhi::Format::eRGBA16Float)
-										  .Extent(128, 128)
-										  .Mips(8)
-										  .Layers(6)
-										  .Samples(rhi::SampleCount::e4)
-										  .AddUsage(rhi::TextureUsage::eSampled)
-										  .AddUsage(rhi::TextureUsage::eColorAttachment)
-										  .Memory(rhi::MemoryUsage::eGpuOnly)
-										  .Build();
+										  .type(rhi::TextureType::eTexCube)
+										  .format(rhi::Format::eRGBA16Float)
+										  .extent(128, 128)
+										  .mips(8)
+										  .layers(6)
+										  .samples(rhi::SampleCount::e4)
+										  .add_usage(rhi::TextureUsage::eSampled)
+										  .add_usage(rhi::TextureUsage::eColorAttachment)
+										  .memory(rhi::MemoryUsage::eGpuOnly)
+										  .build();
 
 		EXPECT_EQ(desc.type, rhi::TextureType::eTexCube);
 		EXPECT_EQ(desc.format, rhi::Format::eRGBA16Float);
@@ -179,15 +179,15 @@ namespace
 	TEST(MapBuilder, ModeShorthandsAndTheRangeSettersAgreeWithTheDesc)
 	{
 		EXPECT_EQ(rhi::MapBuilder{}.read().build().mode, rhi::MapMode::eRead);
-		EXPECT_EQ(rhi::MapBuilder{}.Write().Build().mode, rhi::MapMode::eWrite);
+		EXPECT_EQ(rhi::MapBuilder{}.write().build().mode, rhi::MapMode::eWrite);
 		EXPECT_EQ(rhi::MapBuilder{}.read_write().build().mode, rhi::MapMode::eReadWrite);
 		EXPECT_EQ(rhi::MapBuilder{}.mode(rhi::MapMode::eRead).build().mode, rhi::MapMode::eRead);
 
-		const rhi::MapDesc ranged = rhi::MapBuilder{}.Offset(128).Size(64).Build();
+		const rhi::MapDesc ranged = rhi::MapBuilder{}.offset(128).size(64).build();
 		EXPECT_EQ(ranged.offset, 128u);
 		EXPECT_EQ(ranged.size, 64u);
 
-		EXPECT_EQ(rhi::MapBuilder{}.Size(64).WholeBuffer().Build().size, std::numeric_limits<std::uint64_t>::max());
+		EXPECT_EQ(rhi::MapBuilder{}.size(64).whole_buffer().build().size, std::numeric_limits<std::uint64_t>::max());
 	}
 
 	TEST(HeapBuilder, DefaultsToAGpuLocalHeapThatTakesBothResourceKinds)
@@ -204,7 +204,7 @@ namespace
 
 	TEST(HeapBuilder, NarrowsWhatAHeapWillAccept)
 	{
-		const rhi::HeapDesc buffersOnly = rhi::HeapBuilder{}.Size(1u << 20u).AllowTextures(false).Aliasing().Build();
+		const rhi::HeapDesc buffersOnly = rhi::HeapBuilder{}.size(1u << 20u).allow_textures(false).aliasing().build();
 
 		EXPECT_EQ(buffersOnly.size, 1u << 20u);
 		EXPECT_TRUE(buffersOnly.allowBuffers);
@@ -219,15 +219,15 @@ namespace
 			.generation = 1,
 		};
 
-		const rhi::BufferDesc buffer			 = rhi::BufferBuilder{}.Size(512).AddUsage(rhi::BufferUsage::eStorage).Build();
-		const rhi::PlacedBufferDesc placedBuffer = rhi::PlacedBufferBuilder{}.Buffer(buffer).Heap(heap).Offset(256).Build();
+		const rhi::BufferDesc buffer			 = rhi::BufferBuilder{}.size(512).add_usage(rhi::BufferUsage::eStorage).build();
+		const rhi::PlacedBufferDesc placedBuffer = rhi::PlacedBufferBuilder{}.buffer(buffer).heap(heap).offset(256).build();
 
 		EXPECT_EQ(placedBuffer.heap, heap);
 		EXPECT_EQ(placedBuffer.offset, 256u);
 		EXPECT_EQ(placedBuffer.buffer.size, 512u);
 
-		const rhi::TextureDesc texture			   = rhi::TextureBuilder{}.Format(rhi::Format::eRGBA8UNorm).Extent(64, 64).Build();
-		const rhi::PlacedTextureDesc placedTexture = rhi::PlacedTextureBuilder{}.Texture(texture).Heap(heap).Offset(1024).Build();
+		const rhi::TextureDesc texture			   = rhi::TextureBuilder{}.format(rhi::Format::eRGBA8UNorm).extent(64, 64).build();
+		const rhi::PlacedTextureDesc placedTexture = rhi::PlacedTextureBuilder{}.texture(texture).heap(heap).offset(1024).build();
 
 		EXPECT_EQ(placedTexture.heap, heap);
 		EXPECT_EQ(placedTexture.offset, 1024u);
@@ -245,12 +245,12 @@ namespace
 			.generation = 1,
 		};
 
-		const rhi::ResidencyPriorityDesc asBuffer = rhi::ResidencyPriorityBuilder{}.Buffer(buffer).Priority(rhi::ResidencyPriority::eHigh).Build();
+		const rhi::ResidencyPriorityDesc asBuffer = rhi::ResidencyPriorityBuilder{}.buffer(buffer).priority(rhi::ResidencyPriority::eHigh).build();
 		EXPECT_EQ(asBuffer.buffer, buffer);
 		EXPECT_FALSE(asBuffer.texture.is_valid());
 		EXPECT_EQ(asBuffer.priority, rhi::ResidencyPriority::eHigh);
 
-		const rhi::ResidencyPriorityDesc asTexture = rhi::ResidencyPriorityBuilder{}.Buffer(buffer).Texture(texture).Build();
+		const rhi::ResidencyPriorityDesc asTexture = rhi::ResidencyPriorityBuilder{}.buffer(buffer).texture(texture).build();
 		EXPECT_EQ(asTexture.texture, texture);
 		EXPECT_FALSE(asTexture.buffer.is_valid()) << "naming a texture left the earlier buffer set as well";
 		EXPECT_EQ(asTexture.priority, rhi::ResidencyPriority::eNormal);

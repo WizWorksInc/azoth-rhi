@@ -104,8 +104,8 @@ namespace azo::rhi::d3d12
 
 		auto * list			  = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device  = list->owner;
-		TextureSlot * dstSlot = ResolveTexture(device, dst);
-		BufferSlot * srcSlot  = ResolveBuffer(device, src);
+		TextureSlot * dstSlot = resolve_texture(device, dst);
+		BufferSlot * srcSlot  = resolve_buffer(device, src);
 		if (dstSlot == nullptr || srcSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "copyBufferToTexture with an invalid handle");
@@ -195,8 +195,8 @@ namespace azo::rhi::d3d12
 
 		auto * list			  = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device  = list->owner;
-		BufferSlot * dstSlot  = ResolveBuffer(device, dst);
-		TextureSlot * srcSlot = ResolveTexture(device, src);
+		BufferSlot * dstSlot  = resolve_buffer(device, dst);
+		TextureSlot * srcSlot = resolve_texture(device, src);
 		if (dstSlot == nullptr || srcSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "copyTextureToBuffer with an invalid handle");
@@ -274,8 +274,8 @@ namespace azo::rhi::d3d12
 
 		auto * list			  = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device  = list->owner;
-		TextureSlot * dstSlot = ResolveTexture(device, dst);
-		TextureSlot * srcSlot = ResolveTexture(device, src);
+		TextureSlot * dstSlot = resolve_texture(device, dst);
+		TextureSlot * srcSlot = resolve_texture(device, src);
 		if (dstSlot == nullptr || srcSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "copyTexture with an invalid handle");

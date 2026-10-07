@@ -64,7 +64,7 @@ namespace azo::rhi::imgui
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return m_pipeline.IsValid();
+			return m_pipeline.is_valid();
 		}
 
 		Renderer() = default;

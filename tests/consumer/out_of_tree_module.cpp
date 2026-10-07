@@ -28,9 +28,9 @@ namespace
 
 	struct ConsumerModuleApi final : azo::rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "consumer.rhi.module";
-		static constexpr std::string_view displayName	= "Out Of Tree Module";
-		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::MakeGraphicsApiId(canonicalName);
+		static constexpr std::string_view kCanonicalName = "consumer.rhi.module";
+		static constexpr std::string_view kDisplayName	= "Out Of Tree Module";
+		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	azo::rhi::InstanceApi g_table{};
@@ -46,8 +46,8 @@ namespace
 	azo::rhi::Result<void> RegisterConsumerModule(azo::rhi::GraphicsApiRegistry & registry)
 	{
 		azo::rhi::BackendCreateInfo info{};
-		info.info.canonicalName = ConsumerModuleApi::canonicalName;
-		info.info.displayName	= ConsumerModuleApi::displayName;
+		info.info.canonicalName = ConsumerModuleApi::kCanonicalName;
+		info.info.displayName	= ConsumerModuleApi::kDisplayName;
 		info.createInstance		= [](const void *, azo::rhi::Error *) noexcept
 		{
 			return static_cast<void *>(nullptr);
@@ -66,9 +66,9 @@ namespace
 	[[nodiscard]] bool Describe(azo::rhi::ModuleDescription & description) noexcept
 	{
 		g_entries[0] = azo::rhi::BackendEntry{
-			.id			   = ConsumerModuleApi::id,
-			.canonicalName = ConsumerModuleApi::canonicalName,
-			.displayName   = ConsumerModuleApi::displayName,
+			.id			   = ConsumerModuleApi::kId,
+			.canonicalName = ConsumerModuleApi::kCanonicalName,
+			.displayName   = ConsumerModuleApi::kDisplayName,
 			.Register	   = &RegisterConsumerModule,
 		};
 

@@ -103,7 +103,7 @@ namespace
 		{
 			rhi::DescriptorSetAllocDesc allocation{};
 			allocation.layout = Unissued<rhi::DescriptorSetLayoutHandle>();
-			check("DescriptorArena::Allocate(desc.layout)", arena.Allocate(allocation, error).IsValid());
+			check("DescriptorArena::Allocate(desc.layout)", arena.allocate(allocation, error).is_valid());
 		}
 
 		std::string report;

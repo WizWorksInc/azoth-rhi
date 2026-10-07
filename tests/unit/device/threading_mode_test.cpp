@@ -113,16 +113,16 @@ namespace
 	{
 		Scheduler scheduler;
 
-		const rhi::Result<rhi::UniqueDevice> cooperative = rhi::DeviceBuilder{}.require_swapchain(false).cooperative(scheduler.Ops()).Build<rhi::NullApi>();
+		const rhi::Result<rhi::UniqueDevice> cooperative = rhi::DeviceBuilder{}.require_swapchain(false).cooperative(scheduler.Ops()).build<rhi::NullApi>();
 		EXPECT_TRUE(test::Ok(cooperative)) << "Cooperative did not set the mode alongside the operations";
 
 		const rhi::Result<rhi::UniqueDevice> halfSet =
-			rhi::DeviceBuilder{}.require_swapchain(false).threading(rhi::ThreadingMode::eCooperative).Build<rhi::NullApi>();
+			rhi::DeviceBuilder{}.require_swapchain(false).threading(rhi::ThreadingMode::eCooperative).build<rhi::NullApi>();
 		EXPECT_FALSE(halfSet.has_value()) << "the mode alone was taken for a cooperative device";
 		EXPECT_EQ(halfSet.get_error().code, rhi::ErrorCode::eInvalidArgument);
 
 		const rhi::Result<rhi::UniqueDevice> single =
-			rhi::DeviceBuilder{}.require_swapchain(false).threading(rhi::ThreadingMode::eSingleThreaded).Build<rhi::NullApi>();
+			rhi::DeviceBuilder{}.require_swapchain(false).threading(rhi::ThreadingMode::eSingleThreaded).build<rhi::NullApi>();
 		EXPECT_TRUE(test::Ok(single));
 	}
 
@@ -372,14 +372,14 @@ namespace
 		const test::ScopedProfiler scope(&sink);
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		EXPECT_TRUE(sink.fiberEvents.empty()) << "a fiber transition was raised with AZOTH_RHI_ENABLE_PROFILING off";
 
 		EXPECT_GT(scheduler.acquired.load(std::memory_order_relaxed), 0u);
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 	}
 
 #endif
@@ -452,7 +452,7 @@ namespace
 
 			EXPECT_TRUE(retaken.load(std::memory_order_relaxed)) << "the guard could not be taken again after a release from another thread";
 			next.join();
-			guard.Release();
+			guard.release();
 		}
 
 		{
@@ -476,7 +476,7 @@ namespace
 			EXPECT_EQ(affine.affinityViolations.load(std::memory_order_relaxed), 1u)
 				<< "a host whose release only works on the acquiring thread went unnoticed, which is the mistake this rules out";
 
-			guard.Release();
+			guard.release();
 		}
 	}
 
@@ -551,8 +551,8 @@ namespace
 							return;
 						}
 
-						rhi::CommandList list = pool.Allocate("azoth.rhi.test.threadingModel", error);
-						if (!list.is_valid() || !list.Begin(error))
+						rhi::CommandList list = pool.allocate("azoth.rhi.test.threadingModel", error);
+						if (!list.is_valid() || !list.begin(error))
 						{
 							return;
 						}
@@ -562,7 +562,7 @@ namespace
 							static_cast<void>(list.set_viewport(rhi::Viewport{ .width = 64.0f, .height = 64.0f }, error));
 						}
 
-						if (list.End(error))
+						if (list.end(error))
 						{
 							recorded.fetch_add(1, std::memory_order_relaxed);
 						}

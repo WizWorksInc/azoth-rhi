@@ -87,7 +87,7 @@ namespace
 		{
 			const auto format = static_cast<rhi::Format>(value);
 			const bool listed = std::ranges::find(depthFormats, format) != depthFormats.end();
-			EXPECT_EQ(rhi::IsDepthFormat(format), listed) << "format enumerator " << value << " disagrees with the depth format list";
+			EXPECT_EQ(rhi::is_depth_format(format), listed) << "format enumerator " << value << " disagrees with the depth format list";
 		}
 	}
 

@@ -155,7 +155,7 @@ namespace
 		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		const rhi::MappedMemory mapped = Dev().Map(buffer,
+		const rhi::MappedMemory mapped = Dev().map(buffer,
 			rhi::MapDesc{
 				.mode	= rhi::MapMode::eWrite,
 				.offset = 0,
@@ -178,7 +178,7 @@ namespace
 			EXPECT_TRUE(test::Ok(Dev().flush_mapped_range(buffer, 0, test::samples::kBufferSize, error), error));
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(buffer, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
@@ -203,7 +203,7 @@ namespace
 		const rhi::BufferHandle second = Dev().create_placed_buffer(placed, error);
 		ASSERT_TRUE(test::Ok(first.is_valid() && second.is_valid(), error));
 
-		const rhi::MappedMemory one = Dev().Map(first, {}, error);
+		const rhi::MappedMemory one = Dev().map(first, {}, error);
 		if (one.data == nullptr)
 		{
 			static_cast<void>(Dev().destroy(first, {}, error));
@@ -211,7 +211,7 @@ namespace
 			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(error);
 		}
-		const rhi::MappedMemory two = Dev().Map(second, {}, error);
+		const rhi::MappedMemory two = Dev().map(second, {}, error);
 		ASSERT_TRUE(test::Ok(two.data != nullptr, error)) << "a second placed buffer in a mapped heap would not map";
 		EXPECT_NE(one.data, two.data);
 
@@ -219,9 +219,9 @@ namespace
 		std::memset(two.data, 0x22, static_cast<std::size_t>(test::samples::kBufferSize));
 		EXPECT_EQ(*static_cast<const std::uint8_t *>(one.data), 0x11) << "the two placed buffers mapped to overlapping memory";
 
-		EXPECT_TRUE(test::Ok(Dev().Unmap(first, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(first, error), error));
 		EXPECT_EQ(*static_cast<const std::uint8_t *>(two.data), 0x22) << "unmapping one placed buffer took the other's mapping with it";
-		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(second, error), error));
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(first, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(second, {}, error), error));
@@ -256,14 +256,14 @@ namespace
 		}
 
 		rhi::Error probe{};
-		if (Dev().Map(first, {}, probe).data == nullptr)
+		if (Dev().map(first, {}, probe).data == nullptr)
 		{
 			static_cast<void>(Dev().destroy(first, {}, error));
 			static_cast<void>(Dev().destroy(second, {}, error));
 			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(probe);
 		}
-		ASSERT_TRUE(test::Ok(Dev().Unmap(first, error), error));
+		ASSERT_TRUE(test::Ok(Dev().unmap(first, error), error));
 
 		const std::uint32_t rounds = test::ScaledIterations(500);
 		std::atomic<int> ready{ 0 };
@@ -280,13 +280,13 @@ namespace
 			for (std::uint32_t round = 0; round < rounds; ++round)
 			{
 				rhi::Error mapError{};
-				if (Dev().Map(buffer, {}, mapError).data == nullptr)
+				if (Dev().map(buffer, {}, mapError).data == nullptr)
 				{
 					refused.fetch_add(1, std::memory_order_relaxed);
 					continue;
 				}
 				rhi::Error unmapError{};
-				if (!Dev().Unmap(buffer, unmapError))
+				if (!Dev().unmap(buffer, unmapError))
 				{
 					refused.fetch_add(1, std::memory_order_relaxed);
 				}
@@ -301,20 +301,20 @@ namespace
 		EXPECT_EQ(refused.load(), 0) << "mapping two placed buffers of one heap at once was refused";
 
 		rhi::Error firstExtra{};
-		EXPECT_FALSE(Dev().Unmap(first, firstExtra)) << "the first buffer did not balance back to none outstanding";
+		EXPECT_FALSE(Dev().unmap(first, firstExtra)) << "the first buffer did not balance back to none outstanding";
 		EXPECT_EQ(firstExtra.code, rhi::ErrorCode::eInvalidState) << test::Describe(firstExtra);
 		rhi::Error secondExtra{};
-		EXPECT_FALSE(Dev().Unmap(second, secondExtra)) << "the second buffer did not balance back to none outstanding";
+		EXPECT_FALSE(Dev().unmap(second, secondExtra)) << "the second buffer did not balance back to none outstanding";
 		EXPECT_EQ(secondExtra.code, rhi::ErrorCode::eInvalidState) << test::Describe(secondExtra);
 
-		const rhi::MappedMemory one = Dev().Map(first, {}, error);
-		const rhi::MappedMemory two = Dev().Map(second, {}, error);
+		const rhi::MappedMemory one = Dev().map(first, {}, error);
+		const rhi::MappedMemory two = Dev().map(second, {}, error);
 		ASSERT_TRUE(test::Ok(one.data != nullptr && two.data != nullptr, error)) << "a placed buffer would not map after the threads were done";
 		std::memset(one.data, 0x11, static_cast<std::size_t>(test::samples::kBufferSize));
 		std::memset(two.data, 0x22, static_cast<std::size_t>(test::samples::kBufferSize));
 		EXPECT_EQ(*static_cast<const std::uint8_t *>(one.data), 0x11) << "the two placed buffers mapped to overlapping memory";
-		EXPECT_TRUE(test::Ok(Dev().Unmap(first, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(first, error), error));
+		EXPECT_TRUE(test::Ok(Dev().unmap(second, error), error));
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(first, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(second, {}, error), error));
@@ -326,7 +326,7 @@ namespace
 	{
 		rhi::Error error{};
 
-		const rhi::MappedMemory mapped = Dev().Map(rhi::BufferHandle{ .index = 7777, .generation = 2 }, rhi::MapDesc{}, error);
+		const rhi::MappedMemory mapped = Dev().map(rhi::BufferHandle{ .index = 7777, .generation = 2 }, rhi::MapDesc{}, error);
 
 		EXPECT_EQ(mapped.data, nullptr);
 		EXPECT_EQ(mapped.size, 0u) << "a failed map reported a size for a null pointer";

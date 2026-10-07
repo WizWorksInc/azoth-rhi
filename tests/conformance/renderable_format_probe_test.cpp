@@ -98,7 +98,7 @@ namespace
 
 	TEST_P(RenderableFormatProbe, AColorTargetPipelineIsBuiltExactlyWhenTheFormatIsAdvertisedAsRenderable)
 	{
-		if (Caps().apiId != rhi::MetalApi::id && Caps().apiId != rhi::Metal4Api::id)
+		if (Caps().apiId != rhi::MetalApi::kId && Caps().apiId != rhi::Metal4Api::kId)
 		{
 			GTEST_SKIP() << "this probe compiles MSL source, so it only runs on the Metal backends";
 		}

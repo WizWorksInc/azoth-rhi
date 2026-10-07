@@ -151,7 +151,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	const rhi::Device handle		 = device.Value().Get();
+	const rhi::Device handle		 = device.value().get();
 	const rhi::AdapterInfo & adapter = handle.get_adapter_info();
 	const rhi::DeviceCaps & caps	 = handle.get_caps();
 

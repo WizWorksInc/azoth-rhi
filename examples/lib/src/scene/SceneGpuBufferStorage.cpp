@@ -278,7 +278,7 @@ namespace fw::scene
 			return false;
 		}
 
-		const azo::rhi::MappedMemory mapped = m_config.device.Map(buffer.handle, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error);
+		const azo::rhi::MappedMemory mapped = m_config.device.map(buffer.handle, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
 			ReportError("failed to map a scene buffer", error);
@@ -338,7 +338,7 @@ namespace fw::scene
 
 		if (buffer.data != nullptr)
 		{
-			static_cast<void>(m_config.device.Unmap(buffer.handle));
+			static_cast<void>(m_config.device.unmap(buffer.handle));
 			buffer.data = nullptr;
 		}
 

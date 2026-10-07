@@ -18,12 +18,12 @@
 
 namespace azo::rhi::d3d12
 {
-	[[nodiscard]] SamplerSlot * ResolveSampler(D3D12Device * device, SamplerHandle handle) noexcept
+	[[nodiscard]] SamplerSlot * resolve_sampler(D3D12Device * device, SamplerHandle handle) noexcept
 	{
 		return device->samplerSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	[[nodiscard]] DescriptorSetSlot * ResolveDescriptorSet(D3D12Device * device, DescriptorSetHandle handle) noexcept
+	[[nodiscard]] DescriptorSetSlot * resolve_descriptor_set(D3D12Device * device, DescriptorSetHandle handle) noexcept
 	{
 		return device->descriptorSetSlots.resolve(handle, kHandleAlreadyChecked);
 	}
@@ -118,10 +118,10 @@ namespace azo::rhi::d3d12
 		auto * arena		 = static_cast<D3D12DescriptorArena *>(impl);
 		D3D12Device * device = arena->owner;
 
-		DescriptorSetLayoutSlot * layout = ResolveDescriptorSetLayout(device, desc.layout);
+		DescriptorSetLayoutSlot * layout = resolve_descriptor_set_layout(device, desc.layout);
 		if (layout == nullptr)
 		{
-			return FailValue<DescriptorSetHandle>(error, ErrorCode::eInvalidHandle, "descriptor set allocation references an invalid layout");
+			return fail_value<DescriptorSetHandle>(error, ErrorCode::eInvalidHandle, "descriptor set allocation references an invalid layout");
 		}
 
 		detail::HostVector<DescriptorBinding> bindings = layout->bindings;
@@ -150,7 +150,7 @@ namespace azo::rhi::d3d12
 		if (device->globalResourceNext + resourceCount > device->globalResourceCapacity ||
 			device->globalSamplerNext + samplerCount > device->globalSamplerCapacity)
 		{
-			return FailValue<DescriptorSetHandle>(error, ErrorCode::eOutOfMemory, "the shared D3D12 descriptor heap is out of space");
+			return fail_value<DescriptorSetHandle>(error, ErrorCode::eOutOfMemory, "the shared D3D12 descriptor heap is out of space");
 		}
 
 		DescriptorSetSlot slot;
@@ -163,7 +163,7 @@ namespace azo::rhi::d3d12
 		device->globalResourceNext += resourceCount;
 		device->globalSamplerNext += samplerCount;
 
-		return ReturnValue(device->descriptorSetSlots.store(std::move(slot)), error);
+		return return_value(device->descriptorSetSlots.store(std::move(slot)), error);
 	}
 
 	bool D3D12DescriptorArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
@@ -216,8 +216,8 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		for (const DescriptorWriteBuffer & write : writes)
 		{
-			DescriptorSetSlot * set = ResolveDescriptorSet(device, write.set);
-			BufferSlot * buffer		= ResolveBuffer(device, write.buffer);
+			DescriptorSetSlot * set = resolve_descriptor_set(device, write.set);
+			BufferSlot * buffer		= resolve_buffer(device, write.buffer);
 			if (set == nullptr || buffer == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsBuffer with an invalid handle");
@@ -286,13 +286,13 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		for (const DescriptorWriteTexture & write : writes)
 		{
-			DescriptorSetSlot * set = ResolveDescriptorSet(device, write.set);
-			TextureViewSlot * view	= ResolveTextureView(device, write.view);
+			DescriptorSetSlot * set = resolve_descriptor_set(device, write.set);
+			TextureViewSlot * view	= resolve_texture_view(device, write.view);
 			if (set == nullptr || view == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsTexture with an invalid handle");
 			}
-			TextureSlot * texture = ResolveTexture(device, view->texture);
+			TextureSlot * texture = resolve_texture(device, view->texture);
 			if (texture == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsTexture references a destroyed texture");
@@ -390,7 +390,7 @@ namespace azo::rhi::d3d12
 
 			if (write.type == DescriptorType::eCombinedImageSampler)
 			{
-				SamplerSlot * sampler = ResolveSampler(device, write.sampler);
+				SamplerSlot * sampler = resolve_sampler(device, write.sampler);
 				if (sampler == nullptr)
 				{
 					return Fail(error, ErrorCode::eInvalidHandle, "a combined image sampler write needs a valid sampler alongside its view");
@@ -423,8 +423,8 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		for (const DescriptorWriteSampler & write : writes)
 		{
-			DescriptorSetSlot * set = ResolveDescriptorSet(device, write.set);
-			SamplerSlot * sampler	= ResolveSampler(device, write.sampler);
+			DescriptorSetSlot * set = resolve_descriptor_set(device, write.set);
+			SamplerSlot * sampler	= resolve_sampler(device, write.sampler);
 			if (set == nullptr || sampler == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "updateDescriptorsSampler with an invalid handle");
@@ -457,8 +457,8 @@ namespace azo::rhi::d3d12
 
 		auto * list						= static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device			= list->owner;
-		DescriptorSetSlot * setSlot		= ResolveDescriptorSet(device, set);
-		PipelineLayoutSlot * layoutSlot = ResolvePipelineLayout(device, layout);
+		DescriptorSetSlot * setSlot		= resolve_descriptor_set(device, set);
+		PipelineLayoutSlot * layoutSlot = resolve_pipeline_layout(device, layout);
 		if (setSlot == nullptr || layoutSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "bindDescriptorSet with an invalid handle");

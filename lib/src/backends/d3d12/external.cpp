@@ -97,7 +97,7 @@ namespace azo::rhi::d3d12
 	bool D3D12ExportBuffer(void * impl, const BufferHandle buffer, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		auto * device			= static_cast<D3D12Device *>(impl);
-		const BufferSlot * slot = ResolveBuffer(device, buffer);
+		const BufferSlot * slot = resolve_buffer(device, buffer);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid buffer handle");
@@ -109,7 +109,7 @@ namespace azo::rhi::d3d12
 	bool D3D12ExportTexture(void * impl, const TextureHandle texture, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		auto * device			 = static_cast<D3D12Device *>(impl);
-		const TextureSlot * slot = ResolveTexture(device, texture);
+		const TextureSlot * slot = resolve_texture(device, texture);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid texture handle");
@@ -121,7 +121,7 @@ namespace azo::rhi::d3d12
 	bool D3D12ExportHeap(void * impl, const HeapHandle heap, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		auto * device		  = static_cast<D3D12Device *>(impl);
-		const HeapSlot * slot = ResolveHeap(device, heap);
+		const HeapSlot * slot = resolve_heap(device, heap);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid heap handle");
@@ -133,7 +133,7 @@ namespace azo::rhi::d3d12
 	bool D3D12ExportTimeline(void * impl, const TimelineHandle timeline, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
 		auto * device			  = static_cast<D3D12Device *>(impl);
-		const TimelineSlot * slot = ResolveTimeline(device, timeline);
+		const TimelineSlot * slot = resolve_timeline(device, timeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid timeline handle");
@@ -151,7 +151,7 @@ namespace azo::rhi::d3d12
 	) noexcept
 	{
 		auto * device					 = static_cast<D3D12Device *>(impl);
-		const BinarySemaphoreSlot * slot = ResolveBinarySemaphore(device, semaphore);
+		const BinarySemaphoreSlot * slot = resolve_binary_semaphore(device, semaphore);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "export of an invalid binary semaphore handle");
@@ -173,7 +173,7 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.desc.debugName, device->debugNames);
 
-		return ReturnValue(
+		return return_value(
 			device->bufferSlots.store(
 				BufferSlot{ .resource = std::move(resource), .size = desc.desc.size, .hostVisible = false, .desc = detail::recorded(desc.desc) }
 			),
@@ -185,10 +185,10 @@ namespace azo::rhi::d3d12
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.importTexture");
 		auto * device			 = static_cast<D3D12Device *>(impl);
-		const DXGI_FORMAT format = MapFormat(desc.desc.format);
+		const DXGI_FORMAT format = map_format(desc.desc.format);
 		if (format == DXGI_FORMAT_UNKNOWN)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "imported texture format is undefined or unsupported");
+			return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "imported texture format is undefined or unsupported");
 		}
 
 		ComPtr<ID3D12Resource> resource;
@@ -199,7 +199,7 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.desc.debugName, device->debugNames);
 
-		return ReturnValue(
+		return return_value(
 			device->textureSlots.store(
 				TextureSlot{ .resource = std::move(resource),
 					.format			   = format,
@@ -227,7 +227,7 @@ namespace azo::rhi::d3d12
 		}
 
 		const D3D12_HEAP_DESC opened = heap->GetDesc();
-		return ReturnValue(
+		return return_value(
 			device->heapSlots.store(
 				HeapSlot{
 					.heap = std::move(heap),
@@ -250,7 +250,7 @@ namespace azo::rhi::d3d12
 			return TimelineHandle{};
 		}
 
-		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = std::move(fence) }), error);
+		return return_value(device->timelineSlots.store(TimelineSlot{ .fence = std::move(fence) }), error);
 	}
 
 	BinarySemaphoreHandle D3D12ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept
@@ -264,7 +264,7 @@ namespace azo::rhi::d3d12
 			return BinarySemaphoreHandle{};
 		}
 
-		return ReturnValue(device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence) }), error);
+		return return_value(device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence) }), error);
 	}
 
 	bool D3D12CloseExportedHandle([[maybe_unused]] void * impl, const ExternalHandle & handle, Error * error) noexcept
@@ -293,7 +293,7 @@ namespace azo::rhi::d3d12
 		return Fail(error, ErrorCode::eInvalidArgument, "this backend does not produce handles of that type, so it has nothing to release");
 	}
 
-	const ExternalSharingApi & ExternalSharingBlock() noexcept
+	const ExternalSharingApi & external_sharing_block() noexcept
 	{
 		static const ExternalSharingApi block{
 			.exportBuffer		   = &D3D12ExportBuffer,

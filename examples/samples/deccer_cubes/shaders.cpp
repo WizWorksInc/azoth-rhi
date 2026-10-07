@@ -53,9 +53,9 @@ namespace deccer
 		[[nodiscard]] const Target * TargetFor(const rhi::GraphicsApiId api)
 		{
 			static constexpr std::array targets{
-				Target{ .api = rhi::VulkanApi::id, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .binaryFormat = rhi::ShaderBinaryFormat::eSpirV },
-				Target{ .api = rhi::D3D12Api::id, .slang = SLANG_DXIL, .profile = "sm_6_0", .binaryFormat = rhi::ShaderBinaryFormat::eDxil },
-				Target{ .api			 = rhi::MetalApi::id,
+				Target{ .api = rhi::VulkanApi::kId, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .binaryFormat = rhi::ShaderBinaryFormat::eSpirV },
+				Target{ .api = rhi::D3D12Api::kId, .slang = SLANG_DXIL, .profile = "sm_6_0", .binaryFormat = rhi::ShaderBinaryFormat::eDxil },
+				Target{ .api			 = rhi::MetalApi::kId,
 					.slang				 = SLANG_METAL_LIB,
 					.profile			 = "metallib_2_4",
 					.binaryFormat		 = rhi::ShaderBinaryFormat::eBackendNative,
@@ -64,7 +64,7 @@ namespace deccer
 
 			// NOLINTNEXTLINE(readability-qualified-auto): libc++ makes this array iterator a raw pointer and MSVC does not, so auto * here builds on one and not the other.
 
-			const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
+			const rhi::GraphicsApiId target = api == rhi::Metal4Api::kId ? rhi::MetalApi::kId : api;
 
 			const auto found = std::ranges::find(targets, target, &Target::api);
 			return found != targets.end() ? &*found : nullptr;

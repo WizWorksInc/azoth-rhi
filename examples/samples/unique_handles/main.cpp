@@ -80,13 +80,13 @@ namespace
 			}
 		}
 
-		const rhi::BufferHandle first = pool.front().Get();
+		const rhi::BufferHandle first = pool.front().get();
 		LOG_INFO(fw::Log(), "a pool of {} buffers survived reallocation, the first is still known: {}", pool.size(), DeviceKnows(dev, first));
 
 		rhi::UniqueBuffer taken = std::move(pool.front());
 		LOG_INFO(fw::Log(), "after moving one out, the slot holds a handle: {}, the taker holds one: {}", pool.front().is_valid(), taken.is_valid());
 
-		const rhi::BufferHandle replaced = pool.back().Get();
+		const rhi::BufferHandle replaced = pool.back().get();
 		pool.back()						 = MakeBuffer(dev, "unique.replacement");
 		LOG_INFO(fw::Log(), "assigning over a slot destroyed what it held, still known: {}", DeviceKnows(dev, replaced));
 
@@ -103,7 +103,7 @@ namespace
 			return false;
 		}
 
-		const rhi::BufferHandle released = owned.Release();
+		const rhi::BufferHandle released = owned.release();
 		LOG_INFO(fw::Log(), "released: the owner is empty ({}) and the handle is still live ({})", !owned.is_valid(), DeviceKnows(dev, released));
 
 		rhi::Error error{};
@@ -116,15 +116,15 @@ namespace
 			return false;
 		}
 
-		const rhi::BufferHandle earlyHandle = early.Get();
+		const rhi::BufferHandle earlyHandle = early.get();
 
-		if (!early.Reset(error))
+		if (!early.reset(error))
 		{
 			fw::ReportError("failed to destroy a buffer early", error);
 			return false;
 		}
 
-		LOG_INFO(fw::Log(), "reset early: still known: {}, resetting again is harmless: {}", DeviceKnows(dev, earlyHandle), (early.Reset(), true));
+		LOG_INFO(fw::Log(), "reset early: still known: {}, resetting again is harmless: {}", DeviceKnows(dev, earlyHandle), (early.reset(), true));
 
 		return !DeviceKnows(dev, released) && !DeviceKnows(dev, earlyHandle);
 	}
@@ -151,8 +151,8 @@ namespace
 			return false;
 		}
 
-		rhi::CommandList list = pool.Allocate("unique.copy", error);
-		const bool recorded	  = list.is_valid() && list.Begin(error) && list.copy_buffer(*target, 0, *source, 0, kBufferSize, error) && list.End(error);
+		rhi::CommandList list = pool.allocate("unique.copy", error);
+		const bool recorded	  = list.is_valid() && list.begin(error) && list.copy_buffer(*target, 0, *source, 0, kBufferSize, error) && list.end(error);
 		if (!recorded)
 		{
 			fw::ReportError("failed to record the copy", error);
@@ -177,13 +177,13 @@ namespace
 		source.set_destroy_desc(afterCopy);
 		target.set_destroy_desc(afterCopy);
 
-		const rhi::BufferHandle sourceHandle = source.Get();
-		source.Reset();
-		target.Reset();
+		const rhi::BufferHandle sourceHandle = source.get();
+		source.reset();
+		target.reset();
 
 		LOG_INFO(fw::Log(), "let go of both buffers while the copy was still running, the handle is already unknown: {}", !DeviceKnows(dev, sourceHandle));
 
-		if (!queue.Wait(timeline, kSignalValue, kNoTimeout, error))
+		if (!queue.wait(timeline, kSignalValue, kNoTimeout, error))
 		{
 			fw::ReportError("failed to wait for the copy", error);
 			return false;
@@ -191,7 +191,7 @@ namespace
 
 		LOG_INFO(fw::Log(), "the copy completed and the native release ran behind it");
 
-		static_cast<void>(pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = kSignalValue }, error));
+		static_cast<void>(pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = kSignalValue }, error));
 		timelineOwner.set_destroy_desc(rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle });
 
 		return !DeviceKnows(dev, sourceHandle);
@@ -209,7 +209,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	rhi::Error error{};

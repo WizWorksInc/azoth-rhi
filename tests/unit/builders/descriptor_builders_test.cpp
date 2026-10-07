@@ -43,11 +43,11 @@ namespace
 	TEST(DescriptorBindingBuilder, CarriesSlotTypeCountAndVisibility)
 	{
 		const rhi::DescriptorBinding binding = rhi::DescriptorBindingBuilder{}
-												   .Binding(3)
-												   .Type(rhi::DescriptorType::eTextureSRV)
-												   .Count(64)
-												   .Stages(rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eFragment) | rhi::ShaderStage::eCompute)
-												   .Build();
+												   .binding(3)
+												   .type(rhi::DescriptorType::eTextureSRV)
+												   .count(64)
+												   .stages(rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eFragment) | rhi::ShaderStage::eCompute)
+												   .build();
 
 		EXPECT_EQ(binding.binding, 3u);
 		EXPECT_EQ(binding.type, rhi::DescriptorType::eTextureSRV);
@@ -59,7 +59,7 @@ namespace
 	TEST(DescriptorBindingBuilder, FlagsReplacesWhileAddFlagAccumulates)
 	{
 		const rhi::DescriptorBinding replaced =
-			rhi::DescriptorBindingBuilder{}.Flags(rhi::DescriptorBindingFlag::eBindless).Flags(rhi::DescriptorBindingFlag::ePartiallyBound).Build();
+			rhi::DescriptorBindingBuilder{}.flags(rhi::DescriptorBindingFlag::eBindless).flags(rhi::DescriptorBindingFlag::ePartiallyBound).build();
 		EXPECT_FALSE(replaced.flags.contains(rhi::DescriptorBindingFlag::eBindless));
 		EXPECT_TRUE(replaced.flags.contains(rhi::DescriptorBindingFlag::ePartiallyBound));
 
@@ -85,9 +85,9 @@ namespace
 	TEST(DescriptorSetLayoutBuilder, AccumulatesBindingsInTheOrderTheyWereAdded)
 	{
 		rhi::DescriptorSetLayoutBuilder builder;
-		builder.Binding(rhi::DescriptorBindingBuilder{}.Binding(0).Type(rhi::DescriptorType::eUniformBuffer).Build())
-			.Binding(rhi::DescriptorBindingBuilder{}.Binding(1).Type(rhi::DescriptorType::eTextureSRV).Build())
-			.Binding(rhi::DescriptorBindingBuilder{}.Binding(2).Type(rhi::DescriptorType::eSampler).Build());
+		builder.binding(rhi::DescriptorBindingBuilder{}.binding(0).type(rhi::DescriptorType::eUniformBuffer).build())
+			.binding(rhi::DescriptorBindingBuilder{}.binding(1).type(rhi::DescriptorType::eTextureSRV).build())
+			.binding(rhi::DescriptorBindingBuilder{}.binding(2).type(rhi::DescriptorType::eSampler).build());
 
 		const rhi::DescriptorSetLayoutDesc desc = builder.build();
 
@@ -101,7 +101,7 @@ namespace
 	{
 		rhi::DescriptorSetLayoutBuilder builder;
 		{
-			const std::array bindings{ rhi::DescriptorBindingBuilder{}.Binding(0).Build(), rhi::DescriptorBindingBuilder{}.Binding(1).Build() };
+			const std::array bindings{ rhi::DescriptorBindingBuilder{}.binding(0).build(), rhi::DescriptorBindingBuilder{}.binding(1).build() };
 			builder.bindings(bindings);
 		}
 
@@ -114,7 +114,7 @@ namespace
 	TEST(DescriptorSetLayoutBuilder, ClearBindingsEmptiesTheLayoutForReuse)
 	{
 		rhi::DescriptorSetLayoutBuilder builder;
-		builder.Binding(rhi::DescriptorBindingBuilder{}.Binding(0).Build()).ClearBindings().Binding(rhi::DescriptorBindingBuilder{}.Binding(9).Build());
+		builder.binding(rhi::DescriptorBindingBuilder{}.binding(0).build()).clear_bindings().binding(rhi::DescriptorBindingBuilder{}.binding(9).build());
 
 		const rhi::DescriptorSetLayoutDesc desc = builder.build();
 		ASSERT_EQ(desc.bindings.size(), 1u);
@@ -126,7 +126,7 @@ namespace
 		rhi::DescriptorSetLayoutBuilder builder;
 		for (std::uint32_t slot = 0; slot < 32; ++slot)
 		{
-			builder.Binding(rhi::DescriptorBindingBuilder{}.Binding(slot).Build());
+			builder.binding(rhi::DescriptorBindingBuilder{}.binding(slot).build());
 		}
 
 		const rhi::DescriptorSetLayoutDesc desc = builder.build();
@@ -239,7 +239,7 @@ namespace
 			.generation = 2,
 		};
 
-		const rhi::DescriptorSetAllocDesc desc = rhi::DescriptorSetAllocBuilder{}.Layout(layout).VariableDescriptorCount(1024).Build();
+		const rhi::DescriptorSetAllocDesc desc = rhi::DescriptorSetAllocBuilder{}.layout(layout).variable_descriptor_count(1024).build();
 
 		EXPECT_EQ(desc.layout, layout);
 		EXPECT_EQ(desc.variableDescriptorCount, 1024u);
@@ -271,7 +271,7 @@ namespace
 		};
 
 		const rhi::DescriptorWriteBuffer write =
-			rhi::DescriptorWriteBufferBuilder{}.set(set).Binding(4, 17).Type(rhi::DescriptorType::eStorageBuffer).Buffer(buffer).Range(64, 128).Build();
+			rhi::DescriptorWriteBufferBuilder{}.set(set).binding(4, 17).type(rhi::DescriptorType::eStorageBuffer).buffer(buffer).range(64, 128).build();
 
 		EXPECT_EQ(write.set, set);
 		EXPECT_EQ(write.binding, 4u);
@@ -295,17 +295,17 @@ namespace
 
 		const rhi::DescriptorWriteTexture write = rhi::DescriptorWriteTextureBuilder{}
 													  .view(view)
-													  .Sampler(sampler)
-													  .ExpectedUse(rhi::ResourceUse::eStorageWrite)
-													  .Type(rhi::DescriptorType::eTextureUAV)
-													  .Build();
+													  .sampler(sampler)
+													  .expected_use(rhi::ResourceUse::eStorageWrite)
+													  .type(rhi::DescriptorType::eTextureUAV)
+													  .build();
 
 		EXPECT_EQ(write.view, view);
 		EXPECT_EQ(write.sampler, sampler);
 		EXPECT_EQ(write.expectedUse, rhi::ResourceUse::eStorageWrite);
 		EXPECT_EQ(write.type, rhi::DescriptorType::eTextureUAV);
 
-		const rhi::DescriptorWriteSampler samplerOnly = rhi::DescriptorWriteSamplerBuilder{}.Binding(2).Sampler(sampler).Build();
+		const rhi::DescriptorWriteSampler samplerOnly = rhi::DescriptorWriteSamplerBuilder{}.binding(2).sampler(sampler).build();
 		EXPECT_EQ(samplerOnly.binding, 2u);
 		EXPECT_EQ(samplerOnly.sampler, sampler);
 	}

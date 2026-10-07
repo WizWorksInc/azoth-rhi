@@ -169,7 +169,7 @@ namespace
 			}
 
 			rhi::Error dispatchError{};
-			EXPECT_FALSE(recording.List().Dispatch(1, 1, 1, dispatchError)) << "a dispatch was accepted inside a rendering scope";
+			EXPECT_FALSE(recording.List().dispatch(1, 1, 1, dispatchError)) << "a dispatch was accepted inside a rendering scope";
 			EXPECT_TRUE(test::ErrorIsPopulated(dispatchError));
 
 			EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error)) << "the rendering scope did not survive the refusal";

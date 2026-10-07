@@ -467,7 +467,7 @@ namespace azo::rhi::d3d12
 		detail::HostVector<D3D12Queue> computeQueues;
 		detail::HostVector<D3D12Queue> copyQueues;
 
-		[[nodiscard]] detail::HostVector<D3D12Queue> & QueuesForType(QueueType type) noexcept
+		[[nodiscard]] detail::HostVector<D3D12Queue> & queues_for_type(QueueType type) noexcept
 		{
 			switch (type)
 			{
@@ -566,7 +566,7 @@ namespace azo::rhi::d3d12
 		// Defined in queue.cpp, where WaitFenceHost is already declared. False when a queue did not drain in time.
 		[[nodiscard]] bool DrainQueues() noexcept;
 
-		void ReportTeardownStall() const
+		void report_teardown_stall() const
 		{
 			ReportBackendMessage(
 				onMessage,
@@ -583,7 +583,7 @@ namespace azo::rhi::d3d12
 			// it cannot, so this is the backstop for a device destroyed any other way, such as one that failed to finish being built.
 			if (!DrainQueues())
 			{
-				ReportTeardownStall();
+				report_teardown_stall();
 				return;
 			}
 
@@ -613,14 +613,14 @@ namespace azo::rhi::d3d12
 	bool FailNative(Error * error, HRESULT hr, const char * message) noexcept;
 
 	template <typename T>
-	[[nodiscard]] T ReturnValue(T value, Error * error) noexcept
+	[[nodiscard]] T return_value(T value, Error * error) noexcept
 	{
 		Succeed(error);
 		return value;
 	}
 
 	template <typename T>
-	[[nodiscard]] T FailValue(Error * error, ErrorCode code, const char * message) noexcept
+	[[nodiscard]] T fail_value(Error * error, ErrorCode code, const char * message) noexcept
 	{
 		Fail(error, code, message);
 		return {};
@@ -634,7 +634,7 @@ namespace azo::rhi::d3d12
 	}
 
 	template <typename... Args>
-	[[nodiscard]] Error * LastError(Args &&... args) noexcept
+	[[nodiscard]] Error * last_error(Args &&... args) noexcept
 	{
 		static_assert(sizeof...(Args) > 0);
 		auto tuple = std::forward_as_tuple(std::forward<Args>(args)...);
@@ -658,13 +658,13 @@ namespace azo::rhi::d3d12
 				}
 			}
 		}
-		return Fail(LastError(args...), ErrorCode::eUnsupportedFeature, "D3D12 RHI backend: operation not implemented yet");
+		return Fail(last_error(args...), ErrorCode::eUnsupportedFeature, "D3D12 RHI backend: operation not implemented yet");
 	}
 
 	template <typename T, typename... Args>
 	T D3D12UnimplementedValue([[maybe_unused]] void * impl, Args... args) noexcept
 	{
-		return FailValue<T>(LastError(args...), ErrorCode::eUnsupportedFeature, "D3D12 RHI backend: operation not implemented yet");
+		return fail_value<T>(last_error(args...), ErrorCode::eUnsupportedFeature, "D3D12 RHI backend: operation not implemented yet");
 	}
 
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE CpuHandleAt(ID3D12DescriptorHeap * heap, std::uint32_t increment, std::uint32_t index) noexcept;
@@ -679,13 +679,13 @@ namespace azo::rhi::d3d12
 	const CoreDeviceApi & CoreDeviceBlock() noexcept;
 	const PresentApi & PresentBlock() noexcept;
 	const PlacedMemoryApi & PlacedMemoryBlock() noexcept;
-	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept;
+	const ResourceIntrospectionApi & resource_introspection_block() noexcept;
 	const QueryApi & QueryBlock() noexcept;
 	const PipelineCacheApi & PipelineCacheBlock() noexcept;
 	const ResidencyApi & ResidencyBlock() noexcept;
 	const AdoptionApi & AdoptionBlock() noexcept;
 	const InstanceApi & InstanceBlock() noexcept;
-	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept;
+	const ExternalCapabilityApi & external_capability_block() noexcept;
 	const QueueApi & QueueBlock() noexcept;
 	const SparseApi & SparseBlock() noexcept;
 	const CommandPoolApi & CommandPoolBlock() noexcept;
@@ -706,7 +706,7 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] BindingTier BindingTierFromResourceBindingTier(D3D12_RESOURCE_BINDING_TIER tier) noexcept;
 	[[nodiscard]] D3D_FEATURE_LEVEL ApiVersionToFloor(ApiVersion requested) noexcept;
 	[[nodiscard]] D3D12BackendOwner & Owner();
-	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept;
+	[[nodiscard]] BufferSlot * resolve_buffer(D3D12Device * device, BufferHandle handle) noexcept;
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapType(MemoryUsage memory, bool & hostVisible) noexcept;
 
 	// Only Map invalidates the CPU cache, so a pointer held across GPU writes needs InvalidateMappedRange.
@@ -717,7 +717,7 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept;
-	[[nodiscard]] bool BoundBufferRange(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
+	[[nodiscard]] bool bound_buffer_range(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
 	BufferHandle D3D12CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept;
 	MappedMemory D3D12Map(void * impl, BufferHandle handle, const MapDesc & desc, Error * error) noexcept;
 	bool D3D12Unmap(void * impl, BufferHandle handle, Error * error) noexcept;
@@ -731,8 +731,8 @@ namespace azo::rhi::d3d12
 	bool D3D12InvalidateMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
 	bool D3D12GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
 	bool D3D12DestroyBuffer(D3D12Device * device, RawHandle handle, Error * error) noexcept;
-	[[nodiscard]] DXGI_FORMAT MapFormat(Format format) noexcept;
-	[[nodiscard]] UINT MapSampleCount(SampleCount samples) noexcept;
+	[[nodiscard]] DXGI_FORMAT map_format(Format format) noexcept;
+	[[nodiscard]] UINT map_sample_count(SampleCount samples) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_DIMENSION MapResourceDimension(TextureType type) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapTextureResourceFlags(Flags<TextureUsage> usage) noexcept;
 	[[nodiscard]] DXGI_FORMAT DepthTypelessResourceFormat(DXGI_FORMAT format) noexcept;
@@ -744,19 +744,19 @@ namespace azo::rhi::d3d12
 	bool D3D12GetBufferInfo(void * impl, BufferHandle buffer, BufferInfo * out, Error * error) noexcept;
 	bool D3D12GetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept;
 	bool D3D12DestroyTexture(D3D12Device * device, RawHandle handle, Error * error) noexcept;
-	[[nodiscard]] TextureSlot * ResolveTexture(D3D12Device * device, TextureHandle handle) noexcept;
+	[[nodiscard]] TextureSlot * resolve_texture(D3D12Device * device, TextureHandle handle) noexcept;
 	void FillRtvDesc(D3D12_RENDER_TARGET_VIEW_DESC & rtv, DXGI_FORMAT format, const TextureViewDesc & desc) noexcept;
 	void FillDsvDesc(D3D12_DEPTH_STENCIL_VIEW_DESC & dsv, DXGI_FORMAT format, const TextureViewDesc & desc) noexcept;
 	TextureViewHandle D3D12CreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
 	bool D3D12DestroyTextureView(D3D12Device * device, RawHandle handle, Error * error) noexcept;
-	[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE MapAddressMode(AddressMode mode) noexcept;
-	[[nodiscard]] D3D12_COMPARISON_FUNC MapCompareOp(CompareOp op) noexcept;
+	[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE map_address_mode(AddressMode mode) noexcept;
+	[[nodiscard]] D3D12_COMPARISON_FUNC map_compare_op(CompareOp op) noexcept;
 	void FillBorderColor(float (&out)[4], BorderColor color) noexcept;
-	[[nodiscard]] D3D12_FILTER MapFilter(const SamplerDesc & desc) noexcept;
+	[[nodiscard]] D3D12_FILTER map_filter(const SamplerDesc & desc) noexcept;
 	SamplerHandle D3D12CreateSampler(void * impl, const SamplerDesc & desc, Error * error) noexcept;
 	bool D3D12DestroySampler(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapClass(HeapType type) noexcept;
-	[[nodiscard]] HeapSlot * ResolveHeap(D3D12Device * device, HeapHandle handle) noexcept;
+	[[nodiscard]] HeapSlot * resolve_heap(D3D12Device * device, HeapHandle handle) noexcept;
 	HeapHandle D3D12CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept;
 	BufferHandle D3D12CreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept;
 	TextureHandle D3D12CreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept;
@@ -767,7 +767,7 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] bool UsesResourceHeap(DescriptorType type) noexcept;
 	[[nodiscard]] D3D12_SHADER_VISIBILITY MapShaderVisibility(Flags<ShaderStage> stages) noexcept;
 	DescriptorSetLayoutHandle D3D12CreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept;
-	[[nodiscard]] DescriptorSetLayoutSlot * ResolveDescriptorSetLayout(D3D12Device * device, DescriptorSetLayoutHandle handle) noexcept;
+	[[nodiscard]] DescriptorSetLayoutSlot * resolve_descriptor_set_layout(D3D12Device * device, DescriptorSetLayoutHandle handle) noexcept;
 	PipelineLayoutHandle D3D12CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
 	bool D3D12DestroyDescriptorSetLayout(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	bool D3D12DestroyPipelineLayout(D3D12Device * device, RawHandle handle, Error * error) noexcept;
@@ -804,7 +804,7 @@ namespace azo::rhi::d3d12
 	TimelineHandle D3D12ImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept;
 	BinarySemaphoreHandle D3D12ImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept;
 	bool D3D12CloseExportedHandle(void * impl, const ExternalHandle & handle, Error * error) noexcept;
-	const ExternalSharingApi & ExternalSharingBlock() noexcept;
+	const ExternalSharingApi & external_sharing_block() noexcept;
 
 	[[nodiscard]] bool D3D12RefuseUnexportable(
 		Flags<ExternalHandleType> declared,
@@ -812,25 +812,25 @@ namespace azo::rhi::d3d12
 		const char * what,
 		Error * error
 	) noexcept;
-	[[nodiscard]] HostUniquePtr<D3D12Instance> BuildInstance(const InstanceDesc & desc, Error * error);
+	[[nodiscard]] HostUniquePtr<D3D12Instance> build_instance(const InstanceDesc & desc, Error * error);
 	[[nodiscard]] ComPtr<ID3D12CommandQueue> CreateQueue(ID3D12Device * device, D3D12_COMMAND_LIST_TYPE type);
-	[[nodiscard]] D3D12Device * MakeOwnedDevice(D3D12Instance * instance, HostUniquePtr<D3D12Instance> ownedInstance, const DeviceDesc & desc, Error * error);
+	[[nodiscard]] D3D12Device * make_owned_device(D3D12Instance * instance, HostUniquePtr<D3D12Instance> ownedInstance, const DeviceDesc & desc, Error * error);
 	void * D3D12InstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept;
 	void * D3D12CreateInstance(const void * instanceDesc, Error * error) noexcept;
 	void D3D12DestroyInstance(void * impl) noexcept;
 	[[nodiscard]] D3D12_PRIMITIVE_TOPOLOGY_TYPE MapPrimitiveTopologyType(PrimitiveTopology topology) noexcept;
 	[[nodiscard]] D3D_PRIMITIVE_TOPOLOGY MapPrimitiveTopology(PrimitiveTopology topology) noexcept;
-	[[nodiscard]] D3D12_FILL_MODE MapFillMode(FillMode mode) noexcept;
-	[[nodiscard]] D3D12_CULL_MODE MapCullMode(CullMode mode) noexcept;
-	[[nodiscard]] D3D12_STENCIL_OP MapStencilOp(StencilOp op) noexcept;
-	[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC MapStencilFace(const StencilFaceDesc & face) noexcept;
-	[[nodiscard]] D3D12_BLEND MapBlendFactor(BlendFactor factor) noexcept;
+	[[nodiscard]] D3D12_FILL_MODE map_fill_mode(FillMode mode) noexcept;
+	[[nodiscard]] D3D12_CULL_MODE map_cull_mode(CullMode mode) noexcept;
+	[[nodiscard]] D3D12_STENCIL_OP map_stencil_op(StencilOp op) noexcept;
+	[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC map_stencil_face(const StencilFaceDesc & face) noexcept;
+	[[nodiscard]] D3D12_BLEND map_blend_factor(BlendFactor factor) noexcept;
 	[[nodiscard]] D3D12_BLEND ToAlphaBlendFactor(D3D12_BLEND factor) noexcept;
-	[[nodiscard]] D3D12_BLEND_OP MapBlendOp(BlendOp op) noexcept;
-	[[nodiscard]] UINT8 MapColorWriteMask(Flags<ColorWrite> mask) noexcept;
-	[[nodiscard]] PipelineLayoutSlot * ResolvePipelineLayout(D3D12Device * device, PipelineLayoutHandle handle) noexcept;
-	[[nodiscard]] GraphicsPipelineSlot * ResolveGraphicsPipeline(D3D12Device * device, GraphicsPipelineHandle handle) noexcept;
-	[[nodiscard]] ComputePipelineSlot * ResolveComputePipeline(D3D12Device * device, ComputePipelineHandle handle) noexcept;
+	[[nodiscard]] D3D12_BLEND_OP map_blend_op(BlendOp op) noexcept;
+	[[nodiscard]] UINT8 map_color_write_mask(Flags<ColorWrite> mask) noexcept;
+	[[nodiscard]] PipelineLayoutSlot * resolve_pipeline_layout(D3D12Device * device, PipelineLayoutHandle handle) noexcept;
+	[[nodiscard]] GraphicsPipelineSlot * resolve_graphics_pipeline(D3D12Device * device, GraphicsPipelineHandle handle) noexcept;
+	[[nodiscard]] ComputePipelineSlot * resolve_compute_pipeline(D3D12Device * device, ComputePipelineHandle handle) noexcept;
 	[[nodiscard]] ID3D12PipelineLibrary * ResolvePipelineLibrary(D3D12Device * device, PipelineCacheHandle handle) noexcept;
 	void BuildInputElements(const VertexInputDesc & vertexInput, const char * semanticName, detail::HostVector<D3D12_INPUT_ELEMENT_DESC> & out);
 	GraphicsPipelineHandle D3D12CreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
@@ -842,8 +842,8 @@ namespace azo::rhi::d3d12
 	bool D3D12DestroyPipelineCache(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	[[nodiscard]] D3D12_COMMAND_LIST_TYPE MapCommandListType(QueueType type) noexcept;
 	[[nodiscard]] DWORD WaitFenceHost(ID3D12Fence * fence, std::uint64_t value, std::uint64_t timeoutNanoseconds) noexcept;
-	[[nodiscard]] TimelineSlot * ResolveTimeline(D3D12Device * device, TimelineHandle handle) noexcept;
-	[[nodiscard]] BinarySemaphoreSlot * ResolveBinarySemaphore(D3D12Device * device, BinarySemaphoreHandle handle) noexcept;
+	[[nodiscard]] TimelineSlot * resolve_timeline(D3D12Device * device, TimelineHandle handle) noexcept;
+	[[nodiscard]] BinarySemaphoreSlot * resolve_binary_semaphore(D3D12Device * device, BinarySemaphoreHandle handle) noexcept;
 	TimelineHandle D3D12CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept;
 	bool D3D12DestroyTimeline(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	BinarySemaphoreHandle D3D12CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc &, Error * error) noexcept;
@@ -867,14 +867,14 @@ namespace azo::rhi::d3d12
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, bool validate, Error * error) noexcept;
 	bool D3D12QueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 	bool D3D12QueueWaitIdle(void * impl, Error * error) noexcept;
-	[[nodiscard]] bool SubmissionStillRunning(ID3D12Fence * fence, std::uint64_t value) noexcept;
-	[[nodiscard]] bool ListStillRunning(const D3D12CommandList & record) noexcept;
+	[[nodiscard]] bool submission_still_running(ID3D12Fence * fence, std::uint64_t value) noexcept;
+	[[nodiscard]] bool list_still_running(const D3D12CommandList & record) noexcept;
 	bool D3D12QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
 	bool D3D12QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
 	bool D3D12QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
-	[[nodiscard]] TextureViewSlot * ResolveTextureView(D3D12Device * device, TextureViewHandle handle) noexcept;
-	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(D3D12Device * device, QueryPoolHandle handle) noexcept;
-	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept;
+	[[nodiscard]] TextureViewSlot * resolve_texture_view(D3D12Device * device, TextureViewHandle handle) noexcept;
+	[[nodiscard]] QueryPoolSlot * resolve_query_pool(D3D12Device * device, QueryPoolHandle handle) noexcept;
+	[[nodiscard]] D3D12_QUERY_TYPE map_query_type(QueryType type) noexcept;
 	[[nodiscard]] D3D12_QUERY_HEAP_TYPE MapQueryHeapType(QueryType type) noexcept;
 	[[nodiscard]] UINT SubresourceIndex(const TextureSubresource & sub, std::uint32_t mipLevels) noexcept;
 	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(
@@ -1016,8 +1016,8 @@ namespace azo::rhi::d3d12
 	bool D3D12QueueEndDebugLabel([[maybe_unused]] void * impl, Error * error) noexcept;
 	bool D3D12CmdBeginNativeMutation(void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept;
 	bool D3D12CmdEndNativeMutation(void * impl, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept;
-	[[nodiscard]] SamplerSlot * ResolveSampler(D3D12Device * device, SamplerHandle handle) noexcept;
-	[[nodiscard]] DescriptorSetSlot * ResolveDescriptorSet(D3D12Device * device, DescriptorSetHandle handle) noexcept;
+	[[nodiscard]] SamplerSlot * resolve_sampler(D3D12Device * device, SamplerHandle handle) noexcept;
+	[[nodiscard]] DescriptorSetSlot * resolve_descriptor_set(D3D12Device * device, DescriptorSetHandle handle) noexcept;
 	[[nodiscard]] std::uint32_t BindingOffsetInClass(const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, bool wantSampler) noexcept;
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE CpuHandleAt(ID3D12DescriptorHeap * heap, std::uint32_t increment, std::uint32_t index) noexcept;
 	[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GpuHandleAt(ID3D12DescriptorHeap * heap, std::uint32_t increment, std::uint32_t index) noexcept;
@@ -1105,13 +1105,13 @@ namespace azo::rhi::d3d12
 	const CoreDeviceApi & CoreDeviceBlock() noexcept;
 	const PresentApi & PresentBlock() noexcept;
 	const PlacedMemoryApi & PlacedMemoryBlock() noexcept;
-	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept;
+	const ResourceIntrospectionApi & resource_introspection_block() noexcept;
 	const QueryApi & QueryBlock() noexcept;
 	const PipelineCacheApi & PipelineCacheBlock() noexcept;
 	const ResidencyApi & ResidencyBlock() noexcept;
 	const AdoptionApi & AdoptionBlock() noexcept;
 	const InstanceApi & InstanceBlock() noexcept;
-	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept;
+	const ExternalCapabilityApi & external_capability_block() noexcept;
 	const QueueApi & QueueBlock() noexcept;
 	const SparseApi & SparseBlock() noexcept;
 	const CommandPoolApi & CommandPoolBlock() noexcept;

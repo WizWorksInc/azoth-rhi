@@ -53,17 +53,17 @@ namespace langs
 		[[nodiscard]] const Target * TargetFor(const rhi::GraphicsApiId api)
 		{
 			static constexpr std::array targets{
-				Target{ .api		 = rhi::VulkanApi::id,
+				Target{ .api		 = rhi::VulkanApi::kId,
 					.slang			 = SLANG_SPIRV,
 					.profile		 = "spirv_1_5",
 					.binaryFormat	 = rhi::ShaderBinaryFormat::eSpirV,
 					.binaryExtension = "spv" },
-				Target{ .api		 = rhi::D3D12Api::id,
+				Target{ .api		 = rhi::D3D12Api::kId,
 					.slang			 = SLANG_DXIL,
 					.profile		 = "sm_6_0",
 					.binaryFormat	 = rhi::ShaderBinaryFormat::eDxil,
 					.binaryExtension = "dxil" },
-				Target{ .api			 = rhi::MetalApi::id,
+				Target{ .api			 = rhi::MetalApi::kId,
 					.slang				 = SLANG_METAL_LIB,
 					.profile			 = "metallib_2_4",
 					.binaryFormat		 = rhi::ShaderBinaryFormat::eBackendNative,
@@ -71,7 +71,7 @@ namespace langs
 					.keepsEntryPointName = true },
 			};
 
-			const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
+			const rhi::GraphicsApiId target = api == rhi::Metal4Api::kId ? rhi::MetalApi::kId : api;
 
 			const auto found = std::ranges::find(targets, target, &Target::api);
 			return found != targets.end() ? &*found : nullptr;

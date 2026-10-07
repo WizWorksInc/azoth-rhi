@@ -148,12 +148,12 @@ namespace azo::rhi::test::minimal
 
 		GraphicsApiId DeviceApiId(void * impl) noexcept
 		{
-			return static_cast<Object *>(impl)->presenting ? PresentingApi::id : HeadlessApi::id;
+			return static_cast<Object *>(impl)->presenting ? PresentingApi::kId : HeadlessApi::kId;
 		}
 
 		std::string_view DeviceApiName(void * impl) noexcept
 		{
-			return static_cast<Object *>(impl)->presenting ? PresentingApi::displayName : HeadlessApi::displayName;
+			return static_cast<Object *>(impl)->presenting ? PresentingApi::kDisplayName : HeadlessApi::kDisplayName;
 		}
 
 		void * CreateDescriptorArena(void * impl, const DescriptorArenaDesc &, Error * error) noexcept
@@ -712,7 +712,7 @@ namespace azo::rhi::test::minimal
 			Object * device	 = New(Presenting ? PresentingDeviceObject() : HeadlessDeviceObject(), Presenting);
 			device->instance = static_cast<Object *>(instanceImpl);
 
-			device->caps.apiId				= Presenting ? PresentingApi::id : HeadlessApi::id;
+			device->caps.apiId				= Presenting ? PresentingApi::kId : HeadlessApi::kId;
 			device->caps.graphicsQueueCount = 1;
 			device->caps.computeQueueCount	= 1;
 			device->caps.copyQueueCount		= 1;
@@ -729,7 +729,7 @@ namespace azo::rhi::test::minimal
 				.getGraphicsApiId =
 					[](void *) noexcept
 				{
-					return Presenting ? PresentingApi::id : HeadlessApi::id;
+					return Presenting ? PresentingApi::kId : HeadlessApi::kId;
 				},
 				.enumerateAdapters =
 					[](void *, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
@@ -738,7 +738,7 @@ namespace azo::rhi::test::minimal
 					if (!adapters.empty())
 					{
 						adapters[0]		  = AdapterInfo{};
-						adapters[0].apiId = Presenting ? PresentingApi::id : HeadlessApi::id;
+						adapters[0].apiId = Presenting ? PresentingApi::kId : HeadlessApi::kId;
 						adapters[0].name  = Presenting ? "Minimal presenting fixture" : "Minimal headless fixture";
 					}
 
@@ -763,8 +763,8 @@ namespace azo::rhi::test::minimal
 	Result<void> RegisterHeadless(GraphicsApiRegistry & registry)
 	{
 		BackendCreateInfo info{};
-		info.info.canonicalName = HeadlessApi::canonicalName;
-		info.info.displayName	= HeadlessApi::displayName;
+		info.info.canonicalName = HeadlessApi::kCanonicalName;
+		info.info.displayName	= HeadlessApi::kDisplayName;
 		info.createInstance		= &CreateInstance<false>;
 		return registry.Register<HeadlessApi>(info);
 	}
@@ -772,8 +772,8 @@ namespace azo::rhi::test::minimal
 	Result<void> RegisterPresenting(GraphicsApiRegistry & registry)
 	{
 		BackendCreateInfo info{};
-		info.info.canonicalName	   = PresentingApi::canonicalName;
-		info.info.displayName	   = PresentingApi::displayName;
+		info.info.canonicalName	   = PresentingApi::kCanonicalName;
+		info.info.displayName	   = PresentingApi::kDisplayName;
 		info.info.supportsSurfaces = true;
 		info.createInstance		   = &CreateInstance<true>;
 		return registry.Register<PresentingApi>(info);

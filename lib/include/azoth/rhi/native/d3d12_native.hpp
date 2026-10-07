@@ -66,7 +66,7 @@ namespace azo::rhi
 		D3D12MA::Allocator * allocator	   = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<D3D12NativeDevice> get_d3_d12_native_device(Device device);
+	[[nodiscard]] AZO_RHI_API Result<D3D12NativeDevice> get_d3d12_native_device(Device device);
 
 	struct D3D12NativeSwapchain final
 	{
@@ -77,12 +77,12 @@ namespace azo::rhi
 		std::uint32_t imageCount	= 0;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<D3D12NativeSwapchain> get_d3_d12_native_swapchain(Swapchain swapchain);
+	[[nodiscard]] AZO_RHI_API Result<D3D12NativeSwapchain> get_d3d12_native_swapchain(Swapchain swapchain);
 
 	// Begin over a list whose submission is still running swaps in a fresh native list and allocator, so fetch these after Begin.
-	[[nodiscard]] AZO_RHI_API ID3D12GraphicsCommandList * get_d3_d12_command_list(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API ID3D12GraphicsCommandList * get_d3d12_command_list(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * get_d3_d12_command_allocator(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * get_d3d12_command_allocator(CommandList commandList);
 
 	template <>
 	struct NativeTimeline<D3D12Api> final
@@ -125,6 +125,6 @@ namespace azo::rhi::native
 namespace azo::rhi
 {
 
-	[[nodiscard]] AZO_RHI_API Result<native::D3D12QueueView> get_d3_d12_queue_view(Queue queue);
+	[[nodiscard]] AZO_RHI_API Result<native::D3D12QueueView> get_d3d12_queue_view(Queue queue);
 
 }

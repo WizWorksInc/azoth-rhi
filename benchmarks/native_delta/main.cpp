@@ -182,7 +182,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	rhi::Error error{};
 
 	Workload work{};
@@ -246,7 +246,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	work.set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "bench.set" }, error);
+	work.set = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "bench.set" }, error);
 	if (!work.set.is_valid())
 	{
 		bench::ReportError("failed to allocate the descriptor set", error);
@@ -352,14 +352,14 @@ int main(int argc, char ** argv)
 	{
 		const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 
-		if (!pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = submitted }, error))
+		if (!pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = submitted }, error))
 		{
 			bench::ReportError("failed to reset the command pool", error);
 			return false;
 		}
 
-		rhi::CommandList list = pool.Allocate("bench.list", error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.allocate("bench.list", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			bench::ReportError("failed to begin recording", error);
 			return false;
@@ -397,7 +397,7 @@ int main(int argc, char ** argv)
 			return false;
 		}
 
-		if (!list.End(error))
+		if (!list.end(error))
 		{
 			bench::ReportError("failed to close the command list", error);
 			return false;
@@ -412,7 +412,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "bench.pass",
 		};
 
-		if (!queue.submit(submit, error) || !queue.Wait(timeline, submitted, kPassTimeoutNanoseconds, error))
+		if (!queue.submit(submit, error) || !queue.wait(timeline, submitted, kPassTimeoutNanoseconds, error))
 		{
 			bench::ReportError("failed to drain the recorded pass, which a timeout here means the GPU did not finish it inside thirty seconds", error);
 			return false;

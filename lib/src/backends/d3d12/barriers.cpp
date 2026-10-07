@@ -22,17 +22,17 @@ namespace azo::rhi::d3d12
 {
 	constexpr UINT kAllSubresources = 0xffffffffu;
 
-	[[nodiscard]] TextureViewSlot * ResolveTextureView(D3D12Device * device, TextureViewHandle handle) noexcept
+	[[nodiscard]] TextureViewSlot * resolve_texture_view(D3D12Device * device, TextureViewHandle handle) noexcept
 	{
 		return device->textureViewSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(D3D12Device * device, QueryPoolHandle handle) noexcept
+	[[nodiscard]] QueryPoolSlot * resolve_query_pool(D3D12Device * device, QueryPoolHandle handle) noexcept
 	{
 		return device->queryPoolSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept
+	[[nodiscard]] D3D12_QUERY_TYPE map_query_type(QueryType type) noexcept
 	{
 		switch (type)
 		{
@@ -119,7 +119,7 @@ namespace azo::rhi::d3d12
 		auto * device = static_cast<D3D12Device *>(impl);
 		if (desc.queryCount == 0)
 		{
-			return FailValue<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
+			return fail_value<QueryPoolHandle>(error, ErrorCode::eInvalidArgument, "query pool creation asked for no queries");
 		}
 
 		D3D12_QUERY_HEAP_DESC heapDesc{};
@@ -145,7 +145,7 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->queryPoolSlots.store(
 				QueryPoolSlot{
 					.heap		= std::move(heap),
@@ -195,8 +195,8 @@ namespace azo::rhi::d3d12
 				D3D12_GLOBAL_BARRIER{
 					.SyncBefore	  = MapBarrierSync(m.before.stages, m.before.use, queue),
 					.SyncAfter	  = MapBarrierSync(m.after.stages, m.after.use, queue),
-					.AccessBefore = MapBarrierAccess(m.before.use, queue),
-					.AccessAfter  = MapBarrierAccess(m.after.use, queue),
+					.AccessBefore = map_barrier_access(m.before.use, queue),
+					.AccessAfter  = map_barrier_access(m.after.use, queue),
 				}
 			);
 		}
@@ -205,14 +205,14 @@ namespace azo::rhi::d3d12
 		{
 			// The slot outlives what it held, and a barrier needs the resource pointer itself, so a destroyed buffer has to be caught here rather than handed on
 			// as a null the runtime refuses.
-			BufferSlot * slot = ResolveBuffer(device, b.buffer);
+			BufferSlot * slot = resolve_buffer(device, b.buffer);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "buffer barrier with an invalid buffer handle");
 			}
 
-			const D3D12_BARRIER_ACCESS accessBefore = ClampAccessToHeap(MapBarrierAccess(b.before.use, queue), slot->heapType);
-			const D3D12_BARRIER_ACCESS accessAfter	= ClampAccessToHeap(MapBarrierAccess(b.after.use, queue), slot->heapType);
+			const D3D12_BARRIER_ACCESS accessBefore = ClampAccessToHeap(map_barrier_access(b.before.use, queue), slot->heapType);
+			const D3D12_BARRIER_ACCESS accessAfter	= ClampAccessToHeap(map_barrier_access(b.after.use, queue), slot->heapType);
 
 			if (slot->desc.usage.contains(BufferUsage::eAccelerationStructureStorage) &&
 				(!AccessLegalOnAccelerationStructure(accessBefore) || !AccessLegalOnAccelerationStructure(accessAfter)))
@@ -235,7 +235,7 @@ namespace azo::rhi::d3d12
 
 		for (const TextureBarrier & t : barriers.textures)
 		{
-			TextureSlot * slot = ResolveTexture(device, t.texture);
+			TextureSlot * slot = resolve_texture(device, t.texture);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
@@ -247,7 +247,7 @@ namespace azo::rhi::d3d12
 				continue;
 			}
 
-			const bool whole = detail::CoversWholeTexture(range, slot->mipLevels, slot->arrayLayers);
+			const bool whole = detail::covers_whole_texture(range, slot->mipLevels, slot->arrayLayers);
 
 			D3D12_BARRIER_SUBRESOURCE_RANGE subresources{ .IndexOrFirstMipLevel = kAllSubresources };
 			if (!whole)
@@ -272,8 +272,8 @@ namespace azo::rhi::d3d12
 				D3D12_TEXTURE_BARRIER{
 					.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
 					.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
-					.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.before.use, queue),
-					.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.after.use, queue),
+					.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : map_barrier_access(t.before.use, queue),
+					.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : map_barrier_access(t.after.use, queue),
 					.LayoutBefore = before,
 					.LayoutAfter  = after,
 					.pResource	  = slot->resource.Get(),
@@ -332,12 +332,12 @@ namespace azo::rhi::d3d12
 		// has to ask the second question too or an alias barrier naming a destroyed resource is taken in every mode that has no validation layer above it.
 		const auto liveBuffer = [device](const BufferHandle handle)
 		{
-			return !handle.is_valid() || ResolveBuffer(device, handle) != nullptr;
+			return !handle.is_valid() || resolve_buffer(device, handle) != nullptr;
 		};
 
 		const auto liveTexture = [device](const TextureHandle handle)
 		{
-			return !handle.is_valid() || ResolveTexture(device, handle) != nullptr;
+			return !handle.is_valid() || resolve_texture(device, handle) != nullptr;
 		};
 
 		for (const AliasBarrier & alias : barriers)
@@ -356,7 +356,7 @@ namespace azo::rhi::d3d12
 				continue;
 			}
 
-			TextureSlot * slot = ResolveTexture(device, alias.afterTexture);
+			TextureSlot * slot = resolve_texture(device, alias.afterTexture);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");

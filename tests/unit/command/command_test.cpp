@@ -71,7 +71,7 @@ namespace
 		std::vector<rhi::CommandList> lists;
 		for (int index = 0; index < 8; ++index)
 		{
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "allocation " << index << " failed";
 			lists.push_back(list);
 		}
@@ -91,11 +91,11 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(list.Begin(error), error));
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.begin(error), error));
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 	}
 
 	TEST_P(CommandTest, RejectsBeginningAListThatIsAlreadyRecording)
@@ -106,15 +106,15 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		rhi::Error secondError{};
-		EXPECT_FALSE(list.Begin(secondError)) << "a second Begin on a recording list was accepted";
+		EXPECT_FALSE(list.begin(secondError)) << "a second Begin on a recording list was accepted";
 		EXPECT_TRUE(test::ErrorIsPopulated(secondError));
 
-		static_cast<void>(list.End(error));
+		static_cast<void>(list.end(error));
 	}
 
 	TEST_P(CommandTest, RejectsEndingAListThatWasNeverBegun)
@@ -125,11 +125,11 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		rhi::Error endError{};
-		EXPECT_FALSE(list.End(endError)) << "End was accepted on a list that had not begun recording";
+		EXPECT_FALSE(list.end(endError)) << "End was accepted on a list that had not begun recording";
 		EXPECT_TRUE(test::ErrorIsPopulated(endError));
 	}
 
@@ -141,13 +141,13 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		rhi::Error secondError{};
-		EXPECT_FALSE(list.End(secondError)) << "a closed list was closed again";
+		EXPECT_FALSE(list.end(secondError)) << "a closed list was closed again";
 	}
 
 	TEST_P(CommandTest, RejectsRecordingFromAThreadThatDidNotBeginTheList)
@@ -158,22 +158,22 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		bool accepted = false;
 		rhi::Error foreignError{};
 		std::thread other(
 			[&]
 			{
-				accepted = list.End(foreignError);
+				accepted = list.end(foreignError);
 			});
 		other.join();
 
 		EXPECT_FALSE(accepted) << "a command list was closed from a thread other than the one recording it";
 
-		static_cast<void>(list.End(error));
+		static_cast<void>(list.end(error));
 	}
 
 	TEST_P(CommandTest, RecordsTransferWorkOutsideAnyRenderingScope)
@@ -308,17 +308,17 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
-		ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{}, error), error));
+		ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{}, error), error));
 
-		rhi::CommandList afterReset = pool.Allocate("azoth.rhi.test.listAfterReset", error);
+		rhi::CommandList afterReset = pool.allocate("azoth.rhi.test.listAfterReset", error);
 		ASSERT_TRUE(test::Ok(afterReset.is_valid(), error));
-		EXPECT_TRUE(test::Ok(afterReset.Begin(error), error));
-		EXPECT_TRUE(test::Ok(afterReset.End(error), error));
+		EXPECT_TRUE(test::Ok(afterReset.begin(error), error));
+		EXPECT_TRUE(test::Ok(afterReset.end(error), error));
 	}
 
 	TEST_P(CommandTest, SubmitsAClosedListToItsQueue)
@@ -330,10 +330,10 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const rhi::SubmitDesc submit{
@@ -459,11 +459,11 @@ namespace
 		rhi::Error refusal{};
 		for (std::uint32_t index = 0; index < attempts; ++index)
 		{
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "allocation " << index << " failed";
 			lists.push_back(list);
 
-			if (lists.back().Begin(refusal))
+			if (lists.back().begin(refusal))
 			{
 				++begun;
 				continue;
@@ -492,7 +492,7 @@ namespace
 
 		for (rhi::CommandList & list : lists)
 		{
-			static_cast<void>(list.End(error));
+			static_cast<void>(list.end(error));
 		}
 
 		// Metal keeps command buffers back for the transient ones waitIdle commits, so a saturated queue must still be able to drain.
@@ -505,10 +505,10 @@ namespace
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 		// Submitting one list gave its slot back, so a bounded backend has room again.
-		rhi::CommandList after = pool.Allocate("azoth.rhi.test.listAfterSubmit", error);
+		rhi::CommandList after = pool.allocate("azoth.rhi.test.listAfterSubmit", error);
 		ASSERT_TRUE(test::Ok(after.is_valid(), error));
-		EXPECT_TRUE(test::Ok(after.Begin(error), error)) << "a submitted list did not give its slot back";
-		EXPECT_TRUE(test::Ok(after.End(error), error));
+		EXPECT_TRUE(test::Ok(after.begin(error), error)) << "a submitted list did not give its slot back";
+		EXPECT_TRUE(test::Ok(after.end(error), error));
 	}
 
 	TEST_P(CommandTest, CountsOpenListsCorrectlyWhenSeveralThreadsRecordAtOnce)
@@ -544,20 +544,20 @@ namespace
 
 					for (std::uint32_t round = 0; round < kRounds; ++round)
 					{
-						rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
-						if (!list.is_valid() || !list.Begin(error))
+						rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
+						if (!list.is_valid() || !list.begin(error))
 						{
 							refused[thread] = true;
 							return;
 						}
 
-						if (!list.End(error))
+						if (!list.end(error))
 						{
 							refused[thread] = true;
 							return;
 						}
 
-						if (!pool.Reset(rhi::RetirePoint{}, error))
+						if (!pool.reset(rhi::RetirePoint{}, error))
 						{
 							refused[thread] = true;
 							return;
@@ -596,13 +596,13 @@ namespace
 		std::vector<rhi::CommandList> lists;
 		for (std::uint32_t index = 0; index < kSmallOpenListBound; ++index)
 		{
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error));
 			lists.push_back(list);
-			ASSERT_TRUE(test::Ok(lists.back().Begin(error), error)) << "Begin " << index << " was refused below the bound";
+			ASSERT_TRUE(test::Ok(lists.back().begin(error), error)) << "Begin " << index << " was refused below the bound";
 		}
 
-		ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{}, error), error));
+		ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{}, error), error));
 
 		// A second pool, because re-beginning a recycled list would release its own slot and so prove nothing about the reset.
 		rhi::CommandPool other = local.Get().create_command_pool(test::samples::CommandPool(), error);
@@ -611,15 +611,15 @@ namespace
 		std::vector<rhi::CommandList> fresh;
 		for (std::uint32_t index = 0; index < kSmallOpenListBound; ++index)
 		{
-			rhi::CommandList list = other.Allocate("azoth.rhi.test.listAfterReset", error);
+			rhi::CommandList list = other.allocate("azoth.rhi.test.listAfterReset", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error));
 			fresh.push_back(list);
-			EXPECT_TRUE(test::Ok(fresh.back().Begin(error), error)) << "Begin " << index << " on a second pool was refused, so the reset kept the slots";
+			EXPECT_TRUE(test::Ok(fresh.back().begin(error), error)) << "Begin " << index << " on a second pool was refused, so the reset kept the slots";
 		}
 
 		for (rhi::CommandList & list : fresh)
 		{
-			EXPECT_TRUE(test::Ok(list.End(error), error));
+			EXPECT_TRUE(test::Ok(list.end(error), error));
 		}
 	}
 
@@ -641,9 +641,9 @@ namespace
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
 
@@ -652,7 +652,7 @@ namespace
 			<< "the backend submitted a list that was still recording";
 		EXPECT_EQ(refused.code, rhi::ErrorCode::eInvalidState);
 
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 		EXPECT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.submit" }, error), error));
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
 	}
@@ -678,7 +678,7 @@ namespace
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
@@ -720,10 +720,10 @@ namespace
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
 		const std::array first{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
@@ -762,8 +762,8 @@ namespace
 		}
 
 		// Begin is how a list is reused, and it must still work whichever way the submit above went.
-		EXPECT_TRUE(test::Ok(list.Begin(error), error));
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.begin(error), error));
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 
 		EXPECT_TRUE(test::Ok(local.Get().destroy(timeline, {}, error), error));
 	}
@@ -815,7 +815,7 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
@@ -825,8 +825,8 @@ namespace
 
 		for (int round = 0; round < 4; ++round)
 		{
-			ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "round " << round;
-			ASSERT_TRUE(test::Ok(list.End(error), error)) << "round " << round;
+			ASSERT_TRUE(test::Ok(list.begin(error), error)) << "round " << round;
+			ASSERT_TRUE(test::Ok(list.end(error), error)) << "round " << round;
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.submit" }, error), error))
 				<< "round " << round;
 			ASSERT_TRUE(test::Ok(queue.wait_idle(error), error)) << "round " << round;
@@ -859,20 +859,20 @@ namespace
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
 		const std::array held{ rhi::TimelinePoint{ .timeline = blocker, .value = 1 } };
 		ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .waits = held, .debugName = "azoth.rhi.test.blocked" }, error), error));
 
 		// The buffer underneath is still queued behind a wait nothing has signaled, so Begin has to leave it alone and record somewhere else.
-		EXPECT_TRUE(test::Ok(list.Begin(error), error)) << "beginning a list whose earlier submission is still executing was refused";
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.begin(error), error)) << "beginning a list whose earlier submission is still executing was refused";
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 
-		EXPECT_TRUE(test::Ok(queue.Signal(blocker, 1, error), error));
+		EXPECT_TRUE(test::Ok(queue.signal(blocker, 1, error), error));
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 		EXPECT_TRUE(test::Ok(local.Get().destroy(blocker, {}, error), error));
@@ -909,23 +909,23 @@ namespace
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
 		const std::array held{ rhi::TimelinePoint{ .timeline = blocker, .value = 1 } };
 		ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .waits = held, .debugName = "azoth.rhi.test.blocked" }, error), error));
 
 		rhi::Error refused{};
-		EXPECT_FALSE(pool.Reset({}, refused)) << "a pool was reset while one of its lists was still executing";
+		EXPECT_FALSE(pool.reset({}, refused)) << "a pool was reset while one of its lists was still executing";
 		EXPECT_EQ(refused.code, rhi::ErrorCode::eInvalidState);
 
 		// Let the blocked submission through, after which the same reset has to be allowed.
-		EXPECT_TRUE(test::Ok(queue.Signal(blocker, 1, error), error));
+		EXPECT_TRUE(test::Ok(queue.signal(blocker, 1, error), error));
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
-		EXPECT_TRUE(test::Ok(pool.Reset({}, error), error)) << "a pool was refused after its work had drained";
+		EXPECT_TRUE(test::Ok(pool.reset({}, error), error)) << "a pool was refused after its work had drained";
 
 		EXPECT_TRUE(test::Ok(local.Get().destroy(blocker, {}, error), error));
 	}
@@ -961,29 +961,29 @@ namespace
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
 		const std::array held{ rhi::TimelinePoint{ .timeline = blocker, .value = 1 } };
 		ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .waits = held, .debugName = "azoth.rhi.test.blocked" }, error), error));
 
-		EXPECT_TRUE(test::Ok(list.Begin(error), error)) << "beginning a list whose earlier submission is still executing was refused";
-		EXPECT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.begin(error), error)) << "beginning a list whose earlier submission is still executing was refused";
+		EXPECT_TRUE(test::Ok(list.end(error), error));
 
 		// The earlier recording still executes from memory the pool owns, so the pool cannot be reset under it.
 		rhi::Error refused{};
-		EXPECT_FALSE(pool.Reset({}, refused)) << "a pool was reset while the submission its list was begun over was still executing";
+		EXPECT_FALSE(pool.reset({}, refused)) << "a pool was reset while the submission its list was begun over was still executing";
 		EXPECT_EQ(refused.code, rhi::ErrorCode::eInvalidState);
 
 		EXPECT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.rerecorded" }, error), error))
 			<< "the new recording was refused while the earlier one was still queued";
 
-		EXPECT_TRUE(test::Ok(queue.Signal(blocker, 1, error), error));
+		EXPECT_TRUE(test::Ok(queue.signal(blocker, 1, error), error));
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
-		EXPECT_TRUE(test::Ok(pool.Reset({}, error), error)) << "a pool was refused after its work had drained";
+		EXPECT_TRUE(test::Ok(pool.reset({}, error), error)) << "a pool was refused after its work had drained";
 
 		EXPECT_TRUE(test::Ok(local.Get().destroy(blocker, {}, error), error));
 	}
@@ -1017,10 +1017,10 @@ namespace
 			rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 			ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error));
-			ASSERT_TRUE(test::Ok(list.Begin(error), error));
-			ASSERT_TRUE(test::Ok(list.End(error), error));
+			ASSERT_TRUE(test::Ok(list.begin(error), error));
+			ASSERT_TRUE(test::Ok(list.end(error), error));
 
 			std::array<const rhi::CommandList *, 1> submitted{ &list };
 			const std::array held{ rhi::TimelinePoint{ .timeline = blocker, .value = 1 } };
@@ -1062,10 +1062,10 @@ namespace
 			rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 			ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error));
-			ASSERT_TRUE(test::Ok(list.Begin(error), error));
-			ASSERT_TRUE(test::Ok(list.End(error), error));
+			ASSERT_TRUE(test::Ok(list.begin(error), error));
+			ASSERT_TRUE(test::Ok(list.end(error), error));
 
 			std::array<const rhi::CommandList *, 1> submitted{ &list };
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.submit" }, error), error));
@@ -1161,7 +1161,7 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 			}
 
 			// Whichever answer that was, the write must not have cost the caller the pipeline it had already bound.
-			EXPECT_TRUE(test::Ok(recording.List().Dispatch(1, 1, 1, error), error)) << "a dispatch was refused after a timestamp was written before it";
+			EXPECT_TRUE(test::Ok(recording.List().dispatch(1, 1, 1, error), error)) << "a dispatch was refused after a timestamp was written before it";
 
 			ASSERT_TRUE(recording.End());
 		}
@@ -1205,15 +1205,15 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.emptyDispatch", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.emptyDispatch", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		EXPECT_TRUE(test::Ok(list.set_compute_pipeline(pipeline, error), error));
-		EXPECT_TRUE(test::Ok(list.Dispatch(0, 1, 1, error), error)) << "a dispatch with no groups along x was refused";
-		EXPECT_TRUE(test::Ok(list.Dispatch(1, 0, 1, error), error)) << "a dispatch with no groups along y was refused";
-		EXPECT_TRUE(test::Ok(list.Dispatch(1, 1, 0, error), error)) << "a dispatch with no groups along z was refused";
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		EXPECT_TRUE(test::Ok(list.dispatch(0, 1, 1, error), error)) << "a dispatch with no groups along x was refused";
+		EXPECT_TRUE(test::Ok(list.dispatch(1, 0, 1, error), error)) << "a dispatch with no groups along y was refused";
+		EXPECT_TRUE(test::Ok(list.dispatch(1, 1, 0, error), error)) << "a dispatch with no groups along z was refused";
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		EXPECT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = lists, .debugName = "azoth.rhi.test.emptyDispatch" }, error), error));
@@ -1261,29 +1261,29 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 				continue;
 			}
 
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "perListReset " << perList;
 
 			std::array<const rhi::CommandList *, 1> submitted{ &list };
 
 			for (int round = 0; round < 3; ++round)
 			{
-				ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "perListReset " << perList << " round " << round;
-				ASSERT_TRUE(test::Ok(list.End(error), error)) << "perListReset " << perList << " round " << round;
+				ASSERT_TRUE(test::Ok(list.begin(error), error)) << "perListReset " << perList << " round " << round;
+				ASSERT_TRUE(test::Ok(list.end(error), error)) << "perListReset " << perList << " round " << round;
 				ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.submit" }, error), error));
 				ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 			}
 
 			// Beginning a list that is still recording discards that recording, whichever reset mode the pool asked for.
-			EXPECT_TRUE(test::Ok(list.Begin(error), error)) << "perListReset " << perList;
-			EXPECT_TRUE(test::Ok(list.Begin(error), error)) << "re-Begin while recording was refused, perListReset " << perList;
-			EXPECT_TRUE(test::Ok(list.End(error), error)) << "perListReset " << perList;
+			EXPECT_TRUE(test::Ok(list.begin(error), error)) << "perListReset " << perList;
+			EXPECT_TRUE(test::Ok(list.begin(error), error)) << "re-Begin while recording was refused, perListReset " << perList;
+			EXPECT_TRUE(test::Ok(list.end(error), error)) << "perListReset " << perList;
 
 			// And beginning one whose submission has completed works the same way.
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.submit" }, error), error));
 			ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
-			EXPECT_TRUE(test::Ok(list.Begin(error), error)) << "re-Begin after completion was refused, perListReset " << perList;
-			EXPECT_TRUE(test::Ok(list.End(error), error)) << "perListReset " << perList;
+			EXPECT_TRUE(test::Ok(list.begin(error), error)) << "re-Begin after completion was refused, perListReset " << perList;
+			EXPECT_TRUE(test::Ok(list.end(error), error)) << "perListReset " << perList;
 		}
 
 		// Without this the test only asserts Begin returned true, and a returning VUID-00049 would pass in silence.
@@ -1309,7 +1309,7 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		std::atomic<bool> stop{ false };
@@ -1322,7 +1322,7 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 				std::array<const rhi::CommandList *, 1> one{ &list };
 				for (int round = 0; round < 200 && !stop.load(); ++round)
 				{
-					if (!list.Begin(mine) || !list.End(mine))
+					if (!list.begin(mine) || !list.end(mine))
 					{
 						break;
 					}
@@ -1397,10 +1397,10 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> submitted{ &list };
 
@@ -1414,7 +1414,7 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		EXPECT_EQ(refused.code, rhi::ErrorCode::eInvalidState);
 
 		// Let the blocked submission through so the device can drain before teardown.
-		EXPECT_TRUE(test::Ok(queue.Signal(blocker, 1, error), error));
+		EXPECT_TRUE(test::Ok(queue.signal(blocker, 1, error), error));
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 		EXPECT_TRUE(test::Ok(local.Get().destroy(blocker, {}, error), error));
@@ -1426,13 +1426,13 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		for (int round = 0; round < 200; ++round)
 		{
-			ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "Begin was refused on round " << round << ", so a discarded recording never gave its slot back";
-			ASSERT_TRUE(test::Ok(list.End(error), error)) << "End was refused on round " << round;
+			ASSERT_TRUE(test::Ok(list.begin(error), error)) << "Begin was refused on round " << round << ", so a discarded recording never gave its slot back";
+			ASSERT_TRUE(test::Ok(list.end(error), error)) << "End was refused on round " << round;
 		}
 	}
 
@@ -1456,9 +1456,9 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		const std::array<std::uint32_t, 4> constants{ 1, 2, 3, 4 };
 		EXPECT_TRUE(test::Ok(list.push_constants(layout, rhi::ShaderStage::eAll, 0, sizeof(constants), constants.data(), error), error));
@@ -1484,18 +1484,18 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		const std::array<std::uint32_t, 4> constants{ 1, 2, 3, 4 };
 		ASSERT_TRUE(test::Ok(list.push_constants(layout, rhi::ShaderStage::eAll, 0, sizeof(constants), constants.data(), error), error));
 
-		ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{}, error), error));
+		ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{}, error), error));
 
-		rhi::CommandList recycled = pool.Allocate("azoth.rhi.test.listAgain", error);
+		rhi::CommandList recycled = pool.allocate("azoth.rhi.test.listAgain", error);
 		ASSERT_TRUE(test::Ok(recycled.is_valid(), error));
-		EXPECT_TRUE(test::Ok(recycled.Begin(error), error));
+		EXPECT_TRUE(test::Ok(recycled.begin(error), error));
 	}
 
 	TEST_P(CommandTest, DestroysADeviceHoldingAListLeftInsideARenderingScope)
@@ -1534,9 +1534,9 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		rhi::CommandPool pool = local.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		if (!list.begin_rendering(rendering, error))
 		{

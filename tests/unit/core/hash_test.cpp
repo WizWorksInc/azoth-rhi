@@ -73,13 +73,13 @@ namespace
 			incremental.mix(static_cast<std::uint64_t>(static_cast<unsigned char>(c)));
 		}
 
-		EXPECT_EQ(incremental.Value(), rhi::hash::fnv1a64_hash(text));
+		EXPECT_EQ(incremental.value(), rhi::hash::fnv1a64_hash(text));
 	}
 
 	TEST(Fnv1a64, MixIsOrderSensitive)
 	{
-		const std::uint64_t forward = rhi::hash::Fnv1a64{}.mix(1).mix(2).Value();
-		const std::uint64_t reverse = rhi::hash::Fnv1a64{}.mix(2).mix(1).Value();
+		const std::uint64_t forward = rhi::hash::Fnv1a64{}.mix(1).mix(2).value();
+		const std::uint64_t reverse = rhi::hash::Fnv1a64{}.mix(2).mix(1).value();
 
 		EXPECT_NE(forward, reverse);
 	}

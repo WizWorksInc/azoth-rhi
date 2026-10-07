@@ -93,7 +93,7 @@ namespace
 			}
 
 			SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-			if (api == rhi::VulkanApi::id)
+			if (api == rhi::VulkanApi::kId)
 			{
 				flags |= SDL_WINDOW_VULKAN;
 			}
@@ -144,25 +144,25 @@ namespace
 
 		[[nodiscard]] bool provide(const rhi::SurfaceRequest & request) override
 		{
-			if (auto * loader = rhi::SurfacePayloadOf<rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
+			if (auto * loader = rhi::surface_payload_of<rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
 			{
 				loader->getInstanceProcAddr = sdl_native::VulkanInstanceProcAddr();
 				return loader->getInstanceProcAddr != nullptr;
 			}
 
-			if (auto * vulkan = rhi::SurfacePayloadOf<rhi::native::VulkanSurfacePayload>(request); vulkan != nullptr)
+			if (auto * vulkan = rhi::surface_payload_of<rhi::native::VulkanSurfacePayload>(request); vulkan != nullptr)
 			{
 				vulkan->surface = sdl_native::CreateVulkanSurface(m_window, vulkan->instance);
 				return vulkan->surface != 0;
 			}
 
-			if (auto * metal = rhi::SurfacePayloadOf<rhi::native::MetalSurfacePayload>(request); metal != nullptr)
+			if (auto * metal = rhi::surface_payload_of<rhi::native::MetalSurfacePayload>(request); metal != nullptr)
 			{
 				metal->layer = m_metalView != nullptr ? SDL_Metal_GetLayer(m_metalView) : nullptr;
 				return metal->layer != nullptr;
 			}
 
-			if (auto * win32 = rhi::SurfacePayloadOf<rhi::native::Win32SurfacePayload>(request); win32 != nullptr)
+			if (auto * win32 = rhi::surface_payload_of<rhi::native::Win32SurfacePayload>(request); win32 != nullptr)
 			{
 				win32->window = sdl_native::Win32WindowHandle(m_window);
 				return win32->window != nullptr;
@@ -213,7 +213,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	rhi::Error error{};
 
 	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
@@ -272,14 +272,14 @@ int main(int argc, char ** argv)
 
 		++frame;
 
-		if (frame > 1 && !pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = frame - 1 }, error))
+		if (frame > 1 && !pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = frame - 1 }, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to reset the command pool");
 			return 1;
 		}
 
-		rhi::CommandList list = pool.Allocate("present.frame", error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.allocate("present.frame", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			LOG_ERROR(fw::Log(), "failed to start recording");
 			return 1;
@@ -307,7 +307,7 @@ int main(int argc, char ** argv)
 		const bool recorded =
 			list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
 			list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.get_width(), .height = swapchain.get_height() }, error) &&
-			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
+			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.end(error);
 		if (!recorded)
 		{
 			LOG_ERROR(fw::Log(), "failed to record the frame: {}", error.message != nullptr ? error.message : "no diagnostic");
@@ -331,9 +331,9 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
+		static_cast<void>(swapchain.present(queue, acquired.imageIndex, acquired.renderFinished, error));
 
-		if (!queue.Wait(timeline, frame, kNoTimeout, error))
+		if (!queue.wait(timeline, frame, kNoTimeout, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to wait for the frame");
 			return 1;

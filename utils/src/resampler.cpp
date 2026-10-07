@@ -88,7 +88,7 @@ namespace azo::rhi::utils
 			binary.threadgroupSize = { kGroupSize, kGroupSize, 1 };
 
 #ifdef AZOTH_RHI_UTILS_HAVE_SPIRV
-			if (api == VulkanApi::id)
+			if (api == VulkanApi::kId)
 			{
 				binary.format	  = ShaderBinaryFormat::eSpirV;
 				binary.data		  = shaders::kResample_spirv;
@@ -380,7 +380,7 @@ namespace azo::rhi::utils
 
 		m_transients.push_back(Transient{ .source = source, .destination = destination });
 
-		const DescriptorSetHandle set = m_arena->Allocate(DescriptorSetAllocDesc{ .layout = m_setLayout, .debugName = "azoth.rhi.utils.resample" }, error);
+		const DescriptorSetHandle set = m_arena->allocate(DescriptorSetAllocDesc{ .layout = m_setLayout, .debugName = "azoth.rhi.utils.resample" }, error);
 		if (!set.is_valid())
 		{
 			return false;
@@ -428,7 +428,7 @@ namespace azo::rhi::utils
 		return list.barriers(BarrierBatch{ .textures = toSampled }, error) && list.barriers(BarrierBatch{ .textures = toWritten }, error) &&
 			   list.set_compute_pipeline(m_pipeline, error) && list.bind_descriptor_set(m_layout, 0, set, {}, error) &&
 			   list.push_constants(m_layout, ShaderStage::eCompute, 0, sizeof(constants), &constants, error) &&
-			   list.Dispatch(GroupCount(constants.dstWidth), GroupCount(constants.dstHeight), layers, error);
+			   list.dispatch(GroupCount(constants.dstWidth), GroupCount(constants.dstHeight), layers, error);
 	}
 
 	bool Resampler::Blit(CommandList & list, const TextureHandle dst, const TextureHandle src, const std::span<const TextureBlit> regions, const Filter filter,

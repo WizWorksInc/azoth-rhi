@@ -369,7 +369,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::D3D12Api::kId, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what;
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the register space";
@@ -389,7 +389,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::VulkanApi::id, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::VulkanApi::kId, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what;
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the descriptor set";
@@ -439,7 +439,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::MetalApi::kId, rhi::BindingTier::eUnbounded, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what << ": the ABI has no answer for a set argument buffers can address";
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the buffer index the set binds at";
@@ -466,14 +466,14 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 
 	[[nodiscard]] SlangCompileTarget TargetFor(const rhi::GraphicsApiId api, const char *& profile, rhi::ShaderBinaryFormat & format)
 	{
-		if (api == rhi::VulkanApi::id)
+		if (api == rhi::VulkanApi::kId)
 		{
 			profile = "spirv_1_5";
 			format	= rhi::ShaderBinaryFormat::eSpirV;
 			return SLANG_SPIRV;
 		}
 
-		if (api == rhi::D3D12Api::id)
+		if (api == rhi::D3D12Api::kId)
 		{
 			profile = "sm_6_0";
 			format	= rhi::ShaderBinaryFormat::eDxil;
@@ -513,7 +513,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			return out;
 		}
 
-		out.device					 = out.owner.Value().Get();
+		out.device					 = out.owner.value().get();
 		const rhi::GraphicsApiId api = out.device.get_graphics_api_id();
 
 		const char * profile = "";
@@ -678,9 +678,9 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 			GTEST_SKIP() << "no Metal driver here";
 		}
 
-		rhi::Device device			 = owner.Value().Get();
+		rhi::Device device			 = owner.value().get();
 		const rhi::GraphicsApiId api = device.get_graphics_api_id();
-		if (api != rhi::MetalApi::id)
+		if (api != rhi::MetalApi::kId)
 		{
 			GTEST_SKIP() << "the preferred backend is not Metal";
 		}

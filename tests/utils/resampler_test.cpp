@@ -88,7 +88,7 @@ namespace
 		{
 			GTEST_SKIP() << "no resampler for this backend: " << test::Describe(made.get_error());
 		}
-		utils::Resampler & resampler = made.Value();
+		utils::Resampler & resampler = made.value();
 
 		const rhi::TextureHandle texture = device.create_texture(ResampleTarget(levels), error);
 		ASSERT_TRUE(test::Ok(texture.is_valid(), error));

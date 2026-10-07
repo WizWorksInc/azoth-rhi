@@ -62,8 +62,8 @@ namespace bench::native
 				return false;
 			}
 
-			g_arm.device   = native.Value().device;
-			g_arm.dispatch = native.Value().dispatch;
+			g_arm.device   = native.value().device;
+			g_arm.dispatch = native.value().dispatch;
 
 			rhi::NativeTexture<rhi::VulkanApi> image{};
 			rhi::Error error{};
@@ -74,7 +74,7 @@ namespace bench::native
 			}
 			g_arm.image = image.image;
 
-			g_arm.core13 = native.Value().physicalDevice.getProperties(*g_arm.dispatch).apiVersion >= VK_API_VERSION_1_3;
+			g_arm.core13 = native.value().physicalDevice.getProperties(*g_arm.dispatch).apiVersion >= VK_API_VERSION_1_3;
 
 			constexpr vk::DescriptorSetLayoutBinding binding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eAllGraphics);
 			vk::DescriptorSetLayoutCreateInfo layoutInfo;
@@ -270,7 +270,7 @@ namespace bench::native
 		std::uint64_t & elapsed)
 	{
 		rhi::Error error{};
-		const bool recorded = list.ModifyNative<rhi::VulkanApi>(
+		const bool recorded = list.modify_native<rhi::VulkanApi>(
 			mutation,
 			[&](const rhi::native::VulkanCommandListView & view)
 			{

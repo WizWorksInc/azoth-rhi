@@ -56,7 +56,7 @@
 namespace azo::rhi
 {
 
-	Result<D3D12NativeDevice> get_d3_d12_native_device(Device device)
+	Result<D3D12NativeDevice> get_d3d12_native_device(Device device)
 	{
 		if (device.get_graphics_api_id() != D3D12Api::kId)
 		{
@@ -88,7 +88,7 @@ namespace azo::rhi
 			.allocator					  = impl->allocator.Get() };
 	}
 
-	Result<D3D12NativeSwapchain> get_d3_d12_native_swapchain(Swapchain swapchain)
+	Result<D3D12NativeSwapchain> get_d3d12_native_swapchain(Swapchain swapchain)
 	{
 		auto * impl = static_cast<d3d12::D3D12Swapchain *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(swapchain), d3d12::SwapchainBlock()));
 		if (impl == nullptr)
@@ -106,7 +106,7 @@ namespace azo::rhi
 			.imageCount							= impl->imageCount };
 	}
 
-	Result<native::D3D12QueueView> get_d3_d12_queue_view(Queue queue)
+	Result<native::D3D12QueueView> get_d3d12_queue_view(Queue queue)
 	{
 		const auto * impl = static_cast<d3d12::D3D12Queue *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(queue), d3d12::QueueBlock()));
 		if (impl == nullptr)
@@ -120,21 +120,21 @@ namespace azo::rhi
 		return native::D3D12QueueView{ .queue = impl->queue.Get() };
 	}
 
-	ID3D12GraphicsCommandList * get_d3_d12_command_list(CommandList commandList)
+	ID3D12GraphicsCommandList * get_d3d12_command_list(CommandList commandList)
 	{
 		const auto * impl =
 			static_cast<d3d12::D3D12CommandList *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), d3d12::RenderCommandBlock()));
 		return impl != nullptr ? impl->list.Get() : nullptr;
 	}
 
-	ID3D12CommandAllocator * get_d3_d12_command_allocator(CommandList commandList)
+	ID3D12CommandAllocator * get_d3d12_command_allocator(CommandList commandList)
 	{
 		const auto * impl =
 			static_cast<d3d12::D3D12CommandList *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), d3d12::RenderCommandBlock()));
 		return impl != nullptr ? impl->allocator.Get() : nullptr;
 	}
 
-	Result<void> register_d3_d12_backend(GraphicsApiRegistry & registry)
+	Result<void> register_d3d12_backend(GraphicsApiRegistry & registry)
 	{
 		BackendCreateInfo info{};
 		info.info.canonicalName				   = D3D12Api::kCanonicalName;
@@ -156,14 +156,14 @@ namespace azo::rhi
 		}
 
 		Error error{};
-		auto instance = d3d12::BuildInstance(InstanceDescForDevice(desc), &error);
+		auto instance = d3d12::build_instance(instance_desc_for_device(desc), &error);
 		if (!instance)
 		{
 			return error;
 		}
 
 		d3d12::D3D12Instance * instanceRaw = instance.get();
-		d3d12::D3D12Device * device		   = d3d12::MakeOwnedDevice(instanceRaw, std::move(instance), desc, &error);
+		d3d12::D3D12Device * device		   = d3d12::make_owned_device(instanceRaw, std::move(instance), desc, &error);
 		if (device == nullptr)
 		{
 			return error;

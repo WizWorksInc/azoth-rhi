@@ -123,7 +123,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev				 = device.Value().Get();
+	rhi::Device dev				 = device.value().get();
 	const rhi::DeviceCaps & caps = dev.get_caps();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
@@ -221,7 +221,7 @@ int main(int argc, char ** argv)
 
 	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 1, .debugName = "timing.arena" }, error);
-	const rhi::DescriptorSetHandle workSet = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = workSetLayout, .debugName = "timing.work" }, error);
+	const rhi::DescriptorSetHandle workSet = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = workSetLayout, .debugName = "timing.work" }, error);
 
 	const std::array workWrites{
 		rhi::DescriptorWriteBuffer{
@@ -284,8 +284,8 @@ int main(int argc, char ** argv)
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "timing.timeline" }, error);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "timing.pool" }, error);
-	rhi::CommandList list			   = pool.Allocate("timing.frame", error);
-	if (!results.is_valid() || !timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
+	rhi::CommandList list			   = pool.allocate("timing.frame", error);
+	if (!results.is_valid() || !timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.begin(error))
 	{
 		fw::ReportError("the submission objects were refused", error);
 		return 1;
@@ -330,7 +330,7 @@ int main(int argc, char ** argv)
 
 	recorded = recorded && list.set_compute_pipeline(computePipeline, error) && list.bind_descriptor_set(computeLayout, 0, workSet, {}, error) &&
 			   list.push_constants(computeLayout, rhi::ShaderStage::eCompute, 0, sizeof(params), &params, error) &&
-			   list.Dispatch(kThreads / computeShader.threadgroupSize.x, 1, 1, error);
+			   list.dispatch(kThreads / computeShader.threadgroupSize.x, 1, 1, error);
 
 	if (timeTheDispatch)
 	{
@@ -410,7 +410,7 @@ int main(int argc, char ** argv)
 		recorded = recorded && list.resolve_query_data(statistics, 0, 1, results, kStatisticByte, error);
 	}
 
-	recorded = recorded && list.End(error);
+	recorded = recorded && list.end(error);
 	if (!recorded)
 	{
 		fw::ReportError("recording the render pass failed", error);
@@ -423,7 +423,7 @@ int main(int argc, char ** argv)
 	std::array<const rhi::CommandList *, 1> lists{ &list };
 	const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
 	if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "timing.submit" }, error) ||
-		!queue.Wait(timeline, 1, kNoTimeout, error))
+		!queue.wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("the frame did not complete", error);
 		return 1;
@@ -431,7 +431,7 @@ int main(int argc, char ** argv)
 
 	const double wallMilliseconds = wall.Stop<fw::util::Timer::Milliseconds>();
 
-	const rhi::MappedMemory mapped = dev.Map(results, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+	const rhi::MappedMemory mapped = dev.map(results, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 	if (mapped.data == nullptr)
 	{
 		fw::ReportError("the results could not be mapped", error);
@@ -446,7 +446,7 @@ int main(int argc, char ** argv)
 
 	std::array<std::uint64_t, kResultBytes / sizeof(std::uint64_t)> raw{};
 	std::memcpy(raw.data(), mapped.data, kResultBytes);
-	static_cast<void>(dev.Unmap(results, error));
+	static_cast<void>(dev.unmap(results, error));
 
 	rhi::TimestampCalibration calibration{};
 	if (!dev.calibrate_timestamp(rhi::QueueType::eGraphics, calibration, error))

@@ -54,7 +54,7 @@ namespace fw::platform
 			flags |= SDL_WINDOW_RESIZABLE;
 		}
 
-		if (api == azo::rhi::VulkanApi::id)
+		if (api == azo::rhi::VulkanApi::kId)
 		{
 			flags |= SDL_WINDOW_VULKAN;
 		}
@@ -143,27 +143,27 @@ namespace fw::platform
 		return size.height == 0 ? 1.0f : static_cast<float>(size.width) / static_cast<float>(size.height);
 	}
 
-	bool Sdl3Window::Provide(const azo::rhi::SurfaceRequest & request)
+	bool Sdl3Window::provide(const azo::rhi::SurfaceRequest & request)
 	{
-		if (auto * loader = azo::rhi::SurfacePayloadOf<azo::rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
+		if (auto * loader = azo::rhi::surface_payload_of<azo::rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
 		{
 			loader->getInstanceProcAddr = detail::VulkanInstanceProcAddr();
 			return loader->getInstanceProcAddr != nullptr;
 		}
 
-		if (auto * vulkan = azo::rhi::SurfacePayloadOf<azo::rhi::native::VulkanSurfacePayload>(request); vulkan != nullptr)
+		if (auto * vulkan = azo::rhi::surface_payload_of<azo::rhi::native::VulkanSurfacePayload>(request); vulkan != nullptr)
 		{
 			vulkan->surface = detail::CreateVulkanSurface(m_window, vulkan->instance);
 			return vulkan->surface != 0;
 		}
 
-		if (auto * metal = azo::rhi::SurfacePayloadOf<azo::rhi::native::MetalSurfacePayload>(request); metal != nullptr)
+		if (auto * metal = azo::rhi::surface_payload_of<azo::rhi::native::MetalSurfacePayload>(request); metal != nullptr)
 		{
 			metal->layer = m_metalView != nullptr ? SDL_Metal_GetLayer(static_cast<::SDL_MetalView>(m_metalView)) : nullptr;
 			return metal->layer != nullptr;
 		}
 
-		if (auto * win32 = azo::rhi::SurfacePayloadOf<azo::rhi::native::Win32SurfacePayload>(request); win32 != nullptr)
+		if (auto * win32 = azo::rhi::surface_payload_of<azo::rhi::native::Win32SurfacePayload>(request); win32 != nullptr)
 		{
 			win32->window = detail::Win32WindowHandle(m_window);
 			return win32->window != nullptr;

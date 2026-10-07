@@ -53,7 +53,7 @@ namespace azo::rhi
 			return false;                                                                                                                                      \
 		}                                                                                                                                                      \
                                                                                                                                                                \
-		description->stamp = ::azo::rhi::CurrentAbiStamp();                                                                                                    \
+		description->stamp = ::azo::rhi::current_abi_stamp();                                                                                                  \
 		return (fillDescription)(*description);                                                                                                                \
 	}
 // NOLINTEND(cppcoreguidelines-macro-usage)

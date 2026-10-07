@@ -145,7 +145,7 @@ namespace
 		class RefusingAllocator final : public rhi::HostAllocator
 		{
 		public:
-			void * Allocate(std::size_t, std::size_t) override
+			void * allocate(std::size_t, std::size_t) override
 			{
 				return nullptr;
 			}
@@ -217,7 +217,7 @@ namespace
 		class MinimalAllocator final : public rhi::DeviceMemoryAllocator
 		{
 		public:
-			bool Allocate(rhi::Device, const rhi::MemoryRequest &, rhi::MemorySpan &) override
+			bool allocate(rhi::Device, const rhi::MemoryRequest &, rhi::MemorySpan &) override
 			{
 				return false;
 			}
@@ -226,7 +226,7 @@ namespace
 		};
 
 		const MinimalAllocator allocator;
-		const rhi::MemoryStats stats = allocator.Stats();
+		const rhi::MemoryStats stats = allocator.stats();
 
 		EXPECT_EQ(stats.heapCount, 0u);
 		EXPECT_EQ(stats.liveAllocations, 0u);

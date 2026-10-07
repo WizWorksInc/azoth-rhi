@@ -69,7 +69,7 @@ namespace azo::rhi::test::oracle
 			ASSERT_NE(first, nullptr) << what << " publishes no block the RHI can drive it through";
 			EXPECT_EQ(first, second) << what << " answered with a different block the second time, which the cached pointer would never see";
 
-			EXPECT_EQ(first, detail::QueryBlock<Block>(impl)) << what << " resolves to a different block through the RHI than through its own entry";
+			EXPECT_EQ(first, detail::query_block<Block>(impl)) << what << " resolves to a different block through the RHI than through its own entry";
 
 			const auto * block = static_cast<const Block *>(first);
 			EXPECT_EQ(block->header.byteSize, sizeof(Block)) << what << " declared a size other than the layout it published";
@@ -139,10 +139,10 @@ namespace azo::rhi::test::oracle
 			const void * atCreation = QueryOnce<CommandPoolApi>(poolImpl);
 			ASSERT_NE(atCreation, nullptr) << "a command pool published no block when it was new";
 
-			CommandList list = pool.Allocate("azoth.rhi.conformance.blockLifetime", error);
+			CommandList list = pool.allocate("azoth.rhi.conformance.blockLifetime", error);
 			ASSERT_TRUE(Ok(list.is_valid(), error));
-			EXPECT_TRUE(Ok(list.Begin(error), error));
-			EXPECT_TRUE(Ok(list.End(error), error));
+			EXPECT_TRUE(Ok(list.begin(error), error));
+			EXPECT_TRUE(Ok(list.end(error), error));
 
 			EXPECT_EQ(QueryOnce<CommandPoolApi>(poolImpl), atCreation) << "a command pool answered differently once it had been used, and a facade built "
 																		  "after that work would hold a pointer the first one never saw";
@@ -169,7 +169,7 @@ namespace azo::rhi::test::oracle
 		EXPECT_NE(QueryOnce<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool)), nullptr) << "a command pool publishes no CommandPoolApi, so it can hand "
 																							  "out nothing";
 
-		CommandList list = pool.Allocate("azoth.rhi.conformance.requiredBlocks", error);
+		CommandList list = pool.allocate("azoth.rhi.conformance.requiredBlocks", error);
 		ASSERT_TRUE(Ok(list.is_valid(), error));
 		EXPECT_NE(QueryOnce<RenderCommandApi>(detail::FacadeBuilder::impl_of(list)), nullptr) << "a command list publishes no RenderCommandApi, so nothing "
 																								"can be recorded into it";
@@ -243,7 +243,7 @@ namespace azo::rhi::test::oracle
 		ASSERT_TRUE(Ok(pool.is_valid(), error));
 		ExpectAnswersTheSameWayTwice<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool), "a command pool");
 
-		CommandList list = pool.Allocate("azoth.rhi.conformance.blockStability", error);
+		CommandList list = pool.allocate("azoth.rhi.conformance.blockStability", error);
 		ASSERT_TRUE(Ok(list.is_valid(), error));
 		ExpectAnswersTheSameWayTwice<RenderCommandApi>(detail::FacadeBuilder::impl_of(list), "a command list");
 
@@ -268,7 +268,7 @@ namespace azo::rhi::test::oracle
 		ASSERT_TRUE(Ok(pool.is_valid(), error));
 		ExpectAnswersTheSameWayConcurrently<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool), "a command pool");
 
-		CommandList list = pool.Allocate("azoth.rhi.conformance.concurrentQuery", error);
+		CommandList list = pool.allocate("azoth.rhi.conformance.concurrentQuery", error);
 		ASSERT_TRUE(Ok(list.is_valid(), error));
 		ExpectAnswersTheSameWayConcurrently<RenderCommandApi>(detail::FacadeBuilder::impl_of(list), "a command list");
 	}

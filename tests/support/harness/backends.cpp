@@ -65,7 +65,7 @@ namespace azo::rhi::test
 			return;
 		}
 
-		m_device = std::move(device).Value();
+		m_device = std::move(device).value();
 	}
 
 	void BackendTest::SetUp()

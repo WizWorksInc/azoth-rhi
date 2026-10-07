@@ -151,12 +151,12 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		rhi::Error secondError{};
-		[[maybe_unused]] const bool acceptedSecondBegin = list.Begin(secondError);
+		[[maybe_unused]] const bool acceptedSecondBegin = list.begin(secondError);
 
 		if constexpr (test::kValidatesFully)
 		{
@@ -168,7 +168,7 @@ namespace
 			EXPECT_NE(secondError.code, rhi::ErrorCode::eValidationFailed) << "the lifecycle check ran in a mode that promised not to";
 		}
 
-		static_cast<void>(list.End(error));
+		static_cast<void>(list.end(error));
 	}
 
 	TEST_P(ValidationModeTest, EveryModeStillCreatesAndDestroysResourcesCorrectly)

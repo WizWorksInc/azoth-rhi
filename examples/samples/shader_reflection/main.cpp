@@ -91,9 +91,9 @@ namespace
 	[[nodiscard]] const Target * TargetFor(const rhi::GraphicsApiId api)
 	{
 		static constexpr std::array targets{
-			Target{ .api = rhi::VulkanApi::id, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .format = rhi::ShaderBinaryFormat::eSpirV },
-			Target{ .api = rhi::D3D12Api::id, .slang = SLANG_DXIL, .profile = "sm_6_0", .format = rhi::ShaderBinaryFormat::eDxil },
-			Target{ .api			 = rhi::MetalApi::id,
+			Target{ .api = rhi::VulkanApi::kId, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .format = rhi::ShaderBinaryFormat::eSpirV },
+			Target{ .api = rhi::D3D12Api::kId, .slang = SLANG_DXIL, .profile = "sm_6_0", .format = rhi::ShaderBinaryFormat::eDxil },
+			Target{ .api			 = rhi::MetalApi::kId,
 				.slang				 = SLANG_METAL_LIB,
 				.profile			 = "metallib_2_4",
 				.format				 = rhi::ShaderBinaryFormat::eBackendNative,
@@ -102,7 +102,7 @@ namespace
 
 		// NOLINTNEXTLINE(readability-qualified-auto): this is a pointer on libc++ and a class iterator on MSVC, and the check's fix only builds on the first.
 
-		const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
+		const rhi::GraphicsApiId target = api == rhi::Metal4Api::kId ? rhi::MetalApi::kId : api;
 
 		const auto found = std::ranges::find(targets, target, &Target::api);
 		return found != targets.end() ? &*found : nullptr;
@@ -331,7 +331,7 @@ int main(int argc, char ** argv)
 		return 77;
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	Program program;
@@ -395,16 +395,16 @@ int main(int argc, char ** argv)
 	}
 
 	rhi::BufferBuilder inputDesc;
-	inputDesc.Size(kBufferSize).Usage(rhi::BufferUsage::eStorage).CpuUpload().DebugName("reflection.input");
+	inputDesc.size(kBufferSize).usage(rhi::BufferUsage::eStorage).cpu_upload().debug_name("reflection.input");
 	const rhi::BufferHandle input = dev.create_buffer(inputDesc.build(), error);
 
 	rhi::BufferBuilder outputDesc;
-	outputDesc.Size(kBufferSize).GpuOnly().DebugName("reflection.output");
-	outputDesc.Usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopySrc);
+	outputDesc.size(kBufferSize).gpu_only().debug_name("reflection.output");
+	outputDesc.usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopySrc);
 	const rhi::BufferHandle output = dev.create_buffer(outputDesc.build(), error);
 
 	rhi::BufferBuilder readDesc;
-	readDesc.Size(kBufferSize).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("reflection.readback");
+	readDesc.size(kBufferSize).usage(rhi::BufferUsage::eCopyDst).cpu_readback().debug_name("reflection.readback");
 	const rhi::BufferHandle readback = dev.create_buffer(readDesc.build(), error);
 
 	if (!input.is_valid() || !output.is_valid() || !readback.is_valid())
@@ -413,7 +413,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::MappedMemory mappedInput = dev.Map(input, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+	const rhi::MappedMemory mappedInput = dev.map(input, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 	if (mappedInput.data == nullptr)
 	{
 		fw::ReportError("the upload could not be mapped", error);
@@ -428,7 +428,7 @@ int main(int argc, char ** argv)
 
 	std::memcpy(mappedInput.data, feed.data(), kBufferSize);
 
-	if (!dev.Unmap(input, error))
+	if (!dev.unmap(input, error))
 	{
 		fw::ReportError("the upload could not be unmapped", error);
 		return 1;
@@ -443,7 +443,7 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	const rhi::DescriptorSetHandle set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "reflection.descriptors" }, error);
+	const rhi::DescriptorSetHandle set = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "reflection.descriptors" }, error);
 
 	std::vector<rhi::DescriptorWriteBuffer> writes;
 	writes.reserve(program.bindings.size());
@@ -467,8 +467,8 @@ int main(int argc, char ** argv)
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "reflection.timeline" }, error);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eCompute, 0, error);
 	rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .queueType = rhi::QueueType::eCompute, .debugName = "reflection.pool" }, error);
-	rhi::CommandList list = pool.Allocate("reflection.dispatch", error);
-	if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
+	rhi::CommandList list = pool.allocate("reflection.dispatch", error);
+	if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.begin(error))
 	{
 		fw::ReportError("the submission objects were refused", error);
 		return 1;
@@ -493,8 +493,8 @@ int main(int argc, char ** argv)
 	const bool recorded =
 		list.barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error) && list.set_compute_pipeline(pipeline, error) &&
 		list.bind_descriptor_set(layout, 0, set, {}, error) && list.push_constants(layout, rhi::ShaderStage::eCompute, 0, sizeof(kParams), &kParams, error) &&
-		list.Dispatch(kElements / program.threadgroup.at(0), 1, 1, error) && list.barriers(rhi::BarrierBatch{ .buffers = afterDispatch }, error) &&
-		list.copy_buffer(readback, 0, output, 0, kBufferSize, error) && list.End(error);
+		list.dispatch(kElements / program.threadgroup.at(0), 1, 1, error) && list.barriers(rhi::BarrierBatch{ .buffers = afterDispatch }, error) &&
+		list.copy_buffer(readback, 0, output, 0, kBufferSize, error) && list.end(error);
 
 	if (!recorded)
 	{
@@ -506,13 +506,13 @@ int main(int argc, char ** argv)
 	const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
 	if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "reflection.submit" }, error) ||
-		!queue.Wait(timeline, 1, kNoTimeout, error))
+		!queue.wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("the dispatch did not complete", error);
 		return 1;
 	}
 
-	const rhi::MappedMemory mapped = dev.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+	const rhi::MappedMemory mapped = dev.map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 	if (mapped.data == nullptr)
 	{
 		fw::ReportError("the readback could not be mapped", error);
@@ -521,7 +521,7 @@ int main(int argc, char ** argv)
 
 	std::array<float, kElements> results{};
 	std::memcpy(results.data(), mapped.data, kBufferSize);
-	static_cast<void>(dev.Unmap(readback, error));
+	static_cast<void>(dev.unmap(readback, error));
 
 	std::uint32_t wrong = 0;
 	for (std::uint32_t index = 0; index < kElements; ++index)

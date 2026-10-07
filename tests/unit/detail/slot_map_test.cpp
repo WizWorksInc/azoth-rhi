@@ -208,7 +208,7 @@ namespace
 		static_cast<void>(map.store(1));
 		static_cast<void>(map.store(2));
 
-		map.Reset();
+		map.reset();
 		EXPECT_EQ(map.live_count(), 0u);
 
 		const TestHandle afterReset = map.store(3);

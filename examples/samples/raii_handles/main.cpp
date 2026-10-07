@@ -85,10 +85,10 @@ namespace
 			return device.get_error();
 		}
 
-		resources.device = std::move(device.Value());
+		resources.device = std::move(device.value());
 
 		rhi::BufferBuilder uploadDesc;
-		uploadDesc.Size(kBytes).Usage(rhi::BufferUsage::eCopySrc).CpuUpload().DebugName("raii.upload");
+		uploadDesc.size(kBytes).usage(rhi::BufferUsage::eCopySrc).cpu_upload().debug_name("raii.upload");
 
 		rhi::Result<rhi::raii::Buffer> upload = resources.device.create_buffer(uploadDesc.build());
 		if (!upload)
@@ -96,10 +96,10 @@ namespace
 			return upload.get_error();
 		}
 
-		resources.upload = std::move(upload.Value());
+		resources.upload = std::move(upload.value());
 
 		rhi::BufferBuilder readbackDesc;
-		readbackDesc.Size(kBytes).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("raii.readback");
+		readbackDesc.size(kBytes).usage(rhi::BufferUsage::eCopyDst).cpu_readback().debug_name("raii.readback");
 
 		rhi::Result<rhi::raii::Buffer> readback = resources.device.create_buffer(readbackDesc.build());
 		if (!readback)
@@ -107,13 +107,13 @@ namespace
 			return readback.get_error();
 		}
 
-		resources.readback = std::move(readback.Value());
+		resources.readback = std::move(readback.value());
 
 		rhi::TextureBuilder textureDesc;
-		textureDesc.Format(rhi::Format::eRGBA8UNorm)
-			.Extent(kWidth, kHeight)
-			.Usage(rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eCopySrc)
-			.DebugName("raii.texture");
+		textureDesc.format(rhi::Format::eRGBA8UNorm)
+			.extent(kWidth, kHeight)
+			.usage(rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eCopySrc)
+			.debug_name("raii.texture");
 
 		rhi::Result<rhi::raii::Texture> texture = resources.device.create_texture(textureDesc.build());
 		if (!texture)
@@ -121,16 +121,16 @@ namespace
 			return texture.get_error();
 		}
 
-		resources.texture = std::move(texture.Value());
+		resources.texture = std::move(texture.value());
 
 		rhi::Result<rhi::raii::TextureView> view =
-			resources.device.create_texture_view(resources.texture.Get(), rhi::TextureViewDesc{ .debugName = "raii.view" });
+			resources.device.create_texture_view(resources.texture.get(), rhi::TextureViewDesc{ .debugName = "raii.view" });
 		if (!view)
 		{
 			return view.get_error();
 		}
 
-		resources.view = std::move(view.Value());
+		resources.view = std::move(view.value());
 
 		rhi::Result<rhi::raii::Sampler> sampler = resources.device.create_sampler(rhi::SamplerDesc{ .debugName = "raii.sampler" });
 		if (!sampler)
@@ -138,7 +138,7 @@ namespace
 			return sampler.get_error();
 		}
 
-		resources.sampler = std::move(sampler.Value());
+		resources.sampler = std::move(sampler.value());
 
 		rhi::Result<rhi::raii::Timeline> timeline = resources.device.create_timeline(rhi::TimelineDesc{ .debugName = "raii.timeline" });
 		if (!timeline)
@@ -146,7 +146,7 @@ namespace
 			return timeline.get_error();
 		}
 
-		resources.timeline = std::move(timeline.Value());
+		resources.timeline = std::move(timeline.value());
 
 		return resources;
 	}
@@ -160,7 +160,7 @@ namespace
 
 	[[nodiscard]] RoundTripOutcome RoundTrip(Resources & resources, const std::span<const std::uint8_t> pattern, std::vector<std::uint8_t> & out)
 	{
-		rhi::Device dev = resources.device.Get();
+		rhi::Device dev = resources.device.get();
 		rhi::Error error{};
 
 		rhi::Queue queue = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
@@ -172,7 +172,7 @@ namespace
 			return RoundTripOutcome::eFailed;
 		}
 
-		const rhi::MappedMemory mapped = dev.Map(resources.upload.Get(), rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+		const rhi::MappedMemory mapped = dev.map(resources.upload.get(), rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
 			if (error.code == rhi::ErrorCode::eUnsupportedFeature)
@@ -185,14 +185,14 @@ namespace
 		}
 
 		std::memcpy(mapped.data, pattern.data(), pattern.size());
-		if ((!mapped.coherent && !dev.flush_mapped_range(resources.upload.Get(), 0, kBytes, error)) || !dev.Unmap(resources.upload.Get(), error))
+		if ((!mapped.coherent && !dev.flush_mapped_range(resources.upload.get(), 0, kBytes, error)) || !dev.unmap(resources.upload.get(), error))
 		{
 			fw::ReportError("failed to flush the upload buffer", error);
 			return RoundTripOutcome::eFailed;
 		}
 
-		rhi::CommandList list = pool.Value().Allocate("raii.roundTrip", error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.value().allocate("raii.roundTrip", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			fw::ReportError("failed to start recording", error);
 			return RoundTripOutcome::eFailed;
@@ -202,7 +202,7 @@ namespace
 
 		const std::array toCopyDst{
 			rhi::TextureBarrier{
-				.texture = resources.texture.Get(),
+				.texture = resources.texture.get(),
 				.before	 = { .use = rhi::ResourceUse::eDiscard },
 				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			},
@@ -210,16 +210,16 @@ namespace
 
 		const std::array toCopySrc{
 			rhi::TextureBarrier{
-				.texture = resources.texture.Get(),
+				.texture = resources.texture.get(),
 				.before	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 				.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 			},
 		};
 
 		const bool recorded = list.barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error) &&
-							  list.copy_buffer_to_texture(resources.texture.Get(), resources.upload.Get(), regions, error) &&
+							  list.copy_buffer_to_texture(resources.texture.get(), resources.upload.get(), regions, error) &&
 							  list.barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error) &&
-							  list.copy_texture_to_buffer(resources.readback.Get(), resources.texture.Get(), regions, error) && list.End(error);
+							  list.copy_texture_to_buffer(resources.readback.get(), resources.texture.get(), regions, error) && list.end(error);
 
 		if (!recorded)
 		{
@@ -229,23 +229,23 @@ namespace
 
 		constexpr std::uint64_t kSignalValue = 1;
 		std::array<const rhi::CommandList *, 1> lists{ &list };
-		const std::array signals{ rhi::TimelinePoint{ .timeline = resources.timeline.Get(), .value = kSignalValue } };
+		const std::array signals{ rhi::TimelinePoint{ .timeline = resources.timeline.get(), .value = kSignalValue } };
 
 		if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "raii.submit" }, error) ||
-			!queue.Wait(resources.timeline.Get(), kSignalValue, kNoTimeout, error))
+			!queue.wait(resources.timeline.get(), kSignalValue, kNoTimeout, error))
 		{
 			fw::ReportError("failed to run the round trip", error);
 			return RoundTripOutcome::eFailed;
 		}
 
-		const rhi::MappedMemory read = dev.Map(resources.readback.Get(), rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+		const rhi::MappedMemory read = dev.map(resources.readback.get(), rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 		if (read.data == nullptr)
 		{
 			fw::ReportError("failed to map the readback buffer", error);
 			return RoundTripOutcome::eFailed;
 		}
 
-		if (!read.coherent && !dev.invalidate_mapped_range(resources.readback.Get(), 0, kBytes, error))
+		if (!read.coherent && !dev.invalidate_mapped_range(resources.readback.get(), 0, kBytes, error))
 		{
 			fw::ReportError("failed to invalidate the readback buffer", error);
 			return RoundTripOutcome::eFailed;
@@ -253,7 +253,7 @@ namespace
 
 		out.resize(kBytes);
 		std::memcpy(out.data(), read.data, kBytes);
-		static_cast<void>(dev.Unmap(resources.readback.Get(), error));
+		static_cast<void>(dev.unmap(resources.readback.get(), error));
 
 		return RoundTripOutcome::eDone;
 	}
@@ -267,8 +267,8 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(built.get_error());
 	}
 
-	Resources & resources = built.Value();
-	LOG_INFO(fw::Log(), "backend: {}", resources.device.Get().GetGraphicsApiName());
+	Resources & resources = built.value();
+	LOG_INFO(fw::Log(), "backend: {}", resources.device.get().get_graphics_api_name());
 	LOG_INFO(fw::Log(), "built a device, two buffers, a texture, a view, a sampler and a timeline, with no handle named once");
 
 	const std::vector<std::uint8_t> pattern = MakePattern();

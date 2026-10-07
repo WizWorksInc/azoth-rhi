@@ -30,7 +30,7 @@ namespace azo::rhi
 
 	inline constexpr std::uint32_t kPushConstantRegisterSpace = 0;
 
-	[[nodiscard]] constexpr std::uint32_t d3_d12_register_space_for_set(const std::uint32_t set) noexcept
+	[[nodiscard]] constexpr std::uint32_t d3d12_register_space_for_set(const std::uint32_t set) noexcept
 	{
 		return set + 1;
 	}

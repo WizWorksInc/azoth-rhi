@@ -136,12 +136,12 @@ namespace
 		}
 
 		rhi::BufferBuilder storageDesc;
-		storageDesc.Size(kBufferSize).GpuOnly().DebugName("languages.storage");
-		storageDesc.Usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopySrc);
+		storageDesc.size(kBufferSize).gpu_only().debug_name("languages.storage");
+		storageDesc.usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopySrc);
 		const rhi::BufferHandle storage = dev.create_buffer(storageDesc.build(), error);
 
 		rhi::BufferBuilder readDesc;
-		readDesc.Size(kBufferSize).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("languages.readback");
+		readDesc.size(kBufferSize).usage(rhi::BufferUsage::eCopyDst).cpu_readback().debug_name("languages.readback");
 		const rhi::BufferHandle readback = dev.create_buffer(readDesc.build(), error);
 		if (!storage.is_valid() || !readback.is_valid())
 		{
@@ -158,7 +158,7 @@ namespace
 			},
 			error);
 
-		const rhi::DescriptorSetHandle set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "languages.descriptors" }, error);
+		const rhi::DescriptorSetHandle set = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "languages.descriptors" }, error);
 		const std::array writes{
 			rhi::DescriptorWriteBuffer{ .set = set, .binding = 0, .type = rhi::DescriptorType::eStorageBuffer, .buffer = storage, .range = kBufferSize },
 		};
@@ -171,8 +171,8 @@ namespace
 		const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "languages.timeline" }, error);
 		rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eCompute, 0, error);
 		rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .queueType = rhi::QueueType::eCompute, .debugName = "languages.pool" }, error);
-		rhi::CommandList list = pool.Allocate("languages.dispatch", error);
-		if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.allocate("languages.dispatch", error);
+		if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.begin(error))
 		{
 			why = "the submission objects were refused";
 			return false;
@@ -195,9 +195,9 @@ namespace
 		};
 
 		const bool recorded = list.barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error) && list.set_compute_pipeline(pipeline, error) &&
-							  list.bind_descriptor_set(layout, 0, set, {}, error) && list.Dispatch(kernel.groupsX, kernel.groupsY, 1, error) &&
+							  list.bind_descriptor_set(layout, 0, set, {}, error) && list.dispatch(kernel.groupsX, kernel.groupsY, 1, error) &&
 							  list.barriers(rhi::BarrierBatch{ .buffers = afterDispatch }, error) &&
-							  list.copy_buffer(readback, 0, storage, 0, kBufferSize, error) && list.End(error);
+							  list.copy_buffer(readback, 0, storage, 0, kBufferSize, error) && list.end(error);
 		if (!recorded)
 		{
 			why = error.message != nullptr ? error.message : "recording failed";
@@ -209,13 +209,13 @@ namespace
 		const rhi::SubmitDesc submit{ .commandLists = lists, .signals = signals, .debugName = "languages.submit" };
 
 		constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
-		if (!queue.submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
+		if (!queue.submit(submit, error) || !queue.wait(timeline, 1, kNoTimeout, error))
 		{
 			why = error.message != nullptr ? error.message : "the dispatch did not complete";
 			return false;
 		}
 
-		const rhi::MappedMemory mapped = dev.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+		const rhi::MappedMemory mapped = dev.map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 		if (mapped.data == nullptr)
 		{
 			why = "the readback buffer would not map";
@@ -229,7 +229,7 @@ namespace
 		}
 
 		std::memcpy(readBack.data(), mapped.data, kBufferSize);
-		static_cast<void>(dev.Unmap(readback, error));
+		static_cast<void>(dev.unmap(readback, error));
 		return true;
 	}
 
@@ -253,7 +253,7 @@ int main(int argc, char ** argv)
 		return 77;
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	langs::ShaderCompiler compiler;

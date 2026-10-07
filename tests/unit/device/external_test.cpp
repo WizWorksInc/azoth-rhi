@@ -49,12 +49,12 @@ namespace
 			const std::array<rhi::GraphicsApiId, 1> only{ CurrentBackend().id };
 			rhi::Result<rhi::UniqueInstance> created = rhi::create_instance(Harness().Registry(), only, desc);
 			ASSERT_TRUE(test::Ok(created)) << "the backend under test could not make an instance to ask";
-			m_instance = std::move(created).Value();
+			m_instance = std::move(created).value();
 		}
 
 		[[nodiscard]] rhi::Instance Inst() const noexcept
 		{
-			return m_instance.Get();
+			return m_instance.get();
 		}
 
 	private:

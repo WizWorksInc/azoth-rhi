@@ -56,16 +56,16 @@ namespace
 
 		for (std::uint32_t round = 0; round < rounds; ++round)
 		{
-			const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-			ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "round " << round << " could not allocate";
+			const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+			ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "round " << round << " could not allocate";
 
 			const auto key = (static_cast<std::uint64_t>(buffer.index) << 32u) | buffer.generation;
 			ASSERT_TRUE(issued.insert(key).second) << "round " << round << " reissued a handle that had already been handed out";
 
-			ASSERT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error)) << "round " << round << " could not release";
+			ASSERT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error)) << "round " << round << " could not release";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(Dev().collect_garbage(error), error));
 	}
 
 	TEST_P(RecycleTest, HoldsManyResourcesLiveAtOnceAndReleasesThemAll)
@@ -78,17 +78,17 @@ namespace
 
 		for (std::uint32_t index = 0; index < count; ++index)
 		{
-			const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(64), error);
-			ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "allocation " << index << " of " << count << " failed";
+			const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(64), error);
+			ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "allocation " << index << " of " << count << " failed";
 			buffers.push_back(buffer);
 		}
 
 		for (std::size_t index = buffers.size(); index > 0; --index)
 		{
-			ASSERT_TRUE(test::Ok(Dev().Destroy(buffers[index - 1], {}, error), error)) << "release " << (index - 1) << " failed";
+			ASSERT_TRUE(test::Ok(Dev().destroy(buffers[index - 1], {}, error), error)) << "release " << (index - 1) << " failed";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(Dev().collect_garbage(error), error));
 	}
 
 	TEST_P(RecycleTest, RecyclesTexturesAndViewsTogetherWithoutLosingOrder)
@@ -98,17 +98,17 @@ namespace
 		rhi::Error error{};
 		for (std::uint32_t round = 0; round < rounds; ++round)
 		{
-			const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(16), error);
-			ASSERT_TRUE(test::Ok(texture.IsValid(), error)) << "round " << round;
+			const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(16), error);
+			ASSERT_TRUE(test::Ok(texture.is_valid(), error)) << "round " << round;
 
-			const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, test::samples::FullTextureView(), error);
-			ASSERT_TRUE(test::Ok(view.IsValid(), error)) << "round " << round;
+			const rhi::TextureViewHandle view = Dev().create_texture_view(texture, test::samples::FullTextureView(), error);
+			ASSERT_TRUE(test::Ok(view.is_valid(), error)) << "round " << round;
 
-			ASSERT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error)) << "round " << round;
-			ASSERT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error)) << "round " << round;
+			ASSERT_TRUE(test::Ok(Dev().destroy(view, {}, error), error)) << "round " << round;
+			ASSERT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error)) << "round " << round;
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(Dev().collect_garbage(error), error));
 	}
 
 	TEST_P(RecycleTest, RecordsAndResetsAPoolManyTimesOver)
@@ -116,16 +116,16 @@ namespace
 		const std::uint32_t frames = test::ScaledIterations(500);
 
 		rhi::Error error{};
-		rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		for (std::uint32_t frame = 0; frame < frames; ++frame)
 		{
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.recycleList", error);
-			ASSERT_TRUE(test::Ok(list.IsValid(), error)) << "frame " << frame;
-			ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "frame " << frame;
-			ASSERT_TRUE(test::Ok(list.End(error), error)) << "frame " << frame;
-			ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{}, error), error)) << "frame " << frame;
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.recycleList", error);
+			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "frame " << frame;
+			ASSERT_TRUE(test::Ok(list.begin(error), error)) << "frame " << frame;
+			ASSERT_TRUE(test::Ok(list.end(error), error)) << "frame " << frame;
+			ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{}, error), error)) << "frame " << frame;
 		}
 	}
 
@@ -134,18 +134,18 @@ namespace
 		const std::uint32_t frames = test::ScaledIterations(200);
 
 		rhi::Error error{};
-		rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		const auto runFrames = [&](const std::uint32_t count)
 		{
 			for (std::uint32_t frame = 0; frame < count; ++frame)
 			{
-				rhi::CommandList list = pool.Allocate("azoth.rhi.test.flatList", error);
-				ASSERT_TRUE(test::Ok(list.IsValid(), error)) << "frame " << frame;
-				ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "frame " << frame;
-				ASSERT_TRUE(test::Ok(list.End(error), error)) << "frame " << frame;
-				ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{}, error), error)) << "frame " << frame;
+				rhi::CommandList list = pool.allocate("azoth.rhi.test.flatList", error);
+				ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "frame " << frame;
+				ASSERT_TRUE(test::Ok(list.begin(error), error)) << "frame " << frame;
+				ASSERT_TRUE(test::Ok(list.end(error), error)) << "frame " << frame;
+				ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{}, error), error)) << "frame " << frame;
 			}
 		};
 
@@ -186,8 +186,8 @@ namespace
 					rhi::Error error{};
 					for (std::uint32_t index = 0; index < perThread; ++index)
 					{
-						const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(64), error);
-						if (!buffer.IsValid())
+						const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(64), error);
+						if (!buffer.is_valid())
 						{
 							anyFailure.store(true, std::memory_order_relaxed);
 							return;
@@ -220,10 +220,10 @@ namespace
 		{
 			for (const rhi::BufferHandle handle : handles)
 			{
-				ASSERT_TRUE(test::Ok(Dev().Destroy(handle, {}, error), error));
+				ASSERT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
 			}
 		}
-		EXPECT_TRUE(test::Ok(Dev().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(Dev().collect_garbage(error), error));
 	}
 
 	TEST_P(RecycleTest, RecordsOnSeveralThreadsEachOwningItsOwnPool)
@@ -236,8 +236,8 @@ namespace
 		pools.reserve(kThreads);
 		for (int worker = 0; worker < kThreads; ++worker)
 		{
-			rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), setupError);
-			ASSERT_TRUE(test::Ok(pool.IsValid(), setupError)) << "could not create the pool for worker " << worker;
+			rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), setupError);
+			ASSERT_TRUE(test::Ok(pool.is_valid(), setupError)) << "could not create the pool for worker " << worker;
 			pools.push_back(pool);
 		}
 
@@ -262,8 +262,8 @@ namespace
 					rhi::Error error{};
 					for (std::uint32_t frame = 0; frame < frames; ++frame)
 					{
-						rhi::CommandList list = pool.Allocate("azoth.rhi.test.threadList", error);
-						if (!list.IsValid() || !list.Begin(error) || !list.End(error) || !pool.Reset(rhi::RetirePoint{}, error))
+						rhi::CommandList list = pool.allocate("azoth.rhi.test.threadList", error);
+						if (!list.is_valid() || !list.begin(error) || !list.end(error) || !pool.reset(rhi::RetirePoint{}, error))
 						{
 							failures.fetch_add(1, std::memory_order_relaxed);
 							return;

@@ -138,7 +138,7 @@ namespace
 		}
 		ASSERT_EQ(Tracked::liveCount, 5);
 
-		pool.Reset();
+		pool.reset();
 
 		EXPECT_EQ(Tracked::liveCount, 0);
 		EXPECT_EQ(Tracked::destroyedCount, 5);

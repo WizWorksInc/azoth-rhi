@@ -51,7 +51,7 @@ namespace
 		{
 			const rhi::UniqueBuffer owner(Dev(), handle);
 			EXPECT_TRUE(owner.is_valid());
-			EXPECT_EQ(owner.Get(), handle);
+			EXPECT_EQ(owner.get(), handle);
 		}
 
 		if (test::kValidatesHandles)
@@ -74,7 +74,7 @@ namespace
 		rhi::UniqueBuffer moved = std::move(source);
 
 		EXPECT_TRUE(moved.is_valid());
-		EXPECT_EQ(moved.Get(), handle);
+		EXPECT_EQ(moved.get(), handle);
 		EXPECT_FALSE(source.is_valid()) << "the moved-from owner still claims the handle"; // NOLINT(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
 	}
 
@@ -88,7 +88,7 @@ namespace
 			rhi::UniqueBuffer target(Dev(), first);
 			rhi::UniqueBuffer source(Dev(), second);
 			target = std::move(source);
-			EXPECT_EQ(target.Get(), second);
+			EXPECT_EQ(target.get(), second);
 		}
 
 		if (test::kValidatesHandles)
@@ -105,7 +105,7 @@ namespace
 		rhi::BufferHandle released{};
 		{
 			rhi::UniqueBuffer owner(Dev(), handle);
-			released = owner.Release();
+			released = owner.release();
 			EXPECT_FALSE(owner.is_valid()) << "the owner still holds a handle it gave up";
 		}
 
@@ -121,11 +121,11 @@ namespace
 		rhi::UniqueBuffer owner(Dev(), handle);
 
 		rhi::Error error{};
-		EXPECT_TRUE(test::Ok(owner.Reset(error), error));
+		EXPECT_TRUE(test::Ok(owner.reset(error), error));
 		EXPECT_FALSE(owner.is_valid());
 
 		rhi::Error again{};
-		EXPECT_TRUE(owner.Reset(again));
+		EXPECT_TRUE(owner.reset(again));
 		EXPECT_EQ(again.code, rhi::ErrorCode::eOk);
 	}
 
@@ -136,7 +136,7 @@ namespace
 		EXPECT_FALSE(static_cast<bool>(owner));
 
 		rhi::Error error{};
-		EXPECT_TRUE(owner.Reset(error));
+		EXPECT_TRUE(owner.reset(error));
 	}
 
 	TEST_P(UniqueTest, CarriesTheDestroyPolicyItWasGiven)
@@ -154,7 +154,7 @@ namespace
 		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 		ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 
-		EXPECT_TRUE(test::Ok(owner.Reset(error), error)) << "the policy the owner was given did not reach the destroy";
+		EXPECT_TRUE(test::Ok(owner.reset(error), error)) << "the policy the owner was given did not reach the destroy";
 	}
 
 	TEST_P(UniqueTest, OwnsEveryResourceTypeTheDeviceCanDestroy)
@@ -180,8 +180,8 @@ namespace
 
 	TEST(UniqueNames, TheWholeLifetimeOnlyTierSitsTogetherInOneNamespace)
 	{
-		static_assert(std::is_same_v<decltype(std::declval<rhi::UniqueBuffer>().Owner()), rhi::Device>);
-		static_assert(std::is_same_v<decltype(std::declval<rhi::UniqueDevice>().Get()), rhi::Device>);
+		static_assert(std::is_same_v<decltype(std::declval<rhi::UniqueBuffer>().owner()), rhi::Device>);
+		static_assert(std::is_same_v<decltype(std::declval<rhi::UniqueDevice>().get()), rhi::Device>);
 
 		SUCCEED();
 	}

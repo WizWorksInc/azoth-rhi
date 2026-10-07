@@ -87,7 +87,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	rhi::Error error{};
@@ -121,8 +121,8 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::CommandList list = pool.Allocate("example.clear", error);
-	if (!list.is_valid() || !list.Begin(error))
+	rhi::CommandList list = pool.allocate("example.clear", error);
+	if (!list.is_valid() || !list.begin(error))
 	{
 		fw::ReportError("failed to begin recording", error);
 		return 1;
@@ -172,7 +172,7 @@ int main(int argc, char ** argv)
 	list.end_rendering(error);
 
 	const bool recorded =
-		list.barriers(rhi::BarrierBatch{ .textures = toCopySource }, error) && list.copy_texture_to_buffer(readback, target, regions, error) && list.End(error);
+		list.barriers(rhi::BarrierBatch{ .textures = toCopySource }, error) && list.copy_texture_to_buffer(readback, target, regions, error) && list.end(error);
 	if (!recorded)
 	{
 		fw::ReportError("failed to record the readback copy", error);
@@ -187,14 +187,14 @@ int main(int argc, char ** argv)
 		.debugName	  = "example.clearSubmit",
 	};
 
-	if (!queue.submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
+	if (!queue.submit(submit, error) || !queue.wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("failed to submit the clear", error);
 		return 1;
 	}
 
 	int status					   = 0;
-	const rhi::MappedMemory mapped = dev.Map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+	const rhi::MappedMemory mapped = dev.map(readback, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 	if (mapped.data == nullptr)
 	{
 		LOG_ERROR(fw::Log(), "note: this backend exposes no mappable memory, so the pixels cannot be checked");
@@ -209,7 +209,7 @@ int main(int argc, char ** argv)
 
 		std::array<std::uint8_t, 4> texel{};
 		std::memcpy(texel.data(), mapped.data, texel.size());
-		static_cast<void>(dev.Unmap(readback, error));
+		static_cast<void>(dev.unmap(readback, error));
 
 		const std::array<std::uint8_t, 4> expected{ Quantize(kClear.r), Quantize(kClear.g), Quantize(kClear.b), Quantize(kClear.a) };
 		LOG_INFO(fw::Log(),

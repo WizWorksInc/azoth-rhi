@@ -72,7 +72,7 @@ namespace
 	MapOutcome WritePattern(rhi::Device dev, const rhi::BufferHandle buffer, const std::span<const std::uint32_t> values)
 	{
 		rhi::Error error{};
-		const rhi::MappedMemory mapped = dev.Map(buffer, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+		const rhi::MappedMemory mapped = dev.map(buffer, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
 			if (error.code == rhi::ErrorCode::eUnsupportedFeature)
@@ -92,7 +92,7 @@ namespace
 			return MapOutcome::eFailed;
 		}
 
-		if (!dev.Unmap(buffer, error))
+		if (!dev.unmap(buffer, error))
 		{
 			fw::ReportError("failed to unmap the upload buffer", error);
 			return MapOutcome::eFailed;
@@ -104,7 +104,7 @@ namespace
 	bool ReadBackMatches(rhi::Device dev, const rhi::BufferHandle buffer, const std::span<const std::uint32_t> expected)
 	{
 		rhi::Error error{};
-		const rhi::MappedMemory mapped = dev.Map(buffer, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
+		const rhi::MappedMemory mapped = dev.map(buffer, rhi::MapDesc{ .mode = rhi::MapMode::eRead }, error);
 		if (mapped.data == nullptr)
 		{
 			fw::ReportError("failed to map the readback buffer", error);
@@ -119,7 +119,7 @@ namespace
 
 		std::vector<std::uint32_t> observed(expected.size());
 		std::memcpy(observed.data(), mapped.data, expected.size_bytes());
-		static_cast<void>(dev.Unmap(buffer, error));
+		static_cast<void>(dev.unmap(buffer, error));
 
 		LOG_INFO(fw::Log(), "wrote     0x{:x} 0x{:x} 0x{:x} ...", expected[0], expected[1], expected[2]);
 		LOG_INFO(fw::Log(), "read back 0x{:x} 0x{:x} 0x{:x} ...", observed.at(0), observed.at(1), observed.at(2));
@@ -146,22 +146,22 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	rhi::Error error{};
 
 	rhi::BufferBuilder uploadDesc;
-	uploadDesc.Size(kBufferBytes).Usage(rhi::BufferUsage::eCopySrc).CpuUpload().DebugName("example.upload");
+	uploadDesc.size(kBufferBytes).usage(rhi::BufferUsage::eCopySrc).cpu_upload().debug_name("example.upload");
 	const rhi::BufferHandle upload = dev.create_buffer(uploadDesc.build(), error);
 
 	rhi::BufferBuilder storageDesc;
-	storageDesc.Size(kBufferBytes).GpuOnly().DebugName("example.storage");
-	storageDesc.Usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopyDst | rhi::BufferUsage::eCopySrc);
+	storageDesc.size(kBufferBytes).gpu_only().debug_name("example.storage");
+	storageDesc.usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopyDst | rhi::BufferUsage::eCopySrc);
 	const rhi::BufferHandle storage = dev.create_buffer(storageDesc.build(), error);
 
 	rhi::BufferBuilder readbackDesc;
-	readbackDesc.Size(kBufferBytes).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("example.readback");
+	readbackDesc.size(kBufferBytes).usage(rhi::BufferUsage::eCopyDst).cpu_readback().debug_name("example.readback");
 	const rhi::BufferHandle readback = dev.create_buffer(readbackDesc.build(), error);
 
 	if (!upload.is_valid() || !storage.is_valid() || !readback.is_valid())
@@ -190,8 +190,8 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::CommandList list = pool.Allocate("example.copies", error);
-	if (!list.is_valid() || !list.Begin(error))
+	rhi::CommandList list = pool.allocate("example.copies", error);
+	if (!list.is_valid() || !list.begin(error))
 	{
 		fw::ReportError("failed to begin recording", error);
 		return 1;
@@ -215,7 +215,7 @@ int main(int argc, char ** argv)
 
 	const bool recorded = list.barriers(rhi::BarrierBatch{ .buffers = intoStorage }, error) && list.copy_buffer(storage, 0, upload, 0, kBufferBytes, error) &&
 						  list.barriers(rhi::BarrierBatch{ .buffers = outOfStorage }, error) && list.copy_buffer(readback, 0, storage, 0, kBufferBytes, error) &&
-						  list.End(error);
+						  list.end(error);
 	if (!recorded)
 	{
 		fw::ReportError("failed to record the copies", error);
@@ -231,7 +231,7 @@ int main(int argc, char ** argv)
 	};
 
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
-	if (!queue.submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
+	if (!queue.submit(submit, error) || !queue.wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("failed to submit the copies", error);
 		return 1;

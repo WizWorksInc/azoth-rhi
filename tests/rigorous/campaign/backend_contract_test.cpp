@@ -100,9 +100,9 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.frame", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.frame", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		const std::array toCopy{
 			rhi::BufferBarrier{
@@ -113,7 +113,7 @@ namespace
 		};
 		ASSERT_TRUE(test::Ok(list.barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 		ASSERT_TRUE(test::Ok(list.copy_buffer(target, 0, upload, 0, test::samples::kBufferSize, error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{
@@ -159,11 +159,11 @@ namespace
 			const rhi::BufferHandle transient = Dev().create_buffer(test::samples::StorageBuffer(), error);
 			ASSERT_TRUE(test::Ok(transient.is_valid(), error)) << "frame " << frame << " could not allocate";
 
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.frameList", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.frameList", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "frame " << frame << " could not allocate a list";
-			ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "frame " << frame << " could not begin";
+			ASSERT_TRUE(test::Ok(list.begin(error), error)) << "frame " << frame << " could not begin";
 			ASSERT_TRUE(test::Ok(list.clear_buffer(transient, 0, test::samples::kBufferSize, 0, error), error));
-			ASSERT_TRUE(test::Ok(list.End(error), error));
+			ASSERT_TRUE(test::Ok(list.end(error), error));
 
 			std::array<const rhi::CommandList *, 1> lists{ &list };
 			const std::array signals{
@@ -185,7 +185,7 @@ namespace
 			};
 			ASSERT_TRUE(test::Ok(Dev().destroy(transient, retired, error), error));
 			ASSERT_TRUE(test::Ok(Dev().collect_garbage(timeline, frame, error), error));
-			ASSERT_TRUE(test::Ok(pool.Reset(
+			ASSERT_TRUE(test::Ok(pool.reset(
 									 rhi::RetirePoint{
 										 .timeline = timeline,
 										 .value	   = frame,

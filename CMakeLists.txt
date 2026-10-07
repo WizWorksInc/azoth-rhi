@@ -14,6 +14,11 @@
 
 cmake_minimum_required(VERSION 3.24)
 
+# Apple's linker warns on each static library repeated for a single pass linker it is not.
+if(POLICY CMP0156)
+    cmake_policy(SET CMP0156 NEW)
+endif()
+
 
 set(AZOTH_RHI_BUILD_VERSION 1.0.0)
 
@@ -178,6 +183,9 @@ endif()
 if(AZOTH_RHI_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
+
+# Last, once every subdirectory that fetches something has run.
+azoth_rhi_quiet_fetched_targets("${CMAKE_CURRENT_SOURCE_DIR}")
 
 if(AZOTH_RHI_INSTALL)
     include(CMakePackageConfigHelpers)

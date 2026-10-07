@@ -120,7 +120,7 @@ namespace
 		static_assert(Exported<azo::rhi::Flags<azo::rhi::BufferUsage>>);
 
 		static_assert(std::is_invocable_v<decltype(azo::rhi::get_build_info)>);
-		static_assert(azo::rhi::make_graphics_api_id("azoth.rhi.null") == azo::rhi::NullApi::id);
+		static_assert(azo::rhi::make_graphics_api_id("azoth.rhi.null") == azo::rhi::NullApi::kId);
 
 		SUCCEED();
 	}

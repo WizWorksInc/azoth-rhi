@@ -52,13 +52,13 @@ namespace
 		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 		ASSERT_TRUE(test::Ok(loaded)) << "the module at " << kModulePath << " did not load";
 
-		EXPECT_TRUE(loaded.Value().IsLoaded());
-		ASSERT_EQ(loaded.Value().Entries().size(), 1u);
-		EXPECT_EQ(loaded.Value().Entries().front().canonicalName, kLoadableBackend);
-		EXPECT_EQ(loaded.Value().LiveObjects(), 0u);
+		EXPECT_TRUE(loaded.value().is_loaded());
+		ASSERT_EQ(loaded.value().entries().size(), 1u);
+		EXPECT_EQ(loaded.value().entries().front().canonicalName, kLoadableBackend);
+		EXPECT_EQ(loaded.value().live_objects(), 0u);
 
-		EXPECT_TRUE(test::Ok(loaded.Value().Unload()));
-		EXPECT_FALSE(loaded.Value().IsLoaded());
+		EXPECT_TRUE(test::Ok(loaded.value().unload()));
+		EXPECT_FALSE(loaded.value().is_loaded());
 	}
 
 	TEST(ModuleLoading, NamesTheModuleOwnsOutliveTheEntryPointCall)
@@ -66,12 +66,12 @@ namespace
 		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 		ASSERT_TRUE(test::Ok(loaded));
 
-		const rhi::BackendEntry & entry = loaded.Value().Entries().front();
+		const rhi::BackendEntry & entry = loaded.value().entries().front();
 		EXPECT_EQ(entry.canonicalName, kLoadableBackend);
 		EXPECT_FALSE(entry.displayName.empty());
 
 		const char * inside = entry.canonicalName.data();
-		EXPECT_TRUE(test::Ok(loaded.Value().Unload()));
+		EXPECT_TRUE(test::Ok(loaded.value().unload()));
 		EXPECT_NE(inside, nullptr) << "nothing here dereferences that, it is recorded to say what the copy is for";
 	}
 
@@ -111,22 +111,22 @@ namespace
 		ASSERT_TRUE(test::Ok(loaded));
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "loadable", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.add_module(loaded.Value().Entries())));
+		ASSERT_TRUE(test::Ok(backends.add_module(loaded.value().entries())));
 		ASSERT_TRUE(OrderContains(backends, kLoadableBackend)) << "the module's backend did not join the order";
 
 		{
 			const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance();
 			ASSERT_TRUE(test::Ok(instance)) << "the loaded backend could not bring up an instance";
-			ASSERT_EQ(loaded.Value().LiveObjects(), 1u) << "the module did not count what it handed out";
+			ASSERT_EQ(loaded.value().live_objects(), 1u) << "the module did not count what it handed out";
 
-			const rhi::Result<void> refused = loaded.Value().Unload();
+			const rhi::Result<void> refused = loaded.value().unload();
 			EXPECT_TRUE(test::Failed(refused, rhi::ErrorCode::eInvalidState)) << "the module unloaded with a live object through it";
-			EXPECT_TRUE(loaded.Value().IsLoaded()) << "a refused unload still closed the image";
+			EXPECT_TRUE(loaded.value().is_loaded()) << "a refused unload still closed the image";
 		}
 
-		EXPECT_EQ(loaded.Value().LiveObjects(), 0u);
-		EXPECT_TRUE(test::Ok(loaded.Value().Unload()));
-		EXPECT_FALSE(loaded.Value().IsLoaded());
+		EXPECT_EQ(loaded.value().live_objects(), 0u);
+		EXPECT_TRUE(test::Ok(loaded.value().unload()));
+		EXPECT_FALSE(loaded.value().is_loaded());
 	}
 
 	TEST(ModuleLoading, gate_NoDanglingAfterUnload)
@@ -136,10 +136,10 @@ namespace
 			ASSERT_TRUE(test::Ok(loaded));
 
 			rhi::BackendSelection backends{ rhi::BackendPreference{ .includeAvailable = false } };
-			ASSERT_TRUE(test::Ok(backends.add_module(loaded.Value().Entries())));
+			ASSERT_TRUE(test::Ok(backends.add_module(loaded.value().entries())));
 
-			EXPECT_TRUE(test::Ok(loaded.Value().Unload()));
-			EXPECT_EQ(loaded.Value().Entries().size(), 0u) << "the entries survived the unload that invalidated them";
+			EXPECT_TRUE(test::Ok(loaded.value().unload()));
+			EXPECT_EQ(loaded.value().entries().size(), 0u) << "the entries survived the unload that invalidated them";
 		}
 
 		rhi::BackendSelection after{ rhi::BackendPreference{ .includeAvailable = false } };
@@ -168,7 +168,7 @@ namespace
 					}
 
 					loadedCount.fetch_add(1, std::memory_order_relaxed);
-					if (loaded.Value().Unload())
+					if (loaded.value().unload())
 					{
 						unloadedCount.fetch_add(1, std::memory_order_relaxed);
 					}

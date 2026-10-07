@@ -146,7 +146,7 @@ target_include_directories(AzothRHI
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# PRIVATE on purpose. AvailableBackends answers at runtime which backends compiled in. A public
+# PRIVATE on purpose. available_backends answers at runtime which backends compiled in. A public
 # macro would change a header's shape with the build.
 foreach (backend VULKAN D3D12 METAL METAL4)
     if (AZOTH_RHI_BACKEND_${backend})
@@ -191,9 +191,9 @@ if (AZOTH_RHI_BACKEND_VULKAN)
     target_link_libraries(AzothRHI PRIVATE vk::dynamic_hpp_dispatch)
     target_compile_definitions(AzothRHI PRIVATE VULKAN_HPP_NO_TO_STRING=1)
 
-    # Unconditional so the backend reads the same in both builds. The empty assertion lets the
-    # .result each call site tests decide, not a debug abort.
-    target_compile_definitions(AzothRHI PRIVATE VULKAN_HPP_NO_EXCEPTIONS VULKAN_HPP_ASSERT_ON_RESULT=)
+    # Unconditional so the backend reads the same in both builds. The no-op assertion lets the
+    # .result each call site tests decide, not a debug abort. A cast, not an empty macro, avoids -Wunused-value.
+    target_compile_definitions(AzothRHI PRIVATE VULKAN_HPP_NO_EXCEPTIONS "VULKAN_HPP_ASSERT_ON_RESULT=static_cast<void>")
 
     # A process-global dispatcher lets two devices with different layer chains share entry points.
     # Dropping the default argument makes that a compile error.
@@ -233,7 +233,7 @@ if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
 endif ()
 
 # Probing for the header and not a version string, since the tag names the SDK. Refusing beats
-# quietly leaving AvailableBackends short of an entry.
+# quietly leaving available_backends short of an entry.
 if (AZOTH_RHI_BACKEND_METAL4 AND NOT EXISTS "${metal_cpp_SOURCE_DIR}/Metal/MTL4Counters.hpp")
     message(FATAL_ERROR
             "AzothRHI: the Metal 4 backend is enabled but this metal-cpp release "

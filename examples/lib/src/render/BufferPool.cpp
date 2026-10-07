@@ -76,7 +76,7 @@ namespace fw::render
 		{
 			if (block->data != nullptr)
 			{
-				static_cast<void>(m_device.Unmap(block->buffer));
+				static_cast<void>(m_device.unmap(block->buffer));
 			}
 
 			static_cast<void>(m_device.destroy(block->buffer));
@@ -163,7 +163,7 @@ namespace fw::render
 			return nullptr;
 		}
 
-		const azo::rhi::MappedMemory mapped = m_device.Map(block->buffer, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error);
+		const azo::rhi::MappedMemory mapped = m_device.map(block->buffer, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
 			LOG_ERROR(fw::Log(), "buffer pool: a block could not be mapped: {}", error.message != nullptr ? error.message : "no diagnostic");

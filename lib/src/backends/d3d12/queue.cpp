@@ -19,7 +19,7 @@
 namespace azo::rhi::d3d12
 {
 	// Matches vulkan's rule that an unknown completion counts as running, so both backends reporting resubmit agree on the unsafe case.
-	bool SubmissionStillRunning(ID3D12Fence * fence, std::uint64_t value) noexcept
+	bool submission_still_running(ID3D12Fence * fence, std::uint64_t value) noexcept
 	{
 		if (fence == nullptr || value == 0)
 		{
@@ -29,9 +29,9 @@ namespace azo::rhi::d3d12
 		return fence->GetCompletedValue() < value;
 	}
 
-	bool ListStillRunning(const D3D12CommandList & record) noexcept
+	bool list_still_running(const D3D12CommandList & record) noexcept
 	{
-		return record.lifecycle == ListLifecycle::eSubmitted && SubmissionStillRunning(record.submitFence, record.submitValue);
+		return record.lifecycle == ListLifecycle::eSubmitted && submission_still_running(record.submitFence, record.submitValue);
 	}
 
 	bool D3D12QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
@@ -46,11 +46,11 @@ namespace azo::rhi::d3d12
 				device->caps.supportsCommandListResubmit,
 				[](const CommandList & list)
 				{
-					return static_cast<const D3D12CommandList *>(detail::UnwrappedImplOf(list));
+					return static_cast<const D3D12CommandList *>(detail::unwrapped_impl_of(list));
 				},
 				[](const D3D12CommandList & record)
 				{
-					return ListStillRunning(record);
+					return list_still_running(record);
 				}
 			);
 			refusal != nullptr)
@@ -64,7 +64,7 @@ namespace azo::rhi::d3d12
 			{
 				continue;
 			}
-			BinarySemaphoreSlot * slot = ResolveBinarySemaphore(device, sync.acquired);
+			BinarySemaphoreSlot * slot = resolve_binary_semaphore(device, sync.acquired);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid acquire semaphore");
@@ -78,7 +78,7 @@ namespace azo::rhi::d3d12
 		}
 		for (const TimelinePoint & wait : desc.waits)
 		{
-			TimelineSlot * slot = ResolveTimeline(device, wait.timeline);
+			TimelineSlot * slot = resolve_timeline(device, wait.timeline);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit waits on an invalid timeline");
@@ -100,7 +100,7 @@ namespace azo::rhi::d3d12
 			}
 
 			// The check above refused everything that was not ended, so every list still here carries work.
-			auto * record = static_cast<D3D12CommandList *>(detail::UnwrappedImplOf(*list));
+			auto * record = static_cast<D3D12CommandList *>(detail::unwrapped_impl_of(*list));
 			lists.push_back(record->list.Get());
 		}
 		if (!lists.empty())
@@ -128,7 +128,7 @@ namespace azo::rhi::d3d12
 					continue;
 				}
 
-				auto * record		= static_cast<D3D12CommandList *>(detail::UnwrappedImplOf(*list));
+				auto * record		= static_cast<D3D12CommandList *>(detail::unwrapped_impl_of(*list));
 				record->lifecycle	= ListLifecycle::eSubmitted;
 				record->submitFence = marked;
 				record->submitValue = markedAt;
@@ -141,7 +141,7 @@ namespace azo::rhi::d3d12
 			{
 				continue;
 			}
-			BinarySemaphoreSlot * slot = ResolveBinarySemaphore(device, sync.renderFinished);
+			BinarySemaphoreSlot * slot = resolve_binary_semaphore(device, sync.renderFinished);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit signals an invalid present semaphore");
@@ -155,7 +155,7 @@ namespace azo::rhi::d3d12
 		}
 		for (const TimelinePoint & signal : desc.signals)
 		{
-			TimelineSlot * slot = ResolveTimeline(device, signal.timeline);
+			TimelineSlot * slot = resolve_timeline(device, signal.timeline);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "submit signals an invalid timeline");
@@ -185,7 +185,7 @@ namespace azo::rhi::d3d12
 
 		ComPtr<ID3D12Resource> resource;
 		{
-			BufferSlot * slot = ResolveBuffer(device, bind.buffer);
+			BufferSlot * slot = resolve_buffer(device, bind.buffer);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind of an invalid buffer handle");
@@ -200,7 +200,7 @@ namespace azo::rhi::d3d12
 		ComPtr<ID3D12Heap> heapRef;
 		if (!unbind)
 		{
-			HeapSlot * heapSlot = ResolveHeap(device, bind.page.heap);
+			HeapSlot * heapSlot = resolve_heap(device, bind.page.heap);
 			if (heapSlot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse buffer bind references an invalid heap");
@@ -251,7 +251,7 @@ namespace azo::rhi::d3d12
 		std::uint32_t mipLevels	  = 1;
 		std::uint32_t arrayLayers = 1;
 		{
-			TextureSlot * slot = ResolveTexture(device, bind.texture);
+			TextureSlot * slot = resolve_texture(device, bind.texture);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind of an invalid texture handle");
@@ -301,7 +301,7 @@ namespace azo::rhi::d3d12
 		ComPtr<ID3D12Heap> heapRef;
 		if (!unbind)
 		{
-			HeapSlot * heapSlot = ResolveHeap(device, bind.page.heap);
+			HeapSlot * heapSlot = resolve_heap(device, bind.page.heap);
 			if (heapSlot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse texture bind references an invalid heap");
@@ -358,7 +358,7 @@ namespace azo::rhi::d3d12
 
 		for (const TimelinePoint & wait : desc.timelineWaits)
 		{
-			TimelineSlot * slot = ResolveTimeline(device, wait.timeline);
+			TimelineSlot * slot = resolve_timeline(device, wait.timeline);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind waits on an invalid timeline");
@@ -388,7 +388,7 @@ namespace azo::rhi::d3d12
 
 		for (const TimelinePoint & signal : desc.timelineSignals)
 		{
-			TimelineSlot * slot = ResolveTimeline(device, signal.timeline);
+			TimelineSlot * slot = resolve_timeline(device, signal.timeline);
 			if (slot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "sparse bind signals an invalid timeline");
@@ -414,7 +414,7 @@ namespace azo::rhi::d3d12
 		bool drained = true;
 		for (const QueueType type : { QueueType::eGraphics, QueueType::eCompute, QueueType::eCopy })
 		{
-			for (D3D12Queue & queue : QueuesForType(type))
+			for (D3D12Queue & queue : queues_for_type(type))
 			{
 				if (!queue.queue || !queue.idleFence)
 				{
@@ -470,7 +470,7 @@ namespace azo::rhi::d3d12
 		}
 		*out				 = 0;
 		D3D12Device * device = static_cast<D3D12Queue *>(impl)->owner;
-		TimelineSlot * slot	 = ResolveTimeline(device, timeline);
+		TimelineSlot * slot	 = resolve_timeline(device, timeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "getCompletedValue on an invalid timeline");
@@ -483,7 +483,7 @@ namespace azo::rhi::d3d12
 	bool D3D12QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept
 	{
 		D3D12Device * device = static_cast<D3D12Queue *>(impl)->owner;
-		TimelineSlot * slot	 = ResolveTimeline(device, timeline);
+		TimelineSlot * slot	 = resolve_timeline(device, timeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "wait on an invalid timeline");
@@ -504,7 +504,7 @@ namespace azo::rhi::d3d12
 	bool D3D12QueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept
 	{
 		D3D12Device * device = static_cast<D3D12Queue *>(impl)->owner;
-		TimelineSlot * slot	 = ResolveTimeline(device, timeline);
+		TimelineSlot * slot	 = resolve_timeline(device, timeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "signal on an invalid timeline");

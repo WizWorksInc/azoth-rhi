@@ -101,7 +101,7 @@ namespace azo::rhi::test
 
 		[[nodiscard]] Device Get() const noexcept
 		{
-			return m_device.Get();
+			return m_device.get();
 		}
 
 		[[nodiscard]] const Backend & GetBackend() const noexcept
@@ -154,7 +154,7 @@ namespace azo::rhi::test
 
 		[[nodiscard]] bool IsNullBackend() const noexcept
 		{
-			return GetParam().id == NullApi::id;
+			return GetParam().id == NullApi::kId;
 		}
 
 		[[nodiscard]] BackendGaps Gaps() const noexcept
@@ -191,9 +191,9 @@ namespace azo::rhi::test
 #define AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(device, what)                                                                                                      \
 	do                                                                                                                                                         \
 	{                                                                                                                                                          \
-		if ((device).GetCaps().reportsValidationMessageCounts)                                                                                                 \
+		if ((device).get_caps().reportsValidationMessageCounts)                                                                                                \
 		{                                                                                                                                                      \
-			EXPECT_EQ((device).GetValidationMessageCounts().errors, 0u) << what << ::azo::rhi::test::ValidationMessageLog();                                   \
+			EXPECT_EQ((device).get_validation_message_counts().errors, 0u) << what << ::azo::rhi::test::ValidationMessageLog();                                \
 		}                                                                                                                                                      \
 	} while (false)
 

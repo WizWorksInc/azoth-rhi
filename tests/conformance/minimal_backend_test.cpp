@@ -64,19 +64,19 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(owner));
 
-		rhi::Device device = owner.Value().Get();
+		rhi::Device device = owner.value().get();
 		rhi::Error error{};
 
 		rhi::CommandPool pool = device.create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("minimal.list", error);
+		rhi::CommandList list = pool.allocate("minimal.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		EXPECT_TRUE(list.set_viewport(rhi::Viewport{ .width = 64.0f, .height = 64.0f }, error));
 		EXPECT_TRUE(list.draw(3, 1, 0, 0, error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
 		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
@@ -87,7 +87,7 @@ namespace
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
 		EXPECT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error));
-		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, std::numeric_limits<std::uint64_t>::max(), error), error));
+		EXPECT_TRUE(test::Ok(queue.wait(timeline, 1, std::numeric_limits<std::uint64_t>::max(), error), error));
 	}
 
 	TEST(MinimalBackend, EveryDeclinedCapabilityReportsItselfRatherThanFailingSomewhereElse)
@@ -96,7 +96,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(owner));
 
-		rhi::Device device = owner.Value().Get();
+		rhi::Device device = owner.value().get();
 		rhi::Error error{};
 
 		static_cast<void>(device.create_swapchain(rhi::SwapchainDesc{}, error));
@@ -120,7 +120,7 @@ namespace
 
 		rhi::CommandPool pool = device.create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
-		rhi::CommandList list = pool.Allocate("minimal.declined", error);
+		rhi::CommandList list = pool.allocate("minimal.declined", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		EXPECT_FALSE(list.alias_barriers({}, error));
@@ -149,7 +149,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
 
-		rhi::Device device = owner.Value().Get();
+		rhi::Device device = owner.value().get();
 		rhi::Error error{};
 
 		rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
@@ -164,7 +164,7 @@ namespace
 		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
 		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		const rhi::PresentResult presented = swapchain.Present(queue, acquired.imageIndex, rhi::BinarySemaphoreHandle{}, error);
+		const rhi::PresentResult presented = swapchain.present(queue, acquired.imageIndex, rhi::BinarySemaphoreHandle{}, error);
 		EXPECT_EQ(presented.status, rhi::SwapchainStatus::eOk) << "the eight block fixture did not present";
 	}
 
@@ -181,7 +181,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
 
-		rhi::Device device = owner.Value().Get();
+		rhi::Device device = owner.value().get();
 		rhi::Error error{};
 
 		rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
@@ -205,9 +205,9 @@ namespace
 			ASSERT_TRUE(backBuffer.is_valid()) << "the swapchain handed out no back buffer to render into";
 			ASSERT_TRUE(view.is_valid()) << "the swapchain handed out no view of its back buffer";
 
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.frame", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.frame", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error));
-			ASSERT_TRUE(test::Ok(list.Begin(error), error));
+			ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 			const std::array<rhi::TextureBarrier, 1> toAttachment{ rhi::TextureBarrier{
 				.texture = backBuffer,
@@ -236,9 +236,9 @@ namespace
 			} };
 			EXPECT_TRUE(test::Ok(list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error), error));
 
-			EXPECT_TRUE(test::Ok(list.End(error), error));
+			EXPECT_TRUE(test::Ok(list.end(error), error));
 
-			const rhi::PresentResult presented = swapchain.Present(queue, acquired.imageIndex, rhi::BinarySemaphoreHandle{}, error);
+			const rhi::PresentResult presented = swapchain.present(queue, acquired.imageIndex, rhi::BinarySemaphoreHandle{}, error);
 			EXPECT_EQ(presented.status, rhi::SwapchainStatus::eOk) << "the frame recorded but did not present";
 
 			if (frame == 0)
@@ -267,7 +267,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
 
-		rhi::Device device = owner.Value().Get();
+		rhi::Device device = owner.value().get();
 		rhi::Error error{};
 
 		rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
@@ -281,9 +281,9 @@ namespace
 
 		rhi::CommandPool pool = device.create_command_pool(rhi::CommandPoolDesc{}, error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.backBuffer", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.backBuffer", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
 
 		const std::array intoColorTarget{
 			rhi::TextureBarrier{
@@ -304,7 +304,7 @@ namespace
 			<< "a rendering scope naming a back buffer view was refused";
 
 		static_cast<void>(list.end_rendering(error));
-		static_cast<void>(list.End(error));
+		static_cast<void>(list.end(error));
 	}
 
 	TEST(MinimalBackend, gate_ABackBufferViewCarriesTheSwapchainFormatIntoTheAttachmentCheck)
@@ -326,7 +326,7 @@ namespace
 				return false;
 			}
 
-			rhi::Device device = owner.Value().Get();
+			rhi::Device device = owner.value().get();
 			rhi::Error error{};
 
 			rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
@@ -340,9 +340,9 @@ namespace
 
 			rhi::CommandPool pool = device.create_command_pool(rhi::CommandPoolDesc{}, error);
 			EXPECT_TRUE(test::Ok(pool.is_valid(), error));
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.backBufferFormat", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.backBufferFormat", error);
 			EXPECT_TRUE(test::Ok(list.is_valid(), error));
-			EXPECT_TRUE(test::Ok(list.Begin(error), error));
+			EXPECT_TRUE(test::Ok(list.begin(error), error));
 
 			const std::array attachments{ rhi::RenderingAttachment{ .view = view } };
 			const bool opened = list.begin_rendering(rhi::BeginRenderingDesc{ .colors = attachments, .width = 64, .height = 64 }, error);
@@ -351,7 +351,7 @@ namespace
 				static_cast<void>(list.end_rendering(error));
 			}
 
-			static_cast<void>(list.End(error));
+			static_cast<void>(list.end(error));
 			return opened;
 		};
 
@@ -368,7 +368,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> bare = headless.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(bare));
 
-		const rhi::DeviceCaps & declined = bare.Value().Get().GetCaps();
+		const rhi::DeviceCaps & declined = bare.value().get().get_caps();
 
 		EXPECT_FALSE(declined.supportsSurfaces) << "PresentApi";
 		EXPECT_FALSE(declined.supportsPlacedResources) << "PlacedMemoryApi";
@@ -392,7 +392,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> withSurfaces = presenting.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(withSurfaces));
 
-		const rhi::DeviceCaps & provided = withSurfaces.Value().Get().GetCaps();
+		const rhi::DeviceCaps & provided = withSurfaces.value().get().get_caps();
 		EXPECT_TRUE(provided.supportsSurfaces) << "publishing PresentApi did not turn the answer true";
 
 		EXPECT_FALSE(provided.supportsPlacedResources);
@@ -413,7 +413,7 @@ namespace
 				continue;
 			}
 
-			rhi::Device device				 = owner.Value().Get();
+			rhi::Device device				 = owner.value().get();
 			const rhi::DeviceCaps & reported = device.get_caps();
 			rhi::Error error{};
 
@@ -465,7 +465,7 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(owner));
 
-		rhi::Device device = owner.Value().Get();
+		rhi::Device device = owner.value().get();
 		rhi::Error error{};
 
 		const rhi::BufferHandle never{};

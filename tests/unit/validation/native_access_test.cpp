@@ -73,7 +73,7 @@ namespace
 		const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
 
 		const bool ran = queue.submit({ .commandLists = lists, .signals = signals, .debugName = "azoth.rhi.test.nativeMutation" }, error) &&
-						 queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error);
+						 queue.wait(done, 1, test::kWaitTimeoutNanoseconds, error);
 
 		rhi::Error ignored{};
 		static_cast<void>(device.destroy(done, {}, ignored));
@@ -99,7 +99,7 @@ namespace
 			void * const native = rhi::detail::native_impl_of(facade);
 			ASSERT_NE(native, nullptr);
 
-			EXPECT_EQ(rhi::detail::QueryBlock<rhi::NativeObjectApi>(native), nullptr) << "resolving stopped on a layer and not on the backend";
+			EXPECT_EQ(rhi::detail::query_block<rhi::NativeObjectApi>(native), nullptr) << "resolving stopped on a layer and not on the backend";
 
 			if (mode == rhi::ValidationMode::eOff)
 			{
@@ -110,7 +110,7 @@ namespace
 				EXPECT_NE(native, facade) << "the layer was installed and the backend's own object was not reached";
 			}
 
-			const rhi::CoreDeviceApi * published = rhi::detail::QueryBlock<rhi::CoreDeviceApi>(native);
+			const rhi::CoreDeviceApi * published = rhi::detail::query_block<rhi::CoreDeviceApi>(native);
 			ASSERT_NE(published, nullptr) << "unwrapping reached something that publishes no core device block";
 
 			EXPECT_EQ(rhi::detail::native_impl_of(facade, *published), native) << "the checked resolve refused the backend's own device";
@@ -133,19 +133,19 @@ namespace
 		rhi::Error error{};
 		rhi::CommandPool pool = harness.Get().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.nativeAccess", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.nativeAccess", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
 		void * const poolFacade = rhi::detail::FacadeBuilder::impl_of(pool);
 		void * const listFacade = rhi::detail::FacadeBuilder::impl_of(list);
 
-		EXPECT_EQ(rhi::detail::QueryBlock<rhi::NativeObjectApi>(rhi::detail::native_impl_of(poolFacade)), nullptr);
-		EXPECT_EQ(rhi::detail::QueryBlock<rhi::NativeObjectApi>(rhi::detail::native_impl_of(listFacade)), nullptr);
+		EXPECT_EQ(rhi::detail::query_block<rhi::NativeObjectApi>(rhi::detail::native_impl_of(poolFacade)), nullptr);
+		EXPECT_EQ(rhi::detail::query_block<rhi::NativeObjectApi>(rhi::detail::native_impl_of(listFacade)), nullptr);
 		EXPECT_NE(rhi::detail::native_impl_of(poolFacade), poolFacade);
 		EXPECT_NE(rhi::detail::native_impl_of(listFacade), listFacade);
 
-		const rhi::CommandPoolApi * poolBlock	= rhi::detail::QueryBlock<rhi::CommandPoolApi>(rhi::detail::native_impl_of(poolFacade));
-		const rhi::RenderCommandApi * listBlock = rhi::detail::QueryBlock<rhi::RenderCommandApi>(rhi::detail::native_impl_of(listFacade));
+		const rhi::CommandPoolApi * poolBlock	= rhi::detail::query_block<rhi::CommandPoolApi>(rhi::detail::native_impl_of(poolFacade));
+		const rhi::RenderCommandApi * listBlock = rhi::detail::query_block<rhi::RenderCommandApi>(rhi::detail::native_impl_of(listFacade));
 		ASSERT_NE(poolBlock, nullptr);
 		ASSERT_NE(listBlock, nullptr);
 
@@ -182,7 +182,7 @@ namespace
 
 		const std::array touched{ rhi::NativeTouchedTexture{
 			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .range = secondMip, .finalState = ShaderReadState() } };
-		ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
 								 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 			error));
 
@@ -321,7 +321,7 @@ namespace
 			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .range = test::samples::WholeColorRange(), .finalState = ShaderReadState() } };
 
 		bool recorded = false;
-		ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
 								 rhi::NativeMutationDesc{ .buffers = touchedBuffers, .textures = touchedTextures },
 								 [&recorded](const rhi::native::NullCommandListView &)
 								 {
@@ -360,7 +360,7 @@ namespace
 		const std::array touched{ rhi::NativeTouchedBuffer{
 			.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() } };
 
-		ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
 								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 			error));
 
@@ -394,7 +394,7 @@ namespace
 		{
 			test::Recording moving(Dev());
 			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
-			ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+			ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
 									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 				error));
 			ASSERT_TRUE(moving.End());
@@ -438,7 +438,7 @@ namespace
 
 			const std::array touched{ rhi::NativeTouchedBuffer{
 				.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true } };
-			ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+			ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
 									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 				error));
 
@@ -479,7 +479,7 @@ namespace
 
 			const std::array touched{ rhi::NativeTouchedTexture{
 				.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true, .range = test::samples::WholeColorRange() } };
-			ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+			ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
 									 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 				error));
 			ASSERT_TRUE(moving.End());
@@ -511,7 +511,7 @@ namespace
 		test::Recording moving(Dev());
 		ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
 		const std::array touched{ rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true } };
-		ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+		ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
 								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 			error));
 		ASSERT_TRUE(moving.End());
@@ -530,7 +530,7 @@ namespace
 		std::array<const rhi::CommandList *, 2> lists{ &moving.List(), &next.List() };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
 		EXPECT_TRUE(test::Ok(queue.submit({ .commandLists = lists, .signals = signals, .debugName = "azoth.rhi.test.nativeMutation" }, error) &&
-								 queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error),
+								 queue.wait(done, 1, test::kWaitTimeoutNanoseconds, error),
 			error))
 			<< "a submit checked the second list against the unknown state the first list's native scope left";
 
@@ -556,7 +556,7 @@ namespace
 
 		const std::array touched{ rhi::NativeTouchedTexture{
 			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true, .range = test::samples::WholeColorRange() } };
-		ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
 								 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 			error));
 
@@ -597,7 +597,7 @@ namespace
 		{
 			test::Recording moving(Dev());
 			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
-			ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+			ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
 									 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 				error));
 			ASSERT_TRUE(moving.End());
@@ -637,7 +637,7 @@ namespace
 		{
 			test::Recording discarded(Dev());
 			ASSERT_TRUE(test::Ok(discarded.IsRecording(), discarded.GetError()));
-			ASSERT_TRUE(test::Ok(discarded.List().ModifyNative<rhi::NullApi>(
+			ASSERT_TRUE(test::Ok(discarded.List().modify_native<rhi::NullApi>(
 									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 				error));
 			ASSERT_TRUE(discarded.End());
@@ -671,7 +671,7 @@ namespace
 
 		const std::array touched{ rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadOnly } };
 
-		ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
 								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 			error));
 
@@ -698,7 +698,7 @@ namespace
 		{
 			test::Recording arriving(Dev());
 			ASSERT_TRUE(test::Ok(arriving.IsRecording(), arriving.GetError()));
-			ASSERT_TRUE(test::Ok(arriving.List().ModifyNative<rhi::NullApi>(
+			ASSERT_TRUE(test::Ok(arriving.List().modify_native<rhi::NullApi>(
 									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
 				error));
 			ASSERT_TRUE(arriving.End());
@@ -779,7 +779,7 @@ namespace
 
 		bool recorded = false;
 		rhi::Error retiredError{};
-		EXPECT_FALSE(recording.List().ModifyNative<rhi::NullApi>(
+		EXPECT_FALSE(recording.List().modify_native<rhi::NullApi>(
 			rhi::NativeMutationDesc{ .buffers = touched },
 			[&recorded](const rhi::native::NullCommandListView &)
 			{

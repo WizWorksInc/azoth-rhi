@@ -164,7 +164,7 @@ namespace
 		EXPECT_EQ(std::string_view{ error.message }, rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames[kBuiltAgainst])
 			<< "the sweep named an entry other than the first one past what the block declared";
 
-		EXPECT_EQ(rhi::detail::DeclaredEntryCount(block), kBuiltAgainst);
+		EXPECT_EQ(rhi::detail::declared_entry_count(block), kBuiltAgainst);
 	}
 
 	TEST(DispatchTableValidation, ReadsALongerBlockOnlyAsFarAsItKnows)
@@ -174,7 +174,7 @@ namespace
 
 		rhi::Error error{};
 		EXPECT_TRUE(rhi::detail::require_complete_block(&block, &error));
-		EXPECT_EQ(rhi::detail::DeclaredEntryCount(block), rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size());
+		EXPECT_EQ(rhi::detail::declared_entry_count(block), rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size());
 	}
 
 	TEST(DispatchTableValidation, ReportsNothingWhenTheCallerWantsNoError)

@@ -31,7 +31,7 @@ namespace azo::rhi::d3d12
 		list->pendingEndTimestampHeap = nullptr;
 		if (desc.timestamps != nullptr)
 		{
-			timestamps = ResolveQueryPool(device, desc.timestamps->pool);
+			timestamps = resolve_query_pool(device, desc.timestamps->pool);
 			if (timestamps == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "rendering timestamp writes name a query pool this device never created");
@@ -52,7 +52,7 @@ namespace azo::rhi::d3d12
 		rtvHandles.reserve(desc.colors.size());
 		for (const RenderingAttachment & color : desc.colors)
 		{
-			TextureViewSlot * view = ResolveTextureView(device, color.view);
+			TextureViewSlot * view = resolve_texture_view(device, color.view);
 			if (view == nullptr || view->rtvIndex == kInvalidIndex)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "beginRendering color attachment is not a render-target view");
@@ -60,7 +60,7 @@ namespace azo::rhi::d3d12
 			rtvHandles.push_back(device->rtvHeap.Handle(view->rtvIndex));
 			if (color.store == StoreOp::eDontCare)
 			{
-				if (TextureSlot * tex = ResolveTexture(device, view->texture); tex != nullptr)
+				if (TextureSlot * tex = resolve_texture(device, view->texture); tex != nullptr)
 				{
 					list->pendingDiscards.push_back(tex->resource.Get());
 				}
@@ -72,7 +72,7 @@ namespace azo::rhi::d3d12
 		bool dsvHasStencil = false;
 		if (desc.depthStencil != nullptr)
 		{
-			TextureViewSlot * view = ResolveTextureView(device, desc.depthStencil->view);
+			TextureViewSlot * view = resolve_texture_view(device, desc.depthStencil->view);
 			if (view == nullptr || view->dsvIndex == kInvalidIndex)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "beginRendering depth attachment is not a depth-stencil view");
@@ -82,7 +82,7 @@ namespace azo::rhi::d3d12
 			dsvHasStencil = view->format == DXGI_FORMAT_D24_UNORM_S8_UINT || view->format == DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
 			if (desc.depthStencil->store == StoreOp::eDontCare)
 			{
-				if (TextureSlot * tex = ResolveTexture(device, view->texture); tex != nullptr)
+				if (TextureSlot * tex = resolve_texture(device, view->texture); tex != nullptr)
 				{
 					list->pendingDiscards.push_back(tex->resource.Get());
 				}
@@ -154,7 +154,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * list					= static_cast<D3D12CommandList *>(impl);
-		GraphicsPipelineSlot * slot = ResolveGraphicsPipeline(list->owner, pipeline);
+		GraphicsPipelineSlot * slot = resolve_graphics_pipeline(list->owner, pipeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "setGraphicsPipeline with an invalid pipeline handle");
@@ -188,7 +188,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept
 	{
 		auto * list				   = static_cast<D3D12CommandList *>(impl);
-		ComputePipelineSlot * slot = ResolveComputePipeline(list->owner, pipeline);
+		ComputePipelineSlot * slot = resolve_compute_pipeline(list->owner, pipeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "setComputePipeline with an invalid pipeline handle");
@@ -210,7 +210,7 @@ namespace azo::rhi::d3d12
 	) noexcept
 	{
 		auto * list						= static_cast<D3D12CommandList *>(impl);
-		PipelineLayoutSlot * layoutSlot = ResolvePipelineLayout(list->owner, layout);
+		PipelineLayoutSlot * layoutSlot = resolve_pipeline_layout(list->owner, layout);
 		if (layoutSlot == nullptr || layoutSlot->pushConstantParams.empty())
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "pushConstants with a layout that has no root constants");
@@ -246,7 +246,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept
 	{
 		D3D12_VIEWPORT vp{};
-		const bool flip = GetClipSpace() == ClipSpaceConvention::eYDown;
+		const bool flip = get_clip_space() == ClipSpaceConvention::eYDown;
 
 		vp.TopLeftX = viewport.x;
 		vp.TopLeftY = flip ? viewport.y + viewport.height : viewport.y;
@@ -296,7 +296,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		BufferSlot * bufSlot = ResolveBuffer(list->owner, buffer);
+		BufferSlot * bufSlot = resolve_buffer(list->owner, buffer);
 		if (bufSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "setVertexBuffer with an invalid buffer handle");
@@ -315,7 +315,7 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
-		BufferSlot * bufSlot = ResolveBuffer(list->owner, buffer);
+		BufferSlot * bufSlot = resolve_buffer(list->owner, buffer);
 		if (bufSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "setIndexBuffer with an invalid buffer handle");
@@ -408,7 +408,7 @@ namespace azo::rhi::d3d12
 	) noexcept
 	{
 		D3D12Device * device  = list->owner;
-		BufferSlot * argsSlot = ResolveBuffer(device, args);
+		BufferSlot * argsSlot = resolve_buffer(device, args);
 		if (argsSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "indirect draw with an invalid argument buffer");
@@ -416,7 +416,7 @@ namespace azo::rhi::d3d12
 		ID3D12Resource * countResource = nullptr;
 		if (hasCount)
 		{
-			BufferSlot * countSlot = ResolveBuffer(device, count);
+			BufferSlot * countSlot = resolve_buffer(device, count);
 			if (countSlot == nullptr)
 			{
 				return Fail(error, ErrorCode::eInvalidHandle, "indirect draw with an invalid count buffer");

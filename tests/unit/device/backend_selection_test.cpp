@@ -50,9 +50,9 @@ namespace
 
 		struct StudioApi final : rhi::GraphicsApiTagRoot
 		{
-			static constexpr std::string_view canonicalName = "studio.rhi.custom";
-			static constexpr std::string_view displayName	= "Studio Custom";
-			static constexpr rhi::GraphicsApiId id			= rhi::make_graphics_api_id(canonicalName);
+			static constexpr std::string_view kCanonicalName = "studio.rhi.custom";
+			static constexpr std::string_view kDisplayName	= "Studio Custom";
+			static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
 		};
 
 		static_assert(rhi::GraphicsApiTag<StudioApi>);
@@ -90,7 +90,7 @@ namespace
 
 			g_table.getGraphicsApiId = [](void *) noexcept
 			{
-				return StudioApi::id;
+				return StudioApi::kId;
 			};
 			g_table.enumerateAdapters = [](void *, std::span<rhi::AdapterInfo>, std::uint32_t *, rhi::Error *) noexcept
 			{
@@ -108,8 +108,8 @@ namespace
 		[[nodiscard]] rhi::BackendCreateInfo CreateInfo()
 		{
 			rhi::BackendCreateInfo info{};
-			info.info.canonicalName		   = StudioApi::canonicalName;
-			info.info.displayName		   = StudioApi::displayName;
+			info.info.canonicalName		   = StudioApi::kCanonicalName;
+			info.info.displayName		   = StudioApi::kDisplayName;
 			info.info.supportsSurfaces	   = true;
 			info.info.supportsDebugMarkers = false;
 			info.createInstance			   = [](const void *, rhi::Error *) noexcept
@@ -159,17 +159,17 @@ namespace
 		template <std::size_t N>
 		struct NumberedApi final : rhi::GraphicsApiTagRoot
 		{
-			static constexpr std::string_view canonicalName = kNames.at(N);
-			static constexpr std::string_view displayName	= kNames.at(N);
-			static constexpr rhi::GraphicsApiId id			= rhi::make_graphics_api_id(canonicalName);
+			static constexpr std::string_view kCanonicalName = kNames.at(N);
+			static constexpr std::string_view kDisplayName	= kNames.at(N);
+			static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
 		};
 
 		template <std::size_t N>
 		rhi::Result<void> RegisterNumbered(rhi::GraphicsApiRegistry & registry)
 		{
 			rhi::BackendCreateInfo info{};
-			info.info.canonicalName = NumberedApi<N>::canonicalName;
-			info.info.displayName	= NumberedApi<N>::displayName;
+			info.info.canonicalName = NumberedApi<N>::kCanonicalName;
+			info.info.displayName	= NumberedApi<N>::kDisplayName;
 			info.createInstance		= [](const void *, rhi::Error *) noexcept
 			{
 				return static_cast<void *>(nullptr);
@@ -185,9 +185,9 @@ namespace
 				std::array<rhi::BackendEntry, kCount> built{};
 				[&]<std::size_t... N>(std::index_sequence<N...>)
 				{
-					((built.at(N) = rhi::BackendEntry{ .id = NumberedApi<N>::id,
-						  .canonicalName				   = NumberedApi<N>::canonicalName,
-						  .displayName					   = NumberedApi<N>::displayName,
+					((built.at(N) = rhi::BackendEntry{ .id = NumberedApi<N>::kId,
+						  .canonicalName				   = NumberedApi<N>::kCanonicalName,
+						  .displayName					   = NumberedApi<N>::kDisplayName,
 						  .Register						   = &RegisterNumbered<N>,
 						  .rank							   = rhi::BackendRank::eHardware }),
 						...);
@@ -212,16 +212,16 @@ namespace
 
 	TEST(AvailableBackendTable, IsNeverEmptyAndEndsWithNull)
 	{
-		const std::span<const rhi::BackendEntry> bundled = rhi::AvailableBackends();
+		const std::span<const rhi::BackendEntry> bundled = rhi::available_backends();
 
 		ASSERT_FALSE(bundled.empty());
-		EXPECT_EQ(bundled.back().id, rhi::NullApi::id);
+		EXPECT_EQ(bundled.back().id, rhi::NullApi::kId);
 		EXPECT_EQ(bundled.back().rank, rhi::BackendRank::eFallback) << "Null goes last because of what it is, not because of where it was added";
 	}
 
 	TEST(AvailableBackendTable, IsOrderedByRankRatherThanByHowItWasBuilt)
 	{
-		const std::span<const rhi::BackendEntry> bundled = rhi::AvailableBackends();
+		const std::span<const rhi::BackendEntry> bundled = rhi::available_backends();
 
 		for (std::size_t index = 1; index < bundled.size(); ++index)
 		{
@@ -231,13 +231,13 @@ namespace
 
 	TEST(MakeBackendEntry, DefaultsToHardwareAndCarriesWhateverRankItWasGiven)
 	{
-		constexpr rhi::BackendEntry unstated = rhi::MakeBackendEntry<custom::StudioApi>(&custom::RegisterInto);
+		constexpr rhi::BackendEntry unstated = rhi::make_backend_entry<custom::StudioApi>(&custom::RegisterInto);
 		static_assert(unstated.rank == rhi::BackendRank::eHardware);
 
-		constexpr rhi::BackendEntry rasterizer = rhi::MakeBackendEntry<custom::StudioApi>(&custom::RegisterInto, rhi::BackendRank::eSoftware);
+		constexpr rhi::BackendEntry rasterizer = rhi::make_backend_entry<custom::StudioApi>(&custom::RegisterInto, rhi::BackendRank::eSoftware);
 		static_assert(rasterizer.rank == rhi::BackendRank::eSoftware);
 
-		constexpr rhi::BackendEntry standIn = rhi::MakeBackendEntry<custom::StudioApi>(&custom::RegisterInto, rhi::BackendRank::eFallback);
+		constexpr rhi::BackendEntry standIn = rhi::make_backend_entry<custom::StudioApi>(&custom::RegisterInto, rhi::BackendRank::eFallback);
 		static_assert(standIn.rank == rhi::BackendRank::eFallback);
 
 		SUCCEED();
@@ -245,7 +245,7 @@ namespace
 
 	TEST(AvailableBackendTable, CarriesTheIdItsOwnNameHashesTo)
 	{
-		for (const rhi::BackendEntry & backend : rhi::AvailableBackends())
+		for (const rhi::BackendEntry & backend : rhi::available_backends())
 		{
 			EXPECT_EQ(backend.id, rhi::GraphicsApiId{ azo::rhi::hash::fnv1a64_hash(backend.canonicalName) }) << backend.canonicalName;
 			EXPECT_NE(backend.Register, nullptr) << backend.canonicalName << " is listed with no entry point";
@@ -255,7 +255,7 @@ namespace
 
 	TEST(AvailableBackendTable, AgreesWithWhatTheSuiteWasBuiltAgainst)
 	{
-		ASSERT_EQ(rhi::AvailableBackends().size(), test::AvailableBackends().size());
+		ASSERT_EQ(rhi::available_backends().size(), test::AvailableBackends().size());
 		for (const test::Backend & backend : test::AvailableBackends())
 		{
 			EXPECT_NE(rhi::find_available_backend(backend.id), nullptr) << backend.shortName << " is available to the suite but not to the library";
@@ -266,9 +266,9 @@ namespace
 	{
 		const rhi::BackendEntry * byShortName = rhi::find_available_backend("null");
 		ASSERT_NE(byShortName, nullptr);
-		EXPECT_EQ(byShortName->id, rhi::NullApi::id);
+		EXPECT_EQ(byShortName->id, rhi::NullApi::kId);
 		EXPECT_EQ(rhi::find_available_backend("azoth.rhi.null"), byShortName);
-		EXPECT_EQ(rhi::find_available_backend(rhi::NullApi::id), byShortName);
+		EXPECT_EQ(rhi::find_available_backend(rhi::NullApi::kId), byShortName);
 
 		EXPECT_EQ(rhi::find_available_backend("custom"), nullptr) << "the catalog is what the RHI compiled in, not what a run has";
 		EXPECT_EQ(rhi::find_available_backend(""), nullptr);
@@ -279,7 +279,7 @@ namespace
 		rhi::BackendSelection backends;
 
 		ASSERT_FALSE(backends.is_empty());
-		EXPECT_EQ(backends.preferred().size(), rhi::AvailableBackends().size());
+		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size());
 
 		for (const rhi::BackendInfo & backend : backends.preferred())
 		{
@@ -293,7 +293,7 @@ namespace
 
 		for (const rhi::BackendInfo & backend : backends.preferred())
 		{
-			const rhi::BackendInfo * registered = backends.registry().Find(backend.id);
+			const rhi::BackendInfo * registered = backends.registry().find(backend.id);
 			ASSERT_NE(registered, nullptr) << NameOf(backend);
 			EXPECT_EQ(registered->canonicalName, backend.canonicalName);
 			EXPECT_EQ(registered->displayName, backend.displayName);
@@ -322,9 +322,9 @@ namespace
 		ASSERT_FALSE(backends.is_empty());
 		EXPECT_TRUE(backends.honored_request());
 		EXPECT_EQ(backends.requested_name(), "null");
-		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::id);
+		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::kId);
 
-		EXPECT_EQ(backends.preferred().size(), rhi::AvailableBackends().size());
+		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size());
 	}
 
 	TEST(BackendSelection, FallsBackToWhatTheRunHasWhenTheRequestNamesSomethingElse)
@@ -333,7 +333,7 @@ namespace
 
 		EXPECT_FALSE(backends.honored_request());
 		EXPECT_EQ(backends.requested_name(), "notabackend");
-		EXPECT_EQ(backends.preferred().size(), rhi::AvailableBackends().size());
+		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size());
 	}
 
 	TEST(BackendSelection, LeavesEveryFallbackOutWhenAskedToRatherThanSilentlyDrawingNothing)
@@ -348,8 +348,8 @@ namespace
 		}
 
 		const std::size_t fallbacks =
-			static_cast<std::size_t>(std::ranges::count(rhi::AvailableBackends(), rhi::BackendRank::eFallback, &rhi::BackendEntry::rank));
-		EXPECT_EQ(backends.preferred().size(), rhi::AvailableBackends().size() - fallbacks);
+			static_cast<std::size_t>(std::ranges::count(rhi::available_backends(), rhi::BackendRank::eFallback, &rhi::BackendEntry::rank));
+		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size() - fallbacks);
 	}
 
 	TEST(BackendSelection, StillHonorsNullWhenItIsTheOneAskedForByName)
@@ -358,7 +358,7 @@ namespace
 
 		ASSERT_FALSE(backends.is_empty());
 		EXPECT_TRUE(backends.honored_request());
-		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::id);
+		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::kId);
 	}
 
 	TEST(BackendSelection, KeepsOnlyTheNamedBackendWhenTheRequestIsForced)
@@ -369,7 +369,7 @@ namespace
 		EXPECT_TRUE(backends.honored_request());
 		EXPECT_EQ(backends.request(), rhi::BackendRequest::eForce);
 		EXPECT_EQ(backends.preferred().size(), 1u) << "a backend the run was not forced onto was left in the order behind the one it was";
-		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::id);
+		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::kId);
 	}
 
 	TEST(BackendSelection, LeavesTheOrderEmptyWhenAForcedRequestNamesNothingThisBuildHas)
@@ -386,8 +386,8 @@ namespace
 
 		EXPECT_EQ(backends.request(), rhi::BackendRequest::eTry);
 		EXPECT_TRUE(backends.honored_request());
-		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::id);
-		EXPECT_EQ(backends.preferred().size(), rhi::AvailableBackends().size()) << "eTry is a preference and dropped the rest of the order";
+		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::kId);
+		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size()) << "eTry is a preference and dropped the rest of the order";
 	}
 
 	TEST(BackendSelection, PrefersAnExplicitRequestOverTheEnvironment)
@@ -407,10 +407,10 @@ namespace
 		desc.applicationName = "backend_selection_test";
 		desc.validation		 = rhi::ValidationMode::eOff;
 
-		const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance(rhi::NullApi::id, desc);
+		const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance(rhi::NullApi::kId, desc);
 		ASSERT_TRUE(test::Ok(instance));
-		EXPECT_TRUE(instance.Value().IsValid());
-		EXPECT_EQ(instance.Value().Get().GetGraphicsApiId(), rhi::NullApi::id);
+		EXPECT_TRUE(instance.value().is_valid());
+		EXPECT_EQ(instance.value().get().get_graphics_api_id(), rhi::NullApi::kId);
 	}
 
 	TEST(BackendSelection, ReportsAnUnsupportedApiForABackendNothingRegistered)
@@ -432,14 +432,14 @@ namespace
 		ASSERT_TRUE(test::Ok(backends.add<custom::StudioApi>(custom::CreateInfo())));
 
 		ASSERT_EQ(backends.preferred().size(), bundled + 1);
-		EXPECT_EQ(backends.preferred().back().id, custom::StudioApi::id) << "an unrequested backend joins at the back";
-		EXPECT_TRUE(backends.registry().is_registered(custom::StudioApi::id));
+		EXPECT_EQ(backends.preferred().back().id, custom::StudioApi::kId) << "an unrequested backend joins at the back";
+		EXPECT_TRUE(backends.registry().is_registered(custom::StudioApi::kId));
 
-		const rhi::BackendInfo * found = backends.registry().Find("custom");
+		const rhi::BackendInfo * found = backends.registry().find("custom");
 		ASSERT_NE(found, nullptr);
-		EXPECT_EQ(found->id, custom::StudioApi::id);
-		EXPECT_EQ(backends.registry().Find("studio.rhi.custom"), found);
-		EXPECT_EQ(found->displayName, custom::StudioApi::displayName);
+		EXPECT_EQ(found->id, custom::StudioApi::kId);
+		EXPECT_EQ(backends.registry().find("studio.rhi.custom"), found);
+		EXPECT_EQ(found->displayName, custom::StudioApi::kDisplayName);
 	}
 
 	TEST(BackendSelection, TakesABackendThatRegistersItself)
@@ -447,10 +447,10 @@ namespace
 		custom::ResetTable();
 
 		rhi::BackendSelection backends;
-		ASSERT_TRUE(test::Ok(backends.add(rhi::MakeBackendEntry<custom::StudioApi>(&custom::RegisterInto))));
+		ASSERT_TRUE(test::Ok(backends.add(rhi::make_backend_entry<custom::StudioApi>(&custom::RegisterInto))));
 
-		EXPECT_EQ(backends.preferred().back().id, custom::StudioApi::id);
-		EXPECT_NE(backends.registry().Find(custom::StudioApi::id), nullptr);
+		EXPECT_EQ(backends.preferred().back().id, custom::StudioApi::kId);
+		EXPECT_NE(backends.registry().find(custom::StudioApi::kId), nullptr);
 	}
 
 	TEST(BackendSelection, HonorsARequestForABackendAddedAfterConstruction)
@@ -465,12 +465,12 @@ namespace
 
 		EXPECT_TRUE(backends.honored_request());
 		ASSERT_EQ(backends.preferred().size(), bundled + 1);
-		EXPECT_EQ(backends.preferred().front().id, custom::StudioApi::id);
-		EXPECT_EQ(backends.preferred_apis().front(), custom::StudioApi::id);
+		EXPECT_EQ(backends.preferred().front().id, custom::StudioApi::kId);
+		EXPECT_EQ(backends.preferred_apis().front(), custom::StudioApi::kId);
 
 		for (std::size_t index = 0; index < bundled; ++index)
 		{
-			EXPECT_EQ(backends.preferred()[index + 1].id, rhi::AvailableBackends()[index].id);
+			EXPECT_EQ(backends.preferred()[index + 1].id, rhi::available_backends()[index].id);
 		}
 	}
 
@@ -485,8 +485,8 @@ namespace
 		ASSERT_TRUE(test::Ok(backends.add<custom::StudioApi>(custom::CreateInfo())));
 		ASSERT_TRUE(test::Ok(backends.add_available()));
 
-		EXPECT_EQ(backends.preferred().front().id, custom::StudioApi::id);
-		EXPECT_EQ(backends.preferred().size(), rhi::AvailableBackends().size() + 1);
+		EXPECT_EQ(backends.preferred().front().id, custom::StudioApi::kId);
+		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size() + 1);
 	}
 
 	TEST(BackendSelection, StillLetsAnAskedForBackendPastOneAddedByHand)
@@ -496,28 +496,28 @@ namespace
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "null", .includeAvailable = false } };
 
 		ASSERT_TRUE(test::Ok(backends.add<custom::StudioApi>(custom::CreateInfo())));
-		ASSERT_EQ(backends.preferred().front().id, custom::StudioApi::id) << "nothing has answered to the request yet";
+		ASSERT_EQ(backends.preferred().front().id, custom::StudioApi::kId) << "nothing has answered to the request yet";
 
 		ASSERT_TRUE(test::Ok(backends.add_available()));
 
 		ASSERT_GE(backends.preferred().size(), 2u);
 		EXPECT_TRUE(backends.honored_request());
-		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::id) << "an explicit request did not outrank insertion order";
-		EXPECT_EQ(backends.preferred_apis().front(), rhi::NullApi::id);
+		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::kId) << "an explicit request did not outrank insertion order";
+		EXPECT_EQ(backends.preferred_apis().front(), rhi::NullApi::kId);
 
-		EXPECT_EQ(backends.preferred()[1].id, custom::StudioApi::id);
+		EXPECT_EQ(backends.preferred()[1].id, custom::StudioApi::kId);
 	}
 
 	TEST(BackendSelection, AddsTheBundledOnesAroundWhateverIsAlreadyRegistered)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.add(*rhi::find_available_backend(rhi::NullApi::id))));
+		ASSERT_TRUE(test::Ok(backends.add(*rhi::find_available_backend(rhi::NullApi::kId))));
 		ASSERT_EQ(backends.preferred().size(), 1u);
 
 		ASSERT_TRUE(test::Ok(backends.add_available()));
 
 		EXPECT_EQ(backends.preferred().size(), rhi::available_backends().size()) << "Null was registered twice or the rest were skipped";
-		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::id);
+		EXPECT_EQ(backends.preferred().front().id, rhi::NullApi::kId);
 	}
 
 	TEST(BackendSelection, CreatesOnABackendOfYourOwnThroughTheSameCall)
@@ -530,8 +530,8 @@ namespace
 		{
 			const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance();
 			ASSERT_TRUE(test::Ok(instance));
-			EXPECT_TRUE(instance.Value().IsValid());
-			EXPECT_EQ(instance.Value().Get().GetGraphicsApiId(), custom::StudioApi::id) << "the preferred order did not reach the custom backend first";
+			EXPECT_TRUE(instance.value().is_valid());
+			EXPECT_EQ(instance.value().get().get_graphics_api_id(), custom::StudioApi::kId) << "the preferred order did not reach the custom backend first";
 		}
 
 		EXPECT_EQ(custom::g_destroyCalls, 1u) << "the owner released it on the way out";
@@ -575,7 +575,7 @@ namespace
 			const std::span<const rhi::BackendInfo> order = backends.preferred();
 			const auto found							  = std::ranges::find(order, entry.id, &rhi::BackendInfo::id);
 			EXPECT_NE(found, order.end()) << entry.canonicalName << " registered but is not in the order";
-			EXPECT_NE(backends.registry().Find(entry.id), nullptr) << entry.canonicalName << " is in the order but not in the registry";
+			EXPECT_NE(backends.registry().find(entry.id), nullptr) << entry.canonicalName << " is in the order but not in the registry";
 		}
 
 		EXPECT_EQ(backends.preferred_apis().size(), backends.preferred().size());

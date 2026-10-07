@@ -43,10 +43,10 @@ namespace
 		static_assert(noexcept(std::declval<rhi::Device &>().get_caps()));
 		static_assert(noexcept(std::declval<rhi::Device &>().collect_garbage()));
 		static_assert(noexcept(std::declval<rhi::Queue &>().wait_idle()));
-		static_assert(noexcept(std::declval<rhi::CommandList &>().Begin()));
-		static_assert(noexcept(std::declval<rhi::CommandList &>().End()));
+		static_assert(noexcept(std::declval<rhi::CommandList &>().begin()));
+		static_assert(noexcept(std::declval<rhi::CommandList &>().end()));
 		static_assert(noexcept(std::declval<rhi::CommandList &>().draw(0, 0, 0, 0)));
-		static_assert(noexcept(std::declval<rhi::CommandPool &>().Allocate()));
+		static_assert(noexcept(std::declval<rhi::CommandPool &>().allocate()));
 
 		SUCCEED();
 	}
@@ -67,7 +67,7 @@ namespace
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(sentinel, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(withError, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().destroy(asResult.Value(), {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(asResult.value(), {}, error), error));
 	}
 
 	TEST_P(ErrorContractTest, gate_OverloadAgreementFull)

@@ -78,7 +78,7 @@ if(_violations)
     list(JOIN _violations "\n" _report)
     message(FATAL_ERROR
             "AzothRHI host allocation contract violated: a library source allocates outside the installed HostAllocator.\n"
-            "Use the detail::Host aliases (HostVector, HostMap, HostSet, HostDeque, HostString) or HostNew instead, "
+            "Use the detail::Host aliases (HostVector, HostMap, HostSet, HostDeque, HostString) or host_new instead, "
             "so an installed allocator sees this memory too. A driver wrapper that allocates for the RHI takes one of "
             "the same adapters, the way the Vulkan enumerate calls name theirs.\n\n${_report}\n")
 endif()

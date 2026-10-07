@@ -24,5 +24,5 @@ namespace azo::rhi
 {
 	[[nodiscard]] detail::HostString format_vulkan_driver_version(DriverId id, std::uint32_t rawVersion);
 
-	[[nodiscard]] detail::HostString format_d3_d12_driver_version(std::uint64_t umdVersion);
+	[[nodiscard]] detail::HostString format_d3d12_driver_version(std::uint64_t umdVersion);
 }

@@ -78,7 +78,7 @@ namespace azo::rhi
 
 	}
 
-	void TracyProfiler::BeginZone(const ZoneLocation & location)
+	void TracyProfiler::begin_zone(const ZoneLocation & location)
 	{
 		const std::uint64_t srcloc =
 			___tracy_alloc_srcloc_name(location.line, location.file, length(location.file), nullptr, 0, location.name, length(location.name), location.color);
@@ -86,7 +86,7 @@ namespace azo::rhi
 		g_TlZoneStack.push_back(___tracy_emit_zone_begin_alloc(srcloc, 1));
 	}
 
-	void TracyProfiler::EndZone()
+	void TracyProfiler::end_zone()
 	{
 		if (g_TlZoneStack.empty())
 		{
@@ -97,7 +97,7 @@ namespace azo::rhi
 		g_TlZoneStack.pop_back();
 	}
 
-	void TracyProfiler::Plot(CString name, std::int64_t value)
+	void TracyProfiler::plot(CString name, std::int64_t value)
 	{
 		if (name == nullptr)
 		{
@@ -107,7 +107,7 @@ namespace azo::rhi
 		TracyPlot(name, value);
 	}
 
-	void TracyProfiler::GpuAllocate(const void * address, std::uint64_t size, CString pool)
+	void TracyProfiler::gpu_allocate(const void * address, std::uint64_t size, CString pool)
 	{
 		if (address == nullptr || pool == nullptr)
 		{
@@ -117,7 +117,7 @@ namespace azo::rhi
 		TracyAllocN(address, static_cast<std::size_t>(size), pool);
 	}
 
-	void TracyProfiler::GpuFree(const void * address, CString pool)
+	void TracyProfiler::gpu_free(const void * address, CString pool)
 	{
 		if (address == nullptr || pool == nullptr)
 		{
@@ -127,14 +127,14 @@ namespace azo::rhi
 		TracyFreeN(address, pool);
 	}
 
-	void TracyProfiler::EnterFiber([[maybe_unused]] const FiberId fiber, [[maybe_unused]] const CString name)
+	void TracyProfiler::enter_fiber([[maybe_unused]] const FiberId fiber, [[maybe_unused]] const CString name)
 	{
 #ifdef TRACY_FIBERS
 		TracyFiberEnter(intern_fiber_name(fiber, name));
 #endif
 	}
 
-	void TracyProfiler::LeaveFiber([[maybe_unused]] const FiberId fiber)
+	void TracyProfiler::leave_fiber([[maybe_unused]] const FiberId fiber)
 	{
 #ifdef TRACY_FIBERS
 		TracyFiberLeave;

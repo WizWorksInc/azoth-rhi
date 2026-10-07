@@ -137,10 +137,10 @@ namespace
 			.debugName				 = "azoth.rhi.test.set",
 		};
 
-		const rhi::DescriptorSetHandle first = arena.Allocate(alloc, error);
+		const rhi::DescriptorSetHandle first = arena.allocate(alloc, error);
 		ASSERT_TRUE(test::Ok(first.is_valid(), error));
 
-		const rhi::DescriptorSetHandle second = arena.Allocate(alloc, error);
+		const rhi::DescriptorSetHandle second = arena.allocate(alloc, error);
 		ASSERT_TRUE(test::Ok(second.is_valid(), error));
 
 		EXPECT_NE(first, second) << "two sets from the same arena share a handle";
@@ -160,7 +160,7 @@ namespace
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set =
-			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.destroyedSet" }, error);
+			arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.destroyedSet" }, error);
 		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(set, {}, error), error)) << "this backend declines to take back a descriptor set the others do";
@@ -185,7 +185,7 @@ namespace
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set =
-			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.accelWrite" }, error);
+			arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.accelWrite" }, error);
 		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		const std::array writes{ rhi::DescriptorWriteAccelerationStructure{ .set = set, .binding = 0, .arrayIndex = 0 } };
@@ -215,10 +215,10 @@ namespace
 			.debugName				 = "azoth.rhi.test.set",
 		};
 
-		ASSERT_TRUE(arena.Allocate(alloc, error).IsValid());
-		ASSERT_TRUE(test::Ok(arena.Reset(rhi::RetirePoint{}, error), error));
+		ASSERT_TRUE(arena.allocate(alloc, error).is_valid());
+		ASSERT_TRUE(test::Ok(arena.reset(rhi::RetirePoint{}, error), error));
 
-		const rhi::DescriptorSetHandle afterReset = arena.Allocate(alloc, error);
+		const rhi::DescriptorSetHandle afterReset = arena.allocate(alloc, error);
 		EXPECT_TRUE(test::Ok(afterReset.is_valid(), error)) << "a reset arena stopped handing out sets";
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
@@ -241,7 +241,7 @@ namespace
 		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
-		const rhi::DescriptorSetHandle stale = arena.Allocate(
+		const rhi::DescriptorSetHandle stale = arena.allocate(
 			rhi::DescriptorSetAllocDesc{
 				.layout					 = setLayout,
 				.variableDescriptorCount = 0,
@@ -250,7 +250,7 @@ namespace
 			error);
 		ASSERT_TRUE(test::Ok(stale.is_valid(), error));
 
-		ASSERT_TRUE(test::Ok(arena.Reset(rhi::RetirePoint{}, error), error));
+		ASSERT_TRUE(test::Ok(arena.reset(rhi::RetirePoint{}, error), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -279,7 +279,7 @@ namespace
 		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
-		const rhi::DescriptorSetHandle live = arena.Allocate(
+		const rhi::DescriptorSetHandle live = arena.allocate(
 			rhi::DescriptorSetAllocDesc{
 				.layout					 = setLayout,
 				.variableDescriptorCount = 0,
@@ -340,7 +340,7 @@ namespace
 			Dev().create_descriptor_arena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 2 }, error);
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
-		const rhi::DescriptorSetHandle set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout }, error);
+		const rhi::DescriptorSetHandle set = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout }, error);
 		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		const std::array writes{
@@ -381,7 +381,7 @@ namespace
 		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
-		const rhi::DescriptorSetHandle set = arena.Allocate(
+		const rhi::DescriptorSetHandle set = arena.allocate(
 			rhi::DescriptorSetAllocDesc{
 				.layout					 = setLayout,
 				.variableDescriptorCount = 0,
@@ -431,7 +431,7 @@ namespace
 		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set =
-			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.combinedSet" }, error);
+			arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.combinedSet" }, error);
 		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);

@@ -20,7 +20,7 @@ namespace azo::rhi::d3d12
 {
 	namespace
 	{
-		[[nodiscard]] SlotLifetime LifetimeOf(const AdoptedLifetime lifetime) noexcept
+		[[nodiscard]] SlotLifetime lifetime_of(const AdoptedLifetime lifetime) noexcept
 		{
 			return lifetime == AdoptedLifetime::eRhiOwns ? SlotLifetime::eOwned : SlotLifetime::eAdopted;
 		}
@@ -32,22 +32,22 @@ namespace azo::rhi::d3d12
 
 		if (api != D3D12Api::kId)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
+			return fail_value<BufferHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
 		}
 
 		ID3D12Resource * external = static_cast<const NativeBuffer<D3D12Api> *>(nativeImport)->resource;
 		if (external == nullptr)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "import payload has a null ID3D12Resource");
+			return fail_value<BufferHandle>(error, ErrorCode::eInvalidArgument, "import payload has a null ID3D12Resource");
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(
+		return return_value(
 			device->bufferSlots.store(
 				BufferSlot{
 					.resource = external,
 					.size	  = desc.desc.size,
-					.lifetime = LifetimeOf(desc.lifetime),
+					.lifetime = lifetime_of(desc.lifetime),
 					.desc	  = detail::recorded(desc.desc),
 				}
 			),
@@ -61,27 +61,27 @@ namespace azo::rhi::d3d12
 
 		if (api != D3D12Api::kId)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
+			return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
 		}
 
 		ID3D12Resource * external = static_cast<const NativeTexture<D3D12Api> *>(nativeImport)->resource;
 		if (external == nullptr)
 		{
-			return FailValue<TextureHandle>(error, ErrorCode::eInvalidArgument, "import payload has a null ID3D12Resource");
+			return fail_value<TextureHandle>(error, ErrorCode::eInvalidArgument, "import payload has a null ID3D12Resource");
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(
+		return return_value(
 			device->textureSlots.store(
 				TextureSlot{ .resource = external,
-					.format			   = MapFormat(desc.desc.format),
+					.format			   = map_format(desc.desc.format),
 					.rhiFormat		   = desc.desc.format,
 					.type			   = desc.desc.type,
 					.mipLevels		   = desc.desc.mipLevels,
 					.arrayLayers	   = desc.desc.arrayLayers,
 					.usage			   = desc.desc.usage,
 					.mutableFormat	   = desc.desc.allowFormatViews,
-					.lifetime		   = LifetimeOf(desc.lifetime),
+					.lifetime		   = lifetime_of(desc.lifetime),
 					.desc			   = detail::recorded(desc.desc) }
 			),
 			error
@@ -132,7 +132,7 @@ namespace azo::rhi::d3d12
 		Error * error
 	) noexcept
 	{
-		return FailValue<TextureViewHandle>(
+		return fail_value<TextureViewHandle>(
 			error,
 			ErrorCode::eUnsupportedFeature,
 			"Direct3D 12 builds views as descriptors and not objects, so there is none to adopt"
@@ -147,7 +147,7 @@ namespace azo::rhi::d3d12
 		Error * error
 	) noexcept
 	{
-		return FailValue<SamplerHandle>(
+		return fail_value<SamplerHandle>(
 			error,
 			ErrorCode::eUnsupportedFeature,
 			"Direct3D 12 builds samplers as descriptors and not objects, so there is none to adopt"
@@ -181,17 +181,17 @@ namespace azo::rhi::d3d12
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.adoptTimeline");
 		if (api != D3D12Api::kId)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
+			return fail_value<TimelineHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
 		}
 
 		ID3D12Fence * adopted = static_cast<const NativeTimeline<D3D12Api> *>(nativeImport)->fence;
 		if (adopted == nullptr)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null ID3D12Fence");
+			return fail_value<TimelineHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null ID3D12Fence");
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = adopted, .lifetime = LifetimeOf(desc.lifetime) }), error);
+		return return_value(device->timelineSlots.store(TimelineSlot{ .fence = adopted, .lifetime = lifetime_of(desc.lifetime) }), error);
 	}
 
 	BinarySemaphoreHandle D3D12AdoptBinarySemaphore(
@@ -202,7 +202,7 @@ namespace azo::rhi::d3d12
 		Error * error
 	) noexcept
 	{
-		return FailValue<BinarySemaphoreHandle>(
+		return fail_value<BinarySemaphoreHandle>(
 			error,
 			ErrorCode::eUnsupportedFeature,
 			"Direct3D 12 models a binary semaphore as a fence plus counters this device advances, which cannot be recovered from an adopted fence"
@@ -217,7 +217,7 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device			  = static_cast<D3D12Device *>(impl);
-		const TimelineSlot * slot = ResolveTimeline(device, timeline);
+		const TimelineSlot * slot = resolve_timeline(device, timeline);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid timeline handle");
@@ -235,7 +235,7 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device					 = static_cast<D3D12Device *>(impl);
-		const BinarySemaphoreSlot * slot = ResolveBinarySemaphore(device, semaphore);
+		const BinarySemaphoreSlot * slot = resolve_binary_semaphore(device, semaphore);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid binary semaphore handle");

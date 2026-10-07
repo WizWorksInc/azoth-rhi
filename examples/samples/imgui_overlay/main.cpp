@@ -56,15 +56,15 @@ namespace
 
 	[[nodiscard]] bool CanDraw(const rhi::GraphicsApiId api)
 	{
-		return api == rhi::VulkanApi::id || api == rhi::D3D12Api::id || rhi::IsMetalFamily(api);
+		return api == rhi::VulkanApi::kId || api == rhi::D3D12Api::kId || rhi::is_metal_family(api);
 	}
 
 	void ResizeToWindow(fw::platform::Sdl3Window & window, rhi::Swapchain & swapchain, rhi::Queue & queue, rhi::Error & error)
 	{
 		const rhi::Extent2D size = window.GetDrawableSize();
 
-		static_cast<void>(queue.WaitIdle(error));
-		static_cast<void>(swapchain.Resize(size.width, size.height, error));
+		static_cast<void>(queue.wait_idle(error));
+		static_cast<void>(swapchain.resize(size.width, size.height, error));
 	}
 
 	[[nodiscard]] bool RecordFrame(rhi::CommandList & list, const rhi::Swapchain & swapchain, const rhi::AcquireResult & acquired,
@@ -96,11 +96,11 @@ namespace
 			},
 		};
 
-		return list.Begin(error) && renderer.UpdateTextures(list, drawData, slot, error) &&
-			   list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
-			   list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.GetWidth(), .height = swapchain.GetHeight() }, error) &&
-			   renderer.Record(list, drawData, slot, error) && list.EndRendering(error) && list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error) &&
-			   list.End(error);
+		return list.begin(error) && renderer.UpdateTextures(list, drawData, slot, error) &&
+			   list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
+			   list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.get_width(), .height = swapchain.get_height() }, error) &&
+			   renderer.Record(list, drawData, slot, error) && list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) &&
+			   list.end(error);
 	}
 
 }
@@ -113,7 +113,7 @@ int main(int argc, char ** argv)
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .includeNull = false } };
 
 	rhi::GraphicsApiId api{};
-	for (const rhi::BackendInfo & backend : backends.Preferred())
+	for (const rhi::BackendInfo & backend : backends.preferred())
 	{
 		if (backend.supportsSurfaces && CanDraw(backend.id))
 		{
@@ -134,31 +134,31 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::MakePresentationBackend(api);
-	if (presentation == nullptr || !presentation->InitInstanceLoader(window))
+	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::make_presentation_backend(api);
+	if (presentation == nullptr || !presentation->init_instance_loader(window))
 	{
 		LOG_ERROR(fw::Log(), "this build cannot present through the backend it picked");
 		return 1;
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
-													  .DebugName("imgui_overlay")
-													  .GraphicsQueue()
-													  .Validation(rhi::ValidationMode::eDeveloper)
-													  .Build(backends.Registry(), backends.PreferredApis().first(1));
+													  .debug_name("imgui_overlay")
+													  .graphics_queue()
+													  .validation(rhi::ValidationMode::eDeveloper)
+													  .build(backends.registry(), backends.preferred_apis().first(1));
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	rhi::Error error{};
 
-	rhi::Queue queue				 = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	const rhi::SurfaceHandle surface = presentation->CreateSurface(window, dev);
+	rhi::Queue queue				 = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
 	const rhi::Extent2D initial		 = window.GetDrawableSize();
 
-	rhi::Swapchain swapchain = dev.CreateSwapchain(
+	rhi::Swapchain swapchain = dev.create_swapchain(
 		rhi::SwapchainDesc{
 			.surface   = surface,
 			.width	   = initial.width,
@@ -167,13 +167,13 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	if (surface.value == 0 || !queue.IsValid() || !swapchain.IsValid())
+	if (surface.value == 0 || !queue.is_valid() || !swapchain.is_valid())
 	{
 		fw::ReportError("failed to set up presentation", error);
 		return 1;
 	}
 
-	LOG_INFO(fw::Log(), "{} at {}x{}", dev.GetGraphicsApiName(), swapchain.GetWidth(), swapchain.GetHeight());
+	LOG_INFO(fw::Log(), "{} at {}x{}", dev.get_graphics_api_name(), swapchain.get_width(), swapchain.get_height());
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -185,7 +185,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
+	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
 			.maxSets		= kMaxTextures,
@@ -194,7 +194,7 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	if (!arena.IsValid())
+	if (!arena.is_valid())
 	{
 		fw::ReportError("failed to create the descriptor arena", error);
 		return 1;
@@ -203,21 +203,21 @@ int main(int argc, char ** argv)
 	rhi::Result<rhi::imgui::Renderer> made = rhi::imgui::Renderer::Create(dev,
 		rhi::imgui::RendererDesc{
 			.arena			= &arena,
-			.colorFormat	= swapchain.GetFormat(),
+			.colorFormat	= swapchain.get_format(),
 			.framesInFlight = kFramesInFlight,
 			.debugName		= "imgui",
 		});
 
 	if (!made)
 	{
-		fw::ReportError("failed to create the ImGui renderer", made.GetError());
+		fw::ReportError("failed to create the ImGui renderer", made.get_error());
 		return 1;
 	}
 
-	rhi::imgui::Renderer & renderer = made.Value();
+	rhi::imgui::Renderer & renderer = made.value();
 
-	rhi::FrameRing ring = rhi::FrameRing::Create(dev, queue, rhi::FrameRingDesc{ .framesInFlight = kFramesInFlight, .debugName = "imgui.ring" }, error);
-	if (!ring.IsValid())
+	rhi::FrameRing ring = rhi::FrameRing::create(dev, queue, rhi::FrameRingDesc{ .framesInFlight = kFramesInFlight, .debugName = "imgui.ring" }, error);
+	if (!ring.is_valid())
 	{
 		fw::ReportError("failed to create the frame ring", error);
 		return 1;
@@ -232,7 +232,7 @@ int main(int argc, char ** argv)
 			ImGui_ImplSDL3_ProcessEvent(&event);
 		}))
 	{
-		if (frameLimit != 0 && ring.FrameIndex() >= frameLimit)
+		if (frameLimit != 0 && ring.frame_index() >= frameLimit)
 		{
 			break;
 		}
@@ -242,7 +242,7 @@ int main(int argc, char ** argv)
 			ResizeToWindow(window, swapchain, queue, error);
 		}
 
-		const rhi::AcquireResult acquired = swapchain.AcquireNextImage(kNoTimeout, error);
+		const rhi::AcquireResult acquired = swapchain.acquire_next_image(kNoTimeout, error);
 		if (acquired.status == rhi::SwapchainStatus::eOutOfDate)
 		{
 			ResizeToWindow(window, swapchain, queue, error);
@@ -264,36 +264,36 @@ int main(int argc, char ** argv)
 		drawnVertices += static_cast<std::uint64_t>(drawData.TotalVtxCount);
 		drawnIndices += static_cast<std::uint64_t>(drawData.TotalIdxCount);
 
-		rhi::CommandList list = ring.Begin(error);
-		if (!list.IsValid() || !RecordFrame(list, swapchain, acquired, renderer, drawData, ring.SlotIndex(), error))
+		rhi::CommandList list = ring.begin(error);
+		if (!list.is_valid() || !RecordFrame(list, swapchain, acquired, renderer, drawData, ring.slot_index(), error))
 		{
 			fw::ReportError("failed to record the frame", error);
 			return 1;
 		}
 
-		static_cast<void>(renderer.Retire(ring.Retire(), error));
+		static_cast<void>(renderer.Retire(ring.retire(), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array present{ rhi::SwapchainSync{ .acquired = acquired.imageAvailable, .renderFinished = acquired.renderFinished } };
-		const std::array retire{ ring.Signal() };
+		const std::array retire{ ring.signal() };
 
-		if (!queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = retire, .swapchains = present, .debugName = "imgui.submit" }, error))
+		if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = retire, .swapchains = present, .debugName = "imgui.submit" }, error))
 		{
 			fw::ReportError("failed to submit the frame", error);
 			return 1;
 		}
 
-		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
+		static_cast<void>(swapchain.present(queue, acquired.imageIndex, acquired.renderFinished, error));
 	}
 
-	static_cast<void>(queue.WaitIdle(error));
+	static_cast<void>(queue.wait_idle(error));
 
 	ImGui_ImplSDL3_Shutdown();
 	ImGui::DestroyContext();
 
-	const rhi::ValidationMessageCounts validation = dev.GetValidationMessageCounts();
+	const rhi::ValidationMessageCounts validation = dev.get_validation_message_counts();
 
-	LOG_INFO(fw::Log(), "presented {} frames, {} vertices and {} indices", ring.FrameIndex(), drawnVertices, drawnIndices);
+	LOG_INFO(fw::Log(), "presented {} frames, {} vertices and {} indices", ring.frame_index(), drawnVertices, drawnIndices);
 	LOG_INFO(fw::Log(), "validation: {} errors, {} warnings", validation.errors, validation.warnings);
 
 	return validation.errors == 0 ? 0 : 1;

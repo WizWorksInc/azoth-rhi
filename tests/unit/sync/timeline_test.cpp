@@ -94,7 +94,7 @@ namespace
 		ASSERT_TRUE(test::Ok(asResult));
 
 		EXPECT_EQ(sentinel, withError);
-		EXPECT_EQ(withError, asResult.Value());
+		EXPECT_EQ(withError, asResult.value());
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
@@ -156,13 +156,13 @@ namespace
 		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
 		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		if (!queue.Signal(timeline, 1, error))
+		if (!queue.signal(timeline, 1, error))
 		{
 			static_cast<void>(Dev().destroy(timeline, {}, error));
 			GTEST_SKIP() << "this backend does not signal timelines from the host: " << test::Describe(error);
 		}
 
-		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, test::kWaitTimeoutNanoseconds, error), error));
+		EXPECT_TRUE(test::Ok(queue.wait(timeline, 1, test::kWaitTimeoutNanoseconds, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
@@ -173,12 +173,12 @@ namespace
 		const auto timeline = Dev().create_timeline(test::samples::Timeline(1), error);
 		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 		auto queue = Dev().get_queue(rhi::QueueType::eGraphics);
-		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, 0, error), error));
-		EXPECT_FALSE(queue.Wait(timeline, 2, 0, error));
+		EXPECT_TRUE(test::Ok(queue.wait(timeline, 1, 0, error), error));
+		EXPECT_FALSE(queue.wait(timeline, 2, 0, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
-		EXPECT_FALSE(queue.Wait(timeline, 2, 1, error));
+		EXPECT_FALSE(queue.wait(timeline, 2, 1, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
-		EXPECT_FALSE(queue.Wait(timeline, 2, 1'000'000, error));
+		EXPECT_FALSE(queue.wait(timeline, 2, 1'000'000, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
 		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
@@ -201,9 +201,9 @@ namespace
 				[&]
 				{
 					std::this_thread::sleep_for(std::chrono::milliseconds{ 100 });
-					signaled = queue.Signal(timeline, value, signalError);
+					signaled = queue.signal(timeline, value, signalError);
 				});
-			const bool waited = queue.Wait(timeline, value, timeout, error);
+			const bool waited = queue.wait(timeline, value, timeout, error);
 			signalThread.join();
 			EXPECT_TRUE(test::Ok(signaled, signalError));
 			EXPECT_TRUE(test::Ok(waited, error)) << "timeout " << timeout;

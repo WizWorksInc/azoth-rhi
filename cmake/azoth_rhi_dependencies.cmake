@@ -53,6 +53,31 @@ function(azoth_rhi_mark_system target)
     endif()
 endfunction()
 
+# Fetched code is not ours to fix: keyed on the fetch directory, so a dependency added later needs no listing.
+function(azoth_rhi_quiet_fetched_targets dir)
+    get_property(_subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
+    foreach(_subdir IN LISTS _subdirs)
+        azoth_rhi_quiet_fetched_targets("${_subdir}")
+    endforeach()
+
+    get_property(_binary DIRECTORY "${dir}" PROPERTY BINARY_DIR)
+    cmake_path(IS_PREFIX FETCHCONTENT_BASE_DIR "${_binary}" NORMALIZE _fetched)
+    if(NOT _fetched)
+        return()
+    endif()
+
+    set(_compiled STATIC_LIBRARY SHARED_LIBRARY MODULE_LIBRARY OBJECT_LIBRARY EXECUTABLE)
+    get_property(_targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_target IN LISTS _targets)
+        azoth_rhi_mark_system(${_target})
+        get_target_property(_type ${_target} TYPE)
+        if(_type IN_LIST _compiled)
+            # MSVC is left alone: /w beside a dependency's own /W4 is itself a D9025 warning.
+            target_compile_options(${_target} PRIVATE $<$<NOT:$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>>:-w>)
+        endif()
+    endforeach()
+endfunction()
+
 # Takes the first of several candidate spellings that exists, isolates its includes, and appends it to
 # out_var under the name install(TARGETS) will accept.
 #

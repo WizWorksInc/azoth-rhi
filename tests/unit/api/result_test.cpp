@@ -34,7 +34,7 @@ namespace
 
 		static_assert(result.has_value());
 		static_assert(static_cast<bool>(result));
-		static_assert(result.Value() == 42);
+		static_assert(result.value() == 42);
 
 		EXPECT_TRUE(result.has_value());
 	}
@@ -93,26 +93,26 @@ namespace
 		rhi::Result<std::unique_ptr<int>> result = std::make_unique<int>(9);
 		ASSERT_TRUE(result.has_value());
 
-		const std::unique_ptr<int> taken = std::move(result).Value();
+		const std::unique_ptr<int> taken = std::move(result).value();
 		ASSERT_NE(taken, nullptr);
 		EXPECT_EQ(*taken, 9);
 		// NOLINTNEXTLINE(bugprone-use-after-move, clang-analyzer-cplusplus.Move): the state after the move is exactly what this asserts.
-		EXPECT_EQ(result.Value(), nullptr) << "the value was copied out instead of moved";
+		EXPECT_EQ(result.value(), nullptr) << "the value was copied out instead of moved";
 	}
 
 	TEST(Result, ValueIsReachableThroughBothConstAndMutableReferences)
 	{
 		rhi::Result<std::string> result = std::string{ "payload" };
 
-		result.Value() += "!";
-		EXPECT_EQ(result.Value(), "payload!");
+		result.value() += "!";
+		EXPECT_EQ(result.value(), "payload!");
 
 		const rhi::Result<std::string> & readOnly = result;
-		EXPECT_EQ(readOnly.Value(), "payload!");
+		EXPECT_EQ(readOnly.value(), "payload!");
 
-		static_assert(std::same_as<decltype(std::declval<rhi::Result<std::string> &>().Value()), std::string &>);
-		static_assert(std::same_as<decltype(std::declval<const rhi::Result<std::string> &>().Value()), const std::string &>);
-		static_assert(std::same_as<decltype(std::declval<rhi::Result<std::string> &&>().Value()), std::string &&>);
+		static_assert(std::same_as<decltype(std::declval<rhi::Result<std::string> &>().value()), std::string &>);
+		static_assert(std::same_as<decltype(std::declval<const rhi::Result<std::string> &>().value()), const std::string &>);
+		static_assert(std::same_as<decltype(std::declval<rhi::Result<std::string> &&>().value()), std::string &&>);
 	}
 
 	TEST(Result, CarriesAMoveOnlyValueWithoutRequiringACopy)

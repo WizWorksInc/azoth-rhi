@@ -94,9 +94,9 @@ namespace
 	[[nodiscard]] const Backend * TargetFor(const rhi::GraphicsApiId api)
 	{
 		static const std::array targets{
-			Backend{ .api = rhi::VulkanApi::id, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .binaryFormat = rhi::ShaderBinaryFormat::eSpirV },
-			Backend{ .api = rhi::D3D12Api::id, .slang = SLANG_DXIL, .profile = "sm_6_0", .binaryFormat = rhi::ShaderBinaryFormat::eDxil },
-			Backend{ .api			 = rhi::MetalApi::id,
+			Backend{ .api = rhi::VulkanApi::kId, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .binaryFormat = rhi::ShaderBinaryFormat::eSpirV },
+			Backend{ .api = rhi::D3D12Api::kId, .slang = SLANG_DXIL, .profile = "sm_6_0", .binaryFormat = rhi::ShaderBinaryFormat::eDxil },
+			Backend{ .api			 = rhi::MetalApi::kId,
 				.slang				 = SLANG_METAL_LIB,
 				.profile			 = "metallib_2_4",
 				.binaryFormat		 = rhi::ShaderBinaryFormat::eBackendNative,
@@ -105,7 +105,7 @@ namespace
 
 		// NOLINTNEXTLINE(readability-qualified-auto): libc++ makes this array iterator a raw pointer and MSVC does not, so auto * here builds on one and not the other.
 
-		const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
+		const rhi::GraphicsApiId target = api == rhi::Metal4Api::kId ? rhi::MetalApi::kId : api;
 
 		const auto found = std::ranges::find(targets, target, &Backend::api);
 		return found != targets.end() ? &*found : nullptr;
@@ -162,7 +162,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	rhi::Error error{};
 
 	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
@@ -299,14 +299,14 @@ int main(int argc, char ** argv)
 
 		++frame;
 
-		if (frame > 1 && !pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = frame - 1 }, error))
+		if (frame > 1 && !pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = frame - 1 }, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to reset the command pool");
 			return 1;
 		}
 
-		rhi::CommandList list = pool.Allocate("triangle.frame", error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.allocate("triangle.frame", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			LOG_ERROR(fw::Log(), "failed to start recording");
 			return 1;
@@ -346,7 +346,7 @@ int main(int argc, char ** argv)
 			list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
 			list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.get_width(), .height = swapchain.get_height() }, error) &&
 			list.set_graphics_pipeline(pipeline, error) && list.set_viewport(viewport, error) && list.set_scissor(scissor, error) && list.draw(3, 1, 0, 0, error) &&
-			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
+			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.end(error);
 
 		if (!recorded)
 		{
@@ -371,9 +371,9 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
+		static_cast<void>(swapchain.present(queue, acquired.imageIndex, acquired.renderFinished, error));
 
-		if (!queue.Wait(timeline, frame, kNoTimeout, error))
+		if (!queue.wait(timeline, frame, kNoTimeout, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to wait for the frame");
 			return 1;

@@ -29,16 +29,16 @@ namespace builder_config_test
 {
 	struct Api final : rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "test.rhi.builder-config";
-		static constexpr std::string_view displayName	= "Builder config fixture";
-		static constexpr rhi::GraphicsApiId id			= rhi::make_graphics_api_id(canonicalName);
+		static constexpr std::string_view kCanonicalName = "test.rhi.builder-config";
+		static constexpr std::string_view kDisplayName	= "Builder config fixture";
+		static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	struct OtherApi final : rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "test.rhi.other-builder-config";
-		static constexpr std::string_view displayName	= "Other builder config fixture";
-		static constexpr rhi::GraphicsApiId id			= rhi::make_graphics_api_id(canonicalName);
+		static constexpr std::string_view kCanonicalName = "test.rhi.other-builder-config";
+		static constexpr std::string_view kDisplayName	= "Other builder config fixture";
+		static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	struct DeviceConfig final
@@ -95,7 +95,7 @@ namespace builder_config_test
 	void RecordInstance(const rhi::InstanceDesc & desc) noexcept
 	{
 		observed.instanceBlocks = desc.backendConfigs.size();
-		const auto config		= rhi::native::FindInstanceConfig<Api>(desc.backendConfigs);
+		const auto config		= rhi::native::find_instance_config<Api>(desc.backendConfigs);
 		if (config.block != nullptr)
 		{
 			observed.adapterLimit = config.block->adapterLimit;
@@ -106,7 +106,7 @@ namespace builder_config_test
 	{
 		++observed.deviceCalls;
 		observed.deviceBlocks = desc.backendConfigs.size();
-		const auto config	  = rhi::native::FindDeviceConfig<Api>(desc.backendConfigs);
+		const auto config	  = rhi::native::find_device_config<Api>(desc.backendConfigs);
 		if (config.block != nullptr)
 		{
 			observed.queueLimit	  = config.block->queueLimit;
@@ -122,7 +122,7 @@ namespace builder_config_test
 			.getGraphicsApiId =
 				[](void *) noexcept
 			{
-				return Api::id;
+				return Api::kId;
 			},
 			.enumerateAdapters =
 				[](void *, std::span<rhi::AdapterInfo>, std::uint32_t * out, rhi::Error *) noexcept
@@ -156,8 +156,8 @@ namespace builder_config_test
 	rhi::BackendCreateInfo CreateInfo()
 	{
 		rhi::BackendCreateInfo info{};
-		info.info.canonicalName = Api::canonicalName;
-		info.info.displayName	= Api::displayName;
+		info.info.canonicalName = Api::kCanonicalName;
+		info.info.displayName	= Api::kDisplayName;
 		info.createInstance		= [](const void * desc, rhi::Error *) noexcept
 		{
 			RecordInstance(*static_cast<const rhi::InstanceDesc *>(desc));
@@ -170,7 +170,7 @@ namespace builder_config_test
 namespace azo::rhi
 {
 	template <>
-	Result<UniqueDevice> CreateDevice<builder_config_test::Api>(const DeviceDesc & desc)
+	Result<UniqueDevice> create_device<builder_config_test::Api>(const DeviceDesc & desc)
 	{
 		builder_config_test::RecordInstance(instance_desc_for_device(desc));
 		Error refusal{};
@@ -196,7 +196,7 @@ namespace
 		void Observe(const rhi::DeviceBuilder & builder)
 		{
 			observed = {};
-			const std::array preferred{ Api::id };
+			const std::array preferred{ Api::kId };
 			EXPECT_TRUE(test::Failed(builder.build(registry, preferred), rhi::ErrorCode::eUnsupportedFeature));
 			EXPECT_EQ(observed.deviceCalls, 1u);
 		}
@@ -208,12 +208,12 @@ namespace
 	{
 		rhi::DeviceBuilder builder;
 		builder
-			.Configure<Api>(
+			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 7;
 				})
-			.ConfigureInstance<Api>(
+			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 11;
@@ -229,17 +229,17 @@ namespace
 	{
 		rhi::DeviceBuilder builder;
 		builder
-			.Configure<Api>(
+			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 7;
 				})
-			.ConfigureInstance<Api>(
+			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 11;
 				});
-		EXPECT_TRUE(test::Failed(builder.Build<Api>(), rhi::ErrorCode::eUnsupportedFeature));
+		EXPECT_TRUE(test::Failed(builder.build<Api>(), rhi::ErrorCode::eUnsupportedFeature));
 		EXPECT_EQ(observed.deviceCalls, 1u);
 		EXPECT_EQ(observed.queueLimit, 7u);
 		EXPECT_EQ(observed.adapterLimit, 11u);
@@ -249,13 +249,13 @@ namespace
 	{
 		rhi::DeviceBuilder builder;
 		builder
-			.Configure<Api>(
+			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit	= 7;
 					config.memoryBudget = 11;
 				})
-			.Configure<Api>(
+			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 9;
@@ -270,23 +270,23 @@ namespace
 	{
 		rhi::DeviceBuilder original;
 		original
-			.Configure<Api>(
+			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 7;
 				})
-			.ConfigureInstance<Api>(
+			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 11;
 				});
 		rhi::DeviceBuilder copy = original;
-		copy.Configure<Api>(
+		copy.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 9;
 				})
-			.ConfigureInstance<Api>(
+			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 13;
@@ -304,7 +304,7 @@ namespace
 		rhi::DeviceBuilder surviving;
 		{
 			rhi::DeviceBuilder original;
-			original.Configure<Api>(
+			original.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 7;
@@ -320,12 +320,12 @@ namespace
 	{
 		rhi::DeviceBuilder builder;
 		builder
-			.Configure<Api>(
+			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 7;
 				})
-			.Configure<builder_config_test::OtherApi>(
+			.configure<builder_config_test::OtherApi>(
 				[](auto & config)
 				{
 					config.queueLimit = 31;

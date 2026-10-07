@@ -88,7 +88,7 @@ namespace azo::rhi::d3d12
 		{
 			if (!binding.immutableSamplers.empty())
 			{
-				return FailValue<DescriptorSetLayoutHandle>(
+				return fail_value<DescriptorSetLayoutHandle>(
 					error,
 					ErrorCode::eUnsupportedFeature,
 					"Direct3D 12 does not bake samplers into a descriptor set layout here, so write the sampler into the set instead"
@@ -110,10 +110,10 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(device->descriptorSetLayoutSlots.store(std::move(slot)), error);
+		return return_value(device->descriptorSetLayoutSlots.store(std::move(slot)), error);
 	}
 
-	[[nodiscard]] DescriptorSetLayoutSlot * ResolveDescriptorSetLayout(D3D12Device * device, DescriptorSetLayoutHandle handle) noexcept
+	[[nodiscard]] DescriptorSetLayoutSlot * resolve_descriptor_set_layout(D3D12Device * device, DescriptorSetLayoutHandle handle) noexcept
 	{
 		return device->descriptorSetLayoutSlots.resolve(handle, kHandleAlreadyChecked);
 	}
@@ -130,10 +130,10 @@ namespace azo::rhi::d3d12
 		std::size_t totalSamplerRanges	= 0;
 		for (const DescriptorSetLayoutHandle setHandle : desc.sets)
 		{
-			DescriptorSetLayoutSlot * setLayout = ResolveDescriptorSetLayout(device, setHandle);
+			DescriptorSetLayoutSlot * setLayout = resolve_descriptor_set_layout(device, setHandle);
 			if (setLayout == nullptr)
 			{
-				return FailValue<PipelineLayoutHandle>(error, ErrorCode::eInvalidHandle, "pipeline layout references an invalid descriptor set layout");
+				return fail_value<PipelineLayoutHandle>(error, ErrorCode::eInvalidHandle, "pipeline layout references an invalid descriptor set layout");
 			}
 			for (const DescriptorBinding & binding : setLayout->bindings)
 			{
@@ -261,7 +261,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<PipelineLayoutHandle>(error, created, "ID3D12Device::CreateRootSignature failed");
 		}
 
-		return ReturnValue(device->pipelineLayoutSlots.store(std::move(slot)), error);
+		return return_value(device->pipelineLayoutSlots.store(std::move(slot)), error);
 	}
 
 	bool D3D12DestroyDescriptorSetLayout(D3D12Device * device, RawHandle handle, Error * error) noexcept

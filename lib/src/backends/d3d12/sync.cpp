@@ -55,12 +55,12 @@ namespace azo::rhi::d3d12
 		return result;
 	}
 
-	[[nodiscard]] TimelineSlot * ResolveTimeline(D3D12Device * device, TimelineHandle handle) noexcept
+	[[nodiscard]] TimelineSlot * resolve_timeline(D3D12Device * device, TimelineHandle handle) noexcept
 	{
 		return device->timelineSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
-	[[nodiscard]] BinarySemaphoreSlot * ResolveBinarySemaphore(D3D12Device * device, BinarySemaphoreHandle handle) noexcept
+	[[nodiscard]] BinarySemaphoreSlot * resolve_binary_semaphore(D3D12Device * device, BinarySemaphoreHandle handle) noexcept
 	{
 		return device->binarySemaphoreSlots.resolve(handle, kHandleAlreadyChecked);
 	}
@@ -90,7 +90,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<TimelineHandle>(error, hr, "ID3D12Device::CreateFence failed for a timeline");
 		}
 
-		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
+		return return_value(device->timelineSlots.store(TimelineSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
 	}
 
 	bool D3D12DestroyTimeline(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -134,7 +134,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<BinarySemaphoreHandle>(error, hr, "ID3D12Device::CreateFence failed for a binary semaphore");
 		}
 
-		return ReturnValue(
+		return return_value(
 			device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }),
 			error
 		);
@@ -194,7 +194,7 @@ namespace azo::rhi::d3d12
 			std::size_t kept = 0;
 			for (std::size_t at = 0; at < pool->retired.size(); ++at)
 			{
-				if (!SubmissionStillRunning(pool->retired[at].submitFence, pool->retired[at].submitValue))
+				if (!submission_still_running(pool->retired[at].submitFence, pool->retired[at].submitValue))
 				{
 					continue;
 				}
@@ -314,7 +314,7 @@ namespace azo::rhi::d3d12
 
 		if (!detail::try_push_back(pool->lists, raw))
 		{
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "D3D12 command list allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "D3D12 command list allocation failed");
 		}
 		++pool->handedOut;
 
@@ -337,7 +337,7 @@ namespace azo::rhi::d3d12
 		// Resetting an allocator whose lists are still executing is the caller's to avoid per the ID3D12CommandAllocator::Reset docs, so refuse it here.
 		for (const D3D12CommandList * list : pool->lists)
 		{
-			if (ListStillRunning(*list))
+			if (list_still_running(*list))
 			{
 				return Fail(error, ErrorCode::eInvalidState, kResetOfPoolWithRunningList);
 			}
@@ -378,7 +378,7 @@ namespace azo::rhi::d3d12
 
 		SweepRetiredRecordings(list->pool);
 		// ExecuteCommandLists drops a list whose previous execution has not completed, so the new recording needs its own list and allocator.
-		if (ListStillRunning(*list))
+		if (list_still_running(*list))
 		{
 			if (!RetireRunningRecording(list, error))
 			{
@@ -466,8 +466,8 @@ namespace azo::rhi::d3d12
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device = list->owner;
 
-		BufferSlot * srcSlot = ResolveBuffer(device, src);
-		BufferSlot * dstSlot = ResolveBuffer(device, dst);
+		BufferSlot * srcSlot = resolve_buffer(device, src);
+		BufferSlot * dstSlot = resolve_buffer(device, dst);
 		if (srcSlot == nullptr || dstSlot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "copyBuffer with an invalid buffer handle");

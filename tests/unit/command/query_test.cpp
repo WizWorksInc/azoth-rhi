@@ -63,7 +63,7 @@ namespace
 
 	[[nodiscard]] bool ReadTimestampPair(rhi::Device device, rhi::BufferHandle results, std::uint64_t & first, std::uint64_t & second, rhi::Error & error)
 	{
-		const rhi::MappedMemory mapped = device.Map(results,
+		const rhi::MappedMemory mapped = device.map(results,
 			rhi::MapDesc{
 				.mode	= rhi::MapMode::eRead,
 				.offset = 0,
@@ -77,7 +77,7 @@ namespace
 
 		std::array<std::uint64_t, 2> values{};
 		std::memcpy(values.data(), mapped.data, sizeof(values));
-		static_cast<void>(device.Unmap(results));
+		static_cast<void>(device.unmap(results));
 
 		first  = values[0];
 		second = values[1];

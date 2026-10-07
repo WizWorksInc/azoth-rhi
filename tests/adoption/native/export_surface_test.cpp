@@ -67,7 +67,7 @@ namespace
 		Reference(&rhi::native::resolve_vulkan_loader);
 
 		Reference(static_cast<rhi::Result<rhi::UniqueInstance> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::InstanceDesc &)>(
-			&rhi::CreateInstance));
+			&rhi::create_instance));
 		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::DeviceDesc &)>(
 			&rhi::create_device));
 
@@ -84,16 +84,16 @@ namespace
 	{
 		Reference(static_cast<rhi::Result<void> (rhi::BackendSelection::*)(const rhi::BackendEntry &)>(&rhi::BackendSelection::add));
 		Reference(&rhi::BackendSelection::add_all);
-		Reference(&rhi::BackendSelection::AddAvailable);
+		Reference(&rhi::BackendSelection::add_available);
 		Reference(&rhi::BackendSelection::add_self_registered);
 		Reference(&rhi::BackendSelection::add_module);
 		Reference(&rhi::BackendSelection::add_catalog);
 		Reference(static_cast<rhi::Result<rhi::UniqueInstance> (rhi::BackendSelection::*)(const rhi::InstanceDesc &)>(&rhi::BackendSelection::create_instance));
-		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (rhi::BackendSelection::*)(const rhi::DeviceDesc &)>(&rhi::BackendSelection::CreateDevice));
+		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (rhi::BackendSelection::*)(const rhi::DeviceDesc &)>(&rhi::BackendSelection::create_device));
 		Reference(static_cast<rhi::Result<rhi::UniqueInstance> (rhi::BackendSelection::*)(rhi::GraphicsApiId, const rhi::InstanceDesc &)>(
 			&rhi::BackendSelection::create_instance));
 		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (rhi::BackendSelection::*)(rhi::GraphicsApiId, const rhi::DeviceDesc &)>(
-			&rhi::BackendSelection::CreateDevice));
+			&rhi::BackendSelection::create_device));
 
 		Reference(&rhi::BackendModule::load);
 		Reference(&rhi::BackendModule::live_objects);
@@ -123,7 +123,7 @@ namespace
 		Reference(&rhi::get_vulkan_semaphore);
 		Reference(&rhi::get_vulkan_command_buffer);
 		Reference(&rhi::get_vulkan_command_pool);
-		Reference(&rhi::GetVulkanQueueView);
+		Reference(&rhi::get_vulkan_queue_view);
 		Reference(&rhi::native::NativeAccess<rhi::VulkanApi>::make_command_list_view);
 	}
 
@@ -163,13 +163,13 @@ namespace
 
 	TEST(ExportSurface, TheDirect3DNativeEntryPointsResolve)
 	{
-		Reference(&rhi::CreateDevice<rhi::D3D12Api>);
-		Reference(&rhi::GetD3D12NativeDevice);
-		Reference(&rhi::GetD3D12NativeSwapchain);
-		Reference(&rhi::GetD3D12CommandList);
-		Reference(&rhi::GetD3D12CommandAllocator);
-		Reference(&rhi::GetD3D12QueueView);
-		Reference(&rhi::native::NativeAccess<rhi::D3D12Api>::MakeCommandListView);
+		Reference(&rhi::create_device<rhi::D3D12Api>);
+		Reference(&rhi::get_d3d12_native_device);
+		Reference(&rhi::get_d3d12_native_swapchain);
+		Reference(&rhi::get_d3d12_command_list);
+		Reference(&rhi::get_d3d12_command_allocator);
+		Reference(&rhi::get_d3d12_queue_view);
+		Reference(&rhi::native::NativeAccess<rhi::D3D12Api>::make_command_list_view);
 	}
 
 #endif

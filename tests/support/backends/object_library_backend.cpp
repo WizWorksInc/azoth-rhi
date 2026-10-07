@@ -23,9 +23,9 @@ namespace
 
 	struct ObjectLibraryApi final : azo::rhi::GraphicsApiTagRoot
 	{
-		static constexpr std::string_view canonicalName = "studio.rhi.objectlib";
-		static constexpr std::string_view displayName	= "Studio Object Library";
-		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::make_graphics_api_id(canonicalName);
+		static constexpr std::string_view kCanonicalName = "studio.rhi.objectlib";
+		static constexpr std::string_view kDisplayName	= "Studio Object Library";
+		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<ObjectLibraryApi>);
@@ -33,8 +33,8 @@ namespace
 	[[nodiscard]] azo::rhi::BackendCreateInfo CreateInfo() noexcept
 	{
 		azo::rhi::BackendCreateInfo info{};
-		info.info.canonicalName = ObjectLibraryApi::canonicalName;
-		info.info.displayName	= ObjectLibraryApi::displayName;
+		info.info.canonicalName = ObjectLibraryApi::kCanonicalName;
+		info.info.displayName	= ObjectLibraryApi::kDisplayName;
 		info.createInstance		= [](const void *, azo::rhi::Error *) noexcept
 		{
 			return static_cast<void *>(nullptr);
@@ -50,4 +50,4 @@ namespace
 
 }
 
-AZO_RHI_REGISTER_BACKEND(azo::rhi::MakeBackendEntry<ObjectLibraryApi>(&RegisterObjectLibraryBackend));
+AZO_RHI_REGISTER_BACKEND(azo::rhi::make_backend_entry<ObjectLibraryApi>(&RegisterObjectLibraryBackend));

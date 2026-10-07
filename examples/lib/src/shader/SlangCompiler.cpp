@@ -47,16 +47,16 @@ namespace fw::shader
 		[[nodiscard]] const Target * TargetFor(const rhi::GraphicsApiId api)
 		{
 			static constexpr std::array targets{
-				Target{ .api = rhi::VulkanApi::id, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .format = rhi::ShaderBinaryFormat::eSpirV },
-				Target{ .api = rhi::D3D12Api::id, .slang = SLANG_DXIL, .profile = "sm_6_0", .format = rhi::ShaderBinaryFormat::eDxil },
-				Target{ .api			 = rhi::MetalApi::id,
+				Target{ .api = rhi::VulkanApi::kId, .slang = SLANG_SPIRV, .profile = "spirv_1_5", .format = rhi::ShaderBinaryFormat::eSpirV },
+				Target{ .api = rhi::D3D12Api::kId, .slang = SLANG_DXIL, .profile = "sm_6_0", .format = rhi::ShaderBinaryFormat::eDxil },
+				Target{ .api			 = rhi::MetalApi::kId,
 					.slang				 = SLANG_METAL_LIB,
 					.profile			 = "metallib_2_4",
 					.format				 = rhi::ShaderBinaryFormat::eBackendNative,
 					.keepsEntryPointName = true },
 			};
 
-			const rhi::GraphicsApiId target = api == rhi::Metal4Api::id ? rhi::MetalApi::id : api;
+			const rhi::GraphicsApiId target = api == rhi::Metal4Api::kId ? rhi::MetalApi::kId : api;
 
 			// NOLINTNEXTLINE(readability-qualified-auto): this is a pointer on libc++ and a class iterator on MSVC, and the check's fix only builds on the first.
 			const auto found = std::ranges::find(targets, target, &Target::api);

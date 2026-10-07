@@ -244,7 +244,7 @@ namespace fw::scene
 			error);
 
 		const azo::rhi::MappedMemory mapped =
-			staging.is_valid() ? m_config.device.Map(staging, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error) : azo::rhi::MappedMemory{};
+			staging.is_valid() ? m_config.device.map(staging, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error) : azo::rhi::MappedMemory{};
 
 		if (mapped.data == nullptr)
 		{
@@ -262,7 +262,7 @@ namespace fw::scene
 			std::memcpy(bytes + layerOffsets[index], layers[index].pixels.data(), layers[index].pixels.size());
 		}
 
-		const bool staged = (mapped.coherent || m_config.device.flush_mapped_range(staging, 0, stagingBytes, error)) && m_config.device.Unmap(staging, error);
+		const bool staged = (mapped.coherent || m_config.device.flush_mapped_range(staging, 0, stagingBytes, error)) && m_config.device.unmap(staging, error);
 		const bool ok	  = staged && RecordAndSubmit(texture,
 										  staging,
 										  CopyPlan{
@@ -294,8 +294,8 @@ namespace fw::scene
 	bool SceneGpuImageStorage::RecordAndSubmit(
 		const azo::rhi::TextureHandle texture, const azo::rhi::BufferHandle staging, const CopyPlan & plan, azo::rhi::Error & error)
 	{
-		azo::rhi::CommandList list = m_pool.Allocate("fw.scene.imageUpload", error);
-		if (!list.is_valid() || !list.Begin(error))
+		azo::rhi::CommandList list = m_pool.allocate("fw.scene.imageUpload", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			return false;
 		}
@@ -333,7 +333,7 @@ namespace fw::scene
 
 		const bool recorded =
 			list.barriers(azo::rhi::BarrierBatch{ .textures = toCopyDst }, error) && list.copy_buffer_to_texture(texture, staging, regions, error) &&
-			(plan.mips == 1 ? list.barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) : GenerateMips(list, texture, error)) && list.End(error);
+			(plan.mips == 1 ? list.barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) : GenerateMips(list, texture, error)) && list.end(error);
 
 		if (!recorded)
 		{
@@ -345,18 +345,18 @@ namespace fw::scene
 		const std::array signals{ azo::rhi::TimelinePoint{ .timeline = m_timeline, .value = signalValue } };
 
 		if (!m_queue.submit(azo::rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "fw.scene.imageUploadSubmit" }, error) ||
-			!m_queue.Wait(m_timeline, signalValue, kNoTimeout, error))
+			!m_queue.wait(m_timeline, signalValue, kNoTimeout, error))
 		{
 			return false;
 		}
 
 		const azo::rhi::RetirePoint retired{ .timeline = m_timeline, .value = signalValue };
-		static_cast<void>(m_pool.Reset(retired, error));
+		static_cast<void>(m_pool.reset(retired, error));
 
 		if (m_resampler.IsValid())
 		{
 			static_cast<void>(m_resampler.Retire(retired, error));
-			static_cast<void>(m_resampleArena.Reset(retired, error));
+			static_cast<void>(m_resampleArena.reset(retired, error));
 		}
 
 		return true;
@@ -390,7 +390,7 @@ namespace fw::scene
 				return false;
 			}
 
-			m_resampler = std::move(made.Value());
+			m_resampler = std::move(made.value());
 		}
 
 		return m_resampler.GenerateMips(list, texture, error);

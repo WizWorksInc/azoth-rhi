@@ -35,13 +35,13 @@ namespace azo::rhi::test
 				return;
 			}
 
-			m_list = m_pool.Allocate("azoth.rhi.test.commandList", m_error);
+			m_list = m_pool.allocate("azoth.rhi.test.commandList", m_error);
 			if (!m_list.is_valid())
 			{
 				return;
 			}
 
-			m_recording = m_list.Begin(m_error);
+			m_recording = m_list.begin(m_error);
 		}
 
 		Recording(const Recording &)			 = delete;
@@ -54,7 +54,7 @@ namespace azo::rhi::test
 			if (m_recording)
 			{
 				Error ignored{};
-				static_cast<void>(m_list.End(ignored));
+				static_cast<void>(m_list.end(ignored));
 			}
 		}
 
@@ -85,7 +85,7 @@ namespace azo::rhi::test
 				return false;
 			}
 			m_recording = false;
-			return m_list.End(m_error);
+			return m_list.end(m_error);
 		}
 
 	private:

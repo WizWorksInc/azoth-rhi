@@ -61,7 +61,7 @@ namespace
 	class ZoneCounter final : public rhi::Profiler
 	{
 	public:
-		void BeginZone(const rhi::ZoneLocation &) override
+		void begin_zone(const rhi::ZoneLocation &) override
 		{
 			m_zones.fetch_add(1, std::memory_order_relaxed);
 		}
@@ -103,9 +103,9 @@ namespace
 
 int main(int argc, char ** argv)
 {
-	rhi::SetProfiler(&g_broadcast);
+	rhi::set_profiler(&g_broadcast);
 
-	constexpr rhi::BuildInfo build = rhi::GetBuildInfo();
+	constexpr rhi::BuildInfo build = rhi::get_build_info();
 	if (!build.profilingEnabled)
 	{
 		LOG_INFO(fw::Log(), "note: this build has profiling compiled out, so the RHI will report nothing");
@@ -121,31 +121,31 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder().DebugName("tracy_profiler").Headless().GraphicsQueue().Build(backends.Registry(), backends.PreferredApis());
+		rhi::DeviceBuilder().debug_name("tracy_profiler").headless().graphics_queue().build(backends.registry(), backends.preferred_apis());
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+	rhi::Device dev = device.value().get();
+	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	rhi::Error error{};
-	rhi::Queue queue = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	if (!queue.IsValid())
+	rhi::Queue queue = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	if (!queue.is_valid())
 	{
 		fw::ReportError("failed to get the graphics queue", error);
 		return 1;
 	}
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "example.frameTimeline" }, error);
-	if (!timeline.IsValid())
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "example.frameTimeline" }, error);
+	if (!timeline.is_valid())
 	{
 		fw::ReportError("failed to create the frame timeline", error);
 		return 1;
@@ -154,8 +154,8 @@ int main(int argc, char ** argv)
 	std::array<FrameSlot, kFramesInFlight> slots;
 	for (FrameSlot & slot : slots)
 	{
-		slot.pool = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "example.framePool" }, error);
-		if (!slot.pool.IsValid())
+		slot.pool = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "example.framePool" }, error);
+		if (!slot.pool.is_valid())
 		{
 			fw::ReportError("failed to create a frame command pool", error);
 			return 1;
@@ -177,40 +177,40 @@ int main(int argc, char ** argv)
 
 		FrameSlot & slot = slots[(frame - 1) % kFramesInFlight];
 
-		if (slot.submitted != 0 && !queue.Wait(timeline, slot.submitted, kNoTimeout, error))
+		if (slot.submitted != 0 && !queue.wait(timeline, slot.submitted, kNoTimeout, error))
 		{
 			fw::ReportError("failed to wait for a frame to retire", error);
 			return 1;
 		}
 
 		std::uint64_t completed = 0;
-		static_cast<void>(queue.GetCompletedValue(timeline, completed, error));
+		static_cast<void>(queue.get_completed_value(timeline, completed, error));
 
-		if (slot.submitted != 0 && !slot.pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = slot.submitted }, error))
+		if (slot.submitted != 0 && !slot.pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = slot.submitted }, error))
 		{
 			fw::ReportError("failed to reset a frame command pool", error);
 			return 1;
 		}
 
-		const rhi::BufferHandle scratch = dev.CreateBuffer(scratchDesc, error);
-		if (!scratch.IsValid())
+		const rhi::BufferHandle scratch = dev.create_buffer(scratchDesc, error);
+		if (!scratch.is_valid())
 		{
 			fw::ReportError("failed to create the frame's scratch buffer", error);
 			return 1;
 		}
 
-		rhi::CommandList list = slot.pool.Allocate("example.frameList", error);
+		rhi::CommandList list = slot.pool.allocate("example.frameList", error);
 
 		{
 			ZoneScopedN("record");
 
-			if (!list.IsValid() || !list.Begin(error))
+			if (!list.is_valid() || !list.begin(error))
 			{
 				fw::ReportError("failed to start recording a frame", error);
 				return 1;
 			}
 
-			if (!list.ClearBuffer(scratch, 0, kScratchBytes, static_cast<std::uint32_t>(frame), error) || !list.End(error))
+			if (!list.clear_buffer(scratch, 0, kScratchBytes, static_cast<std::uint32_t>(frame), error) || !list.end(error))
 			{
 				fw::ReportError("failed to record the frame's work", error);
 				return 1;
@@ -228,7 +228,7 @@ int main(int argc, char ** argv)
 				.debugName	  = "example.frameSubmit",
 			};
 
-			if (!queue.Submit(submit, error))
+			if (!queue.submit(submit, error))
 			{
 				fw::ReportError("failed to submit a frame", error);
 				return 1;
@@ -241,23 +241,23 @@ int main(int argc, char ** argv)
 			.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 			.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = frame },
 		};
-		dev.Destroy(scratch, retired, error);
-		dev.CollectGarbage(timeline, completed, error);
+		dev.destroy(scratch, retired, error);
+		dev.collect_garbage(timeline, completed, error);
 
 		FrameMark;
 	}
 
-	if (!queue.WaitIdle(error))
+	if (!queue.wait_idle(error))
 	{
 		fw::ReportError("failed to drain the queue", error);
 		return 1;
 	}
 
-	dev.CollectGarbage(timeline, kFrameCount, error);
-	dev.Destroy(timeline, {}, error);
+	dev.collect_garbage(timeline, kFrameCount, error);
+	dev.destroy(timeline, {}, error);
 
 	LOG_INFO(fw::Log(), "{} frames, {} RHI zones through both sinks", kFrameCount, g_counter.Zones());
 
-	rhi::SetProfiler(nullptr);
+	rhi::set_profiler(nullptr);
 	return 0;
 }

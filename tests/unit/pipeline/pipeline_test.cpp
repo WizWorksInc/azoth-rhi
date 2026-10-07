@@ -233,7 +233,7 @@ namespace
 
 		const std::array<std::uint32_t, 4> bytes{ 1, 2, 3, 4 };
 
-		const rhi::ShaderBinaryFormat wrong = Caps().apiId == rhi::VulkanApi::id ? rhi::ShaderBinaryFormat::eDxil : rhi::ShaderBinaryFormat::eSpirV;
+		const rhi::ShaderBinaryFormat wrong = Caps().apiId == rhi::VulkanApi::kId ? rhi::ShaderBinaryFormat::eDxil : rhi::ShaderBinaryFormat::eSpirV;
 
 		rhi::ComputePipelineDesc desc{};
 		desc.layout					= layout;
@@ -275,12 +275,12 @@ namespace
 
 	[[nodiscard]] rhi::ShaderBinaryFormat NativeShaderFormat(const rhi::GraphicsApiId api)
 	{
-		if (api == rhi::VulkanApi::id)
+		if (api == rhi::VulkanApi::kId)
 		{
 			return rhi::ShaderBinaryFormat::eSpirV;
 		}
 
-		return api == rhi::D3D12Api::id ? rhi::ShaderBinaryFormat::eDxil : rhi::ShaderBinaryFormat::eBackendNative;
+		return api == rhi::D3D12Api::kId ? rhi::ShaderBinaryFormat::eDxil : rhi::ShaderBinaryFormat::eBackendNative;
 	}
 
 	[[nodiscard]] rhi::DescriptorSetLayoutHandle MakeOneBindingSetLayout(rhi::Device device, rhi::Error & error)
@@ -409,7 +409,7 @@ namespace
 
 	TEST_P(PipelineTest, RefusesAStageItCannotBuildRatherThanBuildingTheRestWithoutIt)
 	{
-		if (Caps().apiId != rhi::MetalApi::id && Caps().apiId != rhi::Metal4Api::id)
+		if (Caps().apiId != rhi::MetalApi::kId && Caps().apiId != rhi::Metal4Api::kId)
 		{
 			GTEST_SKIP() << "this is the Metal pipeline's stage handling, and other backends build these stages";
 		}

@@ -159,7 +159,7 @@ namespace
 			return false;
 		}
 
-		const rhi::MappedMemory mapped = dev.Map(staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+		const rhi::MappedMemory mapped = dev.map(staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
 			fw::ReportError("failed to map the staging buffer", error);
@@ -174,7 +174,7 @@ namespace
 			std::memcpy(bytes + imageOffsets[i], scene.images[i].pixels.data(), scene.images[i].pixels.size());
 		}
 
-		if ((!mapped.coherent && !dev.flush_mapped_range(staging, 0, stagingBytes, error)) || !dev.Unmap(staging, error))
+		if ((!mapped.coherent && !dev.flush_mapped_range(staging, 0, stagingBytes, error)) || !dev.unmap(staging, error))
 		{
 			fw::ReportError("failed to flush the staging buffer", error);
 			return false;
@@ -215,8 +215,8 @@ namespace
 		}
 
 		rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "deccer.uploadPool" }, error);
-		rhi::CommandList list = pool.Allocate("deccer.upload", error);
-		if (!pool.is_valid() || !list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.allocate("deccer.upload", error);
+		if (!pool.is_valid() || !list.is_valid() || !list.begin(error))
 		{
 			fw::ReportError("failed to start the upload", error);
 			return false;
@@ -252,7 +252,7 @@ namespace
 			return false;
 		}
 
-		rhi::utils::Resampler & resampler = resamplerResult.Value();
+		rhi::utils::Resampler & resampler = resamplerResult.value();
 
 		std::vector<rhi::BufferBarrier> toCopy;
 		std::vector<rhi::TextureBarrier> toCopyDst;
@@ -300,7 +300,7 @@ namespace
 			recorded = list.copy_buffer_to_texture(gpu.textures[i], staging, regions, error) && resampler.GenerateMips(list, gpu.textures[i], error);
 		}
 
-		recorded = recorded && list.barriers(rhi::BarrierBatch{ .buffers = toRead, .textures = toSample }, error) && list.End(error);
+		recorded = recorded && list.barriers(rhi::BarrierBatch{ .buffers = toRead, .textures = toSample }, error) && list.end(error);
 		if (!recorded)
 		{
 			fw::ReportError("failed to record the upload", error);
@@ -310,7 +310,7 @@ namespace
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = signalValue } };
 		const rhi::SubmitDesc submit{ .commandLists = lists, .signals = signals, .debugName = "deccer.uploadSubmit" };
-		if (!queue.submit(submit, error) || !queue.Wait(timeline, signalValue, kNoTimeout, error))
+		if (!queue.submit(submit, error) || !queue.wait(timeline, signalValue, kNoTimeout, error))
 		{
 			fw::ReportError("failed to submit the upload", error);
 			return false;
@@ -344,7 +344,7 @@ namespace
 		block[32] = static_cast<float>(specularMips);
 
 		rhi::Error error{};
-		const rhi::MappedMemory mapped = dev.Map(buffer, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
+		const rhi::MappedMemory mapped = dev.map(buffer, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error);
 		if (mapped.data == nullptr)
 		{
 			fw::ReportError("failed to map the frame buffer", error);
@@ -352,7 +352,7 @@ namespace
 		}
 
 		std::memcpy(mapped.data, block.data(), sizeof(block));
-		if ((!mapped.coherent && !dev.flush_mapped_range(buffer, 0, sizeof(block), error)) || !dev.Unmap(buffer, error))
+		if ((!mapped.coherent && !dev.flush_mapped_range(buffer, 0, sizeof(block), error)) || !dev.unmap(buffer, error))
 		{
 			fw::ReportError("failed to flush the frame buffer", error);
 			return false;
@@ -421,7 +421,7 @@ int main(int argc, char ** argv)
 		return fw::ReportNoDevice(device.get_error());
 	}
 
-	rhi::Device dev = device.Value().Get();
+	rhi::Device dev = device.value().get();
 	rhi::Error error{};
 
 	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
@@ -520,7 +520,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::DescriptorSetHandle frameSet = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = frameSetLayout, .debugName = "deccer.frame" }, error);
+	const rhi::DescriptorSetHandle frameSet = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = frameSetLayout, .debugName = "deccer.frame" }, error);
 	const std::array frameWrites{
 		rhi::DescriptorWriteBuffer{ .set = frameSet, .binding = kFrameBinding, .type = rhi::DescriptorType::eUniformBuffer, .buffer = frameBuffer },
 	};
@@ -533,7 +533,7 @@ int main(int argc, char ** argv)
 	std::vector<rhi::DescriptorSetHandle> materialSets(gpu.views.size());
 	for (std::size_t i = 0; i < gpu.views.size(); ++i)
 	{
-		materialSets[i] = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = materialSetLayout, .debugName = "deccer.material" }, error);
+		materialSets[i] = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = materialSetLayout, .debugName = "deccer.material" }, error);
 		if (!materialSets[i].is_valid())
 		{
 			fw::ReportError("failed to allocate a descriptor set", error);
@@ -735,8 +735,8 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		rhi::CommandList list = ring.Begin(error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = ring.begin(error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			fw::ReportError("failed to start recording", error);
 			return 1;
@@ -821,7 +821,7 @@ int main(int argc, char ** argv)
 					   list.draw_indexed(draw.indexCount, 1, draw.firstIndex, draw.vertexOffset, 0, error);
 		}
 
-		recorded = recorded && list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
+		recorded = recorded && list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.end(error);
 		if (!recorded)
 		{
 			fw::ReportError("failed to record the frame", error);
@@ -829,7 +829,7 @@ int main(int argc, char ** argv)
 		}
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
-		const std::array retire{ ring.Signal() };
+		const std::array retire{ ring.signal() };
 
 		const std::array present{ rhi::SwapchainSync{ .acquired = acquired.imageAvailable, .renderFinished = acquired.renderFinished } };
 
@@ -846,12 +846,12 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		static_cast<void>(swapchain.Present(queue, acquired.imageIndex, acquired.renderFinished, error));
+		static_cast<void>(swapchain.present(queue, acquired.imageIndex, acquired.renderFinished, error));
 		capture.FramePresented();
 	}
 
 	static_cast<void>(queue.wait_idle(error));
-	dev.collect_garbage(ring.Timeline(), ring.frame_index(), error);
+	dev.collect_garbage(ring.timeline(), ring.frame_index(), error);
 
 	LOG_INFO(fw::Log(), "{} frames presented", ring.frame_index());
 	return 0;

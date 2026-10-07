@@ -111,12 +111,12 @@ namespace vsnri
 		class CountingAllocator final : public rhi::HostAllocator
 		{
 		public:
-			[[nodiscard]] void * Allocate(const std::size_t size, const std::size_t alignment) override
+			[[nodiscard]] void * allocate(const std::size_t size, const std::size_t alignment) override
 			{
 				return CountedAllocate(size, alignment);
 			}
 
-			void Free(void * memory, std::size_t, std::size_t) override
+			void free(void * memory, std::size_t, std::size_t) override
 			{
 				CountedFree(memory);
 			}
@@ -152,73 +152,73 @@ namespace vsnri
 
 		~AzothArm() override
 		{
-			if (!m_device.IsValid())
+			if (!m_device.is_valid())
 			{
 				return;
 			}
 
 			// MoltenVK finishes a submission's queries in a completion block that can run after the timeline signals.
 			static_cast<void>(Drain());
-			static_cast<void>(m_queue.WaitIdle());
+			static_cast<void>(m_queue.wait_idle());
 			raw::Release();
 
 			for (const rhi::GraphicsPipelineHandle pipeline : m_assetPipelines)
 			{
-				m_device.Destroy(pipeline);
+				m_device.destroy(pipeline);
 			}
-			m_device.Destroy(m_assetLayout);
+			m_device.destroy(m_assetLayout);
 			for (const rhi::DescriptorSetLayoutHandle layout : m_assetSetLayouts)
 			{
-				m_device.Destroy(layout);
+				m_device.destroy(layout);
 			}
-			m_device.Destroy(m_assetSampler);
+			m_device.destroy(m_assetSampler);
 			for (const rhi::TextureViewHandle view : m_sceneTextureViews)
 			{
-				m_device.Destroy(view);
+				m_device.destroy(view);
 			}
 			for (const rhi::TextureHandle texture : m_sceneTextures)
 			{
-				m_device.Destroy(texture);
+				m_device.destroy(texture);
 			}
-			m_device.Destroy(m_globals);
-			m_device.Destroy(m_sceneIndices);
-			m_device.Destroy(m_sceneVertices);
-			m_device.Destroy(m_timestampReadback);
-			m_device.Destroy(m_timestamps);
+			m_device.destroy(m_globals);
+			m_device.destroy(m_sceneIndices);
+			m_device.destroy(m_sceneVertices);
+			m_device.destroy(m_timestampReadback);
+			m_device.destroy(m_timestamps);
 
-			m_device.Destroy(m_postPipeline);
-			m_device.Destroy(m_shadowPipeline);
+			m_device.destroy(m_postPipeline);
+			m_device.destroy(m_shadowPipeline);
 			for (const rhi::GraphicsPipelineHandle pipeline : m_scenePipelines)
 			{
-				m_device.Destroy(pipeline);
+				m_device.destroy(pipeline);
 			}
 
-			m_device.Destroy(m_postLayout);
-			m_device.Destroy(m_sceneLayout);
+			m_device.destroy(m_postLayout);
+			m_device.destroy(m_sceneLayout);
 			for (const rhi::DescriptorSetLayoutHandle layout : m_setLayouts)
 			{
-				m_device.Destroy(layout);
+				m_device.destroy(layout);
 			}
 
-			m_device.Destroy(m_sampler);
-			m_device.Destroy(m_postView);
-			m_device.Destroy(m_sceneDepthView);
-			m_device.Destroy(m_sceneColorTexture);
-			m_device.Destroy(m_sceneColorView);
-			m_device.Destroy(m_shadowTexture);
-			m_device.Destroy(m_shadowView);
+			m_device.destroy(m_sampler);
+			m_device.destroy(m_postView);
+			m_device.destroy(m_sceneDepthView);
+			m_device.destroy(m_sceneColorTexture);
+			m_device.destroy(m_sceneColorView);
+			m_device.destroy(m_shadowTexture);
+			m_device.destroy(m_shadowView);
 
-			m_device.Destroy(m_post);
-			m_device.Destroy(m_sceneDepth);
-			m_device.Destroy(m_sceneColor);
-			m_device.Destroy(m_shadow);
+			m_device.destroy(m_post);
+			m_device.destroy(m_sceneDepth);
+			m_device.destroy(m_sceneColor);
+			m_device.destroy(m_shadow);
 
-			m_device.Destroy(m_materials);
-			m_device.Destroy(m_objects);
-			m_device.Destroy(m_indices);
-			m_device.Destroy(m_vertices);
+			m_device.destroy(m_materials);
+			m_device.destroy(m_objects);
+			m_device.destroy(m_indices);
+			m_device.destroy(m_vertices);
 
-			m_device.Destroy(m_timeline);
+			m_device.destroy(m_timeline);
 		}
 
 		[[nodiscard]] bool Initialize(const HarnessOptions & options)
@@ -230,12 +230,12 @@ namespace vsnri
 
 			rhi::native::VulkanInstanceConfig instance{};
 			instance.minimumInstanceVersion = kVulkan14;
-			const std::array instanceConfigs{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::id, .config = &instance } };
+			const std::array instanceConfigs{ rhi::InstanceConfigEntry{ .api = rhi::VulkanApi::kId, .config = &instance } };
 
 			rhi::native::VulkanDeviceConfig vulkan{};
 			vulkan.deviceVersion	 = kVulkan14;
 			vulkan.renderingLowering = rhi::native::VulkanRenderingLowering::eDynamicRendering;
-			const std::array configs{ rhi::DeviceConfigEntry{ .api = rhi::VulkanApi::id, .config = &vulkan } };
+			const std::array configs{ rhi::DeviceConfigEntry{ .api = rhi::VulkanApi::kId, .config = &vulkan } };
 
 			rhi::DeviceDesc desc{};
 			desc.validation		   = rhi::ValidationMode::eOff;
@@ -250,20 +250,20 @@ namespace vsnri
 				desc.nativeValidation.onMessage		= ReportValidation;
 			}
 
-			rhi::Result<rhi::UniqueDevice> created = rhi::CreateDevice<rhi::VulkanApi>(desc);
+			rhi::Result<rhi::UniqueDevice> created = rhi::create_device<rhi::VulkanApi>(desc);
 			if (!created)
 			{
-				Report("CreateDevice<VulkanApi>", created.GetError());
+				Report("CreateDevice<VulkanApi>", created.get_error());
 				return false;
 			}
 
-			m_owner	 = std::move(created).Value();
-			m_device = m_owner.Get();
+			m_owner	 = std::move(created).value();
+			m_device = m_owner.get();
 
 			rhi::Error error{};
-			m_queue	   = m_device.GetQueue(rhi::QueueType::eGraphics, 0, error);
-			m_timeline = m_device.CreateTimeline(rhi::TimelineDesc{}, error);
-			if (!m_queue.IsValid() || !m_timeline.IsValid())
+			m_queue	   = m_device.get_queue(rhi::QueueType::eGraphics, 0, error);
+			m_timeline = m_device.create_timeline(rhi::TimelineDesc{}, error);
+			if (!m_queue.is_valid() || !m_timeline.is_valid())
 			{
 				Report("GetQueue or CreateTimeline", error);
 				return false;
@@ -283,14 +283,14 @@ namespace vsnri
 			VSNRI_ZONE("azoth/RecordShape");
 
 			rhi::Error error{};
-			if (!m_shapePool.Reset(rhi::RetirePoint{}, error))
+			if (!m_shapePool.reset(rhi::RetirePoint{}, error))
 			{
 				Report("CommandPool::Reset", error);
 				return false;
 			}
 
-			rhi::CommandList list = m_shapePool.Allocate(nullptr, error);
-			if (!list.IsValid() || !list.Begin(error))
+			rhi::CommandList list = m_shapePool.allocate(nullptr, error);
+			if (!list.is_valid() || !list.begin(error))
 			{
 				Report("CommandList::Begin", error);
 				return false;
@@ -314,7 +314,7 @@ namespace vsnri
 			else
 			{
 				const std::array barriers{ Transition(m_sceneColor, kDiscardColor, kColorTarget, kColorAspect) };
-				if (!list.Barriers(rhi::BarrierBatch{ .textures = barriers }, error))
+				if (!list.barriers(rhi::BarrierBatch{ .textures = barriers }, error))
 				{
 					Report("CommandList::Barriers", error);
 					return false;
@@ -333,7 +333,7 @@ namespace vsnri
 				timing.rawNs = raw::RecordShape(shape, static_cast<VkCommandBuffer>(view.commandBuffer), commands);
 			};
 
-			if (rawFirst && !list.ModifyNative<rhi::VulkanApi>(mutation, recordRaw, error))
+			if (rawFirst && !list.modify_native<rhi::VulkanApi>(mutation, recordRaw, error))
 			{
 				Report("CommandList::ModifyNative", error);
 				return false;
@@ -342,7 +342,7 @@ namespace vsnri
 			std::uint64_t accepted = 0;
 			timing.libraryNs	   = RecordLibraryShape(list, shape, commands, accepted);
 
-			if (!rawFirst && !list.ModifyNative<rhi::VulkanApi>(mutation, recordRaw, error))
+			if (!rawFirst && !list.modify_native<rhi::VulkanApi>(mutation, recordRaw, error))
 			{
 				Report("CommandList::ModifyNative", error);
 				return false;
@@ -354,13 +354,13 @@ namespace vsnri
 				return false;
 			}
 
-			if (inScope && !list.EndRendering(error))
+			if (inScope && !list.end_rendering(error))
 			{
 				Report("CommandList::EndRendering", error);
 				return false;
 			}
 
-			if (!list.End(error))
+			if (!list.end(error))
 			{
 				Report("CommandList::End", error);
 				return false;
@@ -378,15 +378,15 @@ namespace vsnri
 
 			const std::uint64_t recordStarted = Now();
 			rhi::Error error{};
-			if (!slot.pools.front().Reset(rhi::RetirePoint{ .timeline = m_timeline, .value = slot.fenceValue }, error))
+			if (!slot.pools.front().reset(rhi::RetirePoint{ .timeline = m_timeline, .value = slot.fenceValue }, error))
 			{
 				Report("CommandPool::Reset", error);
 				return false;
 			}
 
 			rhi::CommandList & list = slot.lists.front();
-			list					= slot.pools.front().Allocate(nullptr, error);
-			if (!list.IsValid() || !list.Begin(error))
+			list					= slot.pools.front().allocate(nullptr, error);
+			if (!list.is_valid() || !list.begin(error))
 			{
 				Report("CommandList::Begin", error);
 				return false;
@@ -401,7 +401,7 @@ namespace vsnri
 				return false;
 			}
 
-			if (!list.End(error))
+			if (!list.end(error))
 			{
 				Report("CommandList::End", error);
 				return false;
@@ -437,7 +437,7 @@ namespace vsnri
 			Slot & slot				  = WaitForSlot(timing);
 
 			rhi::Error error{};
-			const rhi::MappedMemory globals = m_device.Map(m_globals,
+			const rhi::MappedMemory globals = m_device.map(m_globals,
 				rhi::MapDesc{ .mode = rhi::MapMode::eWrite, .offset = std::uint64_t{ index } * kGlobalsStride, .size = sizeof(SceneGlobals) },
 				error);
 			if (globals.data == nullptr)
@@ -446,22 +446,22 @@ namespace vsnri
 				return false;
 			}
 			std::memcpy(globals.data, &frame.globals, sizeof(SceneGlobals));
-			if (!m_device.Unmap(m_globals, error))
+			if (!m_device.unmap(m_globals, error))
 			{
 				Report("Unmap(globals)", error);
 				return false;
 			}
 
 			const std::uint64_t recordStarted = Now();
-			if (!slot.pools.front().Reset(rhi::RetirePoint{ .timeline = m_timeline, .value = slot.fenceValue }, error))
+			if (!slot.pools.front().reset(rhi::RetirePoint{ .timeline = m_timeline, .value = slot.fenceValue }, error))
 			{
 				Report("CommandPool::Reset", error);
 				return false;
 			}
 
 			rhi::CommandList & list = slot.lists.front();
-			list					= slot.pools.front().Allocate(nullptr, error);
-			if (!list.IsValid() || !list.Begin(error))
+			list					= slot.pools.front().allocate(nullptr, error);
+			if (!list.is_valid() || !list.begin(error))
 			{
 				Report("CommandList::Begin", error);
 				return false;
@@ -476,7 +476,7 @@ namespace vsnri
 				return false;
 			}
 
-			if (!list.End(error))
+			if (!list.end(error))
 			{
 				Report("CommandList::End", error);
 				return false;
@@ -564,21 +564,21 @@ namespace vsnri
 
 			const std::uint64_t started = Now();
 			rhi::Error error{};
-			if (!m_oneShot.pools.front().Reset(rhi::RetirePoint{ .timeline = m_timeline, .value = m_oneShot.fenceValue }, error))
+			if (!m_oneShot.pools.front().reset(rhi::RetirePoint{ .timeline = m_timeline, .value = m_oneShot.fenceValue }, error))
 			{
 				Report("CommandPool::Reset", error);
 				return false;
 			}
 
 			rhi::CommandList & list = m_oneShot.lists.front();
-			list					= m_oneShot.pools.front().Allocate(nullptr, error);
-			if (!list.IsValid() || !list.Begin(error) || !list.End(error))
+			list					= m_oneShot.pools.front().allocate(nullptr, error);
+			if (!list.is_valid() || !list.begin(error) || !list.end(error))
 			{
 				Report("CommandList::Begin or End", error);
 				return false;
 			}
 
-			if (!Submit(m_oneShot, 1, m_oneShot.fenceValue) || !m_queue.Wait(m_timeline, m_oneShot.fenceValue, kTimeoutNanoseconds, error))
+			if (!Submit(m_oneShot, 1, m_oneShot.fenceValue) || !m_queue.wait(m_timeline, m_oneShot.fenceValue, kTimeoutNanoseconds, error))
 			{
 				Report("Queue::Wait", error);
 				return false;
@@ -590,13 +590,13 @@ namespace vsnri
 
 		[[nodiscard]] bool Drain() override
 		{
-			if (!m_queue.IsValid())
+			if (!m_queue.is_valid())
 			{
 				return true;
 			}
 
 			rhi::Error error{};
-			if (!m_queue.Wait(m_timeline, m_fenceValue, kTimeoutNanoseconds, error))
+			if (!m_queue.wait(m_timeline, m_fenceValue, kTimeoutNanoseconds, error))
 			{
 				Report("Queue::Wait", error);
 				return false;
@@ -639,67 +639,67 @@ namespace vsnri
 
 			void BindPipeline(const std::uint32_t pipeline)
 			{
-				ok = list.SetGraphicsPipeline(arm.m_scenePipelines.at(pipeline)) && ok;
+				ok = list.set_graphics_pipeline(arm.m_scenePipelines.at(pipeline)) && ok;
 			}
 
 			void BindMaterial(const std::uint32_t material)
 			{
-				ok = list.BindDescriptorSet(arm.m_sceneLayout, 1, arm.m_materialSets.at(material)) && ok;
+				ok = list.bind_descriptor_set(arm.m_sceneLayout, 1, arm.m_materialSets.at(material)) && ok;
 			}
 
 			void BindMesh(const std::uint32_t mesh)
 			{
-				ok = list.SetVertexBuffer(0, arm.m_vertices, MeshVertexOffset(mesh)) && ok;
-				ok = list.SetIndexBuffer(arm.m_indices, MeshIndexOffset(mesh), false) && ok;
+				ok = list.set_vertex_buffer(0, arm.m_vertices, MeshVertexOffset(mesh)) && ok;
+				ok = list.set_index_buffer(arm.m_indices, MeshIndexOffset(mesh), false) && ok;
 			}
 
 			void Push(const PushBlock & push)
 			{
-				ok = list.PushConstants(arm.m_sceneLayout, kGraphicsStages, 0, kPushConstantBytes, &push) && ok;
+				ok = list.push_constants(arm.m_sceneLayout, kGraphicsStages, 0, kPushConstantBytes, &push) && ok;
 			}
 
 			void DrawMesh()
 			{
-				ok = list.DrawIndexed(kMeshIndices, 1, 0, 0, 0) && ok;
+				ok = list.draw_indexed(kMeshIndices, 1, 0, 0, 0) && ok;
 			}
 
 			void BindScenePipeline(const std::uint32_t pipeline)
 			{
-				ok = list.SetGraphicsPipeline(arm.m_assetPipelines.at(pipeline)) && ok;
+				ok = list.set_graphics_pipeline(arm.m_assetPipelines.at(pipeline)) && ok;
 			}
 
 			void BindSceneVertices()
 			{
-				ok = list.SetVertexBuffer(0, arm.m_sceneVertices, 0) && ok;
+				ok = list.set_vertex_buffer(0, arm.m_sceneVertices, 0) && ok;
 			}
 
 			void BindSceneMaterial(const std::uint32_t material)
 			{
-				ok = list.BindDescriptorSet(arm.m_assetLayout, 1, arm.m_assetMaterialSets.at(material)) && ok;
+				ok = list.bind_descriptor_set(arm.m_assetLayout, 1, arm.m_assetMaterialSets.at(material)) && ok;
 			}
 
 			void PushModel(const Matrix & model)
 			{
-				ok = list.PushConstants(arm.m_assetLayout, rhi::ShaderStage::eVertex, 0, sizeof(Matrix), model.data()) && ok;
+				ok = list.push_constants(arm.m_assetLayout, rhi::ShaderStage::eVertex, 0, sizeof(Matrix), model.data()) && ok;
 			}
 
 			void DrawSceneMesh(const std::uint32_t mesh)
 			{
 				const SceneMesh & range = arm.m_sceneMeshes.at(mesh);
-				ok						= list.DrawIndexed(range.indexCount, 1, range.firstIndex, range.vertexOffset, 0) && ok;
+				ok						= list.draw_indexed(range.indexCount, 1, range.firstIndex, range.vertexOffset, 0) && ok;
 			}
 		};
 
 		[[nodiscard]] bool CreatePool(rhi::CommandPool & pool)
 		{
 			rhi::Error error{};
-			pool = m_device.CreateCommandPool(rhi::CommandPoolDesc{}, error);
-			if (!pool.IsValid())
+			pool = m_device.create_command_pool(rhi::CommandPoolDesc{}, error);
+			if (!pool.is_valid())
 			{
 				Report("CreateCommandPool", error);
 			}
 
-			return pool.IsValid();
+			return pool.is_valid();
 		}
 
 		[[nodiscard]] bool CreatePools()
@@ -722,14 +722,14 @@ namespace vsnri
 			const std::uint64_t size, const rhi::Flags<rhi::BufferUsage> usage, void (*fill)(void *), rhi::BufferHandle & buffer)
 		{
 			rhi::Error error{};
-			buffer = m_device.CreateBuffer(rhi::BufferDesc{ .size = size, .usage = usage, .memory = rhi::MemoryUsage::eCpuUpload }, error);
-			if (!buffer.IsValid())
+			buffer = m_device.create_buffer(rhi::BufferDesc{ .size = size, .usage = usage, .memory = rhi::MemoryUsage::eCpuUpload }, error);
+			if (!buffer.is_valid())
 			{
 				Report("CreateBuffer", error);
 				return false;
 			}
 
-			const rhi::MappedMemory mapped = m_device.Map(buffer, rhi::MapDesc{}, error);
+			const rhi::MappedMemory mapped = m_device.map(buffer, rhi::MapDesc{}, error);
 			if (mapped.data == nullptr)
 			{
 				Report("Map", error);
@@ -737,7 +737,7 @@ namespace vsnri
 			}
 
 			fill(mapped.data);
-			return m_device.Unmap(buffer, error) || (Report("Unmap", error), false);
+			return m_device.unmap(buffer, error) || (Report("Unmap", error), false);
 		}
 
 		[[nodiscard]] bool CreateBuffers()
@@ -752,29 +752,29 @@ namespace vsnri
 			const rhi::Format format, const rhi::Flags<rhi::TextureUsage> usage, const std::uint32_t extent, rhi::TextureHandle & texture)
 		{
 			rhi::Error error{};
-			texture = m_device.CreateTexture(
+			texture = m_device.create_texture(
 				rhi::TextureDesc{ .type = rhi::TextureType::eTex2D, .format = format, .width = extent, .height = extent, .usage = usage }, error);
-			if (!texture.IsValid())
+			if (!texture.is_valid())
 			{
 				Report("CreateTexture", error);
 			}
 
-			return texture.IsValid();
+			return texture.is_valid();
 		}
 
 		[[nodiscard]] bool CreateView(const rhi::TextureHandle texture, const rhi::Format format, const rhi::Flags<rhi::TextureAspect> aspects,
 			const rhi::Flags<rhi::TextureUsage> usage, rhi::TextureViewHandle & view)
 		{
 			rhi::Error error{};
-			view = m_device.CreateTextureView(texture,
+			view = m_device.create_texture_view(texture,
 				rhi::TextureViewDesc{ .type = rhi::TextureViewType::eTex2D, .format = format, .range = { .aspects = aspects }, .usage = usage },
 				error);
-			if (!view.IsValid())
+			if (!view.is_valid())
 			{
 				Report("CreateTextureView", error);
 			}
 
-			return view.IsValid();
+			return view.is_valid();
 		}
 
 		[[nodiscard]] bool CreateTextures()
@@ -813,8 +813,8 @@ namespace vsnri
 			rhi::Error error{};
 			for (std::size_t set = 0; set < bindings.size(); ++set)
 			{
-				m_setLayouts.at(set) = m_device.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings.at(set) }, error);
-				if (!m_setLayouts.at(set).IsValid())
+				m_setLayouts.at(set) = m_device.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings.at(set) }, error);
+				if (!m_setLayouts.at(set).is_valid())
 				{
 					Report("CreateDescriptorSetLayout", error);
 					return false;
@@ -823,12 +823,12 @@ namespace vsnri
 
 			const std::array sceneSets{ m_setLayouts.at(0), m_setLayouts.at(1), m_setLayouts.at(2) };
 			const std::array push{ rhi::PushConstantRange{ .stages = kGraphicsStages, .offset = 0, .size = kPushConstantBytes } };
-			m_sceneLayout = m_device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = sceneSets, .pushConstants = push }, error);
+			m_sceneLayout = m_device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = sceneSets, .pushConstants = push }, error);
 
 			const std::array postSets{ m_setLayouts.at(3) };
-			m_postLayout = m_device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = postSets }, error);
+			m_postLayout = m_device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = postSets }, error);
 
-			if (!m_sceneLayout.IsValid() || !m_postLayout.IsValid())
+			if (!m_sceneLayout.is_valid() || !m_postLayout.is_valid())
 			{
 				Report("CreatePipelineLayout", error);
 				return false;
@@ -840,7 +840,7 @@ namespace vsnri
 		[[nodiscard]] bool CreateDescriptors()
 		{
 			rhi::Error error{};
-			m_sampler = m_device.CreateSampler(rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
+			m_sampler = m_device.create_sampler(rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
 												   .minFilter				= rhi::Filter::eLinear,
 												   .mipmapMode				= rhi::MipmapMode::eNearest,
 												   .addressU				= rhi::AddressMode::eClampToEdge,
@@ -848,15 +848,15 @@ namespace vsnri
 												   .addressW				= rhi::AddressMode::eClampToEdge,
 												   .maxLod					= 0.0f },
 				error);
-			if (!m_sampler.IsValid())
+			if (!m_sampler.is_valid())
 			{
 				Report("CreateSampler", error);
 				return false;
 			}
 
-			m_arena = m_device.CreateDescriptorArena(
+			m_arena = m_device.create_descriptor_arena(
 				rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = kMaterials + 4, .maxDescriptors = kMaterials + 8 }, error);
-			if (!m_arena.IsValid())
+			if (!m_arena.is_valid())
 			{
 				Report("CreateDescriptorArena", error);
 				return false;
@@ -864,13 +864,13 @@ namespace vsnri
 
 			const auto allocate = [this, &error](const rhi::DescriptorSetLayoutHandle layout, rhi::DescriptorSetHandle & set)
 			{
-				set = m_arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = layout }, error);
-				if (!set.IsValid())
+				set = m_arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = layout }, error);
+				if (!set.is_valid())
 				{
 					Report("DescriptorArena::Allocate", error);
 				}
 
-				return set.IsValid();
+				return set.is_valid();
 			};
 
 			bool allocated = allocate(m_setLayouts.at(0), m_objectsSet) && allocate(m_setLayouts.at(1), m_churnSet) &&
@@ -908,9 +908,9 @@ namespace vsnri
 				rhi::DescriptorWriteSampler{ .set = m_postSet, .binding = 1, .sampler = m_sampler },
 			};
 
-			if (!m_device.UpdateDescriptors(std::span<const rhi::DescriptorWriteBuffer>(buffers), error) ||
-				!m_device.UpdateDescriptors(std::span<const rhi::DescriptorWriteTexture>(textures), error) ||
-				!m_device.UpdateDescriptors(std::span<const rhi::DescriptorWriteSampler>(samplers), error))
+			if (!m_device.update_descriptors(std::span<const rhi::DescriptorWriteBuffer>(buffers), error) ||
+				!m_device.update_descriptors(std::span<const rhi::DescriptorWriteTexture>(textures), error) ||
+				!m_device.update_descriptors(std::span<const rhi::DescriptorWriteSampler>(samplers), error))
 			{
 				Report("UpdateDescriptors", error);
 				return false;
@@ -983,8 +983,8 @@ namespace vsnri
 				desc.renderTarget.colorFormatCount				 = 1;
 				desc.renderTarget.depthStencilFormat			 = kDepthFormat;
 
-				m_scenePipelines.at(variant) = m_device.CreateGraphicsPipeline(desc, error);
-				if (!m_scenePipelines.at(variant).IsValid())
+				m_scenePipelines.at(variant) = m_device.create_graphics_pipeline(desc, error);
+				if (!m_scenePipelines.at(variant).is_valid())
 				{
 					Report("CreateGraphicsPipeline(scene)", error);
 					return false;
@@ -998,8 +998,8 @@ namespace vsnri
 			shadow.depthStencil.depthWriteEnable   = true;
 			shadow.depthStencil.depthCompareOp	   = rhi::CompareOp::eLess;
 			shadow.renderTarget.depthStencilFormat = kDepthFormat;
-			m_shadowPipeline					   = m_device.CreateGraphicsPipeline(shadow, error);
-			if (!m_shadowPipeline.IsValid())
+			m_shadowPipeline					   = m_device.create_graphics_pipeline(shadow, error);
+			if (!m_shadowPipeline.is_valid())
 			{
 				Report("CreateGraphicsPipeline(shadow)", error);
 				return false;
@@ -1011,8 +1011,8 @@ namespace vsnri
 			post.blend.attachmentCount			 = 1;
 			post.renderTarget.colorFormats.at(0) = kColorFormat;
 			post.renderTarget.colorFormatCount	 = 1;
-			m_postPipeline						 = m_device.CreateGraphicsPipeline(post, error);
-			if (!m_postPipeline.IsValid())
+			m_postPipeline						 = m_device.create_graphics_pipeline(post, error);
+			if (!m_postPipeline.is_valid())
 			{
 				Report("CreateGraphicsPipeline(post)", error);
 				return false;
@@ -1026,8 +1026,8 @@ namespace vsnri
 		{
 			rhi::Error error{};
 			rhi::CommandList & list = m_oneShot.lists.front();
-			list					= m_oneShot.pools.front().Allocate(nullptr, error);
-			if (!list.IsValid() || !list.Begin(error))
+			list					= m_oneShot.pools.front().allocate(nullptr, error);
+			if (!list.is_valid() || !list.begin(error))
 			{
 				Report("CommandList::Begin", error);
 				return false;
@@ -1037,13 +1037,13 @@ namespace vsnri
 				Transition(m_shadow, kNothing, kSampled, kDepthAspect),
 				Transition(m_sceneColor, kNothing, kSampled, kColorAspect),
 			};
-			if (!list.Barriers(rhi::BarrierBatch{ .textures = barriers }, error) || !list.End(error))
+			if (!list.barriers(rhi::BarrierBatch{ .textures = barriers }, error) || !list.end(error))
 			{
 				Report("CommandList::Barriers", error);
 				return false;
 			}
 
-			if (!Submit(m_oneShot, 1, m_oneShot.fenceValue) || !m_queue.Wait(m_timeline, m_oneShot.fenceValue, kTimeoutNanoseconds, error))
+			if (!Submit(m_oneShot, 1, m_oneShot.fenceValue) || !m_queue.wait(m_timeline, m_oneShot.fenceValue, kTimeoutNanoseconds, error))
 			{
 				Report("Queue::Wait", error);
 				return false;
@@ -1054,24 +1054,24 @@ namespace vsnri
 
 		[[nodiscard]] bool PrepareRaw()
 		{
-			const rhi::Result<rhi::VulkanNativeDevice> native = rhi::GetVulkanNativeDevice(m_device);
+			const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(m_device);
 			if (!native)
 			{
-				Report("GetVulkanNativeDevice", native.GetError());
+				Report("GetVulkanNativeDevice", native.get_error());
 				return false;
 			}
 
 			rhi::Error error{};
 			rhi::NativeTexture<rhi::VulkanApi> image{};
 			rhi::NativeBuffer<rhi::VulkanApi> materials{};
-			if (!m_device.GetNativeTexture<rhi::VulkanApi>(m_sceneColor, image, error) ||
-				!m_device.GetNativeBuffer<rhi::VulkanApi>(m_materials, materials, error))
+			if (!m_device.get_native_texture<rhi::VulkanApi>(m_sceneColor, image, error) ||
+				!m_device.get_native_buffer<rhi::VulkanApi>(m_materials, materials, error))
 			{
 				Report("GetNativeTexture or GetNativeBuffer", error);
 				return false;
 			}
 
-			const rhi::VulkanNativeDevice & device = native.Value();
+			const rhi::VulkanNativeDevice & device = native.value();
 
 			raw::Handles handles{};
 			handles.instance			= static_cast<VkInstance>(device.instance);
@@ -1090,13 +1090,13 @@ namespace vsnri
 
 		[[nodiscard]] bool Barrier(rhi::CommandList & list, const std::span<const rhi::TextureBarrier> textures) const
 		{
-			return list.Barriers(rhi::BarrierBatch{ .textures = textures });
+			return list.barriers(rhi::BarrierBatch{ .textures = textures });
 		}
 
 		[[nodiscard]] bool SetTarget(rhi::CommandList & list, const std::uint32_t extent) const
 		{
-			const bool viewport = list.SetViewport(rhi::Viewport{ .width = static_cast<float>(extent), .height = static_cast<float>(extent) });
-			return list.SetScissor(rhi::Rect2D{ .width = extent, .height = extent }) && viewport;
+			const bool viewport = list.set_viewport(rhi::Viewport{ .width = static_cast<float>(extent), .height = static_cast<float>(extent) });
+			return list.set_scissor(rhi::Rect2D{ .width = extent, .height = extent }) && viewport;
 		}
 
 		// Opens the scene pass with the per-pass bindings every recording path shares.
@@ -1135,10 +1135,10 @@ namespace vsnri
 				.clearDepthStencil = { .depth = 1.0f },
 			};
 
-			ok = list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .depthStencil = &depth, .width = kSceneExtent, .height = kSceneExtent }) && ok;
+			ok = list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .depthStencil = &depth, .width = kSceneExtent, .height = kSceneExtent }) && ok;
 			ok = SetTarget(list, kSceneExtent) && ok;
-			ok = list.BindDescriptorSet(m_sceneLayout, 0, m_objectsSet) && ok;
-			return list.BindDescriptorSet(m_sceneLayout, 2, m_shadowSet) && ok;
+			ok = list.bind_descriptor_set(m_sceneLayout, 0, m_objectsSet) && ok;
+			return list.bind_descriptor_set(m_sceneLayout, 2, m_shadowSet) && ok;
 		}
 
 		[[nodiscard]] bool RecordFrame(rhi::CommandList & list, const std::uint32_t draws) const
@@ -1158,19 +1158,19 @@ namespace vsnri
 				.store			   = rhi::StoreOp::eStore,
 				.clearDepthStencil = { .depth = 1.0f },
 			};
-			ok = list.BeginRendering(rhi::BeginRenderingDesc{ .depthStencil = &shadowDepth, .width = kShadowExtent, .height = kShadowExtent }) && ok;
+			ok = list.begin_rendering(rhi::BeginRenderingDesc{ .depthStencil = &shadowDepth, .width = kShadowExtent, .height = kShadowExtent }) && ok;
 			ok = SetTarget(list, kShadowExtent) && ok;
-			ok = list.SetGraphicsPipeline(m_shadowPipeline) && ok;
-			ok = list.BindDescriptorSet(m_sceneLayout, 0, m_objectsSet) && ok;
+			ok = list.set_graphics_pipeline(m_shadowPipeline) && ok;
+			ok = list.bind_descriptor_set(m_sceneLayout, 0, m_objectsSet) && ok;
 			RecordShadowDraws(recorder, draws);
-			ok = list.EndRendering() && ok;
+			ok = list.end_rendering() && ok;
 
 			const std::array shadowRead{ Transition(m_shadow, kDepthTarget, kSampled, kDepthAspect) };
 			ok = Barrier(list, shadowRead) && ok;
 
 			ok = BeginScene(list, rhi::LoadOp::eClear, rhi::StoreOp::eDontCare, true) && ok;
 			RecordSceneDraws(recorder, 0, draws, draws);
-			ok = list.EndRendering() && ok;
+			ok = list.end_rendering() && ok;
 
 			return RecordPost(list) && ok && recorder.ok;
 		}
@@ -1200,14 +1200,14 @@ namespace vsnri
 				.clearDepthStencil = { .depth = 1.0f },
 			};
 
-			ok = list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .depthStencil = &depth, .width = kSceneExtent, .height = kSceneExtent }) && ok;
+			ok = list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .depthStencil = &depth, .width = kSceneExtent, .height = kSceneExtent }) && ok;
 			ok = SetTarget(list, kSceneExtent) && ok;
-			ok = list.BindDescriptorSet(m_assetLayout, 0, m_globalSets.at(index)) && ok;
-			ok = list.SetIndexBuffer(m_sceneIndices, 0, true) && ok;
+			ok = list.bind_descriptor_set(m_assetLayout, 0, m_globalSets.at(index)) && ok;
+			ok = list.set_index_buffer(m_sceneIndices, 0, true) && ok;
 
 			Recorder recorder{ *this, list };
 			RecordSceneAssetDraws(recorder, frame);
-			ok = list.EndRendering() && ok;
+			ok = list.end_rendering() && ok;
 
 			return RecordPost(list) && ok && recorder.ok;
 		}
@@ -1224,12 +1224,12 @@ namespace vsnri
 				.store		= rhi::StoreOp::eStore,
 				.clearColor = { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
 			} };
-			ok = list.BeginRendering(rhi::BeginRenderingDesc{ .colors = postColor, .width = kSceneExtent, .height = kSceneExtent }) && ok;
+			ok = list.begin_rendering(rhi::BeginRenderingDesc{ .colors = postColor, .width = kSceneExtent, .height = kSceneExtent }) && ok;
 			ok = SetTarget(list, kSceneExtent) && ok;
-			ok = list.SetGraphicsPipeline(m_postPipeline) && ok;
-			ok = list.BindDescriptorSet(m_postLayout, 0, m_postSet) && ok;
-			ok = list.Draw(3, 1, 0, 0) && ok;
-			return list.EndRendering() && ok;
+			ok = list.set_graphics_pipeline(m_postPipeline) && ok;
+			ok = list.bind_descriptor_set(m_postLayout, 0, m_postSet) && ok;
+			ok = list.draw(3, 1, 0, 0) && ok;
+			return list.end_rendering() && ok;
 		}
 
 		// Each worker records its share of the scene into its own command list, and the first one clears.
@@ -1242,15 +1242,15 @@ namespace vsnri
 
 			rhi::Error error{};
 			rhi::CommandPool & pool = slot.pools.at(worker);
-			if (!pool.Reset(rhi::RetirePoint{ .timeline = m_timeline, .value = slot.fenceValue }, error))
+			if (!pool.reset(rhi::RetirePoint{ .timeline = m_timeline, .value = slot.fenceValue }, error))
 			{
 				Report("CommandPool::Reset", error);
 				return false;
 			}
 
 			rhi::CommandList & list = slot.lists.at(worker);
-			list					= pool.Allocate(nullptr, error);
-			if (!list.IsValid() || !list.Begin(error))
+			list					= pool.allocate(nullptr, error);
+			if (!list.is_valid() || !list.begin(error))
 			{
 				Report("CommandList::Begin", error);
 				return false;
@@ -1260,9 +1260,9 @@ namespace vsnri
 			Recorder recorder{ *this, list };
 			recorder.ok = BeginScene(list, opens ? rhi::LoadOp::eClear : rhi::LoadOp::eLoad, rhi::StoreOp::eStore, opens);
 			RecordSceneDraws(recorder, first, last - first, draws);
-			recorder.ok = list.EndRendering() && recorder.ok;
+			recorder.ok = list.end_rendering() && recorder.ok;
 
-			if (!recorder.ok || !list.End(error))
+			if (!recorder.ok || !list.end(error))
 			{
 				Report("recording a chunk", error);
 				return false;
@@ -1301,14 +1301,14 @@ namespace vsnri
 			case Shape::eSetViewport:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.SetViewport(viewports.at(index & 1u)));
+					accepted += static_cast<std::uint64_t>(list.set_viewport(viewports.at(index & 1u)));
 				}
 				break;
 
 			case Shape::eSetScissor:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.SetScissor(scissors.at(index & 1u)));
+					accepted += static_cast<std::uint64_t>(list.set_scissor(scissors.at(index & 1u)));
 				}
 				break;
 
@@ -1316,42 +1316,42 @@ namespace vsnri
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
 					push.object = index;
-					accepted += static_cast<std::uint64_t>(list.PushConstants(m_sceneLayout, kGraphicsStages, 0, kPushConstantBytes, &push));
+					accepted += static_cast<std::uint64_t>(list.push_constants(m_sceneLayout, kGraphicsStages, 0, kPushConstantBytes, &push));
 				}
 				break;
 
 			case Shape::eBindDescriptorSet:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.BindDescriptorSet(m_sceneLayout, 1, m_materialSets.at(index & 1u)));
+					accepted += static_cast<std::uint64_t>(list.bind_descriptor_set(m_sceneLayout, 1, m_materialSets.at(index & 1u)));
 				}
 				break;
 
 			case Shape::eSetPipeline:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.SetGraphicsPipeline(m_scenePipelines.at(index & 1u)));
+					accepted += static_cast<std::uint64_t>(list.set_graphics_pipeline(m_scenePipelines.at(index & 1u)));
 				}
 				break;
 
 			case Shape::eDraw:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.Draw(3, 1, 0, 0));
+					accepted += static_cast<std::uint64_t>(list.draw(3, 1, 0, 0));
 				}
 				break;
 
 			case Shape::eDrawIndexed:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.DrawIndexed(3, 1, 0, 0, 0));
+					accepted += static_cast<std::uint64_t>(list.draw_indexed(3, 1, 0, 0, 0));
 				}
 				break;
 
 			case Shape::eBarrier:
 				for (std::uint32_t index = 0; index < commands; ++index)
 				{
-					accepted += static_cast<std::uint64_t>(list.Barriers(barriers.at(index & 1u)));
+					accepted += static_cast<std::uint64_t>(list.barriers(barriers.at(index & 1u)));
 				}
 				break;
 			}
@@ -1365,7 +1365,7 @@ namespace vsnri
 
 			const std::uint64_t started = Now();
 			rhi::Error error{};
-			if (!m_queue.Wait(m_timeline, slot.fenceValue, kTimeoutNanoseconds, error))
+			if (!m_queue.wait(m_timeline, slot.fenceValue, kTimeoutNanoseconds, error))
 			{
 				Report("Queue::Wait", error);
 			}
@@ -1387,14 +1387,14 @@ namespace vsnri
 
 		[[nodiscard]] bool OpenTimestamps(rhi::CommandList & list, const std::uint32_t index) const
 		{
-			const bool reset = list.ResetQueryPool(m_timestamps, FirstTimestamp(index), kFrameTimestamps);
-			return list.WriteTimestamp(m_timestamps, FirstTimestamp(index), rhi::Stage::eAllCommands) && reset;
+			const bool reset = list.reset_query_pool(m_timestamps, FirstTimestamp(index), kFrameTimestamps);
+			return list.write_timestamp(m_timestamps, FirstTimestamp(index), rhi::Stage::eAllCommands) && reset;
 		}
 
 		[[nodiscard]] bool CloseTimestamps(rhi::CommandList & list, const std::uint32_t index) const
 		{
-			const bool written = list.WriteTimestamp(m_timestamps, FirstTimestamp(index) + 1, rhi::Stage::eAllCommands);
-			return list.ResolveQueryData(
+			const bool written = list.write_timestamp(m_timestamps, FirstTimestamp(index) + 1, rhi::Stage::eAllCommands);
+			return list.resolve_query_data(
 					   m_timestamps, FirstTimestamp(index), kFrameTimestamps, m_timestampReadback, FirstTimestamp(index) * sizeof(std::uint64_t)) &&
 				   written;
 		}
@@ -1404,7 +1404,7 @@ namespace vsnri
 			std::array<std::uint64_t, kFrameTimestamps> stamps{};
 
 			rhi::Error error{};
-			const rhi::MappedMemory mapped = m_device.Map(m_timestampReadback,
+			const rhi::MappedMemory mapped = m_device.map(m_timestampReadback,
 				rhi::MapDesc{ .mode = rhi::MapMode::eRead, .offset = FirstTimestamp(index) * sizeof(std::uint64_t), .size = sizeof(stamps) },
 				error);
 			if (mapped.data == nullptr)
@@ -1414,32 +1414,32 @@ namespace vsnri
 			}
 
 			std::memcpy(stamps.data(), mapped.data, sizeof(stamps));
-			if (!m_device.Unmap(m_timestampReadback, error))
+			if (!m_device.unmap(m_timestampReadback, error))
 			{
 				Report("Unmap(timestamps)", error);
 				return;
 			}
 
 			timing.gpuValid = stamps[1] >= stamps[0];
-			timing.gpuNs	= static_cast<std::uint64_t>(static_cast<double>(stamps[1] - stamps[0]) * m_device.GetCaps().timestampPeriodNanoseconds);
+			timing.gpuNs	= static_cast<std::uint64_t>(static_cast<double>(stamps[1] - stamps[0]) * m_device.get_caps().timestampPeriodNanoseconds);
 		}
 
 		[[nodiscard]] bool CreateTimestamps()
 		{
 			rhi::Error error{};
 			m_timestamps =
-				m_device.CreateQueryPool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kFramesInFlight * kFrameTimestamps }, error);
-			if (!m_timestamps.IsValid())
+				m_device.create_query_pool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kFramesInFlight * kFrameTimestamps }, error);
+			if (!m_timestamps.is_valid())
 			{
 				Report("CreateQueryPool", error);
 				return false;
 			}
 
-			m_timestampReadback = m_device.CreateBuffer(rhi::BufferDesc{ .size = std::uint64_t{ kFramesInFlight } * kFrameTimestamps * sizeof(std::uint64_t),
+			m_timestampReadback = m_device.create_buffer(rhi::BufferDesc{ .size = std::uint64_t{ kFramesInFlight } * kFrameTimestamps * sizeof(std::uint64_t),
 															.usage			   = rhi::BufferUsage::eCopyDst,
 															.memory			   = rhi::MemoryUsage::eCpuReadback },
 				error);
-			if (!m_timestampReadback.IsValid())
+			if (!m_timestampReadback.is_valid())
 			{
 				Report("CreateBuffer(readback)", error);
 				return false;
@@ -1453,14 +1453,14 @@ namespace vsnri
 			using Usage = rhi::BufferUsage;
 
 			rhi::Error error{};
-			m_sceneVertices = m_device.CreateBuffer(
+			m_sceneVertices = m_device.create_buffer(
 				rhi::BufferDesc{ .size = scene.vertices.size() * sizeof(SceneVertex), .usage = rhi::Flags<Usage>(Usage::eVertex) | Usage::eCopyDst }, error);
-			m_sceneIndices = m_device.CreateBuffer(
+			m_sceneIndices = m_device.create_buffer(
 				rhi::BufferDesc{ .size = scene.indices.size() * sizeof(std::uint32_t), .usage = rhi::Flags<Usage>(Usage::eIndex) | Usage::eCopyDst }, error);
-			m_globals = m_device.CreateBuffer(
+			m_globals = m_device.create_buffer(
 				rhi::BufferDesc{ .size = std::uint64_t{ kGlobalsStride } * kFramesInFlight, .usage = Usage::eUniform, .memory = rhi::MemoryUsage::eCpuUpload },
 				error);
-			if (!m_sceneVertices.IsValid() || !m_sceneIndices.IsValid() || !m_globals.IsValid())
+			if (!m_sceneVertices.is_valid() || !m_sceneIndices.is_valid() || !m_globals.is_valid())
 			{
 				Report("CreateBuffer(scene)", error);
 				return false;
@@ -1475,26 +1475,26 @@ namespace vsnri
 				const auto mips				= static_cast<std::uint32_t>(source.mips.size());
 
 				m_sceneTextures.at(index) =
-					m_device.CreateTexture(rhi::TextureDesc{ .type = rhi::TextureType::eTex2D,
+					m_device.create_texture(rhi::TextureDesc{ .type = rhi::TextureType::eTex2D,
 											   .format			   = format,
 											   .width			   = source.width,
 											   .height			   = source.height,
 											   .mipLevels		   = mips,
 											   .usage			   = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst },
 						error);
-				if (!m_sceneTextures.at(index).IsValid())
+				if (!m_sceneTextures.at(index).is_valid())
 				{
 					Report("CreateTexture(scene)", error);
 					return false;
 				}
 
-				m_sceneTextureViews.at(index) = m_device.CreateTextureView(m_sceneTextures.at(index),
+				m_sceneTextureViews.at(index) = m_device.create_texture_view(m_sceneTextures.at(index),
 					rhi::TextureViewDesc{ .type = rhi::TextureViewType::eTex2D,
 						.format					= format,
 						.range					= { .aspects = kColorAspect, .mipCount = mips },
 						.usage					= rhi::TextureUsage::eSampled },
 					error);
-				if (!m_sceneTextureViews.at(index).IsValid())
+				if (!m_sceneTextureViews.at(index).is_valid())
 				{
 					Report("CreateTextureView(scene)", error);
 					return false;
@@ -1521,19 +1521,19 @@ namespace vsnri
 			}
 
 			rhi::Error error{};
-			const rhi::BufferHandle staging = m_device.CreateBuffer(
+			const rhi::BufferHandle staging = m_device.create_buffer(
 				rhi::BufferDesc{ .size = stagingBytes, .usage = rhi::BufferUsage::eCopySrc, .memory = rhi::MemoryUsage::eCpuUpload }, error);
-			if (!staging.IsValid())
+			if (!staging.is_valid())
 			{
 				Report("CreateBuffer(staging)", error);
 				return false;
 			}
 
-			const rhi::MappedMemory mapped = m_device.Map(staging, rhi::MapDesc{}, error);
+			const rhi::MappedMemory mapped = m_device.map(staging, rhi::MapDesc{}, error);
 			if (mapped.data == nullptr)
 			{
 				Report("Map(staging)", error);
-				m_device.Destroy(staging);
+				m_device.destroy(staging);
 				return false;
 			}
 
@@ -1544,16 +1544,16 @@ namespace vsnri
 			{
 				std::memcpy(bytes + textureOffsets.at(index), scene.textures.at(index).bytes.data(), scene.textures.at(index).bytes.size());
 			}
-			if (!m_device.Unmap(staging, error))
+			if (!m_device.unmap(staging, error))
 			{
 				Report("Unmap(staging)", error);
-				m_device.Destroy(staging);
+				m_device.destroy(staging);
 				return false;
 			}
 
 			rhi::CommandList & list = m_oneShot.lists.front();
-			list					= m_oneShot.pools.front().Allocate(nullptr, error);
-			bool ok					= list.IsValid() && list.Begin(error);
+			list					= m_oneShot.pools.front().allocate(nullptr, error);
+			bool ok					= list.is_valid() && list.begin(error);
 
 			std::vector<rhi::TextureBarrier> toCopy;
 			std::vector<rhi::TextureBarrier> toSampled;
@@ -1564,10 +1564,10 @@ namespace vsnri
 				toCopy.push_back(rhi::TextureBarrier{ .texture = m_sceneTextures.at(index), .before = kNothing, .after = kCopyTarget, .range = range });
 				toSampled.push_back(rhi::TextureBarrier{ .texture = m_sceneTextures.at(index), .before = kCopyTarget, .after = kSampled, .range = range });
 			}
-			ok = ok && list.Barriers(rhi::BarrierBatch{ .textures = toCopy }, error);
+			ok = ok && list.barriers(rhi::BarrierBatch{ .textures = toCopy }, error);
 
-			ok = ok && list.CopyBuffer(m_sceneVertices, 0, staging, 0, vertexBytes, error);
-			ok = ok && list.CopyBuffer(m_sceneIndices, 0, staging, vertexBytes, indexBytes, error);
+			ok = ok && list.copy_buffer(m_sceneVertices, 0, staging, 0, vertexBytes, error);
+			ok = ok && list.copy_buffer(m_sceneIndices, 0, staging, vertexBytes, indexBytes, error);
 
 			std::vector<rhi::BufferTextureCopy> regions;
 			for (std::size_t index = 0; index < scene.textures.size() && ok; ++index)
@@ -1581,23 +1581,23 @@ namespace vsnri
 						.subresource										= { .aspects = kColorAspect, .mip = mip },
 						.textureExtent										= { .width = level.width, .height = level.height, .depth = 1 } });
 				}
-				ok = list.CopyBufferToTexture(m_sceneTextures.at(index), staging, regions, error);
+				ok = list.copy_buffer_to_texture(m_sceneTextures.at(index), staging, regions, error);
 			}
 
 			const std::array buffers{
 				rhi::BufferBarrier{ .buffer = m_sceneVertices, .before = kCopyTarget, .after = kVertexInput },
 				rhi::BufferBarrier{ .buffer = m_sceneIndices, .before = kCopyTarget, .after = kIndexInput },
 			};
-			ok = ok && list.Barriers(rhi::BarrierBatch{ .buffers = buffers, .textures = toSampled }, error);
-			ok = ok && list.End(error);
+			ok = ok && list.barriers(rhi::BarrierBatch{ .buffers = buffers, .textures = toSampled }, error);
+			ok = ok && list.end(error);
 
-			ok = ok && Submit(m_oneShot, 1, m_oneShot.fenceValue) && m_queue.Wait(m_timeline, m_oneShot.fenceValue, kTimeoutNanoseconds, error);
+			ok = ok && Submit(m_oneShot, 1, m_oneShot.fenceValue) && m_queue.wait(m_timeline, m_oneShot.fenceValue, kTimeoutNanoseconds, error);
 			if (!ok)
 			{
 				Report("uploading the scene", error);
 			}
 
-			m_device.Destroy(staging);
+			m_device.destroy(staging);
 			return ok;
 		}
 
@@ -1617,8 +1617,8 @@ namespace vsnri
 			rhi::Error error{};
 			for (std::size_t set = 0; set < bindings.size(); ++set)
 			{
-				m_assetSetLayouts.at(set) = m_device.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings.at(set) }, error);
-				if (!m_assetSetLayouts.at(set).IsValid())
+				m_assetSetLayouts.at(set) = m_device.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings.at(set) }, error);
+				if (!m_assetSetLayouts.at(set).is_valid())
 				{
 					Report("CreateDescriptorSetLayout(asset)", error);
 					return false;
@@ -1626,8 +1626,8 @@ namespace vsnri
 			}
 
 			const std::array push{ rhi::PushConstantRange{ .stages = rhi::ShaderStage::eVertex, .offset = 0, .size = sizeof(Matrix) } };
-			m_assetLayout = m_device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = m_assetSetLayouts, .pushConstants = push }, error);
-			if (!m_assetLayout.IsValid())
+			m_assetLayout = m_device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = m_assetSetLayouts, .pushConstants = push }, error);
+			if (!m_assetLayout.is_valid())
 			{
 				Report("CreatePipelineLayout(asset)", error);
 				return false;
@@ -1639,7 +1639,7 @@ namespace vsnri
 		[[nodiscard]] bool CreateAssetDescriptors(const SceneAsset & scene)
 		{
 			rhi::Error error{};
-			m_assetSampler = m_device.CreateSampler(rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
+			m_assetSampler = m_device.create_sampler(rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
 														.minFilter				 = rhi::Filter::eLinear,
 														.mipmapMode				 = rhi::MipmapMode::eLinear,
 														.addressU				 = rhi::AddressMode::eRepeat,
@@ -1647,18 +1647,18 @@ namespace vsnri
 														.addressW				 = rhi::AddressMode::eRepeat,
 														.maxLod					 = kSceneSamplerMaxLod },
 				error);
-			if (!m_assetSampler.IsValid())
+			if (!m_assetSampler.is_valid())
 			{
 				Report("CreateSampler(asset)", error);
 				return false;
 			}
 
 			const auto materials = static_cast<std::uint32_t>(scene.materials.size());
-			m_assetArena		 = m_device.CreateDescriptorArena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent,
+			m_assetArena		 = m_device.create_descriptor_arena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent,
 																	  .maxSets					  = materials + kFramesInFlight,
 																	  .maxDescriptors			  = (materials * kTexturesAMaterial) + (kFramesInFlight * 2) },
 				error);
-			if (!m_assetArena.IsValid())
+			if (!m_assetArena.is_valid())
 			{
 				Report("CreateDescriptorArena(asset)", error);
 				return false;
@@ -1666,13 +1666,13 @@ namespace vsnri
 
 			const auto allocate = [this, &error](const rhi::DescriptorSetLayoutHandle layout, rhi::DescriptorSetHandle & set)
 			{
-				set = m_assetArena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = layout }, error);
-				if (!set.IsValid())
+				set = m_assetArena.allocate(rhi::DescriptorSetAllocDesc{ .layout = layout }, error);
+				if (!set.is_valid())
 				{
 					Report("DescriptorArena::Allocate(asset)", error);
 				}
 
-				return set.IsValid();
+				return set.is_valid();
 			};
 
 			m_assetMaterialSets.assign(materials, rhi::DescriptorSetHandle{});
@@ -1716,9 +1716,9 @@ namespace vsnri
 				}
 			}
 
-			if (!m_device.UpdateDescriptors(std::span<const rhi::DescriptorWriteBuffer>(buffers), error) ||
-				!m_device.UpdateDescriptors(std::span<const rhi::DescriptorWriteSampler>(samplers), error) ||
-				!m_device.UpdateDescriptors(std::span<const rhi::DescriptorWriteTexture>(textures), error))
+			if (!m_device.update_descriptors(std::span<const rhi::DescriptorWriteBuffer>(buffers), error) ||
+				!m_device.update_descriptors(std::span<const rhi::DescriptorWriteSampler>(samplers), error) ||
+				!m_device.update_descriptors(std::span<const rhi::DescriptorWriteTexture>(textures), error))
 			{
 				Report("UpdateDescriptors(asset)", error);
 				return false;
@@ -1771,8 +1771,8 @@ namespace vsnri
 				desc.renderTarget.colorFormatCount	 = 1;
 				desc.renderTarget.depthStencilFormat = kDepthFormat;
 
-				m_assetPipelines.at(pipeline) = m_device.CreateGraphicsPipeline(desc, error);
-				if (!m_assetPipelines.at(pipeline).IsValid())
+				m_assetPipelines.at(pipeline) = m_device.create_graphics_pipeline(desc, error);
+				if (!m_assetPipelines.at(pipeline).is_valid())
 				{
 					Report("CreateGraphicsPipeline(asset)", error);
 					return false;
@@ -1796,7 +1796,7 @@ namespace vsnri
 
 			signaled = m_fenceValue;
 			rhi::Error error{};
-			if (!m_queue.Submit(submit, error))
+			if (!m_queue.submit(submit, error))
 			{
 				Report("Queue::Submit", error);
 				return false;
@@ -1814,14 +1814,14 @@ namespace vsnri
 			const std::uint64_t started = Now();
 			for (std::uint32_t index = 0; index < count && created; ++index)
 			{
-				buffers.at(index) = m_device.CreateBuffer(desc);
-				created			  = buffers.at(index).IsValid();
+				buffers.at(index) = m_device.create_buffer(desc);
+				created			  = buffers.at(index).is_valid();
 			}
 			for (const rhi::BufferHandle buffer : buffers)
 			{
-				if (buffer.IsValid())
+				if (buffer.is_valid())
 				{
-					m_device.Destroy(buffer);
+					m_device.destroy(buffer);
 				}
 			}
 			elapsedNs = Now() - started;
@@ -1847,13 +1847,13 @@ namespace vsnri
 			}
 			for (std::uint32_t index = 0; index < kChurnBatch; ++index)
 			{
-				if (views.at(index).IsValid())
+				if (views.at(index).is_valid())
 				{
-					m_device.Destroy(views.at(index));
+					m_device.destroy(views.at(index));
 				}
-				if (textures.at(index).IsValid())
+				if (textures.at(index).is_valid())
 				{
-					m_device.Destroy(textures.at(index));
+					m_device.destroy(textures.at(index));
 				}
 			}
 			elapsedNs = Now() - started;
@@ -1873,7 +1873,7 @@ namespace vsnri
 					.buffer									 = m_materials,
 					.offset									 = std::uint64_t{ index & 1u } * kMaterialStride,
 					.range									 = kMaterialStride };
-				written = m_device.UpdateDescriptors(std::span(&write, 1)) && written;
+				written = m_device.update_descriptors(std::span(&write, 1)) && written;
 			}
 			elapsedNs = Now() - started;
 
@@ -1960,13 +1960,13 @@ int main(int argc, char ** argv)
 
 #ifdef TRACY_ENABLE
 	static rhi::TracyProfiler profiler;
-	rhi::SetProfiler(&profiler);
+	rhi::set_profiler(&profiler);
 #endif
 	vsnri::WaitForProfiler(options);
 
 	// Stays installed until exit, because the backend's static owner frees through it during static destruction.
 	static vsnri::CountingAllocator allocator;
-	rhi::SetHostAllocator(&allocator);
+	rhi::set_host_allocator(&allocator);
 
 	vsnri::AzothArm arm;
 	if (!arm.Initialize(options))

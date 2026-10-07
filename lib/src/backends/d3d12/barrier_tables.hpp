@@ -203,13 +203,13 @@ namespace azo::rhi::d3d12
 		return reachable == D3D12_BARRIER_SYNC_NONE ? D3D12_BARRIER_SYNC_ALL : reachable;
 	}
 
-	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS MapBarrierAccess(Flags<ResourceUse> use, QueueType queue) noexcept;
+	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS map_barrier_access(Flags<ResourceUse> use, QueueType queue) noexcept;
 
 	[[nodiscard]] constexpr D3D12_BARRIER_SYNC MapBarrierSync(const Flags<Stage> stages, const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
 		if (stages.empty())
 		{
-			return ClampSyncToQueue(SyncReachableFrom(DeriveBarrierSync(use), MapBarrierAccess(use, queue)), queue);
+			return ClampSyncToQueue(SyncReachableFrom(DeriveBarrierSync(use), map_barrier_access(use, queue)), queue);
 		}
 
 		D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_NONE;
@@ -274,10 +274,10 @@ namespace azo::rhi::d3d12
 			sync = sync | D3D12_BARRIER_SYNC_ALL;
 		}
 
-		return ClampSyncToQueue(SyncReachableFrom(sync == D3D12_BARRIER_SYNC_NONE ? DeriveBarrierSync(use) : sync, MapBarrierAccess(use, queue)), queue);
+		return ClampSyncToQueue(SyncReachableFrom(sync == D3D12_BARRIER_SYNC_NONE ? DeriveBarrierSync(use) : sync, map_barrier_access(use, queue)), queue);
 	}
 
-	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS MapBarrierAccess(const Flags<ResourceUse> use, const QueueType queue) noexcept
+	[[nodiscard]] constexpr D3D12_BARRIER_ACCESS map_barrier_access(const Flags<ResourceUse> use, const QueueType queue) noexcept
 	{
 		if (use.contains(ResourceUse::eDiscard))
 		{
@@ -504,7 +504,7 @@ namespace azo::rhi::d3d12
 
 	static_assert(
 		DeriveBarrierSync(ResourceUse::eAccelBuildInput) == D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE &&
-			MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
+			map_barrier_access(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
 		"a build input is geometry read as a shader resource, which the compatibility table pairs with the build scope but with neither the copy nor the "
 		"emit-postbuild one, since those act on the structure and never on its inputs"
 	);
@@ -520,8 +520,8 @@ namespace azo::rhi::d3d12
 	);
 
 	static_assert(
-		MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE &&
-			(MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ) ==
+		map_barrier_access(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE &&
+			(map_barrier_access(ResourceUse::eAccelBuildInput, QueueType::eGraphics) & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ) ==
 				D3D12_BARRIER_ACCESS_COMMON,
 		"a build reads its geometry as a shader resource, and the acceleration-structure access is for reading a built structure instead"
 	);
@@ -529,9 +529,9 @@ namespace azo::rhi::d3d12
 	static_assert(
 		MapBarrierSync(Flags<Stage>(Stage::eHost) | Stage::eCompute, ResourceUse::eNone, QueueType::eGraphics) ==
 				MapBarrierSync(Stage::eCompute, ResourceUse::eNone, QueueType::eGraphics) &&
-			MapBarrierAccess(Flags<ResourceUse>(ResourceUse::eHostRead) | ResourceUse::eSampledRead, QueueType::eGraphics) ==
-				MapBarrierAccess(ResourceUse::eSampledRead, QueueType::eGraphics) &&
-			MapBarrierAccess(ResourceUse::eHostWrite, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_COMMON,
+			map_barrier_access(Flags<ResourceUse>(ResourceUse::eHostRead) | ResourceUse::eSampledRead, QueueType::eGraphics) ==
+				map_barrier_access(ResourceUse::eSampledRead, QueueType::eGraphics) &&
+			map_barrier_access(ResourceUse::eHostWrite, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_COMMON,
 		"D3D12 has no host scope on either axis, so naming one adds nothing rather than mapping to something near it"
 	);
 
@@ -587,21 +587,21 @@ namespace azo::rhi::d3d12
 	);
 
 	static_assert(
-		AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelRead, QueueType::eCompute)) &&
-			AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelWrite, QueueType::eCompute)) &&
-			AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eDiscard, QueueType::eCompute)) &&
+		AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eAccelRead, QueueType::eCompute)) &&
+			AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eAccelWrite, QueueType::eCompute)) &&
+			AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eDiscard, QueueType::eCompute)) &&
 			AccessLegalOnAccelerationStructure(D3D12_BARRIER_ACCESS_COMMON) &&
-			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eStorageWrite, QueueType::eCompute)) &&
-			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eCompute)) &&
-			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eCopySrc, QueueType::eCopy)),
+			!AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eStorageWrite, QueueType::eCompute)) &&
+			!AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eAccelBuildInput, QueueType::eCompute)) &&
+			!AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eCopySrc, QueueType::eCopy)),
 		"only the two acceleration-structure accesses reach such a buffer, so a build scratch, which is unordered access on this API, is not one of these "
 		"buffers"
 	);
 
 	static_assert(
-		MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
-			MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eCompute) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
-			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics)),
+		map_barrier_access(ResourceUse::eAccelBuildScratch, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
+			map_barrier_access(ResourceUse::eAccelBuildScratch, QueueType::eCompute) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
+			!AccessLegalOnAccelerationStructure(map_barrier_access(ResourceUse::eAccelBuildScratch, QueueType::eGraphics)),
 		"a scratch is where the build keeps its working data and the spec requires the unordered access state for it, which is not a state a structure is ever "
 		"in"
 	);

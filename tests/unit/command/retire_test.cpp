@@ -56,17 +56,17 @@ namespace
 
 		for (std::uint64_t round = 1; round <= kRounds; ++round)
 		{
-			rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+			rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 			ASSERT_TRUE(test::Ok(list.is_valid(), error));
-			ASSERT_TRUE(test::Ok(list.Begin(error), error));
-			ASSERT_TRUE(test::Ok(list.End(error), error));
+			ASSERT_TRUE(test::Ok(list.begin(error), error));
+			ASSERT_TRUE(test::Ok(list.end(error), error));
 
 			std::array<const rhi::CommandList *, 1> lists{ &list };
 			const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = round } };
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error));
 
-			ASSERT_TRUE(test::Ok(queue.Wait(timeline, round, kForever, error), error));
-			ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = round }, error), error)) << "round " << round;
+			ASSERT_TRUE(test::Ok(queue.wait(timeline, round, kForever, error), error));
+			ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = round }, error), error)) << "round " << round;
 		}
 
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
@@ -87,15 +87,15 @@ namespace
 
 		for (std::uint64_t round = 1; round <= kRounds; ++round)
 		{
-			rhi::CommandList unsignaled = pool.Allocate("azoth.rhi.test.unsignaled", error);
+			rhi::CommandList unsignaled = pool.allocate("azoth.rhi.test.unsignaled", error);
 			ASSERT_TRUE(test::Ok(unsignaled.is_valid(), error));
-			ASSERT_TRUE(test::Ok(unsignaled.Begin(error), error));
-			ASSERT_TRUE(test::Ok(unsignaled.End(error), error));
+			ASSERT_TRUE(test::Ok(unsignaled.begin(error), error));
+			ASSERT_TRUE(test::Ok(unsignaled.end(error), error));
 
-			rhi::CommandList signaled = pool.Allocate("azoth.rhi.test.signaled", error);
+			rhi::CommandList signaled = pool.allocate("azoth.rhi.test.signaled", error);
 			ASSERT_TRUE(test::Ok(signaled.is_valid(), error));
-			ASSERT_TRUE(test::Ok(signaled.Begin(error), error));
-			ASSERT_TRUE(test::Ok(signaled.End(error), error));
+			ASSERT_TRUE(test::Ok(signaled.begin(error), error));
+			ASSERT_TRUE(test::Ok(signaled.end(error), error));
 
 			std::array<const rhi::CommandList *, 1> first{ &unsignaled };
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = first }, error), error));
@@ -104,8 +104,8 @@ namespace
 			const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = round } };
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = second, .signals = signals }, error), error));
 
-			ASSERT_TRUE(test::Ok(queue.Wait(timeline, round, kForever, error), error));
-			ASSERT_TRUE(test::Ok(pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = round }, error), error)) << "round " << round;
+			ASSERT_TRUE(test::Ok(queue.wait(timeline, round, kForever, error), error));
+			ASSERT_TRUE(test::Ok(pool.reset(rhi::RetirePoint{ .timeline = timeline, .value = round }, error), error)) << "round " << round;
 		}
 
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
@@ -129,17 +129,17 @@ namespace
 		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
 		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		rhi::CommandList list = pool.allocate("azoth.rhi.test.list", error);
 		ASSERT_TRUE(test::Ok(list.is_valid(), error));
-		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		ASSERT_TRUE(test::Ok(list.End(error), error));
+		ASSERT_TRUE(test::Ok(list.begin(error), error));
+		ASSERT_TRUE(test::Ok(list.end(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		for (std::uint64_t round = 1; round <= kRounds; ++round)
 		{
 			const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = round } };
 			ASSERT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error)) << "round " << round;
-			ASSERT_TRUE(test::Ok(queue.Wait(timeline, round, kForever, error), error));
+			ASSERT_TRUE(test::Ok(queue.wait(timeline, round, kForever, error), error));
 		}
 
 		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));

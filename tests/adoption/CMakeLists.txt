@@ -31,6 +31,7 @@ if (TARGET azoth::rhi-native-vulkan)
 endif ()
 
 if (AZOTH_RHI_BACKEND_METAL OR AZOTH_RHI_BACKEND_METAL4)
+    target_link_libraries(rhi_adoption PRIVATE azoth::rhi-native-metal)
     target_compile_definitions(rhi_adoption PRIVATE AZOTH_RHI_TEST_ADOPTION_METAL)
 
     if (AZOTH_RHI_BACKEND_METAL)

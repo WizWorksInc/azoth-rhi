@@ -181,7 +181,7 @@ namespace
 			return false;
 		}
 
-		rhi::Device dev = device.Value().Get();
+		rhi::Device dev = device.value().get();
 		LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 		rhi::Error error{};
@@ -212,14 +212,14 @@ namespace
 			return false;
 		}
 
-		rhi::CommandList list = pool.Allocate("example.profiledList", error);
-		if (!list.is_valid() || !list.Begin(error))
+		rhi::CommandList list = pool.allocate("example.profiledList", error);
+		if (!list.is_valid() || !list.begin(error))
 		{
 			fw::ReportError("failed to begin recording", error);
 			return false;
 		}
 
-		if (!list.clear_buffer(buffer, 0, bufferDesc.size, 0, error) || !list.End(error))
+		if (!list.clear_buffer(buffer, 0, bufferDesc.size, 0, error) || !list.end(error))
 		{
 			fw::ReportError("failed to record", error);
 			return false;
@@ -242,7 +242,7 @@ namespace
 
 int main(int argc, char ** argv)
 {
-	rhi::SetProfiler(&g_profiler);
+	rhi::set_profiler(&g_profiler);
 
 	constexpr rhi::BuildInfo build = rhi::get_build_info();
 	if (!build.profilingEnabled)

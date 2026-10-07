@@ -124,7 +124,7 @@ namespace bench::native
 
 		[[nodiscard]] bool PrepareArm(rhi::Device device, const Workload & work)
 		{
-			g_arm.four = device.get_graphics_api_id() == rhi::Metal4Api::id;
+			g_arm.four = device.get_graphics_api_id() == rhi::Metal4Api::kId;
 
 			rhi::Error error{};
 			if (g_arm.four)
@@ -415,7 +415,7 @@ namespace bench::native
 			}
 
 			rhi::Error fourError{};
-			const bool recordedFour = list.ModifyNative<rhi::Metal4Api>(
+			const bool recordedFour = list.modify_native<rhi::Metal4Api>(
 				mutation,
 				[&](const rhi::native::Metal4CommandListView &)
 				{
@@ -438,7 +438,7 @@ namespace bench::native
 		std::println("this build has no Metal 3 backend, so there is no native arm for it");
 		return false;
 #else
-		MTL::RenderCommandEncoder * encoder = rhi::GetMetalRenderCommandEncoder(list);
+		MTL::RenderCommandEncoder * encoder = rhi::get_metal_render_command_encoder(list);
 		if (encoder == nullptr && NeedsRenderingScope(kind))
 		{
 			std::println("the Metal command list has no open render encoder");
@@ -446,7 +446,7 @@ namespace bench::native
 		}
 
 		rhi::Error error{};
-		const bool recorded = list.ModifyNative<rhi::MetalApi>(
+		const bool recorded = list.modify_native<rhi::MetalApi>(
 			mutation,
 			[&](const rhi::native::MetalCommandListView &)
 			{
