@@ -1,20 +1,25 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "FW/utility/ExecutablePath.hpp"
 
-#include <azoth/rhi/core/platform.hpp>
+#include <azoth/base/config/platform.hpp>
 
 #include <array>
 #include <vector>
 
-#ifdef AZOTH_RHI_OS_WINDOWS
+#if AZOTH_OS_WINDOWS
 	#ifndef WIN32_LEAN_AND_MEAN
 		#define WIN32_LEAN_AND_MEAN
 	#endif
@@ -22,17 +27,17 @@
 		#define NOMINMAX
 	#endif
 	#include <windows.h>
-#elifdef AZOTH_RHI_OS_APPLE
+#elif AZOTH_OS_APPLE
 	#include <mach-o/dyld.h>
 
 	#include <climits>
 	#include <cstdint>
-#elifdef AZOTH_RHI_OS_FREEBSD
+#elif AZOTH_OS_FREEBSD
 	#include <sys/sysctl.h>
 	#include <sys/types.h>
 
 	#include <climits>
-#elifdef AZOTH_RHI_OS_LINUX
+#elif AZOTH_OS_LINUX
 	#include <unistd.h>
 
 	#include <climits>
@@ -43,7 +48,7 @@ namespace fw::util
 {
 	std::filesystem::path ExecutablePath()
 	{
-#ifdef AZOTH_RHI_OS_WINDOWS
+#if AZOTH_OS_WINDOWS
 		std::vector<wchar_t> buffer(MAX_PATH);
 		while (true)
 		{
@@ -60,7 +65,7 @@ namespace fw::util
 
 			buffer.resize(buffer.size() * 2);
 		}
-#elifdef AZOTH_RHI_OS_APPLE
+#elif AZOTH_OS_APPLE
 		std::array<char, PATH_MAX> buffer{};
 		auto size = static_cast<std::uint32_t>(buffer.size());
 		if (_NSGetExecutablePath(buffer.data(), &size) == 0)
@@ -75,7 +80,7 @@ namespace fw::util
 		}
 
 		return std::filesystem::current_path();
-#elifdef AZOTH_RHI_OS_FREEBSD
+#elif AZOTH_OS_FREEBSD
 		std::array<int, 4> mib{ CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
 		std::array<char, PATH_MAX> buffer{};
 		std::size_t size = buffer.size();
@@ -85,7 +90,7 @@ namespace fw::util
 		}
 
 		return std::filesystem::current_path();
-#elifdef AZOTH_RHI_OS_LINUX
+#elif AZOTH_OS_LINUX
 		std::array<char, PATH_MAX> buffer{};
 		if (const ssize_t length = readlink("/proc/self/exe", buffer.data(), buffer.size() - 1); length != -1)
 		{

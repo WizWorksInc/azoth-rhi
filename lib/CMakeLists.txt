@@ -132,6 +132,9 @@ target_sources(AzothRHI PRIVATE src/backends/null/backend.cpp)
 
 target_compile_features(AzothRHI PUBLIC cxx_std_23)
 
+# Public headers use its platform detection and attributes.
+target_link_libraries(AzothRHI PUBLIC azoth::base)
+
 target_include_directories(AzothRHI
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

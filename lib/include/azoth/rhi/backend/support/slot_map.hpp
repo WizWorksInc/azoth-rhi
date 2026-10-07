@@ -1,17 +1,22 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
+#include "azoth/base/attr/force_inline.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/handle.hpp"
-#include "azoth/rhi/core/platform.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 
 #include <algorithm>
@@ -95,13 +100,13 @@ namespace azo::rhi
 			};
 		}
 
-		[[nodiscard]] AZO_RHI_FORCE_INLINE Payload * resolve(HandleType handle, bool validate) noexcept
+		[[nodiscard]] AZO_FORCE_INLINE Payload * resolve(HandleType handle, bool validate) noexcept
 		{
 			Slot * slot = Find(handle, validate);
 			return slot != nullptr ? &slot->payload : nullptr;
 		}
 
-		[[nodiscard]] AZO_RHI_FORCE_INLINE const Payload * resolve(HandleType handle, bool validate) const noexcept
+		[[nodiscard]] AZO_FORCE_INLINE const Payload * resolve(HandleType handle, bool validate) const noexcept
 		{
 			const Slot * slot = const_cast<SlotMap *>(this)->Find(handle, validate);
 			return slot != nullptr ? &slot->payload : nullptr;
@@ -229,7 +234,7 @@ namespace azo::rhi
 			return kFirstChunkSlots << chunk;
 		}
 
-		[[nodiscard]] AZO_RHI_FORCE_INLINE Slot & At(const std::uint32_t slotIndex) noexcept
+		[[nodiscard]] AZO_FORCE_INLINE Slot & At(const std::uint32_t slotIndex) noexcept
 		{
 			const std::uint32_t chunk = ChunkOfSlot(slotIndex);
 			return azo::rhi::detail::at(m_chunks, chunk)[slotIndex - BaseOfChunk(chunk)]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -261,7 +266,7 @@ namespace azo::rhi
 			return true;
 		}
 
-		[[nodiscard]] AZO_RHI_FORCE_INLINE Slot * Find(const HandleType handle, const bool validate) noexcept
+		[[nodiscard]] AZO_FORCE_INLINE Slot * Find(const HandleType handle, const bool validate) noexcept
 		{
 			if (detail::tag_of_index(handle.index) != m_deviceTag)
 			{

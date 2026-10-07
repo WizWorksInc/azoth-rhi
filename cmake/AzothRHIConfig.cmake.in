@@ -32,6 +32,9 @@ set(AzothRHI_PIX_TARGET @AZOTH_RHI_PIX_TARGET@)
 set(AzothRHI_TRACY_ENABLED @AZOTH_RHI_TRACY_ENABLED@)
 set(AzothRHI_TRACY_TARGET @AZOTH_RHI_TRACY_TARGET@)
 
+include(CMakeFindDependencyMacro)
+find_dependency(AzothBase)
+
 include("${CMAKE_CURRENT_LIST_DIR}/AzothRHITargets.cmake")
 
 # Link azoth::rhi-native-vulkan to include azoth/rhi/native/vulkan_native.hpp. Plain azoth::rhi
