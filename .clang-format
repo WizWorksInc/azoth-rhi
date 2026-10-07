@@ -11,6 +11,8 @@ AlignConsecutiveShortCaseStatements:
 AlignEscapedNewlines: Right
 AlignTrailingComments:
   Kind: Always
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortCompoundRequirementOnASingleLine: true
@@ -23,7 +25,7 @@ AlwaysBreakBeforeMultilineStrings: true
 AttributeMacros: []
 BasedOnStyle: Microsoft
 BinPackArguments: false
-BinPackParameters: BinPack
+BinPackParameters: OnePerLine
 BraceWrapping:
   AfterCaseLabel: true
   AfterClass: true
@@ -44,7 +46,9 @@ BraceWrapping:
   SplitEmptyRecord: false
 BracedInitializerIndentWidth: 4
 BreakAfterAttributes: Never
+BreakAfterOpenBracketFunction: true
 BreakBeforeBraces: Allman
+BreakBeforeCloseBracketFunction: true
 BreakBeforeConceptDeclarations: Always
 BreakTemplateDeclarations: Yes
 ColumnLimit: 160
