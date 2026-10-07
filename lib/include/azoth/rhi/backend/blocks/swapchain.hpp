@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/backend/blocks/common.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT: (JB): Fix later.
 
 namespace azo::rhi
 {
@@ -82,24 +82,28 @@ namespace azo::rhi
 		 * \return Swapchain image format.
 		 */
 		Format (*getFormat)(void * impl) noexcept			 = nullptr;
+
 		/**
 		 * \brief Returns the swapchain's effective presentation mode.
 		 * \param impl Backend swapchain instance.
 		 * \return Effective presentation mode.
 		 */
 		PresentMode (*getPresentMode)(void * impl) noexcept	 = nullptr;
+
 		/**
 		 * \brief Returns the number of swapchain images.
 		 * \param impl Backend swapchain instance.
 		 * \return Swapchain image count.
 		 */
 		std::uint32_t (*getImageCount)(void * impl) noexcept = nullptr;
+
 		/**
 		 * \brief Returns the swapchain image width.
 		 * \param impl Backend swapchain instance.
 		 * \return Image width in pixels.
 		 */
 		std::uint32_t (*getWidth)(void * impl) noexcept		 = nullptr;
+
 		/**
 		 * \brief Returns the swapchain image height.
 		 * \param impl Backend swapchain instance.
