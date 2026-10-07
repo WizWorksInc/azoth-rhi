@@ -22,6 +22,9 @@
 
 namespace azo::rhi
 {
+	/**
+	 * \brief Recording and submission state of a command list.
+	 */
 	enum class ListLifecycle : std::uint8_t
 	{
 		eFresh,
@@ -30,6 +33,9 @@ namespace azo::rhi
 		eSubmitted,
 	};
 
+	/**
+	 * \brief Atomic counter whose copies and moves snapshot the value without resetting the source.
+	 */
 	class BoundedCount final
 	{
 	public:
@@ -52,6 +58,9 @@ namespace azo::rhi
 
 		~BoundedCount() = default;
 
+		/**
+		 * \brief Increments the count if it is below the supplied bound.
+		 */
 		[[nodiscard]] bool try_acquire(const std::uint32_t bound) noexcept
 		{
 			std::uint32_t held = m_count.load(std::memory_order_relaxed);
@@ -66,11 +75,17 @@ namespace azo::rhi
 			return false;
 		}
 
+		/**
+		 * \brief Increments the count unless it would overflow.
+		 */
 		[[nodiscard]] bool try_acquire() noexcept
 		{
 			return try_acquire(std::numeric_limits<std::uint32_t>::max());
 		}
 
+		/**
+		 * \brief Decrements the count if it is nonzero.
+		 */
 		[[nodiscard]] bool try_release() noexcept
 		{
 			std::uint32_t held = m_count.load(std::memory_order_relaxed);
@@ -85,6 +100,9 @@ namespace azo::rhi
 			return false;
 		}
 
+		/**
+		 * \brief Replaces the count and returns its previous value.
+		 */
 		[[nodiscard]] std::uint32_t exchange(const std::uint32_t value) noexcept
 		{
 			return m_count.exchange(value, std::memory_order_acq_rel);
@@ -113,6 +131,10 @@ namespace azo::rhi
 	inline constexpr auto kSubmitOfPendingList =
 		"submit of a command list whose earlier submission is still executing, so wait for that submission to complete first";
 
+	/**
+	 * \brief Checks command list lifecycle and resubmission rules.
+	 * \return Refusal message, or nullptr if these rules permit submission.
+	 */
 	[[nodiscard]] constexpr const char * submit_refusal_for(
 		const ListLifecycle lifecycle,
 		const bool backendResubmits,
@@ -136,6 +158,12 @@ namespace azo::rhi
 		return nullptr;
 	}
 
+	/**
+	 * \brief Returns the first lifecycle refusal, skipping null lists and unresolved records.
+	 * \param recordOf Maps a command list reference to its backend record pointer.
+	 * \param pending Reports whether a backend record's earlier submission is still executing.
+	 * \return nullptr if no checked list is refused.
+	 */
 	template <typename Lists, typename RecordOf, typename Pending>
 	[[nodiscard]] const char * submit_refusal_for_lists(const Lists & lists, const bool backendResubmits, RecordOf recordOf, Pending pending)
 	{
@@ -164,19 +192,31 @@ namespace azo::rhi
 	inline constexpr auto kOpenListBudgetExhausted =
 		"too many command lists are begun and not yet submitted on this queue, so submit or reset one before beginning another";
 
+	/**
+	 * \brief Limits open command list counts separately for each queue type.
+	 */
 	class OpenListBudget final
 	{
 	public:
+		/**
+		 * \brief Sets the limit for each queue type before concurrent use.
+		 */
 		void set_bound(const std::uint32_t bound) noexcept
 		{
 			m_bound = bound;
 		}
 
+		/**
+		 * \brief Reserves one open command list slot for a queue type.
+		 */
 		[[nodiscard]] bool try_open(const QueueType type) noexcept
 		{
 			return CountFor(type).try_acquire(m_bound);
 		}
 
+		/**
+		 * \brief Releases one open slot without decrementing below zero.
+		 */
 		void close(const QueueType type) noexcept
 		{
 			static_cast<void>(CountFor(type).try_release());

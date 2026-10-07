@@ -19,20 +19,12 @@
 namespace azo::rhi
 {
 
-	/**
-	 * \brief Callback for accessing a wrapped backend object.
-	 */
 	struct NativeObjectApi final
 	{
-		/**
-		 * \brief Interface size and version for compatibility checks.
-		 */
 		InterfaceHeader header{ .byteSize = sizeof(NativeObjectApi), .version = 1 };
 
 		/**
-		 * \brief Returns the object immediately beneath this wrapper.
-		 * \param impl Backend wrapper instance.
-		 * \return Borrowed pointer to the wrapped backend object.
+		 * \brief Returns a borrowed pointer to the object immediately beneath this wrapper.
 		 */
 		void * (*inner)(void * impl) noexcept = nullptr;
 	};

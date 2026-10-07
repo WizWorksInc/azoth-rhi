@@ -18,34 +18,26 @@
 
 namespace azo::rhi
 {
-	/**
-	 * \brief Callbacks for allocating command lists and resetting the pool.
-	 */
 	struct CommandPoolApi final
 	{
-		/**
-		 * \brief Interface size and version for block discovery.
-		 */
 		InterfaceHeader header{
 			.byteSize = sizeof(CommandPoolApi),
 			.version  = 1,
 		};
 
 		/**
-		 * \brief Allocates a command list from the pool.
-		 * \param impl Backend command pool instance.
+		 * \brief Returns the allocated backend command list, or nullptr on failure.
+		 * \param impl Command pool.
 		 * \param debugName Optional debug name for the command list.
-		 * \param[out] error Optional output for failure details.
-		 * \return Command list instance, or nullptr on failure.
+		 * \param[out] error Optional error details.
 		 */
 		void * (*allocate)(void * impl, CString debugName, Error * error) noexcept = nullptr;
 
 		/**
 		 * \brief Resets the pool for reuse.
-		 * \param impl Backend command pool instance.
+		 * \param impl Command pool.
 		 * \param safeAfter Retire point for the pool's submitted work.
-		 * \param[out] error Optional output for failure details.
-		 * \return True on success, false on failure.
+		 * \param[out] error Optional error details.
 		 */
 		bool (*reset)(void * impl, RetirePoint safeAfter, Error * error) noexcept = nullptr;
 	};
