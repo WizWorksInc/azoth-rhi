@@ -47,7 +47,7 @@
 #include <Metal/MTLTypes.hpp>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -734,4 +734,4 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal

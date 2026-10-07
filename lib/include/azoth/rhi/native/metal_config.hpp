@@ -48,4 +48,4 @@ namespace azo::rhi::native
 		using Config = Metal4DeviceConfig;
 	};
 
-}
+} // namespace azo::rhi::native

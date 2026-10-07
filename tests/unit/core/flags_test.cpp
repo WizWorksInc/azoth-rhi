@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <concepts>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <type_traits>
 
 namespace rhi = azo::rhi;
@@ -193,4 +193,4 @@ namespace
 		EXPECT_TRUE(wide.contains(rhi::Stage::eAccelBuild));
 	}
 
-}
+} // namespace

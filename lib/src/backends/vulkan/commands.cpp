@@ -47,7 +47,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -56,7 +56,7 @@ namespace azo::rhi::vulkan
 	namespace
 	{
 		const BackendObject * command_list_object() noexcept;
-	}
+	} // namespace
 
 	void * vulkan_create_command_pool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
 	{
@@ -188,7 +188,7 @@ namespace azo::rhi::vulkan
 			static constexpr BackendObject kObject{ .queryInterface = &vulkan_command_list_query_interface };
 			return &kObject;
 		}
-	}
+	} // namespace
 
 	bool vulkan_command_pool_reset(void * impl, RetirePoint safeAfter, Error * error) noexcept
 	{
@@ -595,7 +595,7 @@ namespace azo::rhi::vulkan
 
 			return {};
 		}
-	}
+	} // namespace
 
 	bool vulkan_cmd_barriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept
 	{
@@ -865,7 +865,7 @@ namespace azo::rhi::vulkan
 			}
 			return succeed(error);
 		}
-	}
+	} // namespace
 
 	bool vulkan_cmd_begin_rendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept
 	{
@@ -1112,7 +1112,7 @@ namespace azo::rhi::vulkan
 			record(offset, drawCount);
 			return succeed(error);
 		}
-	}
+	} // namespace
 
 	bool vulkan_cmd_draw_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
@@ -1618,4 +1618,4 @@ namespace azo::rhi::vulkan
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::vulkan

@@ -98,4 +98,4 @@ namespace fw::scene
 	{
 		return IsEmpty() ? 0.0f : glm::length(GetExtent()) * 0.5f;
 	}
-}
+} // namespace fw::scene

@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/backend/blocks/common.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi

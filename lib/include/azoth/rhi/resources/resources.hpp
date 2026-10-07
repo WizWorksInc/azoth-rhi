@@ -21,7 +21,7 @@
 #include "azoth/rhi/core/flags.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 
@@ -301,4 +301,4 @@ namespace azo::rhi
 		const char * debugName = nullptr;
 	};
 
-}
+} // namespace azo::rhi

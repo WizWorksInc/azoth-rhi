@@ -46,4 +46,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

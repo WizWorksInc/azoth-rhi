@@ -144,7 +144,7 @@ namespace fw::scene
 
 			return result;
 		}
-	}
+	} // namespace
 
 	SceneGpuBufferStorage::SceneGpuBufferStorage(SceneConfig sceneConfig) : m_config(std::move(sceneConfig))
 	{
@@ -537,4 +537,4 @@ namespace fw::scene
 
 		return true;
 	}
-}
+} // namespace fw::scene

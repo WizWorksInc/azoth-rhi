@@ -18,7 +18,7 @@
 #include "azoth/rhi/core/constants.hpp"
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::detail
 {
@@ -71,4 +71,4 @@ namespace azo::rhi::detail
 	{
 		return range.baseMip == 0 && range.baseLayer == 0 && range.mipCount == mipLevels && range.layerCount == arrayLayers;
 	}
-}
+} // namespace azo::rhi::detail

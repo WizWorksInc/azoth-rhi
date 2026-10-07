@@ -36,7 +36,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <thread>
@@ -95,7 +95,7 @@ namespace
 
 #endif
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

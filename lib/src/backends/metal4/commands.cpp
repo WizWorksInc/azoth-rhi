@@ -51,7 +51,7 @@
 #include <Metal/MTLTypes.hpp>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <span>
 
@@ -252,7 +252,7 @@ namespace azo::rhi::metal4
 					static_cast<MTL4::VisibilityOptions>(static_cast<NS::UInteger>(list->pendingVisibility) | static_cast<NS::UInteger>(visibility));
 			}
 		}
-	}
+	} // namespace
 
 	void flush_pending_barrier(CmdList * list, MTL4::RenderCommandEncoder * encoder) noexcept
 	{
@@ -1125,4 +1125,4 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal4

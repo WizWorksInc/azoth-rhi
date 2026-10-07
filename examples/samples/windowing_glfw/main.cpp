@@ -32,7 +32,7 @@
 
 #include <array>
 #include <cmath>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -178,7 +178,7 @@ namespace
 		void * m_metalLayer	  = nullptr;
 	};
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

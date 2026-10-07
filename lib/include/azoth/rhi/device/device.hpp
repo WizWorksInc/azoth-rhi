@@ -36,7 +36,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <string_view>
@@ -51,7 +51,7 @@ namespace azo::rhi
 	{
 		struct FacadeBuilder;
 		struct RegistryAccess;
-	}
+	} // namespace detail
 
 	class UniqueDevice;
 	class UniqueInstance;
@@ -490,7 +490,7 @@ namespace azo::rhi
 	namespace detail
 	{
 		inline constexpr std::array<char, 16> kHexDigits{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-	}
+	} // namespace detail
 
 	[[nodiscard]] constexpr AdapterUuidString format_adapter_uuid(const std::array<std::uint8_t, 16> & uuid) noexcept
 	{
@@ -1383,4 +1383,4 @@ namespace azo::rhi
 																			  : Result<NativeBinarySemaphore<Api>>{ error };
 	}
 
-}
+} // namespace azo::rhi

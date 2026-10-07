@@ -26,7 +26,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -109,7 +109,7 @@ namespace azo::rhi
 			vk::SurfaceKHR m_surface;
 		};
 
-	}
+	} // namespace
 
 	// NOLINTNEXTLINE(misc-use-internal-linkage)
 	HostUniquePtr<PresentationBackend> make_vulkan_presentation_backend()
@@ -144,6 +144,6 @@ namespace azo::rhi
 			return reinterpret_cast<void *>(s_Loader->getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
 		}
 
-	}
+	} // namespace native
 
-}
+} // namespace azo::rhi

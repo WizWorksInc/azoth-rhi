@@ -421,4 +421,4 @@ namespace azo::rhi::vulkan
 		"an unset stage means after everything, since an empty mask is not a pipeline stage and cannot be written as one"
 	);
 
-}
+} // namespace azo::rhi::vulkan

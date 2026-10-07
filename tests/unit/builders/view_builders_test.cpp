@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace rhi = azo::rhi;
 
@@ -170,4 +170,4 @@ namespace
 		EXPECT_EQ(desc.borderColor, rhi::BorderColor::eOpaqueWhiteFloat);
 	}
 
-}
+} // namespace

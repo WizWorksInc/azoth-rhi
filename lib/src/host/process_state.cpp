@@ -17,7 +17,7 @@
 #include "azoth/rhi/host/profiler.hpp"
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::detail
 {
@@ -28,7 +28,7 @@ namespace azo::rhi::detail
 		std::atomic<Profiler *> g_Profiler{ nullptr };					   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 		std::atomic<std::uint64_t> g_ReentrancyViolations{ 0 };			   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 		thread_local int g_TGuardsHeld = 0;								   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-	}
+	} // namespace
 
 	std::atomic<HostAllocator *> & host_allocator_slot() noexcept
 	{
@@ -54,4 +54,4 @@ namespace azo::rhi::detail
 	{
 		return g_ReentrancyViolations;
 	}
-}
+} // namespace azo::rhi::detail

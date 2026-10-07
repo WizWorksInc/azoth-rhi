@@ -19,7 +19,7 @@
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 
@@ -30,7 +30,7 @@ namespace azo::rhi
 	namespace detail
 	{
 		struct FacadeBuilder;
-	}
+	} // namespace detail
 
 	struct SwapchainApi;
 
@@ -137,4 +137,4 @@ namespace azo::rhi
 		const SwapchainApi * m_dispatch = nullptr;
 	};
 
-}
+} // namespace azo::rhi

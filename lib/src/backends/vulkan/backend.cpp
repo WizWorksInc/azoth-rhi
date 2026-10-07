@@ -16,11 +16,7 @@
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
-#include "azoth/rhi/backend/support/scope_guard.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
-#include "azoth/rhi/backend/support/subresource.hpp"
-#include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/debug_break.hpp"
 #include "azoth/rhi/core/profiling.hpp"
@@ -30,6 +26,10 @@
 #include "azoth/rhi/native/vulkan_native.hpp"
 #include "azoth/rhi/resources/binding_abi.hpp"
 
+#include "../../../include/azoth/rhi/backend/details/table_validation.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/scope_guard.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/subresource.hpp"
 #include "backends/registration.hpp"
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
@@ -46,7 +46,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <iostream>
 #include <limits>
@@ -218,7 +218,7 @@ namespace azo::rhi
 				return false;
 			}
 
-		}
+		} // namespace
 
 		void report_instance_message(
 			const VulkanInstance * instance,
@@ -1866,7 +1866,7 @@ namespace azo::rhi
 
 				return return_value(handle, error);
 			}
-		}
+		} // namespace
 
 		BufferHandle vulkan_create_buffer(void * impl, const BufferDesc & desc, Error * error) noexcept
 		{
@@ -2105,7 +2105,7 @@ namespace azo::rhi
 				}
 				return flags;
 			}
-		}
+		} // namespace
 
 		bool vulkan_image_create_info(const TextureDesc & desc, vk::ImageCreateInfo & out, Error * error) noexcept
 		{
@@ -2909,7 +2909,7 @@ namespace azo::rhi
 
 				return true;
 			}
-		}
+		} // namespace
 
 		PipelineLayoutHandle vulkan_create_pipeline_layout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 		{
@@ -3113,7 +3113,7 @@ namespace azo::rhi
 
 				return true;
 			}
-		}
+		} // namespace
 
 		GraphicsPipelineHandle vulkan_create_graphics_pipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept
 		{
@@ -3895,7 +3895,7 @@ namespace azo::rhi
 			return succeed(error);
 		}
 
-	}
+	} // namespace vulkan
 
 	Result<VulkanNativeDevice> get_vulkan_native_device(Device device)
 	{
@@ -4083,6 +4083,6 @@ namespace azo::rhi
 			const auto * impl = static_cast<vulkan::VulkanCommandList *>(detail::native_impl_of(commandListImpl, vulkan::render_command_block()));
 			return VulkanCommandListView{ .commandBuffer = impl != nullptr ? impl->buffer : vk::CommandBuffer{} };
 		}
-	}
+	} // namespace native
 
-}
+} // namespace azo::rhi

@@ -37,7 +37,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <print>
 #include <string>
 #include <vector>
@@ -141,7 +141,7 @@ namespace
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

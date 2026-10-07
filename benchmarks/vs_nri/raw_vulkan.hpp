@@ -17,7 +17,7 @@
 #include "harness.hpp"
 #include "scene.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 // Plain Vulkan on the library's own device and command buffer, so a difference between the two processes that shows up here is the environment's.
 namespace vsnri::raw
@@ -43,4 +43,4 @@ namespace vsnri::raw
 	// Fills the device and driver fields from VkPhysicalDeviceDriverProperties, which is what tells MoltenVK from KosmicKrisp.
 	[[nodiscard]] bool Identify(const Handles & handles, Identity & identity);
 
-}
+} // namespace vsnri::raw

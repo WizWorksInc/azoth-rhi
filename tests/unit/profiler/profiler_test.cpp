@@ -288,4 +288,4 @@ namespace
 
 #endif
 
-}
+} // namespace

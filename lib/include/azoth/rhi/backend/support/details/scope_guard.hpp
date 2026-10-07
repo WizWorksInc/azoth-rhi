@@ -52,4 +52,4 @@ namespace azo::rhi::detail
 	{
 		return ScopeGuard<Fn>{ std::move(action) };
 	}
-}
+} // namespace azo::rhi::detail

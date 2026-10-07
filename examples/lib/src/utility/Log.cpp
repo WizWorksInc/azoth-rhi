@@ -38,4 +38,4 @@ namespace fw
 
 		return logger;
 	}
-}
+} // namespace fw

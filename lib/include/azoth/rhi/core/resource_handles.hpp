@@ -105,4 +105,4 @@ namespace azo::rhi
 	using TimelineHandle			  = Handle<TimelineTag>;
 	using BinarySemaphoreHandle		  = Handle<BinarySemaphoreTag>;
 
-}
+} // namespace azo::rhi

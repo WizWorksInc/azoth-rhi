@@ -24,7 +24,7 @@
 #include <azoth/rhi/resources/pipeline.hpp>
 #include <glm/glm.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <functional>
 #include <memory>
 #include <string>
@@ -152,4 +152,4 @@ namespace fw::scene
 		std::unique_ptr<SceneGpuBufferStorage> m_gpuBufferStorage;
 		std::unique_ptr<SceneGpuImageStorage> m_gpuImageStorage;
 	};
-}
+} // namespace fw::scene

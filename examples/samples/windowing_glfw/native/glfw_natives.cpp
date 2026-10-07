@@ -25,7 +25,7 @@
 #endif
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace glfw_native
 {
@@ -76,4 +76,4 @@ namespace glfw_native
 	}
 #endif
 
-}
+} // namespace glfw_native

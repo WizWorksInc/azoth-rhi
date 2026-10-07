@@ -35,7 +35,7 @@ namespace azo::rhi
 	#if AZOTH_COMPILER_MSVC
 		__isb(_ARM64_BARRIER_SY);
 	#else
-		__asm__ __volatile__("isb" ::: "memory"); // NOLINT(hicpp-no-assembler): deliberate architecture spin hint
+		__asm__ __volatile__("isb" ::: "memory"); // NOLINT(*-no-assembler): deliberate architecture spin hint
 	#endif
 #endif
 	}
@@ -67,4 +67,4 @@ namespace azo::rhi
 	private:
 		std::atomic<bool> m_locked{ false };
 	};
-}
+} // namespace azo::rhi

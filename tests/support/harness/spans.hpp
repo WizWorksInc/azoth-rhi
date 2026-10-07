@@ -33,4 +33,4 @@ namespace azo::rhi::test
 		return span[index];
 	}
 
-}
+} // namespace azo::rhi::test

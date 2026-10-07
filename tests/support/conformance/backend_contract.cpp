@@ -24,7 +24,7 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 #include <vector>
 
@@ -136,4 +136,4 @@ namespace azo::rhi::test::oracle
 		CheckGarbageCollection(device);
 	}
 
-}
+} // namespace azo::rhi::test::oracle

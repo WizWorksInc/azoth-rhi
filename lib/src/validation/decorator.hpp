@@ -15,14 +15,15 @@
 #pragma once
 
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/resource_tables.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/spin_lock.hpp"
 #include "azoth/rhi/core/api.hpp"
 #include "azoth/rhi/validation/registry.hpp"
 
+#include "../../include/azoth/rhi/backend/details/resource_tables.hpp"
+
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <thread>
@@ -1027,4 +1028,4 @@ namespace azo::rhi::validation
 
 	[[nodiscard]] AZO_RHI_API DeviceValidator * validator_of(void * deviceImpl) noexcept;
 
-}
+} // namespace azo::rhi::validation

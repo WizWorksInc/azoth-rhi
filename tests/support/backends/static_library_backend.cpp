@@ -48,6 +48,6 @@ namespace
 		return registry.Register<StaticLibraryApi>(CreateInfo());
 	}
 
-}
+} // namespace
 
 AZO_RHI_REGISTER_BACKEND(azo::rhi::make_backend_entry<StaticLibraryApi>(&RegisterStaticLibraryBackend));

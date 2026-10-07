@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi
@@ -138,4 +138,4 @@ namespace azo::rhi
 		bool m_hasValue = true;
 	};
 
-}
+} // namespace azo::rhi

@@ -17,7 +17,7 @@
 #include "azoth/rhi/core/version.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -56,7 +56,7 @@ namespace azo::rhi
 		inline constexpr std::uint64_t kLanguageValue = __cplusplus | kNoExceptionsBit;
 #endif
 
-	}
+	} // namespace detail
 
 	struct AbiStamp final
 	{
@@ -77,4 +77,4 @@ namespace azo::rhi
 		return AbiStamp{};
 	}
 
-}
+} // namespace azo::rhi

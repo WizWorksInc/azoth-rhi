@@ -36,7 +36,7 @@
 #include <array>
 #include <bit>
 #include <cmath>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -177,7 +177,7 @@ namespace
 		SDL_MetalView m_metalView = nullptr;
 	};
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

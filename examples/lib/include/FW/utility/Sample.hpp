@@ -27,4 +27,4 @@ namespace fw
 	[[nodiscard]] const char * RequestedBackend(int argc, char ** argv);
 
 	[[nodiscard]] int ReportNoDevice(const azo::rhi::Error & error);
-}
+} // namespace fw

@@ -32,7 +32,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <span>
 #include <utility>
@@ -319,7 +319,7 @@ namespace azo::rhi::vulkan
 
 			return vk::ComponentSwizzle::eIdentity;
 		}
-	}
+	} // namespace
 
 	vk::ComponentMapping map_component_mapping(const ComponentMapping mapping) noexcept
 	{
@@ -406,7 +406,7 @@ namespace azo::rhi::vulkan
 		{
 			return location == ChromaLocation::eCositedEven ? vk::ChromaLocation::eCositedEven : vk::ChromaLocation::eMidpoint;
 		}
-	}
+	} // namespace
 
 	vk::SamplerYcbcrConversion acquire_ycbcr_conversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept
 	{
@@ -963,4 +963,4 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-}
+} // namespace azo::rhi::vulkan

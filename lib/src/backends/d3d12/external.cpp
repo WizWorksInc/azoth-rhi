@@ -92,7 +92,7 @@ namespace azo::rhi::d3d12
 
 			return Succeed(error);
 		}
-	}
+	} // namespace
 
 	bool D3D12ExportBuffer(void * impl, const BufferHandle buffer, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
@@ -312,4 +312,4 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-}
+} // namespace azo::rhi::d3d12

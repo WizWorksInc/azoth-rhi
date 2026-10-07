@@ -52,4 +52,4 @@ namespace azo::rhi
 		[[nodiscard]] virtual bool provide(const SurfaceRequest & request) = 0;
 	};
 
-}
+} // namespace azo::rhi

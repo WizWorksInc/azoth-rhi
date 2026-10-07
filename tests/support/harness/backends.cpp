@@ -100,4 +100,4 @@ namespace azo::rhi::test
 		GTEST_SKIP() << GetParam().displayName << " is compiled in but produced no device on this machine: " << why;
 	}
 
-}
+} // namespace azo::rhi::test

@@ -73,4 +73,4 @@ namespace azo::rhi
 		std::size_t (*m_liveObjectCount)() = nullptr;
 	};
 
-}
+} // namespace azo::rhi

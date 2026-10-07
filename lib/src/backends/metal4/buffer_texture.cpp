@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/core/external.hpp"
 #include "azoth/rhi/core/flags.hpp"
@@ -23,6 +22,7 @@
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
 
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
 
@@ -285,4 +285,4 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal4

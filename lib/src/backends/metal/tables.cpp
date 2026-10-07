@@ -282,4 +282,4 @@ namespace azo::rhi::metal
 		return block;
 	}
 
-}
+} // namespace azo::rhi::metal

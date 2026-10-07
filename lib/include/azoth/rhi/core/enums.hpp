@@ -15,7 +15,7 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -289,4 +289,4 @@ namespace azo::rhi
 		std::uint32_t height = 0;
 	};
 
-}
+} // namespace azo::rhi

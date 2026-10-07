@@ -20,7 +20,7 @@
 #include "azoth/rhi/device/threading.hpp"
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi
@@ -76,7 +76,7 @@ namespace azo::rhi
 	namespace detail
 	{
 		[[nodiscard]] AZO_RHI_API std::atomic<Profiler *> & profiler_slot() noexcept;
-	}
+	} // namespace detail
 
 	inline void set_profiler(Profiler * profiler) noexcept
 	{
@@ -296,6 +296,6 @@ namespace azo::rhi
 			Profiler * m_profiler;
 			FiberId m_fiber{};
 		};
-	}
+	} // namespace detail
 
-}
+} // namespace azo::rhi

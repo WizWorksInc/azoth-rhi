@@ -21,7 +21,7 @@
 #include "shared/shapes.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace bench::native
@@ -75,4 +75,4 @@ namespace bench::native
 
 #endif
 
-}
+} // namespace bench::native

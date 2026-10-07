@@ -67,7 +67,7 @@ namespace builder_config_test
 	Observations observed{};
 	void RecordInstance(const rhi::InstanceDesc & desc) noexcept;
 	void * RecordDevice(const rhi::DeviceDesc & desc, rhi::Error * error) noexcept;
-}
+} // namespace builder_config_test
 
 namespace azo::rhi::native
 {
@@ -88,7 +88,7 @@ namespace azo::rhi::native
 	{
 		using Config = builder_config_test::InstanceConfig;
 	};
-}
+} // namespace azo::rhi::native
 
 namespace builder_config_test
 {
@@ -165,7 +165,7 @@ namespace builder_config_test
 		};
 		return info;
 	}
-}
+} // namespace builder_config_test
 
 namespace azo::rhi
 {
@@ -177,7 +177,7 @@ namespace azo::rhi
 		builder_config_test::RecordDevice(desc, &refusal);
 		return refusal;
 	}
-}
+} // namespace azo::rhi
 
 namespace
 {
@@ -347,4 +347,4 @@ namespace
 		EXPECT_EQ(observed.deviceBlocks, 2u);
 		EXPECT_EQ(observed.queueLimit, 7u);
 	}
-}
+} // namespace

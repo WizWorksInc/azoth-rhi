@@ -40,7 +40,7 @@
 
 #include <array>
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -113,7 +113,7 @@ namespace
 		return found != targets.end() ? &*found : nullptr;
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

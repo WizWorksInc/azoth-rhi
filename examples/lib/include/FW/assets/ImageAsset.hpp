@@ -16,7 +16,7 @@
 
 #include <azoth/rhi/core/enums.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <filesystem>
 #include <span>
 #include <string>
@@ -61,4 +61,4 @@ namespace fw::assets
 	[[nodiscard]] ImageAsset SolidColorImage(std::uint8_t red, std::uint8_t green, std::uint8_t blue, std::uint8_t alpha);
 
 	[[nodiscard]] std::uint32_t MipCount(std::uint32_t width, std::uint32_t height) noexcept;
-}
+} // namespace fw::assets

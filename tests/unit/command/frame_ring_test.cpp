@@ -23,7 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace rhi  = azo::rhi;
@@ -196,4 +196,4 @@ namespace
 		EXPECT_TRUE(test::Ok(list.end(error), error));
 	}
 
-}
+} // namespace

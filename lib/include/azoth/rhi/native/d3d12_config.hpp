@@ -35,4 +35,4 @@ namespace azo::rhi::native
 		using Config = D3D12DeviceConfig;
 	};
 
-}
+} // namespace azo::rhi::native

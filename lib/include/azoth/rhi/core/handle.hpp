@@ -15,7 +15,7 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 
 namespace azo::rhi
@@ -45,7 +45,7 @@ namespace azo::rhi
 		{
 			return (deviceTag << kHandleSlotBits) | slot;
 		}
-	}
+	} // namespace detail
 
 	enum class ResourceType : std::uint8_t
 	{
@@ -90,4 +90,4 @@ namespace azo::rhi
 
 		[[nodiscard]] friend constexpr bool operator==(Handle lhs, Handle rhs) noexcept = default;
 	};
-}
+} // namespace azo::rhi

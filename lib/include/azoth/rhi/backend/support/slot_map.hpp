@@ -24,8 +24,9 @@
 #include <atomic>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 namespace azo::rhi
@@ -72,7 +73,7 @@ namespace azo::rhi
 				const std::uint32_t slotIndex = m_free.back();
 				m_free.pop_back();
 
-				Slot & slot	 = At(slotIndex);
+				Slot & slot	 = At(*this, slotIndex);
 				slot.payload = std::move(payload);
 
 				slot.live.store(true, std::memory_order_release);
@@ -88,7 +89,7 @@ namespace azo::rhi
 				return HandleType{};
 			}
 
-			Slot & slot = At(slotIndex);
+			Slot & slot = At(*this, slotIndex);
 			slot.generation.store(kInitialGeneration, std::memory_order_relaxed);
 			slot.payload = std::move(payload);
 			slot.live.store(true, std::memory_order_release);
@@ -102,19 +103,19 @@ namespace azo::rhi
 
 		[[nodiscard]] AZO_FORCE_INLINE Payload * resolve(HandleType handle, bool validate) noexcept
 		{
-			Slot * slot = Find(handle, validate);
+			Slot * slot = Find(*this, handle, validate);
 			return slot != nullptr ? &slot->payload : nullptr;
 		}
 
 		[[nodiscard]] AZO_FORCE_INLINE const Payload * resolve(HandleType handle, bool validate) const noexcept
 		{
-			const Slot * slot = const_cast<SlotMap *>(this)->Find(handle, validate);
+			const Slot * slot = Find(*this, handle, validate);
 			return slot != nullptr ? &slot->payload : nullptr;
 		}
 
 		[[nodiscard]] bool retire(HandleType handle, bool validate) noexcept
 		{
-			Slot * slot = Find(handle, validate);
+			Slot * slot = Find(*this, handle, validate);
 			if (slot == nullptr)
 			{
 				return false;
@@ -128,6 +129,7 @@ namespace azo::rhi
 			slot->generation.fetch_add(1, std::memory_order_release);
 
 			static_cast<void>(detail::try_push_back(m_free, detail::slot_of_index(handle.index)));
+
 			return true;
 		}
 
@@ -140,7 +142,7 @@ namespace azo::rhi
 
 			for (std::uint32_t index = 0; index < count; ++index)
 			{
-				Slot & slot = At(index);
+				Slot & slot = At(*this, index);
 				if (!slot.live.load(std::memory_order_relaxed) || !predicate(std::as_const(slot.payload)))
 				{
 					continue;
@@ -162,7 +164,7 @@ namespace azo::rhi
 			const std::uint32_t count = m_count.load(std::memory_order_acquire);
 			for (std::uint32_t index = 0; index < count; ++index)
 			{
-				Slot & slot = At(index);
+				Slot & slot = At(*this, index);
 				if (slot.live.load(std::memory_order_acquire))
 				{
 					fn(slot.payload);
@@ -175,7 +177,7 @@ namespace azo::rhi
 			const std::uint32_t count = m_count.load(std::memory_order_relaxed);
 			for (std::uint32_t chunk = 0; chunk < kMaxChunks; ++chunk)
 			{
-				Slot * slots = azo::rhi::detail::at(m_chunks, chunk);
+				Slot * slots = detail::at(m_chunks, chunk);
 				if (slots == nullptr)
 				{
 					continue;
@@ -185,7 +187,7 @@ namespace azo::rhi
 				const std::uint32_t size = SizeOfChunk(chunk);
 				std::destroy_n(slots, count > base ? std::min(size, count - base) : 0);
 				host_free(slots, static_cast<std::size_t>(size) * sizeof(Slot), alignof(Slot));
-				azo::rhi::detail::at(m_chunks, chunk) = nullptr;
+				detail::at(m_chunks, chunk) = nullptr;
 			}
 
 			m_count.store(0, std::memory_order_relaxed);
@@ -198,7 +200,7 @@ namespace azo::rhi
 			std::size_t live		  = 0;
 			for (std::uint32_t index = 0; index < count; ++index)
 			{
-				if (const_cast<SlotMap *>(this)->At(index).live.load(std::memory_order_acquire))
+				if (At(*this, index).live.load(std::memory_order_acquire))
 				{
 					++live;
 				}
@@ -234,10 +236,13 @@ namespace azo::rhi
 			return kFirstChunkSlots << chunk;
 		}
 
-		[[nodiscard]] AZO_FORCE_INLINE Slot & At(const std::uint32_t slotIndex) noexcept
+		template <class Self>
+		[[nodiscard]] AZO_FORCE_INLINE static auto & At(Self & self, const std::uint32_t slotIndex) noexcept
 		{
+			using SlotType			  = std::conditional_t<std::is_const_v<Self>, const Slot, Slot>;
 			const std::uint32_t chunk = ChunkOfSlot(slotIndex);
-			return azo::rhi::detail::at(m_chunks, chunk)[slotIndex - BaseOfChunk(chunk)]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+			SlotType * slots		  = detail::at(self.m_chunks, chunk);
+			return slots[slotIndex - BaseOfChunk(chunk)]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 		}
 
 		[[nodiscard]] bool EnsureChunkFor(const std::uint32_t slotIndex) noexcept
@@ -248,7 +253,7 @@ namespace azo::rhi
 				return false;
 			}
 
-			if (azo::rhi::detail::at(m_chunks, chunk) != nullptr)
+			if (detail::at(m_chunks, chunk) != nullptr)
 			{
 				return true;
 			}
@@ -262,25 +267,27 @@ namespace azo::rhi
 
 			auto * slots = static_cast<Slot *>(storage);
 			std::uninitialized_value_construct_n(slots, size);
-			azo::rhi::detail::at(m_chunks, chunk) = slots;
+			detail::at(m_chunks, chunk) = slots;
+
 			return true;
 		}
 
-		[[nodiscard]] AZO_FORCE_INLINE Slot * Find(const HandleType handle, const bool validate) noexcept
+		template <class Self>
+		[[nodiscard]] AZO_FORCE_INLINE static auto Find(Self & self, const HandleType handle, const bool validate) noexcept -> decltype(&At(self, 0))
 		{
-			if (detail::tag_of_index(handle.index) != m_deviceTag)
+			if (detail::tag_of_index(handle.index) != self.m_deviceTag)
 			{
 				return nullptr;
 			}
 
 			const std::uint32_t slotIndex = detail::slot_of_index(handle.index);
 
-			if (slotIndex >= m_count.load(std::memory_order_acquire))
+			if (slotIndex >= self.m_count.load(std::memory_order_acquire))
 			{
 				return nullptr;
 			}
 
-			Slot & slot = At(slotIndex);
+			auto & slot = At(self, slotIndex);
 			if (validate && (!slot.live.load(std::memory_order_acquire) || slot.generation.load(std::memory_order_acquire) != handle.generation))
 			{
 				return nullptr;
@@ -294,4 +301,4 @@ namespace azo::rhi
 		detail::HostVector<std::uint32_t> m_free;
 		std::uint32_t m_deviceTag = 0;
 	};
-}
+} // namespace azo::rhi

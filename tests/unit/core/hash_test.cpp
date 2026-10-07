@@ -19,7 +19,7 @@
 #include <array>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string_view>
 
@@ -114,4 +114,4 @@ namespace
 		}
 	}
 
-}
+} // namespace

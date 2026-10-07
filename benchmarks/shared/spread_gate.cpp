@@ -51,4 +51,4 @@ namespace bench
 		ConsoleReporter::ReportRuns(reports);
 	}
 
-}
+} // namespace bench

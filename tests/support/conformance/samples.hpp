@@ -24,7 +24,7 @@
 #include "azoth/rhi/resources/texture_view.hpp"
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::test::samples
 {
@@ -214,4 +214,4 @@ namespace azo::rhi::test::samples
 		};
 	}
 
-}
+} // namespace azo::rhi::test::samples

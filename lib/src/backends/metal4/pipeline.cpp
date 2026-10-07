@@ -48,7 +48,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -195,7 +195,7 @@ namespace azo::rhi::metal4
 
 			return true;
 		}
-	}
+	} // namespace
 
 	bool binding_maps_agree(Metal4Device * device, const PipelineLayoutHandle layout, const std::span<const ShaderBinary> shaders, Error * error) noexcept
 	{
@@ -251,7 +251,7 @@ namespace azo::rhi::metal4
 
 			return descriptor;
 		}
-	}
+	} // namespace
 
 	ComputePipelineHandle metal4_create_compute_pipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
 	{
@@ -518,4 +518,4 @@ namespace azo::rhi::metal4
 		return return_value(handle, error);
 	}
 
-}
+} // namespace azo::rhi::metal4

@@ -18,7 +18,7 @@
 #include "azoth/rhi/core/flags.hpp"
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -68,7 +68,7 @@ namespace azo::rhi
 
 			return bits;
 		}
-	}
+	} // namespace detail
 
 	static_assert(
 		detail::all_external_handle_bits() == (1u << kAllExternalHandleTypes.size()) - 1u,
@@ -114,4 +114,4 @@ namespace azo::rhi
 		Flags<ExternalHandleType> compatibleTypes;
 	};
 
-}
+} // namespace azo::rhi

@@ -18,7 +18,7 @@
 #include <azoth/rhi/device/api_tags.hpp>
 #include <azoth/rhi/host/surface_source.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <functional>
 #include <string>
 
@@ -78,4 +78,4 @@ namespace fw::platform
 		SDL_MetalView m_metalView = nullptr;
 		bool m_resized			  = false;
 	};
-}
+} // namespace fw::platform

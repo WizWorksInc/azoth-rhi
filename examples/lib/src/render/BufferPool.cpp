@@ -45,7 +45,7 @@ namespace fw::render
 
 			return std::max<std::uint64_t>(alignment, 1);
 		}
-	}
+	} // namespace
 
 	bool BufferAllocation::WriteBytes(const std::span<const std::uint8_t> bytes) const noexcept
 	{
@@ -188,4 +188,4 @@ namespace fw::render
 
 		return m_blocks.back().get();
 	}
-}
+} // namespace fw::render

@@ -26,4 +26,4 @@ namespace azo::rhi
 	Result<void> register_metal4_backend(GraphicsApiRegistry & registry);
 	Result<void> register_null_backend(GraphicsApiRegistry & registry);
 
-}
+} // namespace azo::rhi

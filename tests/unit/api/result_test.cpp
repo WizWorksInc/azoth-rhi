@@ -183,4 +183,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

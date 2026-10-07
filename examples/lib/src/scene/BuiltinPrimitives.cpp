@@ -351,7 +351,7 @@ namespace fw::scene
 
 			return mesh;
 		}
-	}
+	} // namespace
 
 	std::string_view GetBuiltinMeshName(const BuiltinMeshType builtinMeshType) noexcept
 	{
@@ -387,4 +387,4 @@ namespace fw::scene
 
 		return {};
 	}
-}
+} // namespace fw::scene

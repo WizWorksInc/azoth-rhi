@@ -83,7 +83,7 @@ namespace bench
 			return false;
 		}
 
-	}
+	} // namespace
 
 	std::string_view ValidationName(const rhi::ValidationMode mode)
 	{
@@ -223,7 +223,7 @@ namespace bench
 			return argument.starts_with(flag) && argument.size() > flag.size() && argument[flag.size()] == '=';
 		}
 
-	}
+	} // namespace
 
 	std::size_t FlagValue(const std::span<char * const> args, const std::string_view flag, const std::size_t fallback)
 	{
@@ -269,4 +269,4 @@ namespace bench
 		);
 	}
 
-}
+} // namespace bench

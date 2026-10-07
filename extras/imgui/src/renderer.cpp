@@ -147,7 +147,7 @@ namespace azo::rhi::imgui
 
 			return stages;
 		}
-	}
+	} // namespace
 
 	Result<Renderer> Renderer::Create(Device & device, const RendererDesc & desc) noexcept
 	{
@@ -949,4 +949,4 @@ namespace azo::rhi::imgui
 
 		return recorded;
 	}
-}
+} // namespace azo::rhi::imgui

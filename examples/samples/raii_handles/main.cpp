@@ -28,7 +28,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <span>
@@ -260,7 +260,7 @@ namespace
 
 		return RoundTripOutcome::eDone;
 	}
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

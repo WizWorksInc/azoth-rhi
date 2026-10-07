@@ -13,7 +13,8 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/support/format_info.hpp"
-#include "azoth/rhi/backend/support/subresource.hpp"
+
+#include "../../../lib/include/azoth/rhi/backend/support/details/subresource.hpp"
 
 #include <gtest/gtest.h>
 
@@ -132,4 +133,4 @@ namespace
 		EXPECT_TRUE(rhi::detail::resolve_subresource_range(range, 8, 6).is_empty());
 	}
 
-}
+} // namespace

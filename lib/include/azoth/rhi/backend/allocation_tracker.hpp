@@ -21,7 +21,7 @@
 #include <array>
 #include <cstddef>
 // ReSharper disable once CppUnusedIncludeDirective
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::detail
 {
@@ -59,4 +59,4 @@ namespace azo::rhi::detail
 		std::array<DeviceRecords, kResourceTypeCount> m_records;
 	};
 
-} // namespace azo::rhi
+} // namespace azo::rhi::detail

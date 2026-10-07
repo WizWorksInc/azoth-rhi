@@ -37,7 +37,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <filesystem>
 #include <format>
@@ -312,7 +312,7 @@ namespace
 		}
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

@@ -21,7 +21,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace bench
@@ -121,4 +121,4 @@ fragment float4 fragmentMain(VertexOut fragment_in [[stage_in]])
 		std::array<azo::rhi::TextureBarrier, 1> holdBarrier{};
 	};
 
-}
+} // namespace bench

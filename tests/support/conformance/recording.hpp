@@ -95,4 +95,4 @@ namespace azo::rhi::test
 		bool m_recording = false;
 	};
 
-}
+} // namespace azo::rhi::test

@@ -25,7 +25,7 @@
 #include <slang.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <vector>
 
@@ -749,4 +749,4 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 		static_cast<void>(device.destroy(setLayout, {}, rhiError));
 	}
 
-}
+} // namespace

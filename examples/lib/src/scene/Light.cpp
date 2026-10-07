@@ -30,4 +30,4 @@ namespace fw::scene
 			.outerCosAndPadding = glm::vec4{ std::cos(light.outerConeAngle), 0.0f, 0.0f, 0.0f },
 		};
 	}
-}
+} // namespace fw::scene

@@ -28,7 +28,7 @@ namespace fw::scene
 		constexpr glm::vec3 kForward{ 0.0f, 0.0f, -1.0f };
 		constexpr glm::vec3 kRight{ 1.0f, 0.0f, 0.0f };
 		constexpr glm::vec3 kUp{ 0.0f, 1.0f, 0.0f };
-	}
+	} // namespace
 
 	glm::mat4 Camera::GetView() const noexcept
 	{
@@ -109,4 +109,4 @@ namespace fw::scene
 
 		SetBounds(-halfWidth, halfWidth, -halfHeight, halfHeight);
 	}
-}
+} // namespace fw::scene

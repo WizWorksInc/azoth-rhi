@@ -24,7 +24,7 @@
 
 #include <array>
 #include <chrono>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <thread>
 #include <type_traits>
@@ -258,4 +258,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
-}
+} // namespace

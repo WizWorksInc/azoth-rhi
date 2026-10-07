@@ -16,10 +16,11 @@
 
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
-#include "azoth/rhi/backend/table_validation.hpp"
+
+#include "../../../lib/include/azoth/rhi/backend/details/table_validation.hpp"
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <new>
 
@@ -109,7 +110,7 @@ namespace azo::rhi::test::minimal
 			return Succeed(error);
 		}
 
-	}
+	} // namespace
 
 	namespace
 	{
@@ -758,7 +759,7 @@ namespace azo::rhi::test::minimal
 			return New(publishing_object<Published<InstanceApi, &InstanceBlock<Presenting>>>(), Presenting);
 		}
 
-	}
+	} // namespace
 
 	Result<void> RegisterHeadless(GraphicsApiRegistry & registry)
 	{
@@ -796,4 +797,4 @@ namespace azo::rhi::test::minimal
 		return g_live.load(std::memory_order_relaxed);
 	}
 
-}
+} // namespace azo::rhi::test::minimal

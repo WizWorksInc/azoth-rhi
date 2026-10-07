@@ -51,4 +51,4 @@ namespace fw::scene
 	};
 
 	[[nodiscard]] GltfLoadResult LoadGltf(Scene & scene, const std::filesystem::path & path, const GltfLoadOptions & options = {});
-}
+} // namespace fw::scene

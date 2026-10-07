@@ -33,7 +33,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <span>
@@ -49,7 +49,7 @@ namespace
 		return value ? "yes" : "no";
 	}
 
-}
+} // namespace
 
 namespace
 {
@@ -66,7 +66,7 @@ namespace
 		return static_cast<std::uint8_t>(std::lround(channel * 255.0f));
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

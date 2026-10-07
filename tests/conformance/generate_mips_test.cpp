@@ -27,7 +27,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <ios>
 #include <ostream>
@@ -594,4 +594,4 @@ namespace
 		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 	}
 
-}
+} // namespace

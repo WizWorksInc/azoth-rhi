@@ -22,7 +22,7 @@
 #include <array>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <string_view>
 
@@ -768,4 +768,4 @@ namespace azo::rhi::detail
 		}
 	}
 
-}
+} // namespace azo::rhi::detail

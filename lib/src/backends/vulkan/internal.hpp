@@ -19,15 +19,15 @@
 #include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
-#include "azoth/rhi/backend/support/scope_guard.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
-#include "azoth/rhi/backend/support/subresource.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/native/vulkan_native.hpp"
 #include "azoth/rhi/resources/binding_abi.hpp"
 #include "azoth/rhi/rhi.hpp"
 
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/scope_guard.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/subresource.hpp"
 #include "backends/vulkan/barrier_tables.hpp"
 #include "backends/vulkan/layouts.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
@@ -40,7 +40,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <optional>
 #include <span>
@@ -1578,4 +1578,4 @@ namespace azo::rhi::vulkan
 		return fail(last_error(args...), ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: operation not implemented yet");
 	}
 
-}
+} // namespace azo::rhi::vulkan

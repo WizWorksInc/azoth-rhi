@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/core/api.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -32,4 +32,4 @@ namespace azo::rhi
 
 	[[nodiscard]] AZO_RHI_API ClipSpaceConvention get_clip_space() noexcept;
 
-}
+} // namespace azo::rhi

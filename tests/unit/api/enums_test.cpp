@@ -22,7 +22,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <type_traits>
 
 namespace rhi = azo::rhi;
@@ -266,4 +266,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

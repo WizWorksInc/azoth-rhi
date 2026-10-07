@@ -17,7 +17,7 @@
 #include "azoth/rhi/core/api.hpp"
 #include "azoth/rhi/host/profiler.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 #ifndef TRACY_ENABLE
 	#error "The Tracy sink was not built. Add a Tracy client built with TRACY_ENABLE to your build and it is picked up from that target."
@@ -41,4 +41,4 @@ namespace azo::rhi
 		void leave_fiber(FiberId fiber) override;
 	};
 
-}
+} // namespace azo::rhi

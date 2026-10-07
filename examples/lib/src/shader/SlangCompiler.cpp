@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <format>
 #include <memory>
 #include <string>
@@ -67,7 +67,7 @@ namespace fw::shader
 		{
 			return diagnostics != nullptr ? static_cast<const char *>(diagnostics->getBufferPointer()) : fallback;
 		}
-	}
+	} // namespace
 
 	struct SlangCompiler::Session final
 	{
@@ -215,4 +215,4 @@ namespace fw::shader
 		m_session->code.push_back(std::move(code));
 		return binary;
 	}
-}
+} // namespace fw::shader

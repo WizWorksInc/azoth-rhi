@@ -71,4 +71,4 @@ namespace fw::scene
 	};
 
 	[[nodiscard]] TransformGpu MakeTransformGpu(const glm::mat4 & worldMatrix) noexcept;
-}
+} // namespace fw::scene

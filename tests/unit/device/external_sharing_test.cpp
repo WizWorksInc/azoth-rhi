@@ -22,7 +22,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <utility>
@@ -353,4 +353,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().destroy(exported, {}, error), error));
 	}
 
-}
+} // namespace

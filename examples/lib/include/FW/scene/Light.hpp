@@ -16,7 +16,7 @@
 
 #include <glm/glm.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 
 namespace fw::scene
@@ -59,4 +59,4 @@ namespace fw::scene
 	};
 
 	[[nodiscard]] LightGpu MakeLightGpu(const Light & light) noexcept;
-}
+} // namespace fw::scene

@@ -27,7 +27,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::vulkan
 {
@@ -608,4 +608,4 @@ namespace azo::rhi::vulkan
 		return fail(error, ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: destroy of this resource type not implemented yet");
 	}
 
-}
+} // namespace azo::rhi::vulkan

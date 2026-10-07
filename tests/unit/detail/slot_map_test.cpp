@@ -19,7 +19,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <thread>
 #include <vector>
@@ -337,4 +337,4 @@ namespace
 		EXPECT_EQ(map.resolve(early, true), beforeGrowth) << "a slot moved, which is the whole thing chunked storage rules out";
 	}
 
-}
+} // namespace

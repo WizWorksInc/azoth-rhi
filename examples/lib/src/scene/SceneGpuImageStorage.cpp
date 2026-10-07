@@ -43,7 +43,7 @@ namespace fw::scene
 		{
 			return (value + alignment - 1) & ~(alignment - 1);
 		}
-	}
+	} // namespace
 
 	SceneGpuImageStorage::SceneGpuImageStorage(const SceneConfig & sceneConfig)
 		: m_config(sceneConfig),
@@ -418,4 +418,4 @@ namespace fw::scene
 
 		return m_resampler.GenerateMips(list, texture, error);
 	}
-}
+} // namespace fw::scene

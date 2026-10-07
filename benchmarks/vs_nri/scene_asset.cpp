@@ -365,7 +365,7 @@ namespace vsnri
 			return true;
 		}
 
-	}
+	} // namespace
 
 	bool LoadScene(const std::filesystem::path & document, const std::filesystem::path & textureDirectory, SceneAsset & scene, std::string & error)
 	{
@@ -504,4 +504,4 @@ namespace vsnri
 #endif
 	}
 
-}
+} // namespace vsnri

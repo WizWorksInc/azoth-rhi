@@ -84,4 +84,4 @@ namespace azo::rhi::metal4
 		return {};
 	}
 
-}
+} // namespace azo::rhi::metal4

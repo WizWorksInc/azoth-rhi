@@ -46,4 +46,4 @@ namespace glfw_native
 		return layer;
 	}
 
-}
+} // namespace glfw_native

@@ -42,4 +42,4 @@ namespace azo::rhi::test::oracle
 
 	void CheckWholeContract(Device device, const BackendIdentity & expected);
 
-}
+} // namespace azo::rhi::test::oracle

@@ -77,7 +77,7 @@ namespace langs
 			return found != targets.end() ? &*found : nullptr;
 		}
 
-	}
+	} // namespace
 
 	struct ShaderCompiler::Session final
 	{
@@ -227,4 +227,4 @@ namespace langs
 		return binary;
 	}
 
-}
+} // namespace langs

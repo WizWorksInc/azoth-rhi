@@ -26,7 +26,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <new>
 #include <span>
 #include <string_view>
@@ -365,7 +365,7 @@ namespace
 			return info;
 		}
 
-	}
+	} // namespace holed
 
 	TEST(CreateInstance, RejectsABackendThatLeftADispatchEntryUnsetRatherThanCallingThroughIt)
 	{
@@ -490,4 +490,4 @@ namespace
 		EXPECT_EQ(holed::g_destroyCalls, 1u) << "the owner released it on the way out";
 	}
 
-}
+} // namespace

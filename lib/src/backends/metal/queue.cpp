@@ -33,7 +33,7 @@
 #include <Metal/MTLCommandBuffer.hpp>
 #include <Metal/MTLCommandQueue.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::metal
 {
@@ -257,7 +257,7 @@ namespace azo::rhi::metal
 			static constexpr BackendObject kObject{ .queryInterface = &metal_command_list_query_interface };
 			return &kObject;
 		}
-	}
+	} // namespace
 
 	void * metal_command_pool_allocate(void * impl, CString debugName, Error * error) noexcept
 	{
@@ -319,4 +319,4 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal

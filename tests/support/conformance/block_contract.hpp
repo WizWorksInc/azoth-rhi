@@ -27,4 +27,4 @@ namespace azo::rhi::test::oracle
 
 	void CheckConcurrentBlockQuery(Device device);
 
-}
+} // namespace azo::rhi::test::oracle

@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <thread>
 #include <vector>
 
@@ -149,7 +149,7 @@ namespace azo::rhi::test::oracle
 																		  "after that work would hold a pointer the first one never saw";
 		}
 
-	}
+	} // namespace
 
 	void CheckRequiredBlocks(Device device)
 	{
@@ -274,4 +274,4 @@ namespace azo::rhi::test::oracle
 		ExpectAnswersTheSameWayConcurrently<RenderCommandApi>(detail::FacadeBuilder::impl_of(list), "a command list");
 	}
 
-}
+} // namespace azo::rhi::test::oracle

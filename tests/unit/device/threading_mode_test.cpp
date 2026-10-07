@@ -27,7 +27,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 #include <semaphore>
 #include <string_view>
@@ -759,4 +759,4 @@ namespace
 		EXPECT_GT(afterTextures, beforeTextures) << "no buffer was created during the texture run, so the two never actually ran at the same time";
 	}
 
-}
+} // namespace

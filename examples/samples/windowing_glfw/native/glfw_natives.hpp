@@ -16,7 +16,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace glfw_native
 {
@@ -31,4 +31,4 @@ namespace glfw_native
 
 	[[nodiscard]] void * Win32WindowHandle(GLFWwindow * window);
 
-}
+} // namespace glfw_native

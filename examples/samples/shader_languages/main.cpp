@@ -33,7 +33,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <span>
@@ -235,7 +235,7 @@ namespace
 		return true;
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

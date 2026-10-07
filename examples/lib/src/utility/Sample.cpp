@@ -55,4 +55,4 @@ namespace fw
 
 		return kSkipExitCode;
 	}
-}
+} // namespace fw

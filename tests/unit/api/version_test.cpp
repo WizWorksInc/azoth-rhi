@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -91,4 +91,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

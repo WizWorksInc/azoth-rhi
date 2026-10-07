@@ -15,7 +15,7 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string_view>
 
@@ -78,4 +78,4 @@ namespace azo::rhi::hash
 		}
 		return hash;
 	}
-}
+} // namespace azo::rhi::hash

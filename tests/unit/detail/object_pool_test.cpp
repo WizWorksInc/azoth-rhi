@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <vector>
 
 namespace detail = azo::rhi::detail;
@@ -218,4 +218,4 @@ namespace
 		}
 	}
 
-}
+} // namespace

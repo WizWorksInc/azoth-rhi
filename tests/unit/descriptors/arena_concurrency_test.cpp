@@ -24,7 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -107,4 +107,4 @@ namespace
 		EXPECT_EQ(seen.size(), static_cast<std::size_t>(2 * kPerThread));
 	}
 
-}
+} // namespace

@@ -29,4 +29,4 @@ namespace azo::rhi::detail
 		desc.debugName = nullptr;
 		return desc;
 	}
-}
+} // namespace azo::rhi::detail

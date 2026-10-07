@@ -17,7 +17,7 @@
 #include "azoth/rhi/backend/interface.hpp"
 #include "azoth/rhi/core/api.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::native
 {
@@ -54,4 +54,4 @@ namespace azo::rhi::native
 
 	[[nodiscard]] AZO_RHI_API void * resolve_vulkan_loader();
 
-}
+} // namespace azo::rhi::native

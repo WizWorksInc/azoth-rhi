@@ -48,6 +48,6 @@ namespace
 		return registry.Register<ObjectLibraryApi>(CreateInfo());
 	}
 
-}
+} // namespace
 
 AZO_RHI_REGISTER_BACKEND(azo::rhi::make_backend_entry<ObjectLibraryApi>(&RegisterObjectLibraryBackend));

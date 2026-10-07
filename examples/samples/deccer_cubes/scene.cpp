@@ -24,7 +24,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -295,7 +295,7 @@ namespace deccer
 			return true;
 		}
 
-	}
+	} // namespace
 
 	bool Load(const char * path, Scene & scene, std::string & error)
 	{
@@ -404,4 +404,4 @@ namespace deccer
 		return true;
 	}
 
-}
+} // namespace deccer

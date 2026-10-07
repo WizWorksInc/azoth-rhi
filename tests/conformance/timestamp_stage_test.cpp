@@ -26,7 +26,7 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace rhi  = azo::rhi;
 namespace test = azo::rhi::test;
@@ -120,4 +120,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
-}
+} // namespace

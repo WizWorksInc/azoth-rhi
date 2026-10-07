@@ -54,7 +54,7 @@
 #include <bit>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -385,7 +385,7 @@ namespace
 		return true;
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

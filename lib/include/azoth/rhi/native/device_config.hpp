@@ -80,6 +80,6 @@ namespace azo::rhi
 			return find_config_block<typename InstanceConfigFor<Api>::Config>(entries, Api::kId);
 		}
 
-	}
+	} // namespace native
 
-}
+} // namespace azo::rhi

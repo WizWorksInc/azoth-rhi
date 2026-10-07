@@ -42,7 +42,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <utility>
 
@@ -66,7 +66,7 @@ namespace azo::rhi::metal4
 			CmdList * record = list_of(object);
 			return record != nullptr ? record->commandBuffer.get() : nullptr;
 		}
-	}
+	} // namespace
 
 	[[nodiscard]] static bool submittable_list(const CmdList * record) noexcept
 	{
@@ -306,7 +306,7 @@ namespace azo::rhi::metal4
 			static constexpr BackendObject kObject{ .queryInterface = &metal4_command_list_query_interface };
 			return &kObject;
 		}
-	}
+	} // namespace
 
 	void * metal4_command_pool_allocate(void * impl, CString debugName, Error * error) noexcept
 	{
@@ -462,4 +462,4 @@ namespace azo::rhi::metal4
 		set->requestResidency();
 	}
 
-}
+} // namespace azo::rhi::metal4

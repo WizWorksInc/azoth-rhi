@@ -31,7 +31,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <print>
@@ -44,7 +44,7 @@ namespace rhi = azo::rhi;
 namespace
 {
 
-}
+} // namespace
 
 namespace
 {
@@ -128,7 +128,7 @@ namespace
 		return std::ranges::equal(observed, expected);
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

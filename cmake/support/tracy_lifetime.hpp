@@ -55,4 +55,4 @@ namespace azo::rhi::support
 		bool m_ownsProfiler = false;
 #endif
 	};
-}
+} // namespace azo::rhi::support

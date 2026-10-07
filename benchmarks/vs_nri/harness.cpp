@@ -501,7 +501,7 @@ namespace vsnri
 			benchmark::AddCustomContext("scene_path_frames", std::to_string(kPathFrames));
 		}
 
-	}
+	} // namespace
 
 	namespace
 	{
@@ -532,7 +532,7 @@ namespace vsnri
 			return *reinterpret_cast<const AllocationHeader *>(static_cast<std::byte *>(memory) - sizeof(AllocationHeader));
 		}
 
-	}
+	} // namespace
 
 	void * CountedAllocate(const std::size_t size, const std::size_t alignment) noexcept
 	{
@@ -789,4 +789,4 @@ namespace vsnri
 		return arm.Drain() ? 0 : 1;
 	}
 
-}
+} // namespace vsnri

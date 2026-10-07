@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <concepts>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <type_traits>
 #include <unordered_set>
@@ -182,4 +182,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

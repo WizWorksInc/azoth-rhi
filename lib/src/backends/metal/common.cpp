@@ -100,4 +100,4 @@ namespace azo::rhi::metal
 		return {};
 	}
 
-}
+} // namespace azo::rhi::metal

@@ -24,7 +24,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <vector>
 
@@ -282,4 +282,4 @@ namespace azo::rhi::vulkan
 		sc = {};
 	}
 
-}
+} // namespace azo::rhi::vulkan

@@ -27,7 +27,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -1565,4 +1565,4 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		EXPECT_FALSE(rhi::CommandList{}.is_valid());
 	}
 
-}
+} // namespace

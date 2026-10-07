@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <functional>
 #include <memory>
 #include <span>
@@ -421,4 +421,4 @@ namespace azo::rhi
 		std::size_t m_preferredFeatureCount = 0;
 		std::string m_debugName;
 	};
-}
+} // namespace azo::rhi

@@ -51,7 +51,7 @@ namespace fw::scene
 			pitchDegrees = glm::degrees(std::asin(std::clamp(unit.y, -1.0f, 1.0f)));
 			yawDegrees	 = glm::degrees(std::atan2(unit.x, -unit.z));
 		}
-	}
+	} // namespace
 
 	void OrbitCameraController::Frame(PerspectiveCamera & camera, const Aabb & bounds, const float margin) noexcept
 	{
@@ -138,4 +138,4 @@ namespace fw::scene
 
 		camera.LookAt(position, position + forward);
 	}
-}
+} // namespace fw::scene

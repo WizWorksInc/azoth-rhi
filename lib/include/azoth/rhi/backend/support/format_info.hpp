@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/core/enums.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::detail
 {
@@ -130,4 +130,4 @@ namespace azo::rhi::detail
 	{
 		return tight_row_pitch(format, widthTexels) * block_rows(format, heightTexels);
 	}
-}
+} // namespace azo::rhi::detail

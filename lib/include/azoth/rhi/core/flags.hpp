@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <type_traits>
 
 namespace azo::rhi
@@ -101,4 +101,4 @@ namespace azo::rhi
 		Underlying m_bits = 0;
 	};
 
-}
+} // namespace azo::rhi

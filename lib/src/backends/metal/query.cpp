@@ -37,7 +37,7 @@
 #include <Metal/MTLDevice.hpp>
 #include <Metal/MTLResource.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi::metal
@@ -287,4 +287,4 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal

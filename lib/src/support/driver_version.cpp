@@ -17,7 +17,7 @@
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/device/device.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <format>
 #include <iterator>
 
@@ -34,7 +34,7 @@ namespace azo::rhi
 		{
 			return (v >> 12) & 0x3FFU;
 		}
-	}
+	} // namespace
 
 	detail::HostString format_vulkan_driver_version(const DriverId id, const std::uint32_t rawVersion)
 	{
@@ -78,4 +78,4 @@ namespace azo::rhi
 		std::format_to(std::back_inserter(out), "{}.{}.{}.{}", product, version, subVersion, build);
 		return out;
 	}
-}
+} // namespace azo::rhi

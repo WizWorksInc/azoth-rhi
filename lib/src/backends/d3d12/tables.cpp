@@ -316,6 +316,6 @@ namespace azo::rhi::d3d12
 		return block;
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

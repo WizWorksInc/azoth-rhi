@@ -110,4 +110,4 @@ namespace fw::scene
 		float m_fastMultiplier = 4.0f;
 		float m_lookSpeed	   = 0.15f;
 	};
-}
+} // namespace fw::scene

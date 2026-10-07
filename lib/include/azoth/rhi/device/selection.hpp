@@ -22,7 +22,7 @@
 #include "azoth/rhi/device/device.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 #include <span>
 #include <string_view>
@@ -259,4 +259,4 @@ namespace azo::rhi
 		BackendRequest m_request = BackendRequest::eTry;
 	};
 
-}
+} // namespace azo::rhi

@@ -22,7 +22,7 @@
 #include "azoth/rhi/present/swapchain.hpp"
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <cstring>
 
@@ -57,7 +57,7 @@ namespace azo::rhi
 			}
 		};
 
-	}
+	} // namespace
 
 #ifdef AZOTH_RHI_BACKEND_VULKAN
 	HostUniquePtr<PresentationBackend> make_vulkan_presentation_backend();
@@ -70,7 +70,7 @@ namespace azo::rhi
 			return nullptr;
 		}
 
-	}
+	} // namespace native
 #endif
 
 	GraphicsApiId select_graphics_api(const char * requestedOverride)
@@ -133,4 +133,4 @@ namespace azo::rhi
 		return nullptr;
 	}
 
-}
+} // namespace azo::rhi

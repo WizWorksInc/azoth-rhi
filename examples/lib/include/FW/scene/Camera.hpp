@@ -164,4 +164,4 @@ namespace fw::scene
 		float m_nearPlane = 0.1f;
 		float m_farPlane  = 1000.0f;
 	};
-}
+} // namespace fw::scene

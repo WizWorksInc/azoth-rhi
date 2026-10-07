@@ -28,7 +28,7 @@
 #include <Metal/Metal.hpp>
 
 // ReSharper disable once CppUnusedIncludeDirective
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <tuple>
 #include <utility>
 
@@ -186,4 +186,4 @@ namespace azo::rhi::metal_common
 
 	void set_metal_label(MTL::Resource * resource, CString debugName) noexcept;
 
-}
+} // namespace azo::rhi::metal_common

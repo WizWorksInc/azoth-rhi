@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/device/device.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 #ifndef AZOTH_RHI_TEST_VALIDATION_MODE
@@ -46,4 +46,4 @@ namespace azo::rhi::test
 
 	[[nodiscard]] std::uint32_t ScaledIterations(std::uint32_t baseline);
 
-}
+} // namespace azo::rhi::test

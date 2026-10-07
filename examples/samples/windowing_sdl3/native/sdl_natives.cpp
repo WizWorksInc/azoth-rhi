@@ -19,7 +19,7 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace sdl_native
 {
@@ -53,4 +53,4 @@ namespace sdl_native
 #endif
 	}
 
-}
+} // namespace sdl_native

@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace rhi = azo::rhi;
 
@@ -124,4 +124,4 @@ namespace
 		EXPECT_EQ(rhi::native::resolve_vulkan_loader(), rhi::native::resolve_vulkan_loader());
 	}
 
-}
+} // namespace

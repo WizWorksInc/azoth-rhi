@@ -186,4 +186,4 @@ namespace
 
 #endif
 
-}
+} // namespace

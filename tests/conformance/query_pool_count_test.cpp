@@ -57,4 +57,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
-}
+} // namespace

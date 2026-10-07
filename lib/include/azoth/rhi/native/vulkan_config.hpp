@@ -19,7 +19,7 @@
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/native/device_config.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi::native
@@ -65,4 +65,4 @@ namespace azo::rhi::native
 		using Config = VulkanDeviceConfig;
 	};
 
-}
+} // namespace azo::rhi::native

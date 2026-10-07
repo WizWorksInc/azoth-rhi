@@ -23,7 +23,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 #include <utility>
 
@@ -606,7 +606,7 @@ namespace
 			desc.usage	= rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopySrc | rhi::TextureUsage::eCopyDst;
 			return desc;
 		}
-	}
+	} // namespace
 
 	TEST(VulkanAdoption, ABarrierNamingTheDeclaredStateAndFamilyIsAccepted)
 	{
@@ -792,7 +792,7 @@ namespace
 			EXPECT_EQ(erroredSucceeded, resulted.has_value()) << "which form the caller reached for decided whether the call was reported as done";
 			EXPECT_EQ(error.code, resulted.has_value() ? rhi::ErrorCode::eOk : resulted.get_error().code) << "the two diagnostic forms named different codes";
 		}
-	}
+	} // namespace
 
 	TEST(VulkanAdoption, EveryTemplatedEntryAgreesAcrossItsForms)
 	{
@@ -1565,4 +1565,4 @@ namespace
 
 #endif
 
-}
+} // namespace

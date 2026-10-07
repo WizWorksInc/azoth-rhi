@@ -24,7 +24,7 @@ namespace azo::rhi::d3d12
 		{
 			return lifetime == AdoptedLifetime::eRhiOwns ? SlotLifetime::eOwned : SlotLifetime::eAdopted;
 		}
-	}
+	} // namespace
 
 	BufferHandle D3D12AdoptBuffer(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
@@ -245,6 +245,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

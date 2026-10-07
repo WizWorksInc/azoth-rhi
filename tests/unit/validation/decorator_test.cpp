@@ -21,7 +21,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 #include <thread>
 
@@ -1121,4 +1121,4 @@ namespace
 		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 	}
 
-}
+} // namespace

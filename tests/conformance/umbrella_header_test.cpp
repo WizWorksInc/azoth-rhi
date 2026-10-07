@@ -130,4 +130,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

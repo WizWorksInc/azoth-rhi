@@ -18,7 +18,7 @@
 #include "azoth/rhi/core/flags.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -78,4 +78,4 @@ namespace azo::rhi
 		bool calibrated = false;
 	};
 
-}
+} // namespace azo::rhi

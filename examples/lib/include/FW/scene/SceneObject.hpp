@@ -22,7 +22,7 @@
 
 #include <glm/glm.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <optional>
 #include <string>
@@ -129,4 +129,4 @@ namespace fw::scene
 		mutable glm::mat4 m_worldMatrix{ 1.0f };
 		mutable bool m_worldDirty = true;
 	};
-}
+} // namespace fw::scene

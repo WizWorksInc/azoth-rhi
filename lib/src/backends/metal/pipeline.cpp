@@ -44,7 +44,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -191,7 +191,7 @@ namespace azo::rhi::metal
 
 			return true;
 		}
-	}
+	} // namespace
 
 	PipelineLayoutHandle metal_create_pipeline_layout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
 	{
@@ -475,4 +475,4 @@ namespace azo::rhi::metal
 		return return_value(handle, error);
 	}
 
-}
+} // namespace azo::rhi::metal

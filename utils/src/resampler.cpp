@@ -125,7 +125,7 @@ namespace azo::rhi::utils
 		constexpr ResourceState kWritten{ .use = ResourceUse::eStorageWrite, .stages = Stage::eCompute };
 
 		constexpr ResourceState kReadable{ .use = ResourceUse::eSampledRead, .stages = Stage::eFragmentShading };
-	}
+	} // namespace
 
 	Result<Resampler> Resampler::Create(Device & device, const ResamplerDesc & desc) noexcept
 	{
@@ -479,4 +479,4 @@ namespace azo::rhi::utils
 			"this device has no hardware scaled blit for these formats, and the compute path resamples whole levels, not regions"
 		);
 	}
-}
+} // namespace azo::rhi::utils

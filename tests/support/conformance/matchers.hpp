@@ -145,7 +145,7 @@ namespace azo::rhi::test
 		return ::testing::AssertionFailure() << "a failed call left its output modified";
 	}
 
-}
+} // namespace azo::rhi::test
 
 namespace azo::rhi
 {
@@ -176,4 +176,4 @@ namespace azo::rhi
 		*out << "Handle{index=" << handle.index << ", generation=" << handle.generation << '}';
 	}
 
-}
+} // namespace azo::rhi

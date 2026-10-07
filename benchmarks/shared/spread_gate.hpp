@@ -39,4 +39,4 @@ namespace bench
 		double m_worstSpreadPercent = 0.0;
 	};
 
-}
+} // namespace bench

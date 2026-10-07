@@ -45,7 +45,7 @@ namespace fw::assets
 			const char * reason = stbi_failure_reason();
 			return reason != nullptr ? reason : "no diagnostic";
 		}
-	}
+	} // namespace
 
 	ImageAsset DecodeImage(const std::span<const std::uint8_t> encoded, const bool wantFloat, std::string & error)
 	{
@@ -118,4 +118,4 @@ namespace fw::assets
 
 		return longest == 0 ? 1 : static_cast<std::uint32_t>(std::bit_width(longest));
 	}
-}
+} // namespace fw::assets

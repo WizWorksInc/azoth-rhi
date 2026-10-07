@@ -20,7 +20,7 @@
 
 #include "shaders.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 
 namespace deccer
@@ -46,4 +46,4 @@ namespace deccer
 		std::string & error
 	);
 
-}
+} // namespace deccer

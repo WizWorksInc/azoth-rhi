@@ -17,4 +17,4 @@
 namespace azo::rhi
 {
 	using CString = const char *;
-}
+} // namespace azo::rhi

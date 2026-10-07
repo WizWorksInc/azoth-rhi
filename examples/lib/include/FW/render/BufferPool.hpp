@@ -19,7 +19,7 @@
 #include <azoth/rhi/device/device.hpp>
 #include <azoth/rhi/resources/resources.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <span>
 #include <vector>
@@ -104,4 +104,4 @@ namespace fw::render
 
 		std::vector<std::unique_ptr<Block>> m_blocks;
 	};
-}
+} // namespace fw::render

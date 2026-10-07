@@ -21,4 +21,4 @@ namespace fw::util
 	[[nodiscard]] std::filesystem::path ExecutablePath();
 
 	[[nodiscard]] std::filesystem::path ExecutableDirectory();
-}
+} // namespace fw::util

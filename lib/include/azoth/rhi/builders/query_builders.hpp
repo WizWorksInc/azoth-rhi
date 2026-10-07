@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/resources/query.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <string_view>
 
@@ -108,4 +108,4 @@ namespace azo::rhi
 	private:
 		QueryResultDesc m_desc{};
 	};
-}
+} // namespace azo::rhi

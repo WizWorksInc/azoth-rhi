@@ -43,4 +43,4 @@ namespace azo::rhi
 
 	[[nodiscard]] AZO_RHI_API HostUniquePtr<PresentationBackend> make_presentation_backend(GraphicsApiId api);
 
-}
+} // namespace azo::rhi

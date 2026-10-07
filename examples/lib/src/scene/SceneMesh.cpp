@@ -50,7 +50,7 @@ namespace fw::scene
 			std::memcpy(&value, bytes, sizeof(T));
 			return static_cast<std::uint32_t>(value);
 		}
-	}
+	} // namespace
 
 	MeshPrimitive MeshData::View() const
 	{
@@ -149,4 +149,4 @@ namespace fw::scene
 
 		return 0;
 	}
-}
+} // namespace fw::scene

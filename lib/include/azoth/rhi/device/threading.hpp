@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -52,4 +52,4 @@ namespace azo::rhi
 		}
 	};
 
-}
+} // namespace azo::rhi

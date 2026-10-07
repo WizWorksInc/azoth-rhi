@@ -141,4 +141,4 @@ namespace
 		) << "the order is not rank then canonical name, so something positional reached it";
 	}
 
-}
+} // namespace

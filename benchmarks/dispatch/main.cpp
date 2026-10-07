@@ -37,7 +37,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <print>
 #include <string>
 #include <string_view>
@@ -551,7 +551,7 @@ namespace
 		return true;
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

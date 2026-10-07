@@ -17,7 +17,7 @@
 #include "azoth/rhi/core/hash.hpp"
 
 // ReSharper disable once CppUnusedIncludeDirective
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace azo::rhi
@@ -46,4 +46,4 @@ namespace azo::rhi
 		const void * (*queryInterface)(void * object, InterfaceId id, std::uint32_t minVersion) noexcept = nullptr;
 	};
 
-}
+} // namespace azo::rhi

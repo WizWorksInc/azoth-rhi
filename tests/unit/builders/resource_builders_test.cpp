@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <string>
 
@@ -256,4 +256,4 @@ namespace
 		EXPECT_EQ(asTexture.priority, rhi::ResidencyPriority::eNormal);
 	}
 
-}
+} // namespace

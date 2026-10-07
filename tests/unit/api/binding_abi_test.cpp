@@ -19,7 +19,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace rhi = azo::rhi;
@@ -318,4 +318,4 @@ namespace
 		EXPECT_EQ(rhi::kShaderAbiVersion, rhi::ShaderAbiVersion{ 2 });
 	}
 
-}
+} // namespace

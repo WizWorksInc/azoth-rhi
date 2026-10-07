@@ -29,7 +29,7 @@
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -41,7 +41,7 @@ namespace azo::rhi
 	namespace detail
 	{
 		struct FacadeBuilder;
-	}
+	} // namespace detail
 
 	struct CommandPoolApi;
 	class BackendBlockSet;
@@ -357,4 +357,4 @@ namespace azo::rhi
 		return EndNativeMutation(desc, &error);
 	}
 
-}
+} // namespace azo::rhi

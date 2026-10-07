@@ -167,6 +167,6 @@ namespace azo::rhi::d3d12
 		return D3D12CollectGarbage(impl, type, error);
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

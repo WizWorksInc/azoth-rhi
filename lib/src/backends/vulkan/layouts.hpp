@@ -158,4 +158,4 @@ namespace azo::rhi::vulkan
 		"a use naming nothing reaches no layout, which is legal as a barrier before-state and is the caller's error anywhere else"
 	);
 
-}
+} // namespace azo::rhi::vulkan

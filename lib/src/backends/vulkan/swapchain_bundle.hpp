@@ -20,7 +20,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <vector>
 
@@ -70,4 +70,4 @@ namespace azo::rhi::vulkan
 
 	void destroy_swapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, VmaAllocator allocator, SwapchainBundle & sc);
 
-}
+} // namespace azo::rhi::vulkan

@@ -35,7 +35,7 @@
 #include <algorithm>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi::vulkan
@@ -176,7 +176,7 @@ namespace azo::rhi::vulkan
 			swapchain->semaphores.clear();
 			destroy_swapchain(device->device, device->dispatch, device->allocator, swapchain->bundle);
 		}
-	}
+	} // namespace
 
 	void * vulkan_create_swapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept
 	{
@@ -462,4 +462,4 @@ namespace azo::rhi::vulkan
 		};
 	}
 
-}
+} // namespace azo::rhi::vulkan

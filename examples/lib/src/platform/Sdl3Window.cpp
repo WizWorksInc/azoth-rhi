@@ -171,4 +171,4 @@ namespace fw::platform
 
 		return false;
 	}
-}
+} // namespace fw::platform

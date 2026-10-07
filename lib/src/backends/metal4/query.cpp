@@ -37,7 +37,7 @@
 #include <Metal/MTLFence.hpp>
 #include <Metal/MTLRenderCommandEncoder.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi::metal4
@@ -147,7 +147,7 @@ namespace azo::rhi::metal4
 			const Flags<Stage> beyondVertex = stages & ~(Flags<Stage>(Stage::eIndirectFetch) | Stage::eVertexWork);
 			return !stages.empty() && beyondVertex.empty() ? MTL::RenderStageVertex : MTL::RenderStageFragment;
 		}
-	}
+	} // namespace
 
 	bool metal4_cmd_write_timestamp(void * impl, QueryPoolHandle pool, const std::uint32_t query, const Flags<Stage> stage, Error * error) noexcept
 	{
@@ -257,4 +257,4 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal4

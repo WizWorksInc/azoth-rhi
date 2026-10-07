@@ -24,7 +24,7 @@
 
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <print>
 #include <string_view>
@@ -386,7 +386,7 @@ namespace bench::native
 			return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started).count());
 		}
 
-	}
+	} // namespace
 
 	bool PrepareMetal(rhi::Device device, const Workload & work)
 	{
@@ -483,4 +483,4 @@ namespace bench::native
 #endif
 	}
 
-}
+} // namespace bench::native

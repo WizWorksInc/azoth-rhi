@@ -20,7 +20,7 @@
 #include "shared/shapes.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace bench::native
@@ -36,4 +36,4 @@ namespace bench::native
 
 	[[nodiscard]] bool Record(Kind kind, azo::rhi::CommandList & list, const Workload & work, std::size_t commands, std::uint64_t & elapsed);
 
-}
+} // namespace bench::native

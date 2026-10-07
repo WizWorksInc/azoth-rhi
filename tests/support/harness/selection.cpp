@@ -130,7 +130,7 @@ namespace azo::rhi::test
 			return selected;
 		}
 
-	}
+	} // namespace
 
 	std::span<const Backend> AvailableBackends() noexcept
 	{
@@ -277,7 +277,7 @@ namespace azo::rhi::test
 			return lines;
 		}
 
-	}
+	} // namespace
 
 	void RecordValidationMessage(const ValidationMessageSeverity severity, const char * message, void *) noexcept
 	{
@@ -317,4 +317,4 @@ namespace azo::rhi::test
 		const std::lock_guard<std::mutex> held(ValidationLogMutex());
 		ValidationLogLines().clear();
 	}
-}
+} // namespace azo::rhi::test

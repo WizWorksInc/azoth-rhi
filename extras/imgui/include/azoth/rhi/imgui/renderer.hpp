@@ -22,7 +22,7 @@
 
 #include <imgui.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <vector>
 
 namespace azo::rhi::imgui
@@ -134,4 +134,4 @@ namespace azo::rhi::imgui
 
 		std::vector<Texture> m_pending;
 	};
-}
+} // namespace azo::rhi::imgui

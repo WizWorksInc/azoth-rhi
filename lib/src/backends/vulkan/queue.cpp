@@ -33,7 +33,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -600,4 +600,4 @@ namespace azo::rhi::vulkan
 		return device->graphicsFamily;
 	}
 
-}
+} // namespace azo::rhi::vulkan

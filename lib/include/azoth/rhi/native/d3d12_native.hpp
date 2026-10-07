@@ -23,7 +23,7 @@
 #include "azoth/rhi/native/native_access.hpp"
 #include "azoth/rhi/present/swapchain.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 struct ID3D12Device;
 struct ID3D12CommandQueue;
@@ -38,7 +38,7 @@ struct IDXGISwapChain3;
 namespace D3D12MA // NOLINT(readability-identifier-naming)
 {
 	class Allocator;
-}
+} // namespace D3D12MA
 
 namespace azo::rhi
 {
@@ -96,7 +96,7 @@ namespace azo::rhi
 		ID3D12Fence * fence = nullptr;
 	};
 
-}
+} // namespace azo::rhi
 
 namespace azo::rhi::native
 {
@@ -120,11 +120,11 @@ namespace azo::rhi::native
 		[[nodiscard]] static AZO_RHI_API D3D12CommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
-}
+} // namespace azo::rhi::native
 
 namespace azo::rhi
 {
 
 	[[nodiscard]] AZO_RHI_API Result<native::D3D12QueueView> get_d3d12_queue_view(Queue queue);
 
-}
+} // namespace azo::rhi

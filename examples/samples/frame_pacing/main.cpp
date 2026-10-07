@@ -30,7 +30,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <string_view>
@@ -46,7 +46,7 @@ namespace
 		return value ? "yes" : "no";
 	}
 
-}
+} // namespace
 
 namespace
 {
@@ -62,7 +62,7 @@ namespace
 		std::uint64_t submitted = 0;
 	};
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

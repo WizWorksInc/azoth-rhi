@@ -37,7 +37,7 @@
 #include <Metal/MTLRenderPass.hpp>
 #include <Metal/MTLTexture.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::metal4
 {
@@ -457,4 +457,4 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal4

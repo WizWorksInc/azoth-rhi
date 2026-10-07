@@ -47,7 +47,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <thread>
@@ -2802,7 +2802,7 @@ namespace azo::rhi::validation
 			return self->blocks.render->dispatch(self->inner, groupCountX, groupCountY, groupCountZ, error);
 		}
 
-	}
+	} // namespace
 
 	void * wrap_device(void * deviceImpl, const ValidationMode mode) noexcept
 	{
@@ -2854,4 +2854,4 @@ namespace azo::rhi::validation
 		return static_cast<WrappedDevice *>(deviceImpl)->validator;
 	}
 
-}
+} // namespace azo::rhi::validation

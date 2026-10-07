@@ -627,4 +627,4 @@ namespace azo::rhi::d3d12
 		"a clamp restricts and never substitutes, which is what lets a derived state be trusted on a queue that tracks nothing"
 	);
 
-}
+} // namespace azo::rhi::d3d12

@@ -16,7 +16,6 @@
 
 #include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/flags.hpp"
 #include "azoth/rhi/core/profiling.hpp"
@@ -24,6 +23,7 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
 
@@ -67,7 +67,7 @@ namespace azo::rhi::metal4
 
 			return declared.contains(wanted) ? true : fail(error, ErrorCode::eInvalidArgument, kUndeclared);
 		}
-	}
+	} // namespace
 
 	bool metal4_export_buffer(
 		[[maybe_unused]] void * impl,
@@ -361,4 +361,4 @@ namespace azo::rhi::metal4
 		return block;
 	}
 
-}
+} // namespace azo::rhi::metal4

@@ -76,7 +76,7 @@ namespace azo::rhi
 #endif
 		}
 
-	}
+	} // namespace
 
 	BackendModule::BackendModule(BackendModule && other) noexcept
 	{

@@ -156,7 +156,7 @@ namespace azo::rhi
 			);
 		}
 
-	}
+	} // namespace
 
 	StaticBackendRegistration::StaticBackendRegistration(const BackendEntry & entry) noexcept
 		: m_entry(entry),
@@ -482,4 +482,4 @@ namespace azo::rhi
 		return azo::rhi::create_device(m_registry, only, desc);
 	}
 
-}
+} // namespace azo::rhi

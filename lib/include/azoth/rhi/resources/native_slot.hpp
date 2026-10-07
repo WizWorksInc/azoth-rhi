@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -82,4 +82,4 @@ namespace azo::rhi
 		bool exists = false;
 	};
 
-}
+} // namespace azo::rhi

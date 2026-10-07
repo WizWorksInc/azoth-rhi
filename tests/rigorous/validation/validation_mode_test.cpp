@@ -202,4 +202,4 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a clean run under " << AZOTH_RHI_TEST_CONFIGURATION_NAME << " still produced errors");
 	}
 
-}
+} // namespace

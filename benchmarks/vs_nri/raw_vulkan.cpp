@@ -324,7 +324,7 @@ namespace vsnri::raw
 			return std::format("{}.{}.{}", VK_API_VERSION_MAJOR(version), VK_API_VERSION_MINOR(version), VK_API_VERSION_PATCH(version));
 		}
 
-	}
+	} // namespace
 
 	bool Prepare(const Handles & handles)
 	{
@@ -514,4 +514,4 @@ namespace vsnri::raw
 		return true;
 	}
 
-}
+} // namespace vsnri::raw

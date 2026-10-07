@@ -19,22 +19,22 @@
 #include "azoth/rhi/backend/support/format_info.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
-#include "azoth/rhi/backend/support/subresource.hpp"
-#include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/handle.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 
+#include "../../../include/azoth/rhi/backend/details/table_validation.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/subresource.hpp"
 #include "backends/null/internal.hpp"
 #include "backends/registration.hpp"
 
 #include <algorithm>
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <span>
 #include <string_view>
@@ -1643,7 +1643,7 @@ namespace azo::rhi
 			return block;
 		}
 
-	}
+	} // namespace
 
 	Result<void> register_null_backend(GraphicsApiRegistry & registry)
 	{
@@ -1684,4 +1684,4 @@ namespace azo::rhi
 		return detail::FacadeBuilder::make_unique_device(deviceImpl, blocks);
 	}
 
-}
+} // namespace azo::rhi

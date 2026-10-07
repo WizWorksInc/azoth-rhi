@@ -39,7 +39,7 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <span>
 #include <utility>
@@ -157,7 +157,7 @@ namespace azo::rhi::metal4
 				member += members_for(entry);
 			}
 		}
-	}
+	} // namespace
 
 	bool metal4_cmd_bind_descriptor_set(
 		void * impl,
@@ -440,4 +440,4 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal4

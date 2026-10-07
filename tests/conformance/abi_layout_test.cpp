@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <type_traits>
 
 namespace rhi = azo::rhi;
@@ -305,4 +305,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

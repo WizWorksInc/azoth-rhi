@@ -20,7 +20,7 @@
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi
@@ -139,6 +139,6 @@ namespace azo::rhi
 		template <typename Api>
 		concept HasNativeAccess = GraphicsApiTag<Api> && requires { sizeof(NativeAccess<Api>); };
 
-	}
+	} // namespace native
 
-}
+} // namespace azo::rhi

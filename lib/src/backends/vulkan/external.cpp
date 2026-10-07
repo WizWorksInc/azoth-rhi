@@ -16,8 +16,6 @@
 
 #include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
-#include "azoth/rhi/backend/support/scope_guard.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/flags.hpp"
 #include "azoth/rhi/core/profiling.hpp"
@@ -25,6 +23,8 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/scope_guard.hpp"
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
 #include "vulkan/vulkan.hpp"
@@ -32,7 +32,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <optional>
 
 #ifndef _WIN32
@@ -318,7 +318,7 @@ namespace azo::rhi::vulkan
 			return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 		}
 
-	}
+	} // namespace
 
 	bool vulkan_export_buffer(void * impl, const BufferHandle buffer, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
 	{
@@ -703,7 +703,7 @@ namespace azo::rhi::vulkan
 
 			return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 		}
-	}
+	} // namespace
 
 	TimelineHandle vulkan_import_timeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept
 	{
@@ -826,4 +826,4 @@ namespace azo::rhi::vulkan
 		return block;
 	}
 
-}
+} // namespace azo::rhi::vulkan

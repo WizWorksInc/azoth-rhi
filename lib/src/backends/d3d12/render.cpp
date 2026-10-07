@@ -547,6 +547,6 @@ namespace azo::rhi::d3d12
 		);
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

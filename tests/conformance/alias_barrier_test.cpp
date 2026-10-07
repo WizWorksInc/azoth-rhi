@@ -26,7 +26,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <vector>
 
@@ -333,4 +333,4 @@ namespace
 		DestroyPair(Dev(), pair);
 	}
 
-}
+} // namespace

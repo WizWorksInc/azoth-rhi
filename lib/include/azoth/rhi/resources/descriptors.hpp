@@ -20,7 +20,7 @@
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 
@@ -231,4 +231,4 @@ namespace azo::rhi
 		BackendBlockSet * m_blocks = nullptr;
 	};
 
-}
+} // namespace azo::rhi

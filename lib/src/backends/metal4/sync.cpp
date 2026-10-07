@@ -123,4 +123,4 @@ namespace azo::rhi::metal4
 		return return_value(handle, error);
 	}
 
-}
+} // namespace azo::rhi::metal4

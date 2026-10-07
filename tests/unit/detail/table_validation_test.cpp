@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "azoth/rhi/backend/table_validation.hpp"
+#include "../../../lib/include/azoth/rhi/backend/details/table_validation.hpp"
 
 #include <gtest/gtest.h>
 
 #include <array>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace rhi = azo::rhi;
@@ -185,4 +185,4 @@ namespace
 		EXPECT_FALSE(rhi::detail::require_complete_block(&table, nullptr));
 	}
 
-}
+} // namespace

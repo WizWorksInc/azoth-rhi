@@ -52,7 +52,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <memory>
 #include <span>
@@ -1124,4 +1124,4 @@ namespace azo::rhi::d3d12
 	const SwapchainApi & SwapchainBlock() noexcept;
 	const DescriptorArenaApi & DescriptorArenaBlock() noexcept;
 
-}
+} // namespace azo::rhi::d3d12

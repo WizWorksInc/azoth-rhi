@@ -57,7 +57,7 @@ namespace
 #endif
 		return true;
 	}
-}
+} // namespace
 
 int main()
 {

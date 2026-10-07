@@ -27,7 +27,7 @@
 #include "tracy_lifetime.hpp"
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <utility>
@@ -198,7 +198,7 @@ namespace
 
 		return !DeviceKnows(dev, sourceHandle);
 	}
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

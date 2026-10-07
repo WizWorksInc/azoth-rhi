@@ -70,7 +70,7 @@ namespace deccer
 			return found != targets.end() ? &*found : nullptr;
 		}
 
-	}
+	} // namespace
 
 	bool CanCompileFor(const rhi::GraphicsApiId api)
 	{
@@ -177,4 +177,4 @@ namespace deccer
 		return binary;
 	}
 
-}
+} // namespace deccer

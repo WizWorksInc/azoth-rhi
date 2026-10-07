@@ -15,7 +15,7 @@
 #include "azoth/rhi/core/build_config.hpp"
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -32,7 +32,7 @@ namespace azo::rhi
 			return static_cast<std::uint8_t>(static_cast<std::uint8_t>(convention) + 1);
 		}
 
-	}
+	} // namespace
 
 	bool set_clip_space(const ClipSpaceConvention convention) noexcept
 	{
@@ -45,4 +45,4 @@ namespace azo::rhi
 		return g_ClipSpace.load(std::memory_order_relaxed) == encode(ClipSpaceConvention::eYDown) ? ClipSpaceConvention::eYDown : ClipSpaceConvention::eYUp;
 	}
 
-}
+} // namespace azo::rhi

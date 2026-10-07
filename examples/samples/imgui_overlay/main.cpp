@@ -38,7 +38,7 @@
 #include <SDL3/SDL.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <limits>
 #include <span>
@@ -111,7 +111,7 @@ namespace
 			   list.end(error);
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

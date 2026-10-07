@@ -14,7 +14,6 @@
 
 #include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
@@ -23,13 +22,14 @@
 #include "azoth/rhi/native/native_access.hpp"
 #include "azoth/rhi/native/vulkan_native.hpp"
 
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
 #include "backends/vulkan/internal.hpp"
 #include "vulkan/vulkan.hpp"
 
 #include <vulkan/vulkan_core.h>
 
 #include <bit>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::vulkan
 {
@@ -39,7 +39,7 @@ namespace azo::rhi::vulkan
 		{
 			return lifetime == AdoptedLifetime::eRhiOwns ? SlotLifetime::eOwned : SlotLifetime::eAdopted;
 		}
-	}
+	} // namespace
 
 	BufferHandle vulkan_adopt_buffer(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
@@ -385,4 +385,4 @@ namespace azo::rhi::vulkan
 		return block;
 	}
 
-}
+} // namespace azo::rhi::vulkan

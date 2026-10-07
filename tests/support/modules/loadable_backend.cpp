@@ -20,7 +20,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string_view>
 
@@ -122,6 +122,6 @@ namespace
 		return true;
 	}
 
-}
+} // namespace
 
 AZO_RHI_DEFINE_MODULE(Describe)

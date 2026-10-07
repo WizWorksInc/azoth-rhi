@@ -36,7 +36,7 @@ namespace azo::rhi
 
 	inline constexpr const char * kModuleEntryPointName = "azoRhiDescribeModule";
 
-}
+} // namespace azo::rhi
 
 // Exported symbol attributes and fixed C-linkage names require macros. NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #ifdef _WIN32

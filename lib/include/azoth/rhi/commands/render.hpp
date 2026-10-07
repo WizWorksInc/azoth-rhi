@@ -19,7 +19,7 @@
 #include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi
@@ -71,4 +71,4 @@ namespace azo::rhi
 		const RenderingTimestampWrites * timestamps = nullptr;
 	};
 
-}
+} // namespace azo::rhi

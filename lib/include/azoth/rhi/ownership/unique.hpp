@@ -144,4 +144,4 @@ namespace azo::rhi
 	using UniqueTimeline			  = Unique<TimelineHandle>;
 	using UniqueBinarySemaphore		  = Unique<BinarySemaphoreHandle>;
 
-}
+} // namespace azo::rhi

@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace rhi  = azo::rhi;
 namespace test = azo::rhi::test;
@@ -312,4 +312,4 @@ namespace
 		EXPECT_EQ(samplerOnly.sampler, sampler);
 	}
 
-}
+} // namespace

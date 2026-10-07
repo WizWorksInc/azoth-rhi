@@ -50,7 +50,7 @@
 #include <atomic>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdio>
 #include <cstring>
 #include <functional>
@@ -149,7 +149,7 @@ namespace vsnri
 			return rhi::TextureBarrier{ .texture = texture, .before = before, .after = after, .range = { .aspects = aspects } };
 		}
 
-	}
+	} // namespace
 
 	class AzothArm final : public Arm
 	{
@@ -2020,7 +2020,7 @@ namespace vsnri
 		WorkerPool m_workers{ kMaxThreads };
 	};
 
-}
+} // namespace vsnri
 
 int main(int argc, char ** argv)
 {

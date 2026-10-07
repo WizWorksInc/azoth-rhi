@@ -18,7 +18,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <string_view>
@@ -145,8 +145,8 @@ namespace azo::rhi
 		SwapchainDesc m_desc{};
 		std::array<Format, kMaxFormatFallbacks> m_formatFallbacks{};
 		std::size_t m_formatFallbackCount = 0;
-		std::array<azo::rhi::PresentMode, kMaxPresentModeFallbacks> m_presentModeFallbacks{};
+		std::array<PresentMode, kMaxPresentModeFallbacks> m_presentModeFallbacks{};
 		std::size_t m_presentModeFallbackCount = 0;
 		std::string m_debugName;
 	};
-}
+} // namespace azo::rhi

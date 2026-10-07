@@ -140,4 +140,4 @@ namespace fw::scene
 			child->UpdateTransformGpu();
 		}
 	}
-}
+} // namespace fw::scene

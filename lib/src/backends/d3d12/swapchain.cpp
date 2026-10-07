@@ -312,6 +312,6 @@ namespace azo::rhi::d3d12
 		return static_cast<D3D12Swapchain *>(impl)->height;
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

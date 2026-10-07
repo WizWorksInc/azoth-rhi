@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/resources/resources.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <string>
 #include <string_view>
@@ -396,4 +396,4 @@ namespace azo::rhi
 	private:
 		ResidencyPriorityDesc m_desc{};
 	};
-}
+} // namespace azo::rhi

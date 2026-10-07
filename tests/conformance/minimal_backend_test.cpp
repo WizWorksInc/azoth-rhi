@@ -515,4 +515,4 @@ namespace
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 	}
 
-}
+} // namespace

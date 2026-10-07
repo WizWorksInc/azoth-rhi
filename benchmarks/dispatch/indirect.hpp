@@ -23,7 +23,7 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/descriptors.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace bench
@@ -79,4 +79,4 @@ namespace bench
 
 	[[nodiscard]] void * IndirectImpl() noexcept;
 
-}
+} // namespace bench

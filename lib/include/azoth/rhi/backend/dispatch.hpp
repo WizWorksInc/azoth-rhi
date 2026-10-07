@@ -35,7 +35,7 @@
 #include <atomic>
 #include <cstddef>
 // ReSharper disable once CppUnusedIncludeDirective
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 #include <span>
 
@@ -354,7 +354,7 @@ namespace azo::rhi
 			LifetimeLock & operator=(LifetimeLock &&)	   = delete;
 		};
 
-	}
+	} // namespace detail
 
 	class DeviceLock final
 	{

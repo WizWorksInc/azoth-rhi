@@ -212,4 +212,4 @@ namespace
 		EXPECT_EQ(asResult.get_error().code, rhi::ErrorCode::eInvalidState);
 	}
 
-}
+} // namespace

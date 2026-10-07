@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -149,4 +149,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

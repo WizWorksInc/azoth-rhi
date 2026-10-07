@@ -29,7 +29,7 @@
 #include <stb_image.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <filesystem>
 #include <format>
@@ -290,7 +290,7 @@ namespace deccer
 			return (mapped.coherent || dev.flush_mapped_range(out.staging, 0, photo.Bytes(), error)) && dev.unmap(out.staging, error);
 		}
 
-	}
+	} // namespace
 
 	bool BuildEnvironment(
 		rhi::Device dev,
@@ -619,4 +619,4 @@ namespace deccer
 		return true;
 	}
 
-}
+} // namespace deccer

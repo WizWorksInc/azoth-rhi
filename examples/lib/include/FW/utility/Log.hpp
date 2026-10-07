@@ -20,4 +20,4 @@
 namespace fw
 {
 	[[nodiscard]] quill::Logger * Log();
-}
+} // namespace fw

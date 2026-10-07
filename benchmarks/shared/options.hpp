@@ -61,4 +61,4 @@ namespace bench
 
 	[[nodiscard]] bool NamesOption(std::span<char * const> args, std::string_view option);
 
-}
+} // namespace bench

@@ -23,7 +23,7 @@
 #include "azoth/rhi/resources/descriptors.hpp"
 
 #include <concepts>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <utility>
 
@@ -298,6 +298,6 @@ namespace azo::rhi::raii
 			{ device.destroy(handle, DestroyDesc{}) } -> std::same_as<bool>;
 		};
 
-	}
+	} // namespace detail
 
-}
+} // namespace azo::rhi::raii

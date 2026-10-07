@@ -27,7 +27,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace rhi	= azo::rhi;
 namespace utils = azo::rhi::utils;
@@ -124,4 +124,4 @@ namespace
 		ExpectExitStateHolds(Dev(), 4);
 	}
 
-}
+} // namespace

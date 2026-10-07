@@ -19,7 +19,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 #include <new>
 #include <semaphore>
@@ -399,4 +399,4 @@ namespace azo::rhi::test
 
 	using ScopedProfiler = ::azo::rhi::ScopedProfiler;
 
-}
+} // namespace azo::rhi::test

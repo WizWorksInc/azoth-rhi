@@ -140,6 +140,6 @@ namespace azo::rhi::d3d12
 		return owner;
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

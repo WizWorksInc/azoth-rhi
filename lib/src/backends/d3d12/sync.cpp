@@ -246,7 +246,7 @@ namespace azo::rhi::d3d12
 			list->clearStagingHeap.Reset();
 			return true;
 		}
-	}
+	} // namespace
 
 	void * D3D12CreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept
 	{
@@ -477,6 +477,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

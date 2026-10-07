@@ -15,7 +15,7 @@
 #pragma once
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <vector>
 
@@ -61,4 +61,4 @@ namespace deccer
 
 	[[nodiscard]] bool Load(const char * path, Scene & scene, std::string & error);
 
-}
+} // namespace deccer

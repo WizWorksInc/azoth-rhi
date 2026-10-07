@@ -22,7 +22,7 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/descriptors.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace rhi = azo::rhi;
@@ -109,7 +109,7 @@ namespace bench
 
 		std::uint64_t g_impl = 0;
 
-	}
+	} // namespace
 
 	const IndirectApi & IndirectBlock() noexcept
 	{
@@ -132,4 +132,4 @@ namespace bench
 		return &g_impl;
 	}
 
-}
+} // namespace bench

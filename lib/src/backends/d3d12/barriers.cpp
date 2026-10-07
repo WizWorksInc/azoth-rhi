@@ -403,6 +403,6 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

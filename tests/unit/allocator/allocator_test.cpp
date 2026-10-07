@@ -25,7 +25,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <new>
 #include <string>
 #include <utility>
@@ -463,4 +463,4 @@ namespace
 		EXPECT_EQ(allocator.OutstandingSpans(), 0u) << "a span the allocator granted was never handed back";
 	}
 
-}
+} // namespace

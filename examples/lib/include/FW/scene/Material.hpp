@@ -18,7 +18,7 @@
 
 #include <glm/glm.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <vector>
 
 namespace fw::scene
@@ -181,4 +181,4 @@ namespace fw::scene
 	{
 		return SerializeMaterial(Material{}, enabledMaterialComponents).size();
 	}
-}
+} // namespace fw::scene

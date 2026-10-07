@@ -21,7 +21,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -51,7 +51,7 @@ namespace azo::rhi
 	namespace detail
 	{
 		[[nodiscard]] AZO_RHI_API std::atomic<HostAllocator *> & host_allocator_slot() noexcept;
-	}
+	} // namespace detail
 
 	inline void set_host_allocator(HostAllocator * allocator) noexcept
 	{
@@ -237,7 +237,7 @@ namespace azo::rhi
 	namespace detail
 	{
 		[[nodiscard]] AZO_RHI_API std::atomic<DeviceMemoryAllocator *> & device_allocator_slot() noexcept;
-	}
+	} // namespace detail
 
 	inline void set_device_memory_allocator(DeviceMemoryAllocator * allocator) noexcept
 	{
@@ -260,4 +260,4 @@ namespace azo::rhi
 		}
 	}
 
-}
+} // namespace azo::rhi

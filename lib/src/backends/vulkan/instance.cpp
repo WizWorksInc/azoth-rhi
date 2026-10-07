@@ -27,7 +27,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <optional>
 #include <span>
 
@@ -219,7 +219,7 @@ namespace azo::rhi::vulkan
 			out.importable		= static_cast<bool>(props.externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eImportable);
 			out.compatibleTypes = map_memory_handle_mask(props.compatibleHandleTypes);
 		}
-	}
+	} // namespace
 
 	ExternalHandleSupport vulkan_external_support_of(
 		vk::PhysicalDevice phys,
@@ -387,4 +387,4 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-}
+} // namespace azo::rhi::vulkan

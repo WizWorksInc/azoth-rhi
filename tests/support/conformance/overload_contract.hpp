@@ -45,4 +45,4 @@ namespace azo::rhi::test::oracle
 
 	void CheckOverloadsAgree(Device device);
 
-}
+} // namespace azo::rhi::test::oracle

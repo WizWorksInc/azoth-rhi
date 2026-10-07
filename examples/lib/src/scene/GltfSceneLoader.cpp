@@ -380,7 +380,7 @@ namespace fw::scene
 
 			return true;
 		}
-	}
+	} // namespace
 
 	GltfLoadResult LoadGltf(Scene & scene, const std::filesystem::path & path, const GltfLoadOptions & options)
 	{
@@ -483,4 +483,4 @@ namespace fw::scene
 
 		return result;
 	}
-}
+} // namespace fw::scene

@@ -18,7 +18,7 @@
 
 #include <concepts>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 #include <type_traits>
 
@@ -111,4 +111,4 @@ namespace azo::rhi
 
 	static_assert(GraphicsApiTag<NullApi>);
 
-}
+} // namespace azo::rhi

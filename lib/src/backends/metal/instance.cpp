@@ -45,7 +45,7 @@
 #include <Metal/MTLResidencySet.hpp>
 
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <utility>
@@ -534,4 +534,4 @@ namespace azo::rhi::metal
 		return return_value(static_cast<void *>(instance), error);
 	}
 
-}
+} // namespace azo::rhi::metal

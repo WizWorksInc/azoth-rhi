@@ -93,9 +93,10 @@ namespace azo::rhi::detail
 				}
 			}
 
-			std::byte * slot = azo::rhi::detail::at(m_pages, pageIndex).memory + ((m_count % m_blocksPerPage) * sizeof(T));
+			std::byte * slot = detail::at(m_pages, pageIndex).memory + ((m_count % m_blocksPerPage) * sizeof(T));
 			T * object = std::construct_at(reinterpret_cast<T *>(slot), std::forward<Args>(args)...); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 			++m_count;
+
 			return object;
 		}
 
@@ -104,7 +105,7 @@ namespace azo::rhi::detail
 			for (std::size_t i = m_count; i > 0; --i)
 			{
 				const std::size_t index = i - 1;
-				std::byte * slot		= azo::rhi::detail::at(m_pages, index / m_blocksPerPage).memory + ((index % m_blocksPerPage) * sizeof(T));
+				std::byte * slot		= detail::at(m_pages, index / m_blocksPerPage).memory + ((index % m_blocksPerPage) * sizeof(T));
 				std::destroy_at(reinterpret_cast<T *>(slot)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 			}
 
@@ -162,7 +163,7 @@ namespace azo::rhi::detail
 			}
 
 		private:
-			void Release() noexcept
+			void Release() const noexcept
 			{
 				if (memory != nullptr)
 				{
@@ -177,4 +178,4 @@ namespace azo::rhi::detail
 		std::size_t m_maxPages		= 0;
 		const char * m_debugName	= nullptr;
 	};
-}
+} // namespace azo::rhi::detail

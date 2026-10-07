@@ -79,7 +79,7 @@ namespace
 		return "unknown";
 	}
 
-}
+} // namespace
 
 namespace
 {
@@ -101,7 +101,7 @@ namespace
 		return text != nullptr ? text : "unknown";
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <vector>
 
 namespace rhi  = azo::rhi;
@@ -223,4 +223,4 @@ namespace
 		test::oracle::CheckResourceLifecycle(Dev());
 	}
 
-}
+} // namespace

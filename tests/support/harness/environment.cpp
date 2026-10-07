@@ -16,7 +16,7 @@
 
 #include <algorithm>
 #include <charconv>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdlib>
 #include <string_view>
 
@@ -33,7 +33,7 @@ namespace azo::rhi::test
 			return value != nullptr ? std::string_view{ value } : std::string_view{};
 		}
 
-	}
+	} // namespace
 
 	std::string_view RequestedBackends()
 	{
@@ -67,4 +67,4 @@ namespace azo::rhi::test
 		return std::max(1u, baseline * StressScale());
 	}
 
-}
+} // namespace azo::rhi::test

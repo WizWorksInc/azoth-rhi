@@ -150,4 +150,4 @@ namespace
 		EXPECT_GT(created.load(), 0) << CurrentBackend().displayName << " refused every concurrent create, so this proved nothing";
 	}
 
-}
+} // namespace

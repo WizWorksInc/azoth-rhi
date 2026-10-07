@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/commands/render.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <vector>
 
@@ -153,4 +153,4 @@ namespace azo::rhi
 		std::uint32_t m_height = 0;
 		std::uint32_t m_layers = 1;
 	};
-}
+} // namespace azo::rhi

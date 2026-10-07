@@ -103,4 +103,4 @@ namespace fw::util
 		Clock::time_point m_lapTime;
 		Clock::time_point m_previousTick;
 	};
-}
+} // namespace fw::util

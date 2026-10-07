@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/commands/sync.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <string_view>
@@ -187,9 +187,9 @@ namespace azo::rhi
 		[[nodiscard]] BarrierBatch build() const noexcept
 		{
 			return BarrierBatch{
-				.memory	  = std::span<const MemoryBarrier>{ m_memory.data(), m_memory.size() },
-				.buffers  = std::span<const BufferBarrier>{ m_buffers.data(), m_buffers.size() },
-				.textures = std::span<const TextureBarrier>{ m_textures.data(), m_textures.size() },
+				.memory	  = std::span{ m_memory.data(), m_memory.size() },
+				.buffers  = std::span{ m_buffers.data(), m_buffers.size() },
+				.textures = std::span{ m_textures.data(), m_textures.size() },
 			};
 		}
 
@@ -256,4 +256,4 @@ namespace azo::rhi
 		std::vector<SwapchainSync> m_swapchains;
 		std::string m_debugName;
 	};
-}
+} // namespace azo::rhi

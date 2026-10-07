@@ -21,7 +21,7 @@
 #include <azoth/rhi/resources/descriptors.hpp>
 #include <azoth/rhi/utils/resampler.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <string_view>
@@ -111,4 +111,4 @@ namespace fw::scene
 		std::unordered_map<std::string, TextureId> m_byName;
 		bool m_valid = false;
 	};
-}
+} // namespace fw::scene

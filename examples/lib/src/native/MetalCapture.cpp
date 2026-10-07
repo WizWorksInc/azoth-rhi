@@ -60,7 +60,7 @@ namespace fw
 
 			return nullptr;
 		}
-	}
+	} // namespace
 
 	MetalCapture::MetalCapture(rhi::Device device)
 	{
@@ -158,4 +158,4 @@ namespace fw
 		Stop();
 	}
 
-}
+} // namespace fw

@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <format>
 #include <mutex>
 #include <print>
@@ -241,7 +241,7 @@ namespace
 		return true;
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

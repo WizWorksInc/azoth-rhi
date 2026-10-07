@@ -23,7 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <thread>
 #include <vector>
@@ -355,4 +355,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
-}
+} // namespace

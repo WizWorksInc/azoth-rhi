@@ -65,4 +65,4 @@ namespace deccer
 
 	[[nodiscard]] bool CanCompileFor(azo::rhi::GraphicsApiId api);
 
-}
+} // namespace deccer

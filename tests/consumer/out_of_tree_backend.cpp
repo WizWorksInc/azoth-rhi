@@ -22,7 +22,7 @@
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/device/selection.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdio>
 #include <span>
 #include <string_view>
@@ -116,7 +116,7 @@ namespace
 		return numbers.size() == 1 && handle.is_valid() && pooled != nullptr && pooled->value == 9;
 	}
 
-}
+} // namespace
 
 int main()
 {

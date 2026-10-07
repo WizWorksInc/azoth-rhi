@@ -24,7 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <vector>
 
 namespace rhi  = azo::rhi;
@@ -492,4 +492,4 @@ namespace
 		EXPECT_FALSE(arena.is_valid());
 	}
 
-}
+} // namespace

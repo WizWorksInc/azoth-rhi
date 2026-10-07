@@ -39,7 +39,7 @@
 #include <Metal/MTLRenderPass.hpp>
 #include <Metal/MTLTexture.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::metal
 {
@@ -473,4 +473,4 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
@@ -22,6 +21,7 @@
 #include "azoth/rhi/native/native_access.hpp"
 #include "azoth/rhi/resources/pipeline.hpp"
 
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
 
@@ -334,4 +334,4 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::metal4

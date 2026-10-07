@@ -30,7 +30,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 #include <span>
 #include <utility>
@@ -443,4 +443,4 @@ namespace azo::rhi::vulkan
 		return succeed(error);
 	}
 
-}
+} // namespace azo::rhi::vulkan

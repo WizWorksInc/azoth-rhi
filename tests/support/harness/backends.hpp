@@ -171,7 +171,7 @@ namespace azo::rhi::test
 		std::unique_ptr<DeviceHarness> m_harness;
 	};
 
-}
+} // namespace azo::rhi::test
 
 #define AZO_RHI_BACKEND_SUITE(suite)                                                                                                                           \
 	INSTANTIATE_TEST_SUITE_P(                                                                                                                                  \

@@ -20,7 +20,7 @@
 #include "azoth/rhi/rhi.hpp" // IWYU pragma: export
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string_view>
 

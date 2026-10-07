@@ -27,7 +27,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string_view>
 #include <thread>
@@ -124,7 +124,7 @@ namespace
 			return registry.Register<StudioApi>(CreateInfo());
 		}
 
-	}
+	} // namespace custom
 
 	namespace many
 	{
@@ -198,7 +198,7 @@ namespace
 			return entries;
 		}
 
-	}
+	} // namespace many
 
 	TEST(ShortApiName, TrimsACanonicalNameToWhatACommandLineWouldType)
 	{
@@ -628,4 +628,4 @@ namespace
 		}
 	}
 
-}
+} // namespace

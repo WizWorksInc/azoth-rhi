@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 
 namespace azo::rhi
@@ -26,4 +26,4 @@ namespace azo::rhi
 
 	inline constexpr std::uint32_t kAllLayers = std::numeric_limits<std::uint32_t>::max();
 
-}
+} // namespace azo::rhi

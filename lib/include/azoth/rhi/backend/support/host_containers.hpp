@@ -53,7 +53,8 @@ namespace azo::rhi::detail
 	template <class T>
 	using HostDeque = std::deque<T, HostAllocatorAdapter<T>>;
 
-	using HostString = std::basic_string<char, std::char_traits<char>, HostAllocatorAdapter<char>>;
+	using temp = std::string;
+	using HostString = std::basic_string<char, std::string::traits_type, HostAllocatorAdapter<char>>;
 
 	template <class Key, class Value, class Hash = std::hash<Key>, class Eq = std::equal_to<Key>>
 	using HostMap = std::unordered_map<Key, Value, Hash, Eq, HostAllocatorAdapter<std::pair<const Key, Value>>>;
@@ -118,4 +119,4 @@ namespace azo::rhi::detail
 #endif
 	}
 
-}
+} // namespace azo::rhi::detail

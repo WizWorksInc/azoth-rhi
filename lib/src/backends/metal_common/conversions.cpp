@@ -15,7 +15,6 @@
 #include "backends/metal_common/conversions.hpp"
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
-#include "azoth/rhi/backend/support/subresource.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/constants.hpp"
@@ -26,6 +25,8 @@
 #include "azoth/rhi/resources/pipeline.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
+
+#include "../../../include/azoth/rhi/backend/support/details/subresource.hpp"
 
 #include <dispatch/dispatch.h>
 
@@ -49,7 +50,7 @@
 #include <Metal/MTLVertexDescriptor.hpp>
 
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 
 namespace azo::rhi::metal_common
@@ -248,7 +249,7 @@ namespace azo::rhi::metal_common
 
 			return self;
 		}
-	}
+	} // namespace
 
 	MTL::TextureSwizzleChannels metal_swizzle_channels(const ComponentMapping mapping) noexcept
 	{
@@ -627,7 +628,7 @@ namespace azo::rhi::metal_common
 
 			return NS::TransferPtr(rawLibrary);
 		}
-	}
+	} // namespace
 
 	NS::SharedPtr<MTL::Library> metal_compile_library(MTL::Device * device, const ShaderBinary & shader, Error * error)
 	{
@@ -788,4 +789,4 @@ namespace azo::rhi::metal_common
 		return NS::TransferPtr(device->newDepthStencilState(descriptor.get()));
 	}
 
-}
+} // namespace azo::rhi::metal_common

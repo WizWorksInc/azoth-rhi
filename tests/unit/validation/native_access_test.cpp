@@ -912,4 +912,4 @@ namespace
 		EXPECT_TRUE(recording.End());
 	}
 
-}
+} // namespace

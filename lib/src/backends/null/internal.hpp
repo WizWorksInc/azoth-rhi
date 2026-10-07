@@ -16,21 +16,21 @@
 
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
-#include "azoth/rhi/backend/resource_tables.hpp"
 #include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/object_pool.hpp"
-#include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 
+#include "../../../include/azoth/rhi/backend/details/resource_tables.hpp"
+#include "../../../include/azoth/rhi/backend/support/details/resource_record.hpp"
 #include "backends/registration.hpp"
 
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <new>
 #include <span>
@@ -111,4 +111,4 @@ namespace azo::rhi::null
 		NullDevice & operator=(NullDevice &&)	   = delete;
 	};
 
-}
+} // namespace azo::rhi::null

@@ -116,4 +116,4 @@ namespace
 		EXPECT_TRUE(accepted.empty()) << accepted.size() << " creation calls accepted a handle this device never issued:" << report;
 	}
 
-}
+} // namespace

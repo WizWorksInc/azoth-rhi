@@ -22,8 +22,9 @@
 #include <atomic>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
+#include <type_traits>
 
 namespace azo::rhi::validation
 {
@@ -97,7 +98,7 @@ namespace azo::rhi::validation
 
 		[[nodiscard]] const ResourceRecord * lookup(const RegisteredHandle handle) const noexcept
 		{
-			return const_cast<HandleRegistry *>(this)->lookup(handle);
+			return TableFor(handle.type).find(handle.index, handle.generation);
 		}
 
 		[[nodiscard]] bool is_live(const RegisteredHandle handle) const noexcept
@@ -122,7 +123,7 @@ namespace azo::rhi::validation
 
 		[[nodiscard]] std::size_t live_count(const ResourceType type) const noexcept
 		{
-			return const_cast<HandleRegistry *>(this)->TableFor(type).live_count();
+			return TableFor(type).live_count();
 		}
 
 		[[nodiscard]] std::size_t live_count() const noexcept
@@ -173,18 +174,17 @@ namespace azo::rhi::validation
 
 			[[nodiscard]] ResourceRecord * find(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = At(detail::slot_of_index(index));
-				if (slot == nullptr || !slot->live.load(std::memory_order_acquire))
-				{
-					return nullptr;
-				}
+				return Find(*this, index, generation);
+			}
 
-				return Identifies(*slot, index, generation) ? &slot->record : nullptr;
+			[[nodiscard]] const ResourceRecord * find(const std::uint32_t index, const std::uint32_t generation) const noexcept
+			{
+				return Find(*this, index, generation);
 			}
 
 			[[nodiscard]] bool retire(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = At(detail::slot_of_index(index));
+				Slot * slot = At(*this, detail::slot_of_index(index));
 				if (slot == nullptr || !Identifies(*slot, index, generation))
 				{
 					return false;
@@ -201,7 +201,7 @@ namespace azo::rhi::validation
 
 			[[nodiscard]] bool restore(const std::uint32_t index, const std::uint32_t generation) noexcept
 			{
-				Slot * slot = At(detail::slot_of_index(index));
+				Slot * slot = At(*this, detail::slot_of_index(index));
 				if (slot == nullptr || !Identifies(*slot, index, generation))
 				{
 					return false;
@@ -228,7 +228,7 @@ namespace azo::rhi::validation
 
 				for (std::uint32_t index = 0; index < reach; ++index)
 				{
-					Slot * slot = At(index);
+					Slot * slot = At(*this, index);
 					if (slot == nullptr || slot->record.origin.load(std::memory_order_relaxed) != origin)
 					{
 						continue;
@@ -298,16 +298,30 @@ namespace azo::rhi::validation
 				return kFirstChunkSlots << chunk;
 			}
 
-			[[nodiscard]] Slot * At(const std::uint32_t index) noexcept
+			template <class Self>
+			[[nodiscard]] static auto At(Self & self, const std::uint32_t index) noexcept -> std::conditional_t<std::is_const_v<Self>, const Slot *, Slot *>
 			{
-				if (index >= m_count.load(std::memory_order_acquire))
+				if (index >= self.m_count.load(std::memory_order_acquire))
 				{
 					return nullptr;
 				}
 
 				const std::uint32_t chunk = ChunkOfSlot(index);
-				Slot * slots			  = azo::rhi::detail::at(m_chunks, chunk).load(std::memory_order_acquire);
+				Slot * slots			  = azo::rhi::detail::at(self.m_chunks, chunk).load(std::memory_order_acquire);
 				return slots != nullptr ? slots + (index - BaseOfChunk(chunk)) : nullptr; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+			}
+
+			template <class Self>
+			[[nodiscard]] static auto Find(Self & self, const std::uint32_t index, const std::uint32_t generation) noexcept
+				-> decltype(&At(self, index)->record)
+			{
+				auto * slot = At(self, detail::slot_of_index(index));
+				if (slot == nullptr || !slot->live.load(std::memory_order_acquire))
+				{
+					return nullptr;
+				}
+
+				return Identifies(*slot, index, generation) ? &slot->record : nullptr;
 			}
 
 			[[nodiscard]] Slot * EnsureSlot(const std::uint32_t index) noexcept
@@ -363,7 +377,12 @@ namespace azo::rhi::validation
 			return azo::rhi::detail::at(m_tables, static_cast<std::size_t>(type));
 		}
 
+		[[nodiscard]] const Table & TableFor(const ResourceType type) const noexcept
+		{
+			return azo::rhi::detail::at(m_tables, static_cast<std::size_t>(type));
+		}
+
 		std::array<Table, kResourceTypeCount> m_tables;
 	};
 
-}
+} // namespace azo::rhi::validation

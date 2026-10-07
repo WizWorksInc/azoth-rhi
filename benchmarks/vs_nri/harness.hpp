@@ -20,7 +20,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -171,4 +171,4 @@ namespace vsnri
 	// Blocks until a Tracy server connects or the wait runs out. Does nothing in a build without Tracy.
 	void WaitForProfiler(const HarnessOptions & options);
 
-}
+} // namespace vsnri

@@ -23,7 +23,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 struct VmaAllocator_T;
@@ -106,7 +106,7 @@ namespace azo::rhi
 
 	[[nodiscard]] AZO_RHI_API vk::CommandPool get_vulkan_command_pool(CommandPool commandPool);
 
-}
+} // namespace azo::rhi
 
 namespace azo::rhi::native
 {
@@ -131,11 +131,11 @@ namespace azo::rhi::native
 		[[nodiscard]] static AZO_RHI_API VulkanCommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
-}
+} // namespace azo::rhi::native
 
 namespace azo::rhi
 {
 
 	[[nodiscard]] AZO_RHI_API Result<native::VulkanQueueView> get_vulkan_queue_view(Queue queue);
 
-}
+} // namespace azo::rhi

@@ -17,7 +17,7 @@
 #include "shared/options.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <functional>
 
 namespace bench
@@ -46,4 +46,4 @@ namespace bench
 
 	[[nodiscard]] bool WarmUp(double milliseconds, const Options & options, const ProbePass & pass);
 
-}
+} // namespace bench

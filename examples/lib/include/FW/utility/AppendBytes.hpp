@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <vector>
 
 namespace fw::util
@@ -27,4 +27,4 @@ namespace fw::util
 		buffer.insert(buffer.end(), ptr, ptr + sizeof(T));				   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 	}
 
-}
+} // namespace fw::util

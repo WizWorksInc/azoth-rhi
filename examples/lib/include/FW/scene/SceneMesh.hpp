@@ -19,7 +19,7 @@
 #include <glm/glm.hpp>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -94,4 +94,4 @@ namespace fw::scene
 	[[nodiscard]] const std::uint8_t * GetElement(const Accessor & accessor, std::size_t index) noexcept;
 
 	[[nodiscard]] std::uint32_t ReadIndex(const Accessor & accessor, std::size_t index) noexcept;
-}
+} // namespace fw::scene

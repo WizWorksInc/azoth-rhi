@@ -189,10 +189,10 @@ namespace azo::rhi::d3d12
 				{
 					return Fail(error, ErrorCode::eUnsupportedFeature, "a sub-region resolveTexture requires ID3D12GraphicsCommandList1");
 				}
-				const D3D12_RECT srcRect{ .left = region.srcOffset.x,
-					.top						= region.srcOffset.y,
-					.right						= region.srcOffset.x + static_cast<LONG>(region.extent.width),
-					.bottom						= region.srcOffset.y + static_cast<LONG>(region.extent.height) };
+				D3D12_RECT srcRect{ .left = region.srcOffset.x,
+					.top				  = region.srcOffset.y,
+					.right				  = region.srcOffset.x + static_cast<LONG>(region.extent.width),
+					.bottom				  = region.srcOffset.y + static_cast<LONG>(region.extent.height) };
 				list1->ResolveSubresourceRegion(
 					dstSlot->resource.Get(),
 					SubresourceIndex(region.dstSubresource, dstSlot->mipLevels),
@@ -200,7 +200,7 @@ namespace azo::rhi::d3d12
 					static_cast<UINT>(region.dstOffset.y),
 					srcSlot->resource.Get(),
 					SubresourceIndex(region.srcSubresource, srcSlot->mipLevels),
-					const_cast<D3D12_RECT *>(&srcRect),
+					&srcRect,
 					dstSlot->format,
 					D3D12_RESOLVE_MODE_AVERAGE
 				);
@@ -254,6 +254,6 @@ namespace azo::rhi::d3d12
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no scaled blit to build a mip chain from; use azoth::rhi-utils instead");
 	}
 
-}
+} // namespace azo::rhi::d3d12
 
 #endif

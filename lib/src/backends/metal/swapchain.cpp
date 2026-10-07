@@ -36,7 +36,7 @@
 #include <Metal/MTLTexture.hpp>
 #include <QuartzCore/CAMetalDrawable.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi::metal
@@ -195,7 +195,7 @@ namespace azo::rhi::metal
 		{
 			return static_cast<MetalSwapchain *>(impl)->presentMode;
 		}
-	}
+	} // namespace
 
 	bool metal_swapchain_set_present_mode(void * impl, PresentMode mode, Error * error) noexcept
 	{
@@ -274,4 +274,4 @@ namespace azo::rhi::metal
 		return return_value<void *>(raw, error);
 	}
 
-}
+} // namespace azo::rhi::metal

@@ -26,7 +26,7 @@
 #include <Metal/MTLPixelFormat.hpp>
 #include <Metal/MTLResource.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi::metal
 {
@@ -114,4 +114,4 @@ namespace azo::rhi::metal
 		return support;
 	}
 
-}
+} // namespace azo::rhi::metal

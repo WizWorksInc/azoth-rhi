@@ -190,4 +190,4 @@ namespace fw::scene
 			CollectObjects(child, orderedObjects);
 		}
 	}
-}
+} // namespace fw::scene

@@ -35,7 +35,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <span>
@@ -104,7 +104,7 @@ namespace
 		LOG_INFO(fw::Log(), "  {:<22} {:.3f} ms", what, milliseconds);
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

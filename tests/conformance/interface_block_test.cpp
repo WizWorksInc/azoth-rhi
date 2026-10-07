@@ -48,4 +48,4 @@ namespace
 		test::oracle::CheckCapsFollowBlocks(Dev());
 	}
 
-}
+} // namespace

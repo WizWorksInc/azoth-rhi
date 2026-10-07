@@ -21,7 +21,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace rhi = azo::rhi;
@@ -36,7 +36,7 @@ namespace bench::native
 
 		bool g_ready = false;
 
-	}
+	} // namespace
 
 	bool Prepare([[maybe_unused]] rhi::Device device, [[maybe_unused]] const Workload & work)
 	{
@@ -173,4 +173,4 @@ namespace bench::native
 		return false;
 	}
 
-}
+} // namespace bench::native

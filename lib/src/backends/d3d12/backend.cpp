@@ -41,7 +41,7 @@
 
 	#include <algorithm>
 	#include <array>
-	#include <cstdint>
+	#include <cstdint> // NOLINT
 	#include <limits>
 	#include <memory>
 	#include <span>
@@ -186,8 +186,8 @@ namespace azo::rhi
 			const auto * impl = static_cast<d3d12::D3D12CommandList *>(detail::native_impl_of(commandListImpl, d3d12::RenderCommandBlock()));
 			return D3D12CommandListView{ .commandList = impl != nullptr ? impl->list.Get() : nullptr };
 		}
-	}
+	} // namespace native
 
-}
+} // namespace azo::rhi
 
 #endif

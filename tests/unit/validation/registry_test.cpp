@@ -18,7 +18,7 @@
 
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <thread>
 #include <vector>
 
@@ -268,4 +268,4 @@ namespace
 		EXPECT_EQ(registry.live_count(), 8u) << "retiring the buffers took the textures with them";
 	}
 
-}
+} // namespace

@@ -17,7 +17,7 @@
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/resources/pipeline.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <memory>
 #include <string>
 
@@ -72,4 +72,4 @@ namespace langs
 		azo::rhi::ShaderBinaryFormat m_format = azo::rhi::ShaderBinaryFormat::eBackendNative;
 	};
 
-}
+} // namespace langs

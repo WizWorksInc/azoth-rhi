@@ -30,7 +30,7 @@ namespace MTL // NOLINT(readability-identifier-naming)
 	class RenderCommandEncoder;
 	class SamplerState;
 	class SharedEvent;
-}
+} // namespace MTL
 
 namespace MTL4 // NOLINT(readability-identifier-naming)
 {
@@ -39,7 +39,7 @@ namespace MTL4 // NOLINT(readability-identifier-naming)
 	class RenderCommandEncoder;
 	class ComputeCommandEncoder;
 	class ArgumentTable;
-}
+} // namespace MTL4
 
 namespace azo::rhi::native
 {
@@ -82,7 +82,7 @@ namespace azo::rhi::native
 		[[nodiscard]] static AZO_RHI_API Metal4CommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
-}
+} // namespace azo::rhi::native
 
 namespace azo::rhi
 {
@@ -193,4 +193,4 @@ namespace azo::rhi
 		MTL::SharedEvent * event = nullptr;
 	};
 
-}
+} // namespace azo::rhi

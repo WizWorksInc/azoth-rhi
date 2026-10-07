@@ -17,7 +17,7 @@
 #include "azoth/rhi/core/enums.hpp"
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 
 namespace azo::rhi

@@ -21,7 +21,7 @@
 #include "tracy_lifetime.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <print>
 #include <span>
 #include <string_view>
@@ -37,7 +37,7 @@ namespace
 		return value ? "yes" : "no";
 	}
 
-}
+} // namespace
 
 namespace
 {
@@ -132,7 +132,7 @@ namespace
 		return adapters;
 	}
 
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

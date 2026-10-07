@@ -28,7 +28,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstdio>
 #include <cstring>
 #include <format>
@@ -133,7 +133,7 @@ namespace vsnri
 			return barrier;
 		}
 
-	}
+	} // namespace
 
 	class NriArm final : public Arm
 	{
@@ -1673,7 +1673,7 @@ namespace vsnri
 		WorkerPool m_workers{ kMaxThreads };
 	};
 
-}
+} // namespace vsnri
 
 int main(int argc, char ** argv)
 {

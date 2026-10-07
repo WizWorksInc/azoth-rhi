@@ -180,4 +180,4 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
-}
+} // namespace

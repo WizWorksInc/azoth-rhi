@@ -19,7 +19,7 @@
 
 #include <array>
 #include <concepts>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 #include <type_traits>
 
@@ -185,4 +185,4 @@ namespace
 		}
 	}
 
-}
+} // namespace

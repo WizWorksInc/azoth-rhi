@@ -20,7 +20,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -72,7 +72,7 @@ namespace azo::rhi
 		}
 
 		inline constexpr auto kVersionStringStorage = build_version_string(kVersionMajor, kVersionMinor, kVersionPatch);
-	}
+	} // namespace detail
 
 	inline constexpr CString kVersionString = detail::kVersionStringStorage.data();
 
@@ -108,4 +108,4 @@ namespace azo::rhi
 		return info;
 	}
 
-}
+} // namespace azo::rhi

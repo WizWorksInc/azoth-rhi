@@ -40,7 +40,7 @@ namespace azo::rhi::native
 		}
 	};
 
-}
+} // namespace azo::rhi::native
 
 namespace azo::rhi
 {
@@ -55,4 +55,4 @@ namespace azo::rhi
 	{
 	};
 
-}
+} // namespace azo::rhi

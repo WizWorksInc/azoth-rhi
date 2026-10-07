@@ -16,7 +16,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -112,4 +112,4 @@ namespace vsnri
 
 	[[nodiscard]] std::filesystem::path DefaultSceneDataDirectory();
 
-}
+} // namespace vsnri

@@ -15,9 +15,9 @@
 #ifdef __APPLE__
 
 	#include "azoth/rhi/backend/dispatch.hpp"
-	#include "azoth/rhi/backend/table_validation.hpp"
 	#include "azoth/rhi/native/metal_native.hpp"
 
+	#include "../../../include/azoth/rhi/backend/details/table_validation.hpp"
 	#include "backends/metal4/internal.hpp"
 	#include "backends/registration.hpp"
 
@@ -73,7 +73,7 @@ namespace azo::rhi
 				metal4::list_of(static_cast<metal4::Metal4Object *>(detail::native_impl_of(commandListImpl, metal4::render_command_block())));
 			return Metal4CommandListView{ .commandBuffer = list != nullptr ? list->commandBuffer.get() : nullptr };
 		}
-	}
+	} // namespace native
 
 	Result<Metal4NativeDevice> get_metal4_native_device(Device device)
 	{
@@ -122,7 +122,7 @@ namespace azo::rhi
 				static_cast<metal4::Metal4Object *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), metal4::render_command_block()));
 			return metal4::list_of(object);
 		}
-	}
+	} // namespace
 
 	MTL4::CommandBuffer * get_metal4_command_buffer(CommandList commandList)
 	{
@@ -148,6 +148,6 @@ namespace azo::rhi
 		return list != nullptr ? list->argumentTable.get() : nullptr;
 	}
 
-}
+} // namespace azo::rhi
 
 #endif

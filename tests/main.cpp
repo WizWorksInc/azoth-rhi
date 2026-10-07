@@ -69,7 +69,7 @@ namespace azo::rhi::test
 		return desc;
 	}
 
-}
+} // namespace azo::rhi::test
 
 namespace
 {
@@ -130,7 +130,7 @@ namespace
 		std::cerr << std::flush;
 		std::abort();
 	}
-}
+} // namespace
 
 int main(int argc, char ** argv)
 {

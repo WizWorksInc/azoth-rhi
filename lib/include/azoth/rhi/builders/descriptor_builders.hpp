@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/resources/descriptors.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <string_view>
@@ -426,4 +426,4 @@ namespace azo::rhi
 	private:
 		DescriptorWriteAccelerationStructure m_desc{};
 	};
-}
+} // namespace azo::rhi

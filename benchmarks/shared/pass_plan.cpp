@@ -18,7 +18,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace bench
 {
@@ -45,7 +45,7 @@ namespace bench
 			return decade;
 		}
 
-	}
+	} // namespace
 
 	PassPlan PlanPasses(
 		const Options & options,
@@ -133,4 +133,4 @@ namespace bench
 		return true;
 	}
 
-}
+} // namespace bench

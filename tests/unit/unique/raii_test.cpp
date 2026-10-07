@@ -194,4 +194,4 @@ namespace
 		static_cast<void>(device.get().destroy(setLayout.value(), {}, error));
 	}
 
-}
+} // namespace

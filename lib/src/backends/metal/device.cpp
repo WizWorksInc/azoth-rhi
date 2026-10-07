@@ -30,7 +30,7 @@
 #include <Metal/MTLResource.hpp>
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 
 namespace azo::rhi::metal
@@ -207,4 +207,4 @@ namespace azo::rhi::metal
 		return metal_collect_garbage(impl, type, error);
 	}
 
-}
+} // namespace azo::rhi::metal

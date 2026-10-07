@@ -31,7 +31,7 @@
 	#include <mach-o/dyld.h>
 
 	#include <climits>
-	#include <cstdint>
+	#include <cstdint> // NOLINT
 #elif AZOTH_OS_FREEBSD
 	#include <sys/sysctl.h>
 	#include <sys/types.h>
@@ -108,4 +108,4 @@ namespace fw::util
 	{
 		return ExecutablePath().parent_path();
 	}
-}
+} // namespace fw::util

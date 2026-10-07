@@ -16,7 +16,7 @@
 
 #include <SDL3/SDL.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace sdl_native
 {
@@ -27,4 +27,4 @@ namespace sdl_native
 
 	[[nodiscard]] void * Win32WindowHandle(SDL_Window * window);
 
-}
+} // namespace sdl_native

@@ -18,7 +18,7 @@
 #include "azoth/rhi/resources/pipeline.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <string_view>
@@ -74,12 +74,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<PipelineCacheBuilder> build() &&
 		{
-			return Built<PipelineCacheBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<PipelineCacheBuilder> build() const &
 		{
-			return Built<PipelineCacheBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -148,12 +148,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<ShaderBinaryBuilder> build() &&
 		{
-			return Built<ShaderBinaryBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<ShaderBinaryBuilder> build() const &
 		{
-			return Built<ShaderBinaryBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -419,7 +419,7 @@ namespace azo::rhi
 		{
 			if (index < m_desc.attachments.size())
 			{
-				azo::rhi::detail::at(m_desc.attachments, index) = attachment;
+				detail::at(m_desc.attachments, index) = attachment;
 
 				if (m_desc.attachmentCount <= index)
 				{
@@ -454,7 +454,7 @@ namespace azo::rhi
 			return *this;
 		}
 
-		GraphicsPipelineBuilder & shader(ShaderBinary shader)
+		GraphicsPipelineBuilder & shader(const ShaderBinary & shader)
 		{
 			m_shaders.push_back(shader);
 			return *this;
@@ -530,7 +530,7 @@ namespace azo::rhi
 		{
 			if (m_renderTarget.colorFormatCount < m_renderTarget.colorFormats.size())
 			{
-				azo::rhi::detail::at(m_renderTarget.colorFormats, m_renderTarget.colorFormatCount) = format;
+				detail::at(m_renderTarget.colorFormats, m_renderTarget.colorFormatCount) = format;
 				++m_renderTarget.colorFormatCount;
 			}
 
@@ -541,7 +541,7 @@ namespace azo::rhi
 		{
 			if (index < m_renderTarget.colorFormats.size())
 			{
-				azo::rhi::detail::at(m_renderTarget.colorFormats, index) = format;
+				detail::at(m_renderTarget.colorFormats, index) = format;
 
 				if (m_renderTarget.colorFormatCount <= index)
 				{
@@ -607,12 +607,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<GraphicsPipelineBuilder> build() &&
 		{
-			return Built<GraphicsPipelineBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<GraphicsPipelineBuilder> build() const &
 		{
-			return Built<GraphicsPipelineBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -620,11 +620,11 @@ namespace azo::rhi
 
 		[[nodiscard]] GraphicsPipelineDesc BorrowedDesc() const noexcept
 		{
-			m_vertexInput.bindings	 = std::span<const VertexBindingDesc>{ m_vertexBindings.data(), m_vertexBindings.size() };
-			m_vertexInput.attributes = std::span<const VertexAttributeDesc>{ m_vertexAttributes.data(), m_vertexAttributes.size() };
+			m_vertexInput.bindings	 = std::span{ m_vertexBindings.data(), m_vertexBindings.size() };
+			m_vertexInput.attributes = std::span{ m_vertexAttributes.data(), m_vertexAttributes.size() };
 
 			GraphicsPipelineDesc desc = m_desc;
-			desc.shaders			  = std::span<const ShaderBinary>{ m_shaders.data(), m_shaders.size() };
+			desc.shaders			  = std::span{ m_shaders.data(), m_shaders.size() };
 			desc.vertexInput		  = m_sourcesVertices ? &m_vertexInput : nullptr;
 			desc.renderTarget		  = m_renderTarget;
 			desc.debugName			  = m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -672,12 +672,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<ComputePipelineBuilder> build() &&
 		{
-			return Built<ComputePipelineBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<ComputePipelineBuilder> build() const &
 		{
-			return Built<ComputePipelineBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -729,12 +729,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<AccelerationStructureBuilder> build() &&
 		{
-			return Built<AccelerationStructureBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<AccelerationStructureBuilder> build() const &
 		{
-			return Built<AccelerationStructureBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -813,12 +813,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<AccelerationStructureBuildBuilder> build() &&
 		{
-			return Built<AccelerationStructureBuildBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<AccelerationStructureBuildBuilder> build() const &
 		{
-			return Built<AccelerationStructureBuildBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -827,7 +827,7 @@ namespace azo::rhi
 		[[nodiscard]] AccelerationStructureBuildDesc BorrowedDesc() const noexcept
 		{
 			AccelerationStructureBuildDesc desc = m_desc;
-			desc.geometries						= std::span<const AccelerationStructureGeometryDesc>{ m_geometries.data(), m_geometries.size() };
+			desc.geometries						= std::span{ m_geometries.data(), m_geometries.size() };
 			return desc;
 		}
 
@@ -900,12 +900,12 @@ namespace azo::rhi
 
 		[[nodiscard]] Built<RayTracingPipelineBuilder> build() &&
 		{
-			return Built<RayTracingPipelineBuilder>{ std::move(*this) };
+			return Built{ std::move(*this) };
 		}
 
 		[[nodiscard]] Built<RayTracingPipelineBuilder> build() const &
 		{
-			return Built<RayTracingPipelineBuilder>{ *this };
+			return Built{ *this };
 		}
 
 	private:
@@ -914,8 +914,8 @@ namespace azo::rhi
 		[[nodiscard]] RayTracingPipelineDesc BorrowedDesc() const noexcept
 		{
 			RayTracingPipelineDesc desc = m_desc;
-			desc.shaders				= std::span<const ShaderBinary>{ m_shaders.data(), m_shaders.size() };
-			desc.groups					= std::span<const RayTracingShaderGroupDesc>{ m_groups.data(), m_groups.size() };
+			desc.shaders				= std::span{ m_shaders.data(), m_shaders.size() };
+			desc.groups					= std::span{ m_groups.data(), m_groups.size() };
 			desc.debugName				= m_debugName.empty() ? nullptr : m_debugName.c_str();
 			return desc;
 		}
@@ -925,4 +925,4 @@ namespace azo::rhi
 		std::vector<RayTracingShaderGroupDesc> m_groups;
 		std::string m_debugName;
 	};
-}
+} // namespace azo::rhi

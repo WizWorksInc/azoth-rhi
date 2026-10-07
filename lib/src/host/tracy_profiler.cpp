@@ -26,7 +26,7 @@
 
 #include <array>
 #include <charconv>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <mutex>
 #include <utility>
@@ -76,7 +76,7 @@ namespace azo::rhi
 
 #endif
 
-	}
+	} // namespace
 
 	void TracyProfiler::begin_zone(const ZoneLocation & location)
 	{
@@ -141,4 +141,4 @@ namespace azo::rhi
 #endif
 	}
 
-}
+} // namespace azo::rhi

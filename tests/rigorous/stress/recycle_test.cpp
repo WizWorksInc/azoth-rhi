@@ -24,7 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -287,4 +287,4 @@ namespace
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "the recycle run produced native validation errors");
 	}
 
-}
+} // namespace

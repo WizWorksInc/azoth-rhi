@@ -23,7 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <thread>
 #include <type_traits>
@@ -475,4 +475,4 @@ namespace
 		SUCCEED();
 	}
 
-}
+} // namespace

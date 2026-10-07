@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include "azoth/rhi/backend/blocks/common.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi::detail
@@ -138,4 +137,4 @@ namespace azo::rhi::detail
 		std::array<SlotMap<Tag, Payload>, kResourceTypeCount> m_tables;
 	};
 
-}
+} // namespace azo::rhi::detail

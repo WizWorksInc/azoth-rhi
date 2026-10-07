@@ -51,4 +51,4 @@ namespace azo::rhi::test::minimal
 
 	[[nodiscard]] std::size_t LiveObjectCount() noexcept;
 
-}
+} // namespace azo::rhi::test::minimal

@@ -23,7 +23,7 @@
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/resources/descriptors.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <vector>
 
@@ -86,4 +86,4 @@ namespace azo::rhi::utils
 		SamplerHandle m_sampler{};
 		std::vector<Transient> m_transients;
 	};
-}
+} // namespace azo::rhi::utils

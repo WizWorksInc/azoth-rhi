@@ -28,7 +28,7 @@ namespace fw::util
 	namespace
 	{
 		constexpr auto kAssetsDirectory = "assets";
-	}
+	} // namespace
 
 	std::filesystem::path FindResource(const std::filesystem::path & relative, int maxDepth)
 	{
@@ -119,4 +119,4 @@ namespace fw::util
 
 		return { reinterpret_cast<const char *>(bytes.data()), bytes.size() }; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	}
-}
+} // namespace fw::util

@@ -16,7 +16,7 @@
 
 #include "SceneMesh.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 
 namespace fw::scene
@@ -37,4 +37,4 @@ namespace fw::scene
 	[[nodiscard]] std::string_view GetBuiltinMeshName(BuiltinMeshType builtinMeshType) noexcept;
 
 	[[nodiscard]] MeshData CreateBuiltinMesh(BuiltinMeshType builtinMeshType, std::uint32_t stackCount, std::uint32_t sectorCount);
-}
+} // namespace fw::scene

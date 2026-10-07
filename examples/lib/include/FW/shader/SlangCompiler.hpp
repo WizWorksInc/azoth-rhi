@@ -48,4 +48,4 @@ namespace fw::shader
 
 		std::unique_ptr<Session> m_session;
 	};
-}
+} // namespace fw::shader

@@ -70,4 +70,4 @@ namespace fw::scene
 			.normalMatrix = glm::mat4{ glm::inverseTranspose(glm::mat3{ worldMatrix }) },
 		};
 	}
-}
+} // namespace fw::scene

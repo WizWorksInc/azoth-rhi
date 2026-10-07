@@ -27,7 +27,7 @@
 #include <azoth/rhi/resources/resources.hpp>
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -161,4 +161,4 @@ namespace fw::scene
 		std::unordered_map<std::string, MeshGpu> m_meshCache;
 		bool m_valid = false;
 	};
-}
+} // namespace fw::scene

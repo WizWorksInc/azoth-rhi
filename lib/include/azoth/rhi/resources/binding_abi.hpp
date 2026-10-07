@@ -22,7 +22,7 @@
 #include "azoth/rhi/resources/native_slot.hpp"
 
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi
@@ -89,7 +89,7 @@ namespace azo::rhi
 
 			return NativeSlotClass::eTexture;
 		}
-	}
+	} // namespace detail
 
 	[[nodiscard]] inline NativeBinding native_binding_for(
 		const GraphicsApiId api,
@@ -316,4 +316,4 @@ namespace azo::rhi
 		return {};
 	}
 
-}
+} // namespace azo::rhi

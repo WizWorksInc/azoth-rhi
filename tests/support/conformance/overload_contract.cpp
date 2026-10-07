@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <vector>
 
@@ -68,7 +68,7 @@ namespace azo::rhi::test::oracle
 			return true;
 		}
 
-	}
+	} // namespace
 
 	std::vector<OverloadReport> ProbeEveryOverload(Device device)
 	{
@@ -709,4 +709,4 @@ namespace azo::rhi::test::oracle
 		}
 	}
 
-}
+} // namespace azo::rhi::test::oracle

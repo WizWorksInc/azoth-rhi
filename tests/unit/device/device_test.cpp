@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -589,4 +589,4 @@ namespace
 		EXPECT_FALSE(moved.is_valid());
 	}
 
-}
+} // namespace

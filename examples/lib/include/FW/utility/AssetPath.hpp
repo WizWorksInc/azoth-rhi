@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -28,4 +28,4 @@ namespace fw::util
 	[[nodiscard]] std::vector<std::uint8_t> ReadFile(const std::filesystem::path & path);
 
 	[[nodiscard]] std::string LoadTextAsset(const std::filesystem::path & relative, std::string & error);
-}
+} // namespace fw::util

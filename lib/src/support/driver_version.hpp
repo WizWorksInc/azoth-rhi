@@ -17,7 +17,7 @@
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/device/device.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 
 namespace azo::rhi
@@ -25,4 +25,4 @@ namespace azo::rhi
 	[[nodiscard]] detail::HostString format_vulkan_driver_version(DriverId id, std::uint32_t rawVersion);
 
 	[[nodiscard]] detail::HostString format_d3d12_driver_version(std::uint64_t umdVersion);
-}
+} // namespace azo::rhi

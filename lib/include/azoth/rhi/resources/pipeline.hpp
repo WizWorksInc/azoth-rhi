@@ -23,7 +23,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace azo::rhi
@@ -371,4 +371,4 @@ namespace azo::rhi
 		ShaderBindingTableRegion callable{};
 	};
 
-}
+} // namespace azo::rhi

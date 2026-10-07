@@ -16,7 +16,7 @@
 
 #include <azoth/rhi/device/device.hpp>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace fw
 {
@@ -46,4 +46,4 @@ namespace fw
 		std::uint32_t m_frames	 = 0;
 		std::uint32_t m_captured = 0;
 	};
-}
+} // namespace fw

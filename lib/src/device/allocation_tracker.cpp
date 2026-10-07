@@ -21,7 +21,7 @@
 #include "azoth/rhi/host/allocator.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <utility>
 
 namespace azo::rhi::detail
@@ -141,4 +141,4 @@ namespace azo::rhi::detail
 		return live;
 	}
 
-}
+} // namespace azo::rhi::detail

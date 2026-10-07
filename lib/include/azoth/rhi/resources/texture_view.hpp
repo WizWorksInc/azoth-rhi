@@ -19,7 +19,7 @@
 #include "azoth/rhi/core/flags.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace azo::rhi
 {
@@ -205,4 +205,4 @@ namespace azo::rhi
 		const char * debugName = nullptr;
 	};
 
-}
+} // namespace azo::rhi

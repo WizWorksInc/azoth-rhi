@@ -15,15 +15,16 @@
 #include "azoth/rhi/backend/allocation_tracker.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
-#include "azoth/rhi/backend/table_validation.hpp"
 #include "azoth/rhi/core/c_string.hpp"
 #include "azoth/rhi/core/handle.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 
+#include "../../include/azoth/rhi/backend/details/table_validation.hpp"
+
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 #include <span>
 #include <string_view>
@@ -293,7 +294,7 @@ namespace azo::rhi
 			}
 		}
 
-	}
+	} // namespace
 
 	void UniqueInstance::Reset() noexcept
 	{
@@ -3559,7 +3560,7 @@ namespace azo::rhi
 			return detail::FacadeBuilder::make_unique_device(deviceImpl, blocks);
 		}
 
-	}
+	} // namespace
 
 	Result<UniqueInstance> create_instance(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc)
 	{
@@ -3623,4 +3624,4 @@ namespace azo::rhi
 		return refusal;
 	}
 
-}
+} // namespace azo::rhi

@@ -20,7 +20,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <cstring>
 #include <limits>
 #include <numbers>
@@ -40,7 +40,7 @@ namespace vsnri
 #include "shaders/post_vert.h"
 #include "shaders/scene_frag.h"
 #include "shaders/scene_vert.h"
-	}
+	} // namespace spirv
 
 	inline constexpr std::uint32_t kShadowExtent = 1024;
 	inline constexpr std::uint32_t kSceneExtent	 = 512;
@@ -480,7 +480,7 @@ namespace vsnri
 			return std::sqrt(std::max({ x, y, z }));
 		}
 
-	}
+	} // namespace math
 
 	// A square grid of scene copies, a camera loop around it and both draw orders, culled per frame outside the timed region.
 	class SceneWorkload final
@@ -691,4 +691,4 @@ namespace vsnri
 		}
 	}
 
-}
+} // namespace vsnri

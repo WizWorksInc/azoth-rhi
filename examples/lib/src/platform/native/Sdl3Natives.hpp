@@ -16,7 +16,7 @@
 
 #include <SDL3/SDL.h>
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace fw::platform::detail
 {
@@ -27,4 +27,4 @@ namespace fw::platform::detail
 
 	[[nodiscard]] void * Win32WindowHandle(SDL_Window * window);
 
-}
+} // namespace fw::platform::detail

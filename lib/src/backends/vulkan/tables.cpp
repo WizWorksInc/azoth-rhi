@@ -291,4 +291,4 @@ namespace azo::rhi::vulkan
 		return block;
 	}
 
-}
+} // namespace azo::rhi::vulkan

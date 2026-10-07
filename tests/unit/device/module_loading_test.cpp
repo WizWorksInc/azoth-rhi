@@ -187,4 +187,4 @@ namespace
 		EXPECT_EQ(unloadedCount.load(), kThreads) << "a concurrent unload was refused or lost";
 	}
 
-}
+} // namespace

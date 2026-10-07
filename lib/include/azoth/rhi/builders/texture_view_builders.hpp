@@ -16,7 +16,7 @@
 
 #include "azoth/rhi/resources/texture_view.hpp"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <string>
 #include <string_view>
 
@@ -183,4 +183,4 @@ namespace azo::rhi
 		SamplerDesc m_desc{};
 		std::string m_debugName;
 	};
-}
+} // namespace azo::rhi

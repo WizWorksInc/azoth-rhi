@@ -19,7 +19,7 @@
 #include <array>
 #include <cstddef>
 // ReSharper disable once CppUnusedIncludeDirective
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <mutex>
 
 namespace azo::rhi::detail
@@ -77,4 +77,4 @@ namespace azo::rhi::detail
 		static DeviceTagPool s_Pool;
 		return s_Pool;
 	}
-} // namespace azo::rhi
+} // namespace azo::rhi::detail

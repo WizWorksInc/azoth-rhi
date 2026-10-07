@@ -170,4 +170,4 @@ namespace
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eInvalidArgument));
 	}
 
-}
+} // namespace

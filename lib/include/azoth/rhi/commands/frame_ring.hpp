@@ -22,7 +22,7 @@
 #include "azoth/rhi/ownership/unique.hpp"
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <limits>
 
 namespace azo::rhi
@@ -167,4 +167,4 @@ namespace azo::rhi
 		const char * m_debugName = nullptr;
 	};
 
-}
+} // namespace azo::rhi

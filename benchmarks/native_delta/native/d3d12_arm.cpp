@@ -23,7 +23,7 @@
 
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <print>
 #include <string_view>
 
@@ -157,7 +157,7 @@ namespace bench::native
 			return true;
 		}
 
-	}
+	} // namespace
 
 	bool PrepareD3D12(rhi::Device device, const Workload & work)
 	{
@@ -212,4 +212,4 @@ namespace bench::native
 		return shaped;
 	}
 
-}
+} // namespace bench::native
