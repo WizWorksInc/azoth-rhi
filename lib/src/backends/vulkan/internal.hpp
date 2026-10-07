@@ -421,7 +421,12 @@ namespace azo::rhi::vulkan
 		vk::DeviceMemory deviceMemory;
 	};
 
-	inline void free_pending(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, VmaAllocator allocator, const PendingFree & pending) noexcept
+	inline void free_pending(
+		vk::Device device,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		VmaAllocator allocator,
+		const PendingFree & pending
+	) noexcept
 	{
 		if (pending.view)
 		{
@@ -699,7 +704,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyImageView(slot.view, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_textures()
@@ -721,7 +727,8 @@ namespace azo::rhi::vulkan
 					{
 						vmaDestroyImage(allocator, slot.image, slot.allocation);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_buffers()
@@ -733,7 +740,8 @@ namespace azo::rhi::vulkan
 					{
 						vmaDestroyBuffer(allocator, slot.buffer, slot.allocation);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_graphics_pipelines()
@@ -745,7 +753,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyPipeline(slot.pipeline, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_render_passes()
@@ -768,7 +777,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyPipelineLayout(slot.layout, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_timelines()
@@ -780,7 +790,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroySemaphore(slot.semaphore, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_query_pools()
@@ -792,7 +803,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyQueryPool(slot.pool, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_samplers()
@@ -804,7 +816,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroySampler(slot.sampler, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_ycbcr_conversions()
@@ -828,7 +841,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyPipeline(slot.pipeline, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_pipeline_caches()
@@ -840,7 +854,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyPipelineCache(slot.cache, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_binary_semaphores()
@@ -852,7 +867,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroySemaphore(slot.semaphore, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_descriptor_arenas()
@@ -875,7 +891,8 @@ namespace azo::rhi::vulkan
 					{
 						device.destroyDescriptorSetLayout(slot.layout, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_heaps()
@@ -887,7 +904,8 @@ namespace azo::rhi::vulkan
 					{
 						device.freeMemory(slot.memory, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
 		void destroy_allocator() const
@@ -956,10 +974,12 @@ namespace azo::rhi::vulkan
 
 		void report_teardown_stall() const
 		{
-			report_instance_message(instanceWrapper,
+			report_instance_message(
+				instanceWrapper,
 				ValidationMessageSeverity::eError,
 				"vulkan teardown",
-				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed");
+				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed"
+			);
 		}
 
 		~VulkanDevice()
@@ -1033,8 +1053,12 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] bool ensure_dispatcher_initialized(VulkanBackendOwner & owner);
 	std::pair<std::uint32_t, std::uint32_t> resolve_api_version(ApiVersion requested) noexcept;
 	std::uint32_t pack_vk_api_version(std::uint32_t major, std::uint32_t minor) noexcept;
-	VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-		[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types, const vk::DebugUtilsMessengerCallbackDataEXT * data, void * userData) noexcept;
+	VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(
+		vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+		[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types,
+		const vk::DebugUtilsMessengerCallbackDataEXT * data,
+		void * userData
+	) noexcept;
 	[[nodiscard]] HostUniquePtr<VulkanInstance> build_instance(const InstanceDesc & desc, Error * error);
 	[[nodiscard]] VulkanInstance * make_owned_instance(const InstanceDesc & desc, Error * error);
 	[[nodiscard]] VulkanDevice * make_owned_device(VulkanInstance * instance, const DeviceDesc & desc, Error * error);
@@ -1059,8 +1083,14 @@ namespace azo::rhi::vulkan
 	bool vulkan_flush_mapped_range(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
 	bool vulkan_invalidate_mapped_range(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
 	TextureHandle vulkan_create_texture(void * impl, const TextureDesc & desc, Error * error) noexcept;
-	[[nodiscard]] bool find_memory_type_for_heap(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, HeapType type,
-		std::uint32_t & outIndex, bool & outHostVisible, bool & outCoherent) noexcept;
+	[[nodiscard]] bool find_memory_type_for_heap(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		HeapType type,
+		std::uint32_t & outIndex,
+		bool & outHostVisible,
+		bool & outCoherent
+	) noexcept;
 	[[nodiscard]] HeapSlot * resolve_heap(VulkanDevice * device, HeapHandle handle) noexcept;
 	HeapHandle vulkan_create_heap(void * impl, const HeapDesc & desc, Error * error) noexcept;
 	BufferHandle vulkan_create_placed_buffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept;
@@ -1070,7 +1100,11 @@ namespace azo::rhi::vulkan
 	TextureViewHandle vulkan_create_texture_view(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
 	PipelineLayoutHandle vulkan_create_pipeline_layout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
 	[[nodiscard]] vk::RenderPass get_or_create_render_pass(
-		VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key, vk::Result & outResult);
+		VulkanDevice * device,
+		detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache,
+		const RenderPassKey & key,
+		vk::Result & outResult
+	);
 	[[nodiscard]] RenderPassKey make_pipeline_render_pass_key(const GraphicsPipelineDesc & desc) noexcept;
 	[[nodiscard]] vk::PipelineCache resolve_pipeline_cache(VulkanDevice * device, PipelineCacheHandle handle) noexcept;
 	GraphicsPipelineHandle vulkan_create_graphics_pipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
@@ -1101,13 +1135,27 @@ namespace azo::rhi::vulkan
 	bool vulkan_cmd_set_viewport(void * impl, const Viewport & viewport, Error * error) noexcept;
 	bool vulkan_cmd_set_scissor(void * impl, const Rect2D & scissor, Error * error) noexcept;
 	bool vulkan_cmd_copy_buffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept;
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept;
 	bool vulkan_cmd_reset_query_pool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
 	bool vulkan_cmd_write_timestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
 	bool vulkan_cmd_begin_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool vulkan_cmd_end_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool vulkan_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept;
+	bool vulkan_cmd_resolve_query_data(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept;
 	[[nodiscard]] std::array<float, 4> unpack_label_color(std::uint32_t color) noexcept;
 	bool vulkan_cmd_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
 	bool vulkan_cmd_end_debug_label(void * impl, Error * error) noexcept;
@@ -1121,31 +1169,90 @@ namespace azo::rhi::vulkan
 	bool vulkan_cmd_begin_rendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept;
 	bool vulkan_cmd_end_rendering(void * impl, Error * error) noexcept;
 	bool vulkan_cmd_set_graphics_pipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
-	bool vulkan_cmd_push_constants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
-		const void * data, Error * error) noexcept;
+	bool vulkan_cmd_push_constants(
+		void * impl,
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept;
 	bool vulkan_cmd_set_vertex_buffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
 	bool vulkan_cmd_set_index_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
 	bool vulkan_cmd_draw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept;
-	bool vulkan_cmd_draw_indexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept;
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
 	bool vulkan_cmd_draw_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
 	bool vulkan_cmd_draw_indexed_indirect(
-		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool vulkan_cmd_draw_indirect_count(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept;
-	bool vulkan_cmd_draw_indexed_indirect_count(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept;
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indirect_count(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indexed_indirect_count(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
 	[[nodiscard]] vk::ImageSubresourceLayers map_subresource_layers(const TextureSubresource & sub) noexcept;
-	bool vulkan_cmd_copy_buffer_to_texture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
-	bool vulkan_cmd_copy_texture_to_buffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
+	bool vulkan_cmd_copy_buffer_to_texture(
+		void * impl,
+		TextureHandle dst,
+		BufferHandle src,
+		std::span<const BufferTextureCopy> regions,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_copy_texture_to_buffer(
+		void * impl,
+		BufferHandle dst,
+		TextureHandle src,
+		std::span<const BufferTextureCopy> regions,
+		Error * error
+	) noexcept;
 	bool vulkan_cmd_copy_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
 	[[nodiscard]] bool format_supports_blit(const VulkanDevice * device, vk::Format format, bool asSource, bool linearFilter) noexcept;
 	bool vulkan_cmd_blit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
 	bool vulkan_cmd_generate_mips(void * impl, TextureHandle texture, Error * error) noexcept;
 	bool vulkan_cmd_clear_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
 	bool vulkan_cmd_clear_texture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept;
 	bool vulkan_cmd_resolve_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
 	bool vulkan_cmd_set_blend_constants(void * impl, float r, float g, float b, float a, Error * error) noexcept;
 	bool vulkan_cmd_set_stencil_reference(void * impl, std::uint32_t reference, Error * error) noexcept;
@@ -1191,16 +1298,25 @@ namespace azo::rhi::vulkan
 	};
 
 	[[nodiscard]] bool query_portability_subset_features(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, PortabilitySubsetFeatures & out) noexcept;
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		PortabilitySubsetFeatures & out
+	) noexcept;
 
 	[[nodiscard]] bool adapter_supports_view_swizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 	[[nodiscard]] bool adapter_supports_multi_planar_formats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 
 	[[nodiscard]] vk::SamplerYcbcrConversion acquire_ycbcr_conversion(
-		VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept;
+		VulkanDevice * device,
+		const SamplerYcbcrConversionDesc & desc,
+		vk::Result & outResult
+	) noexcept;
 	[[nodiscard]] vk::ComponentMapping map_component_mapping(ComponentMapping mapping) noexcept;
 	[[nodiscard]] bool adapter_supports_all_features(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, std::span<const DeviceFeature> features) noexcept;
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		std::span<const DeviceFeature> features
+	) noexcept;
 	void enable_feature_bit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept;
 	[[nodiscard]] const char * required_feature_message(DeviceFeature feature) noexcept;
 	[[nodiscard]] vk::ShaderStageFlags map_shader_stages(Flags<ShaderStage> stages) noexcept;
@@ -1238,8 +1354,14 @@ namespace azo::rhi::vulkan
 	bool vulkan_update_descriptors_buffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
 	bool vulkan_update_descriptors_texture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
 	bool vulkan_update_descriptors_sampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
-	bool vulkan_cmd_bind_descriptor_set(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
+	bool vulkan_cmd_bind_descriptor_set(
+		void * impl,
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept;
 	bool retire_native(VulkanDevice * device, ResourceType type, const DestroyDesc & desc, const PendingFree & pending, Error * error) noexcept;
 	bool vulkan_collect_garbage(void * impl, ResourceType type, Error * error) noexcept;
 	bool vulkan_collect_garbage_timeline(void * impl, ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, Error * error) noexcept;
@@ -1247,10 +1369,21 @@ namespace azo::rhi::vulkan
 	GraphicsApiId vulkan_instance_api_id([[maybe_unused]] void * impl) noexcept;
 	bool vulkan_enumerate_adapters(void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept;
 	bool vulkan_query_external_handle_support(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept;
-	[[nodiscard]] ExternalHandleSupport vulkan_external_support_of(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch,
-		const ExternalHandleSupportDesc & desc, vk::BufferUsageFlags bufferUsage) noexcept;
-	[[nodiscard]] bool vulkan_refuse_unexportable(const VulkanDevice * device, Flags<ExternalHandleType> declared, ExternalObjectKind kind, Format format,
-		vk::BufferUsageFlags bufferUsage, const char * what, Error * error) noexcept;
+	[[nodiscard]] ExternalHandleSupport vulkan_external_support_of(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		const ExternalHandleSupportDesc & desc,
+		vk::BufferUsageFlags bufferUsage
+	) noexcept;
+	[[nodiscard]] bool vulkan_refuse_unexportable(
+		const VulkanDevice * device,
+		Flags<ExternalHandleType> declared,
+		ExternalObjectKind kind,
+		Format format,
+		vk::BufferUsageFlags bufferUsage,
+		const char * what,
+		Error * error
+	) noexcept;
 
 	inline constexpr vk::BufferUsageFlags kExternalQueryBufferUsage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst;
 
@@ -1277,20 +1410,35 @@ namespace azo::rhi::vulkan
 	bool vulkan_get_native_buffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
 	bool vulkan_get_native_texture(void * impl, GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept;
 	TextureViewHandle vulkan_adopt_texture_view(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept;
 	SamplerHandle vulkan_adopt_sampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
 	bool vulkan_get_native_texture_view(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
 	bool vulkan_get_native_sampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
 	TimelineHandle vulkan_adopt_timeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
 	BinarySemaphoreHandle vulkan_adopt_binary_semaphore(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept;
 	bool vulkan_get_native_timeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
 	bool vulkan_get_native_binary_semaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
 	const AdoptionApi & adoption_block() noexcept;
 
 	[[nodiscard]] bool vulkan_image_create_info(const TextureDesc & desc, vk::ImageCreateInfo & out, Error * error) noexcept;
 	[[nodiscard]] TextureHandle vulkan_finish_texture(
-		VulkanDevice * device, const TextureDesc & desc, VkImage image, VmaAllocation allocation, Error * error) noexcept;
+		VulkanDevice * device,
+		const TextureDesc & desc,
+		VkImage image,
+		VmaAllocation allocation,
+		Error * error
+	) noexcept;
 	void * vulkan_instance_create_device(void * impl, const DeviceDesc & desc, Error * error) noexcept;
 	void * vulkan_create_instance(const void * instanceDesc, Error * error) noexcept;
 	void * vulkan_get_queue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
@@ -1303,7 +1451,11 @@ namespace azo::rhi::vulkan
 	[[nodiscard]] bool build_submit_timelines(VulkanDevice * device, Error * error) noexcept;
 	[[nodiscard]] bool caller_signal_reached(VulkanDevice * device, std::span<const TimelinePoint> callerSignals) noexcept;
 	[[nodiscard]] bool submission_still_running(
-		VulkanDevice * device, std::uint32_t submitTimeline, std::uint64_t submitValue, std::span<const TimelinePoint> callerSignals) noexcept;
+		VulkanDevice * device,
+		std::uint32_t submitTimeline,
+		std::uint64_t submitValue,
+		std::span<const TimelinePoint> callerSignals
+	) noexcept;
 	[[nodiscard]] bool list_still_running(const VulkanCommandList * list) noexcept;
 	void sweep_retired_command_buffers(VulkanCommandPool * pool) noexcept;
 	bool vulkan_queue_wait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;

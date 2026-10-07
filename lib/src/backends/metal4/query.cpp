@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/resources/query.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/enums.hpp"
@@ -14,9 +16,10 @@
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
-#include "azoth/rhi/resources/query.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSRange.hpp>
@@ -28,6 +31,7 @@
 #include <Metal/MTLDevice.hpp>
 #include <Metal/MTLFence.hpp>
 #include <Metal/MTLRenderCommandEncoder.hpp>
+
 #include <cstdint>
 #include <utility>
 
@@ -47,7 +51,10 @@ namespace azo::rhi::metal4
 		if (desc.type != QueryType::eTimestamp)
 		{
 			return fail_value<QueryPoolHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp query pools only, and this pool asked for another type");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Metal implements timestamp query pools only, and this pool asked for another type"
+			);
 		}
 		if (desc.queryCount == 0)
 		{
@@ -72,11 +79,13 @@ namespace azo::rhi::metal4
 			owned->setLabel(NS::String::string(desc.debugName, NS::UTF8StringEncoding));
 		}
 
-		const QueryPoolHandle handle = device->queryPools.store(Metal4QueryPool{
-			.heap		= std::move(owned),
-			.type		= desc.type,
-			.queryCount = desc.queryCount,
-		});
+		const QueryPoolHandle handle = device->queryPools.store(
+			Metal4QueryPool{
+				.heap		= std::move(owned),
+				.type		= desc.type,
+				.queryCount = desc.queryCount,
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<QueryPoolHandle>(error, ErrorCode::eOutOfHostMemory, "Metal 4 query pool tracking failed");
@@ -194,8 +203,15 @@ namespace azo::rhi::metal4
 		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and a scoped query is not one");
 	}
 
-	bool metal4_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, const std::uint32_t firstQuery, const std::uint32_t queryCount, BufferHandle dst,
-		const std::uint64_t dstOffset, Error * error) noexcept
+	bool metal4_cmd_resolve_query_data(
+		void * impl,
+		QueryPoolHandle pool,
+		const std::uint32_t firstQuery,
+		const std::uint32_t queryCount,
+		BufferHandle dst,
+		const std::uint64_t dstOffset,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.resolveQueryData");
 

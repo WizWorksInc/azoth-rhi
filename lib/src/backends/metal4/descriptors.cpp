@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/resources/descriptors.hpp"
+
 #include "azoth/rhi/backend/blocks/command_pool.hpp"
 #include "azoth/rhi/backend/blocks/descriptor_arena.hpp"
 #include "azoth/rhi/backend/blocks/queue.hpp"
@@ -21,13 +23,15 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/host/allocator.hpp"
-#include "azoth/rhi/resources/descriptors.hpp"
 #include "azoth/rhi/resources/native_slot.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSSharedPtr.hpp>
 #include <Metal/MTLGPUAddress.hpp>
 #include <Metal/MTLResource.hpp>
+
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -55,7 +59,11 @@ namespace azo::rhi::metal4
 		}
 
 		[[nodiscard]] bool metal_argument_member_index(
-			const Metal4DescriptorSetLayout & layout, const std::uint32_t binding, std::uint32_t & outMember, std::uint32_t & outCount) noexcept
+			const Metal4DescriptorSetLayout & layout,
+			const std::uint32_t binding,
+			std::uint32_t & outMember,
+			std::uint32_t & outCount
+		) noexcept
 		{
 			std::uint32_t member = 0;
 			bool found			 = false;
@@ -146,8 +154,14 @@ namespace azo::rhi::metal4
 		}
 	}
 
-	bool metal4_cmd_bind_descriptor_set(void * impl, PipelineLayoutHandle /*unused*/, const std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
+	bool metal4_cmd_bind_descriptor_set(
+		void * impl,
+		PipelineLayoutHandle /*unused*/,
+		const std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.bindDescriptorSet");
 
@@ -177,7 +191,14 @@ namespace azo::rhi::metal4
 	}
 
 	bool metal4_cmd_push_constants(
-		void * impl, PipelineLayoutHandle /*unused*/, Flags<ShaderStage> /*unused*/, const std::uint32_t offset, const std::uint32_t size, const void * data, Error * error) noexcept
+		void * impl,
+		PipelineLayoutHandle /*unused*/,
+		Flags<ShaderStage> /*unused*/,
+		const std::uint32_t offset,
+		const std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.pushConstants");
 
@@ -272,7 +293,7 @@ namespace azo::rhi::metal4
 			{
 				return fail(error, ErrorCode::eInvalidHandle, "descriptor write names a set this device never created");
 			}
-			const auto * sampler										  = device->samplers.resolve(write.sampler, kHandleAlreadyChecked);
+			const auto * sampler										   = device->samplers.resolve(write.sampler, kHandleAlreadyChecked);
 			set->bindings[descriptor_key(write.binding, write.arrayIndex)] = Metal4Descriptor{
 				.type	 = DescriptorType::eSampler,
 				.sampler = sampler != nullptr ? sampler->get() : nullptr,
@@ -378,13 +399,15 @@ namespace azo::rhi::metal4
 			}
 		}
 
-		const DescriptorSetHandle handle = device->descriptorSets.store(Metal4DescriptorSet{
-			.bindings		= {},
-			.arena			= arena,
-			.epoch			= arena->arenaEpoch.load(std::memory_order_acquire),
-			.layout			= desc.layout,
-			.argumentBuffer = std::move(argumentBuffer),
-		});
+		const DescriptorSetHandle handle = device->descriptorSets.store(
+			Metal4DescriptorSet{
+				.bindings		= {},
+				.arena			= arena,
+				.epoch			= arena->arenaEpoch.load(std::memory_order_acquire),
+				.layout			= desc.layout,
+				.argumentBuffer = std::move(argumentBuffer),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Metal descriptor set tracking failed");
@@ -406,7 +429,8 @@ namespace azo::rhi::metal4
 			[arena, bumped](const Metal4DescriptorSet & set)
 			{
 				return set.arena == arena && set.epoch < bumped;
-			});
+			}
+		);
 
 		return succeed(error);
 	}

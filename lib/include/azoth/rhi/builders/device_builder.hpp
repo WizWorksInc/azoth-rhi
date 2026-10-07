@@ -385,7 +385,8 @@ namespace azo::rhi
 				{
 					return queueType == type;
 				},
-				&QueueRequest::type);
+				&QueueRequest::type
+			);
 		}
 
 		[[nodiscard]] std::size_t FindQueue(const QueueType type) const noexcept

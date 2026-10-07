@@ -460,132 +460,166 @@ namespace azo::rhi::d3d12
 		return clamped == layout || clamped == D3D12_BARRIER_LAYOUT_COMMON;
 	}
 
-	static_assert(MapBarrierSync(Stage::eCopy, ResourceUse::eNone, QueueType::eGraphics) == D3D12_BARRIER_SYNC_COPY &&
-					  DeriveBarrierSync(ResourceUse::eCopyDst) == D3D12_BARRIER_SYNC_COPY &&
-					  DeriveBarrierSync(ResourceUse::eCopySrc) == D3D12_BARRIER_SYNC_COPY &&
-					  (DeriveBarrierSync(ResourceUse::eStorageWrite) & D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) ==
-						  D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW &&
-					  (MapBarrierSync(Stage::eCopy, ResourceUse::eStorageWrite, QueueType::eGraphics) & D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) ==
-						  D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW,
+	static_assert(
+		MapBarrierSync(Stage::eCopy, ResourceUse::eNone, QueueType::eGraphics) == D3D12_BARRIER_SYNC_COPY &&
+			DeriveBarrierSync(ResourceUse::eCopyDst) == D3D12_BARRIER_SYNC_COPY && DeriveBarrierSync(ResourceUse::eCopySrc) == D3D12_BARRIER_SYNC_COPY &&
+			(DeriveBarrierSync(ResourceUse::eStorageWrite) & D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) ==
+				D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW &&
+			(MapBarrierSync(Stage::eCopy, ResourceUse::eStorageWrite, QueueType::eGraphics) & D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW) ==
+				D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW,
 		"the clear scope rides on unordered access rather than on the copy stage, because a barrier may only name sync scopes its access bits reach and "
-		"CLEAR_UNORDERED_ACCESS_VIEW is reachable from D3D12_BARRIER_ACCESS_UNORDERED_ACCESS alone");
+		"CLEAR_UNORDERED_ACCESS_VIEW is reachable from D3D12_BARRIER_ACCESS_UNORDERED_ACCESS alone"
+	);
 
 	static_assert(
 		MapBarrierSync(Stage::eVertexWork, ResourceUse::eNone, QueueType::eGraphics) == (D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT),
-		"index fetch is a sync scope separate from vertex shading, and Stage::eVertexWork is documented as covering both");
+		"index fetch is a sync scope separate from vertex shading, and Stage::eVertexWork is documented as covering both"
+	);
 
-	static_assert(MapBarrierSync(Stage::eNone, ResourceUse::eVertexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_VERTEX_SHADING &&
-					  MapBarrierSync(Stage::eNone, ResourceUse::eIndexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_INDEX_INPUT &&
-					  MapBarrierSync(Stage::eVertexWork, ResourceUse::eVertexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_VERTEX_SHADING &&
-					  MapBarrierSync(Flags<Stage>(Stage::eVertexWork), Flags<ResourceUse>(ResourceUse::eVertexBuffer) | ResourceUse::eIndexBuffer,
-						  QueueType::eGraphics) == (D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT),
-		"index input is reachable from D3D12_BARRIER_ACCESS_INDEX_BUFFER alone, so a buffer bound only as a vertex buffer never names it");
+	static_assert(
+		MapBarrierSync(Stage::eNone, ResourceUse::eVertexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_VERTEX_SHADING &&
+			MapBarrierSync(Stage::eNone, ResourceUse::eIndexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_INDEX_INPUT &&
+			MapBarrierSync(Stage::eVertexWork, ResourceUse::eVertexBuffer, QueueType::eGraphics) == D3D12_BARRIER_SYNC_VERTEX_SHADING &&
+			MapBarrierSync(
+				Flags<Stage>(Stage::eVertexWork),
+				Flags<ResourceUse>(ResourceUse::eVertexBuffer) | ResourceUse::eIndexBuffer,
+				QueueType::eGraphics
+			) == (D3D12_BARRIER_SYNC_VERTEX_SHADING | D3D12_BARRIER_SYNC_INDEX_INPUT),
+		"index input is reachable from D3D12_BARRIER_ACCESS_INDEX_BUFFER alone, so a buffer bound only as a vertex buffer never names it"
+	);
 
-	static_assert(MapBarrierSync(Stage::eCopy, ResourceUse::eStorageWrite, QueueType::eGraphics) == D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW &&
-					  MapBarrierSync(Stage::eCopy, ResourceUse::eCopyDst, QueueType::eGraphics) == D3D12_BARRIER_SYNC_COPY &&
-					  MapBarrierSync(Stage::eColorOutput, ResourceUse::eSampledRead, QueueType::eGraphics) == D3D12_BARRIER_SYNC_ALL &&
-					  MapBarrierSync(Stage::eIndirectFetch, ResourceUse::eIndirectArgs, QueueType::eGraphics) == D3D12_BARRIER_SYNC_EXECUTE_INDIRECT,
+	static_assert(
+		MapBarrierSync(Stage::eCopy, ResourceUse::eStorageWrite, QueueType::eGraphics) == D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW &&
+			MapBarrierSync(Stage::eCopy, ResourceUse::eCopyDst, QueueType::eGraphics) == D3D12_BARRIER_SYNC_COPY &&
+			MapBarrierSync(Stage::eColorOutput, ResourceUse::eSampledRead, QueueType::eGraphics) == D3D12_BARRIER_SYNC_ALL &&
+			MapBarrierSync(Stage::eIndirectFetch, ResourceUse::eIndirectArgs, QueueType::eGraphics) == D3D12_BARRIER_SYNC_EXECUTE_INDIRECT,
 		"a stage names a sync scope the barrier's own access bits cannot reach, so the scopes with a restricted access list are dropped and the universal one "
-		"answers when nothing survives");
+		"answers when nothing survives"
+	);
 
-	static_assert(DeriveBarrierSync(ResourceUse::eAccelBuildInput) == D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE &&
-					  MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
+	static_assert(
+		DeriveBarrierSync(ResourceUse::eAccelBuildInput) == D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE &&
+			MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
 		"a build input is geometry read as a shader resource, which the compatibility table pairs with the build scope but with neither the copy nor the "
-		"emit-postbuild one, since those act on the structure and never on its inputs");
+		"emit-postbuild one, since those act on the structure and never on its inputs"
+	);
 
-	static_assert(MapBarrierSync(Stage::eAccelBuild, ResourceUse::eNone, QueueType::eGraphics) ==
-						  (D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-							  D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO) &&
-					  DeriveBarrierSync(ResourceUse::eAccelWrite) ==
-						  (D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
-							  D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO),
-		"build, copy and emit-postbuild are three sync scopes, and Stage::eAccelBuild is documented as covering build, update, copy and compaction");
+	static_assert(
+		MapBarrierSync(Stage::eAccelBuild, ResourceUse::eNone, QueueType::eGraphics) ==
+				(D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+					D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO) &&
+			DeriveBarrierSync(ResourceUse::eAccelWrite) ==
+				(D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE |
+					D3D12_BARRIER_SYNC_EMIT_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO),
+		"build, copy and emit-postbuild are three sync scopes, and Stage::eAccelBuild is documented as covering build, update, copy and compaction"
+	);
 
-	static_assert(MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE &&
-					  (MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ) ==
-						  D3D12_BARRIER_ACCESS_COMMON,
-		"a build reads its geometry as a shader resource, and the acceleration-structure access is for reading a built structure instead");
+	static_assert(
+		MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_SHADER_RESOURCE &&
+			(MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eGraphics) & D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ) ==
+				D3D12_BARRIER_ACCESS_COMMON,
+		"a build reads its geometry as a shader resource, and the acceleration-structure access is for reading a built structure instead"
+	);
 
-	static_assert(MapBarrierSync(Flags<Stage>(Stage::eHost) | Stage::eCompute, ResourceUse::eNone, QueueType::eGraphics) ==
-						  MapBarrierSync(Stage::eCompute, ResourceUse::eNone, QueueType::eGraphics) &&
-					  MapBarrierAccess(Flags<ResourceUse>(ResourceUse::eHostRead) | ResourceUse::eSampledRead, QueueType::eGraphics) ==
-						  MapBarrierAccess(ResourceUse::eSampledRead, QueueType::eGraphics) &&
-					  MapBarrierAccess(ResourceUse::eHostWrite, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_COMMON,
-		"D3D12 has no host scope on either axis, so naming one adds nothing rather than mapping to something near it");
+	static_assert(
+		MapBarrierSync(Flags<Stage>(Stage::eHost) | Stage::eCompute, ResourceUse::eNone, QueueType::eGraphics) ==
+				MapBarrierSync(Stage::eCompute, ResourceUse::eNone, QueueType::eGraphics) &&
+			MapBarrierAccess(Flags<ResourceUse>(ResourceUse::eHostRead) | ResourceUse::eSampledRead, QueueType::eGraphics) ==
+				MapBarrierAccess(ResourceUse::eSampledRead, QueueType::eGraphics) &&
+			MapBarrierAccess(ResourceUse::eHostWrite, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_COMMON,
+		"D3D12 has no host scope on either axis, so naming one adds nothing rather than mapping to something near it"
+	);
 
-	static_assert(ClampSyncToQueue(D3D12_BARRIER_SYNC_COPY, QueueType::eCopy) == D3D12_BARRIER_SYNC_COPY &&
-					  ClampSyncToQueue(D3D12_BARRIER_SYNC_ALL, QueueType::eCopy) == D3D12_BARRIER_SYNC_ALL &&
-					  ClampSyncToQueue(D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_PIXEL_SHADING, QueueType::eCopy) == D3D12_BARRIER_SYNC_COPY &&
-					  ClampSyncToQueue(D3D12_BARRIER_SYNC_RENDER_TARGET, QueueType::eCopy) == D3D12_BARRIER_SYNC_ALL &&
-					  ClampAccessToQueue(D3D12_BARRIER_ACCESS_COPY_DEST, QueueType::eCopy) == D3D12_BARRIER_ACCESS_COPY_DEST &&
-					  ClampAccessToQueue(D3D12_BARRIER_ACCESS_COPY_SOURCE, QueueType::eCopy) == D3D12_BARRIER_ACCESS_COPY_SOURCE &&
-					  ClampAccessToQueue(D3D12_BARRIER_ACCESS_RENDER_TARGET, QueueType::eCopy) == D3D12_BARRIER_ACCESS_COMMON,
-		"a copy queue admits only the copy and all sync scopes and the two copy accesses, and everything else falls back rather than crossing over");
+	static_assert(
+		ClampSyncToQueue(D3D12_BARRIER_SYNC_COPY, QueueType::eCopy) == D3D12_BARRIER_SYNC_COPY &&
+			ClampSyncToQueue(D3D12_BARRIER_SYNC_ALL, QueueType::eCopy) == D3D12_BARRIER_SYNC_ALL &&
+			ClampSyncToQueue(D3D12_BARRIER_SYNC_COPY | D3D12_BARRIER_SYNC_PIXEL_SHADING, QueueType::eCopy) == D3D12_BARRIER_SYNC_COPY &&
+			ClampSyncToQueue(D3D12_BARRIER_SYNC_RENDER_TARGET, QueueType::eCopy) == D3D12_BARRIER_SYNC_ALL &&
+			ClampAccessToQueue(D3D12_BARRIER_ACCESS_COPY_DEST, QueueType::eCopy) == D3D12_BARRIER_ACCESS_COPY_DEST &&
+			ClampAccessToQueue(D3D12_BARRIER_ACCESS_COPY_SOURCE, QueueType::eCopy) == D3D12_BARRIER_ACCESS_COPY_SOURCE &&
+			ClampAccessToQueue(D3D12_BARRIER_ACCESS_RENDER_TARGET, QueueType::eCopy) == D3D12_BARRIER_ACCESS_COMMON,
+		"a copy queue admits only the copy and all sync scopes and the two copy accesses, and everything else falls back rather than crossing over"
+	);
 
-	static_assert(ClampSyncToQueue(D3D12_BARRIER_SYNC_PIXEL_SHADING, QueueType::eCompute) == D3D12_BARRIER_SYNC_ALL &&
-					  ClampSyncToQueue(D3D12_BARRIER_SYNC_RENDER_TARGET | D3D12_BARRIER_SYNC_COMPUTE_SHADING, QueueType::eCompute) ==
-						  D3D12_BARRIER_SYNC_COMPUTE_SHADING &&
-					  ClampAccessToQueue(D3D12_BARRIER_ACCESS_RENDER_TARGET | D3D12_BARRIER_ACCESS_UNORDERED_ACCESS, QueueType::eCompute) ==
-						  D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
-					  ClampAccessToQueue(D3D12_BARRIER_ACCESS_VERTEX_BUFFER, QueueType::eCompute) == D3D12_BARRIER_ACCESS_COMMON &&
-					  ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_RENDER_TARGET, QueueType::eCompute) == D3D12_BARRIER_LAYOUT_COMMON &&
-					  ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE, QueueType::eCompute) == D3D12_BARRIER_LAYOUT_COMMON &&
-					  ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS, QueueType::eCompute) == D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS,
-		"a compute queue has no raster scopes, no vertex or index access and none of the render-target or depth-stencil layouts");
+	static_assert(
+		ClampSyncToQueue(D3D12_BARRIER_SYNC_PIXEL_SHADING, QueueType::eCompute) == D3D12_BARRIER_SYNC_ALL &&
+			ClampSyncToQueue(D3D12_BARRIER_SYNC_RENDER_TARGET | D3D12_BARRIER_SYNC_COMPUTE_SHADING, QueueType::eCompute) ==
+				D3D12_BARRIER_SYNC_COMPUTE_SHADING &&
+			ClampAccessToQueue(D3D12_BARRIER_ACCESS_RENDER_TARGET | D3D12_BARRIER_ACCESS_UNORDERED_ACCESS, QueueType::eCompute) ==
+				D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
+			ClampAccessToQueue(D3D12_BARRIER_ACCESS_VERTEX_BUFFER, QueueType::eCompute) == D3D12_BARRIER_ACCESS_COMMON &&
+			ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_RENDER_TARGET, QueueType::eCompute) == D3D12_BARRIER_LAYOUT_COMMON &&
+			ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE, QueueType::eCompute) == D3D12_BARRIER_LAYOUT_COMMON &&
+			ClampLayoutToQueue(D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS, QueueType::eCompute) == D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS,
+		"a compute queue has no raster scopes, no vertex or index access and none of the render-target or depth-stencil layouts"
+	);
 
-	static_assert(MapBarrierLayout(ResourceUse::eDiscard, QueueType::eCopy) == D3D12_BARRIER_LAYOUT_COMMON &&
-					  MapBarrierLayout(ResourceUse::eDiscard, QueueType::eGraphics) == D3D12_BARRIER_LAYOUT_UNDEFINED &&
-					  MapBarrierLayout(ResourceUse::eCopyDst, QueueType::eCopy) == D3D12_BARRIER_LAYOUT_COMMON,
-		"a copy queue transitions no layouts at all, so a discard there answers common and never undefined, which would be a transition");
+	static_assert(
+		MapBarrierLayout(ResourceUse::eDiscard, QueueType::eCopy) == D3D12_BARRIER_LAYOUT_COMMON &&
+			MapBarrierLayout(ResourceUse::eDiscard, QueueType::eGraphics) == D3D12_BARRIER_LAYOUT_UNDEFINED &&
+			MapBarrierLayout(ResourceUse::eCopyDst, QueueType::eCopy) == D3D12_BARRIER_LAYOUT_COMMON,
+		"a copy queue transitions no layouts at all, so a discard there answers common and never undefined, which would be a transition"
+	);
 
-	static_assert(ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_SOURCE, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_COPY_SOURCE &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_CONSTANT_BUFFER, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_CONSTANT_BUFFER &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_DEST, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_COMMON &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_UNORDERED_ACCESS, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_COMMON &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_DEST, D3D12_HEAP_TYPE_READBACK) == D3D12_BARRIER_ACCESS_COPY_DEST &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_SOURCE, D3D12_HEAP_TYPE_READBACK) == D3D12_BARRIER_ACCESS_COMMON &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_SHADER_RESOURCE, D3D12_HEAP_TYPE_READBACK) == D3D12_BARRIER_ACCESS_COMMON &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_RENDER_TARGET, D3D12_HEAP_TYPE_DEFAULT) == D3D12_BARRIER_ACCESS_RENDER_TARGET &&
-					  ClampAccessToHeap(D3D12_BARRIER_ACCESS_NO_ACCESS, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_NO_ACCESS,
-		"an upload heap buffer is read and copied from, a readback heap buffer is only copied into, and a device-local one is restricted by its queue alone");
+	static_assert(
+		ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_SOURCE, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_COPY_SOURCE &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_CONSTANT_BUFFER, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_CONSTANT_BUFFER &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_DEST, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_COMMON &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_UNORDERED_ACCESS, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_COMMON &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_DEST, D3D12_HEAP_TYPE_READBACK) == D3D12_BARRIER_ACCESS_COPY_DEST &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_COPY_SOURCE, D3D12_HEAP_TYPE_READBACK) == D3D12_BARRIER_ACCESS_COMMON &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_SHADER_RESOURCE, D3D12_HEAP_TYPE_READBACK) == D3D12_BARRIER_ACCESS_COMMON &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_RENDER_TARGET, D3D12_HEAP_TYPE_DEFAULT) == D3D12_BARRIER_ACCESS_RENDER_TARGET &&
+			ClampAccessToHeap(D3D12_BARRIER_ACCESS_NO_ACCESS, D3D12_HEAP_TYPE_UPLOAD) == D3D12_BARRIER_ACCESS_NO_ACCESS,
+		"an upload heap buffer is read and copied from, a readback heap buffer is only copied into, and a device-local one is restricted by its queue alone"
+	);
 
-	static_assert(TextureBarrierFlags(MapBarrierLayout(ResourceUse::eDiscard, QueueType::eGraphics)) == D3D12_TEXTURE_BARRIER_FLAG_DISCARD &&
-					  TextureBarrierFlags(MapBarrierLayout(ResourceUse::eDiscard, QueueType::eCopy)) == D3D12_TEXTURE_BARRIER_FLAG_NONE &&
-					  TextureBarrierFlags(MapBarrierLayout(ResourceUse::eCopyDst, QueueType::eGraphics)) == D3D12_TEXTURE_BARRIER_FLAG_NONE,
-		"only an undefined before-layout discards, so a copy queue, which transitions no layouts and never names undefined, initialises no metadata either");
+	static_assert(
+		TextureBarrierFlags(MapBarrierLayout(ResourceUse::eDiscard, QueueType::eGraphics)) == D3D12_TEXTURE_BARRIER_FLAG_DISCARD &&
+			TextureBarrierFlags(MapBarrierLayout(ResourceUse::eDiscard, QueueType::eCopy)) == D3D12_TEXTURE_BARRIER_FLAG_NONE &&
+			TextureBarrierFlags(MapBarrierLayout(ResourceUse::eCopyDst, QueueType::eGraphics)) == D3D12_TEXTURE_BARRIER_FLAG_NONE,
+		"only an undefined before-layout discards, so a copy queue, which transitions no layouts and never names undefined, initialises no metadata either"
+	);
 
-	static_assert(AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelRead, QueueType::eCompute)) &&
-					  AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelWrite, QueueType::eCompute)) &&
-					  AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eDiscard, QueueType::eCompute)) &&
-					  AccessLegalOnAccelerationStructure(D3D12_BARRIER_ACCESS_COMMON) &&
-					  !AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eStorageWrite, QueueType::eCompute)) &&
-					  !AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eCompute)) &&
-					  !AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eCopySrc, QueueType::eCopy)),
+	static_assert(
+		AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelRead, QueueType::eCompute)) &&
+			AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelWrite, QueueType::eCompute)) &&
+			AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eDiscard, QueueType::eCompute)) &&
+			AccessLegalOnAccelerationStructure(D3D12_BARRIER_ACCESS_COMMON) &&
+			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eStorageWrite, QueueType::eCompute)) &&
+			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildInput, QueueType::eCompute)) &&
+			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eCopySrc, QueueType::eCopy)),
 		"only the two acceleration-structure accesses reach such a buffer, so a build scratch, which is unordered access on this API, is not one of these "
-		"buffers");
+		"buffers"
+	);
 
-	static_assert(MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
-					  MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eCompute) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
-					  !AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics)),
+	static_assert(
+		MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
+			MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eCompute) == D3D12_BARRIER_ACCESS_UNORDERED_ACCESS &&
+			!AccessLegalOnAccelerationStructure(MapBarrierAccess(ResourceUse::eAccelBuildScratch, QueueType::eGraphics)),
 		"a scratch is where the build keeps its working data and the spec requires the unordered access state for it, which is not a state a structure is ever "
-		"in");
+		"in"
+	);
 
 	static_assert(
 		DeriveBarrierSync(ResourceUse::eAccelBuildScratch) == D3D12_BARRIER_SYNC_ALL &&
 			(MapBarrierSync(Stage::eAccelBuild, ResourceUse::eAccelBuildScratch, QueueType::eGraphics) & D3D12_BARRIER_SYNC_ALL) == D3D12_BARRIER_SYNC_ALL &&
 			(MapBarrierSync(Stage::eCompute, ResourceUse::eAccelBuildScratch, QueueType::eCompute) & D3D12_BARRIER_SYNC_ALL) == D3D12_BARRIER_SYNC_ALL,
 		"the sync compatibility table pairs no acceleration-structure build scope with an unordered access, so the universal scope is the only one that both "
-		"covers a build and is legal beside the access it carries");
+		"covers a build and is legal beside the access it carries"
+	);
 
-	static_assert(SyncClampRestricts(D3D12_BARRIER_SYNC_RENDER_TARGET, QueueType::eCopy) &&
-					  SyncClampRestricts(D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COPY, QueueType::eCompute) &&
-					  SyncClampRestricts(D3D12_BARRIER_SYNC_DRAW, QueueType::eCompute) &&
-					  AccessClampRestricts(D3D12_BARRIER_ACCESS_RENDER_TARGET | D3D12_BARRIER_ACCESS_SHADER_RESOURCE, QueueType::eCompute) &&
-					  AccessClampRestricts(D3D12_BARRIER_ACCESS_INDEX_BUFFER, QueueType::eCopy) &&
-					  HeapClampRestricts(D3D12_BARRIER_ACCESS_COPY_DEST | D3D12_BARRIER_ACCESS_SHADER_RESOURCE, D3D12_HEAP_TYPE_UPLOAD) &&
-					  HeapClampRestricts(D3D12_BARRIER_ACCESS_RESOLVE_DEST, D3D12_HEAP_TYPE_READBACK) &&
-					  LayoutClampRestricts(D3D12_BARRIER_LAYOUT_RESOLVE_DEST, QueueType::eCompute) &&
-					  LayoutClampRestricts(D3D12_BARRIER_LAYOUT_SHADER_RESOURCE, QueueType::eCompute),
-		"a clamp restricts and never substitutes, which is what lets a derived state be trusted on a queue that tracks nothing");
+	static_assert(
+		SyncClampRestricts(D3D12_BARRIER_SYNC_RENDER_TARGET, QueueType::eCopy) &&
+			SyncClampRestricts(D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COPY, QueueType::eCompute) &&
+			SyncClampRestricts(D3D12_BARRIER_SYNC_DRAW, QueueType::eCompute) &&
+			AccessClampRestricts(D3D12_BARRIER_ACCESS_RENDER_TARGET | D3D12_BARRIER_ACCESS_SHADER_RESOURCE, QueueType::eCompute) &&
+			AccessClampRestricts(D3D12_BARRIER_ACCESS_INDEX_BUFFER, QueueType::eCopy) &&
+			HeapClampRestricts(D3D12_BARRIER_ACCESS_COPY_DEST | D3D12_BARRIER_ACCESS_SHADER_RESOURCE, D3D12_HEAP_TYPE_UPLOAD) &&
+			HeapClampRestricts(D3D12_BARRIER_ACCESS_RESOLVE_DEST, D3D12_HEAP_TYPE_READBACK) &&
+			LayoutClampRestricts(D3D12_BARRIER_LAYOUT_RESOLVE_DEST, QueueType::eCompute) &&
+			LayoutClampRestricts(D3D12_BARRIER_LAYOUT_SHADER_RESOURCE, QueueType::eCompute),
+		"a clamp restricts and never substitutes, which is what lets a derived state be trusted on a queue that tracks nothing"
+	);
 
 }

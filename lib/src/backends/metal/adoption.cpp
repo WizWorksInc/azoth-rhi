@@ -16,19 +16,27 @@
 #include "azoth/rhi/native/metal_native.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 #include "azoth/rhi/resources/pipeline.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSSharedPtr.hpp>
 #include <Metal/MTLBuffer.hpp>
 #include <Metal/MTLEvent.hpp>
 #include <Metal/MTLSampler.hpp>
 #include <Metal/MTLTexture.hpp>
+
 #include <utility>
 
 namespace azo::rhi::metal
 {
 	BufferHandle metal_adopt_buffer(
-		void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		[[maybe_unused]] const AdoptedBufferDesc & desc,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.adoptBuffer");
 
@@ -55,8 +63,13 @@ namespace azo::rhi::metal
 		return return_value(handle, error);
 	}
 
-	TextureHandle metal_adopt_texture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-		[[maybe_unused]] const AdoptedTextureDesc & desc, Error * error) noexcept
+	TextureHandle metal_adopt_texture(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] const void * nativeImport,
+		[[maybe_unused]] const AdoptedTextureDesc & desc,
+		Error * error
+	) noexcept
 	{
 		return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal texture import is not implemented yet");
 	}
@@ -80,20 +93,31 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-	bool metal_get_native_texture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
-		[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+	bool metal_get_native_texture(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] TextureHandle texture,
+		[[maybe_unused]] void * outNativeImport,
+		Error * error
+	) noexcept
 	{
 		return fail(error, ErrorCode::eUnsupportedFeature, "Metal texture export is not implemented yet");
 	}
 
 	AccelerationStructureHandle metal_create_acceleration_structure(
-		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] const AccelerationStructureDesc & desc,
+		Error * error
+	) noexcept
 	{
 		return fail_value<AccelerationStructureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
 	}
 
 	RayTracingPipelineHandle metal_create_ray_tracing_pipeline(
-		[[maybe_unused]] void * impl, [[maybe_unused]] const RayTracingPipelineDesc & desc, Error * error) noexcept
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] const RayTracingPipelineDesc & desc,
+		Error * error
+	) noexcept
 	{
 		return fail_value<RayTracingPipelineHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
 	}
@@ -109,7 +133,12 @@ namespace azo::rhi::metal
 	}
 
 	TextureViewHandle metal_adopt_texture_view(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept
 	{
 		if (api != MetalApi::kId)
 		{
@@ -198,7 +227,13 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-	TimelineHandle metal_adopt_timeline(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
+	TimelineHandle metal_adopt_timeline(
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTimelineDesc & desc,
+		Error * error
+	) noexcept
 	{
 		if (api != MetalApi::kId)
 		{
@@ -223,7 +258,12 @@ namespace azo::rhi::metal
 	}
 
 	BinarySemaphoreHandle metal_adopt_binary_semaphore(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept
 	{
 		if (api != MetalApi::kId)
 		{
@@ -266,7 +306,12 @@ namespace azo::rhi::metal
 	}
 
 	bool metal_get_native_binary_semaphore(
-		void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const BinarySemaphoreHandle semaphore,
+		void * outNativeImport,
+		Error * error
+	) noexcept
 	{
 		if (api != MetalApi::kId)
 		{

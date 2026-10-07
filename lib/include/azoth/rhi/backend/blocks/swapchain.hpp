@@ -22,8 +22,8 @@ namespace azo::rhi
 
 		AcquireResult (*acquireNextImage)(void * impl, std::uint64_t timeoutNanoseconds, Error * error) noexcept = nullptr;
 
-		PresentResult (*present)(
-			void * impl, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, void * queueImpl, Error * error) noexcept = nullptr;
+		PresentResult (*present)(void * impl, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, void * queueImpl, Error * error) noexcept =
+			nullptr;
 
 		TextureHandle (*getBackBuffer)(void * impl, std::uint32_t imageIndex) noexcept = nullptr;
 

@@ -138,14 +138,29 @@ namespace azo::rhi
 		bool set_ray_tracing_pipeline(RayTracingPipelineHandle pipeline) noexcept;
 		bool set_ray_tracing_pipeline(RayTracingPipelineHandle pipeline, Error & error) noexcept;
 
-		bool bind_descriptor_set(PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-			std::span<const DynamicDescriptorOffset> dynamicOffsets = {}) noexcept;
-		bool bind_descriptor_set(PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-			std::span<const DynamicDescriptorOffset> dynamicOffsets, Error & error) noexcept;
+		bool bind_descriptor_set(
+			PipelineLayoutHandle layout,
+			std::uint32_t setIndex,
+			DescriptorSetHandle set,
+			std::span<const DynamicDescriptorOffset> dynamicOffsets = {}
+		) noexcept;
+		bool bind_descriptor_set(
+			PipelineLayoutHandle layout,
+			std::uint32_t setIndex,
+			DescriptorSetHandle set,
+			std::span<const DynamicDescriptorOffset> dynamicOffsets,
+			Error & error
+		) noexcept;
 
 		bool push_constants(PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data) noexcept;
 		bool push_constants(
-			PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data, Error & error) noexcept;
+			PipelineLayoutHandle layout,
+			Flags<ShaderStage> stages,
+			std::uint32_t offset,
+			std::uint32_t size,
+			const void * data,
+			Error & error
+		) noexcept;
 
 		bool set_viewport(const Viewport & viewport) noexcept;
 		bool set_viewport(const Viewport & viewport, Error & error) noexcept;
@@ -168,9 +183,20 @@ namespace azo::rhi
 		bool draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance) noexcept;
 		bool draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error & error) noexcept;
 		bool draw_indexed(
-			std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset, std::uint32_t firstInstance) noexcept;
-		bool draw_indexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-			std::uint32_t firstInstance, Error & error) noexcept;
+			std::uint32_t indexCount,
+			std::uint32_t instanceCount,
+			std::uint32_t firstIndex,
+			std::int32_t vertexOffset,
+			std::uint32_t firstInstance
+		) noexcept;
+		bool draw_indexed(
+			std::uint32_t indexCount,
+			std::uint32_t instanceCount,
+			std::uint32_t firstIndex,
+			std::int32_t vertexOffset,
+			std::uint32_t firstInstance,
+			Error & error
+		) noexcept;
 
 		bool draw_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept;
 		bool draw_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept;
@@ -178,15 +204,41 @@ namespace azo::rhi
 		bool draw_indexed_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept;
 		bool draw_indexed_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept;
 
-		bool draw_indirect_count(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride) noexcept;
-		bool draw_indirect_count(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride, Error & error) noexcept;
+		bool draw_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride
+		) noexcept;
+		bool draw_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride,
+			Error & error
+		) noexcept;
 
-		bool draw_indexed_indirect_count(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride) noexcept;
-		bool draw_indexed_indirect_count(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride, Error & error) noexcept;
+		bool draw_indexed_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride
+		) noexcept;
+		bool draw_indexed_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride,
+			Error & error
+		) noexcept;
 
 		bool dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ) noexcept;
 		bool dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error & error) noexcept;
@@ -239,7 +291,13 @@ namespace azo::rhi
 
 		bool resolve_query_data(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset) noexcept;
 		bool resolve_query_data(
-			QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset, Error & error) noexcept;
+			QueryPoolHandle pool,
+			std::uint32_t firstQuery,
+			std::uint32_t queryCount,
+			BufferHandle dst,
+			std::uint64_t dstOffset,
+			Error & error
+		) noexcept;
 
 		bool begin_debug_label(const char * name, std::uint32_t color = 0) noexcept;
 		bool begin_debug_label(const char * name, std::uint32_t color, Error & error) noexcept;

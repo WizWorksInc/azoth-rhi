@@ -14,12 +14,15 @@
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/device.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
 
 namespace azo::rhi::vulkan
 {
@@ -49,7 +52,7 @@ namespace azo::rhi::vulkan
 	bool vulkan_collect_garbage(void * impl, ResourceType type, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.collectGarbage");
-		auto * device		   = static_cast<VulkanDevice *>(impl);
+		auto * device	= static_cast<VulkanDevice *>(impl);
 		const auto kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{
@@ -73,7 +76,7 @@ namespace azo::rhi::vulkan
 	bool vulkan_collect_garbage_timeline(void * impl, ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.collectGarbage");
-		auto * device		   = static_cast<VulkanDevice *>(impl);
+		auto * device	= static_cast<VulkanDevice *>(impl);
 		const auto kind = static_cast<std::size_t>(type);
 		if (kind >= device->garbage.size())
 		{
@@ -82,7 +85,8 @@ namespace azo::rhi::vulkan
 
 		detail::HostVector<PendingFree> & collecting = azo::rhi::detail::at(device->garbage, kind);
 
-		const std::uint64_t freed = std::erase_if(collecting,
+		const std::uint64_t freed = std::erase_if(
+			collecting,
 			[&](const PendingFree & pending)
 			{
 				const bool ready = pending.safeAfter.timeline == timeline && pending.safeAfter.value <= completedValue;
@@ -92,7 +96,8 @@ namespace azo::rhi::vulkan
 				}
 
 				return ready;
-			});
+			}
+		);
 
 		AZO_RHI_PROFILE_PLOT("rhi.vulkan.pendingRetire", static_cast<std::int64_t>(device->pendingRetire.fetch_sub(freed, std::memory_order_relaxed) - freed));
 		return succeed(error);
@@ -124,7 +129,8 @@ namespace azo::rhi::vulkan
 
 			if (slot->buffer != VK_NULL_HANDLE)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
@@ -132,7 +138,8 @@ namespace azo::rhi::vulkan
 							.buffer		= slot->buffer,
 							.allocation = slot->allocation,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -165,7 +172,8 @@ namespace azo::rhi::vulkan
 				return succeed(error);
 			}
 
-			if (!retire_native(device,
+			if (!retire_native(
+					device,
 					type,
 					desc,
 					PendingFree{
@@ -174,7 +182,8 @@ namespace azo::rhi::vulkan
 						.allocation = slot->allocation,
 						.view		= vk::ImageView(slot->defaultView),
 					},
-					error))
+					error
+				))
 			{
 				return false;
 			}
@@ -208,14 +217,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->view)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter = desc.safeAfter,
 							.view	   = slot->view,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -239,14 +250,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->layout)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter		= desc.safeAfter,
 							.pipelineLayout = slot->layout,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -270,14 +283,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->pipeline)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter = desc.safeAfter,
 							.pipeline  = slot->pipeline,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -307,14 +322,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->semaphore)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter = desc.safeAfter,
 							.semaphore = slot->semaphore,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -338,14 +355,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->pool)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter = desc.safeAfter,
 							.queryPool = slot->pool,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -375,14 +394,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->sampler)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter = desc.safeAfter,
 							.sampler   = slot->sampler,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -406,14 +427,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->pipeline)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter = desc.safeAfter,
 							.pipeline  = slot->pipeline,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -437,14 +460,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->cache)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter	   = desc.safeAfter,
 							.pipelineCache = slot->cache,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -475,14 +500,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->semaphore)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter		 = desc.safeAfter,
 							.binarySemaphore = slot->semaphore,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -521,14 +548,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->layout)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter			 = desc.safeAfter,
 							.descriptorSetLayout = slot->layout,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}
@@ -552,14 +581,16 @@ namespace azo::rhi::vulkan
 
 			if (slot->memory)
 			{
-				if (!retire_native(device,
+				if (!retire_native(
+						device,
 						type,
 						desc,
 						PendingFree{
 							.safeAfter	  = desc.safeAfter,
 							.deviceMemory = slot->memory,
 						},
-						error))
+						error
+					))
 				{
 					return false;
 				}

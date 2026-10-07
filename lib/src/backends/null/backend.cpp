@@ -124,7 +124,8 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			device->object					= publishing_object<Published<CoreDeviceApi, &CoreDeviceBlock>,
+			device->object = publishing_object<
+				Published<CoreDeviceApi, &CoreDeviceBlock>,
 				Published<PresentApi, &PresentBlock>,
 				Published<PlacedMemoryApi, &PlacedMemoryBlock>,
 				Published<RayTracingApi, &RayTracingBlock>,
@@ -234,11 +235,13 @@ namespace azo::rhi
 				}
 			}
 
-			std::erase_if(owner.devices,
+			std::erase_if(
+				owner.devices,
 				[impl](const HostUniquePtr<null::NullDevice> & device)
 				{
 					return device.get() == impl;
-				});
+				}
+			);
 			detail::device_tags().release(releasedTag);
 
 			if (owningInstance != nullptr)
@@ -254,11 +257,13 @@ namespace azo::rhi
 				}
 				if (!stillUsed)
 				{
-					std::erase_if(owner.instances,
+					std::erase_if(
+						owner.instances,
 						[owningInstance](const HostUniquePtr<null::NullInstance> & instance)
 						{
 							return instance.get() == owningInstance;
-						});
+						}
+					);
 				}
 			}
 		}
@@ -266,11 +271,13 @@ namespace azo::rhi
 		void null_destroy_instance(void * impl) noexcept
 		{
 			NullBackendOwner & owner = backend_owner();
-			std::erase_if(owner.instances,
+			std::erase_if(
+				owner.instances,
 				[impl](const HostUniquePtr<null::NullInstance> & instance)
 				{
 					return instance.get() == impl;
-				});
+				}
+			);
 		}
 
 		bool succeed(Error * error) noexcept
@@ -380,7 +387,11 @@ namespace azo::rhi
 			auto * device = static_cast<null::NullDevice *>(impl);
 			if (!desc.exportableHandleTypes.empty())
 			{
-				return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend exports nothing, so nothing it creates is exportable");
+				return fail_value<TextureHandle>(
+					error,
+					ErrorCode::eUnsupportedFeature,
+					"the Null backend exports nothing, so nothing it creates is exportable"
+				);
 			}
 
 			if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
@@ -569,9 +580,11 @@ namespace azo::rhi
 			const TextureSubresourceRange & r = desc.range;
 			if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 			{
-				return fail_value<TextureViewHandle>(error,
+				return fail_value<TextureViewHandle>(
+					error,
 					ErrorCode::eInvalidArgument,
-					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes"
+				);
 			}
 
 			const TextureDesc & source = sourceTexture->desc;
@@ -647,16 +660,21 @@ namespace azo::rhi
 			AZO_RHI_PROFILE_ZONE("rhi.null.createGraphicsPipeline");
 			if (desc.vertexInput == nullptr)
 			{
-				return fail_value<GraphicsPipelineHandle>(error,
+				return fail_value<GraphicsPipelineHandle>(
+					error,
 					ErrorCode::eUnsupportedFeature,
-					"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have");
+					"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have"
+				);
 			}
 
 			const VertexInputDesc & vertexInput = *desc.vertexInput;
 			if (desc.raster.conservativeRasterEnable && static_cast<null::NullDevice *>(impl)->caps.conservativeRasterTier == ConservativeRasterTier::eNone)
 			{
 				return fail_value<GraphicsPipelineHandle>(
-					error, ErrorCode::eUnsupportedFeature, "conservative rasterization was requested on a device that reports none");
+					error,
+					ErrorCode::eUnsupportedFeature,
+					"conservative rasterization was requested on a device that reports none"
+				);
 			}
 
 			if (vertexInput.topology == PrimitiveTopology::ePatchList && vertexInput.patchControlPoints == 0)
@@ -667,7 +685,10 @@ namespace azo::rhi
 			if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 			{
 				return fail_value<GraphicsPipelineHandle>(
-					error, ErrorCode::eInvalidArgument, "graphics pipeline names more color attachments than a render target can hold");
+					error,
+					ErrorCode::eInvalidArgument,
+					"graphics pipeline names more color attachments than a render target can hold"
+				);
 			}
 
 			if (desc.shaders.empty())
@@ -695,9 +716,11 @@ namespace azo::rhi
 
 			if (!desc.shader.threadgroupSize.is_stated())
 			{
-				return fail_value<ComputePipelineHandle>(error,
+				return fail_value<ComputePipelineHandle>(
+					error,
 					ErrorCode::eInvalidArgument,
-					"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary");
+					"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary"
+				);
 			}
 
 			auto * device = static_cast<null::NullDevice *>(impl);
@@ -717,7 +740,11 @@ namespace azo::rhi
 
 			if (desc.storage.is_valid() && !resolves(device, desc.storage))
 			{
-				return fail_value<AccelerationStructureHandle>(error, ErrorCode::eInvalidHandle, "acceleration structure with an invalid storage buffer handle");
+				return fail_value<AccelerationStructureHandle>(
+					error,
+					ErrorCode::eInvalidHandle,
+					"acceleration structure with an invalid storage buffer handle"
+				);
 			}
 
 			return mint_created<AccelerationStructureHandle>(device, error);
@@ -832,81 +859,146 @@ namespace azo::rhi
 		}
 
 		bool null_collect_garbage_timeline(
-			void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept
+			void * impl,
+			ResourceType type,
+			[[maybe_unused]] TimelineHandle timeline,
+			[[maybe_unused]] std::uint64_t completedValue,
+			Error * error
+		) noexcept
 		{
 			return null_collect_garbage(impl, type, error);
 		}
 
-		TimelineHandle null_adopt_timeline([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-			[[maybe_unused]] const AdoptedTimelineDesc & desc, Error * error) noexcept
+		TimelineHandle null_adopt_timeline(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] const void * nativeImport,
+			[[maybe_unused]] const AdoptedTimelineDesc & desc,
+			Error * error
+		) noexcept
 		{
 			return fail_value<TimelineHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native timeline to adopt");
 		}
 
-		BinarySemaphoreHandle null_adopt_binary_semaphore([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api,
-			[[maybe_unused]] const void * nativeImport, [[maybe_unused]] const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+		BinarySemaphoreHandle null_adopt_binary_semaphore(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] const void * nativeImport,
+			[[maybe_unused]] const AdoptedBinarySemaphoreDesc & desc,
+			Error * error
+		) noexcept
 		{
 			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native binary semaphore to adopt");
 		}
 
-		bool null_get_native_timeline([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TimelineHandle timeline,
-			[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+		bool null_get_native_timeline(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] TimelineHandle timeline,
+			[[maybe_unused]] void * outNativeImport,
+			Error * error
+		) noexcept
 		{
 			return fail(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native timeline to hand back");
 		}
 
-		bool null_get_native_binary_semaphore([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] BinarySemaphoreHandle semaphore,
-			[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+		bool null_get_native_binary_semaphore(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] BinarySemaphoreHandle semaphore,
+			[[maybe_unused]] void * outNativeImport,
+			Error * error
+		) noexcept
 		{
 			return fail(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native binary semaphore to hand back");
 		}
 
-		TextureViewHandle null_adopt_texture_view([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-			[[maybe_unused]] const AdoptedTextureViewDesc & desc, Error * error) noexcept
+		TextureViewHandle null_adopt_texture_view(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] const void * nativeImport,
+			[[maybe_unused]] const AdoptedTextureViewDesc & desc,
+			Error * error
+		) noexcept
 		{
 			return fail_value<TextureViewHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native texture view to adopt");
 		}
 
-		SamplerHandle null_adopt_sampler([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-			[[maybe_unused]] const AdoptedSamplerDesc & desc, Error * error) noexcept
+		SamplerHandle null_adopt_sampler(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] const void * nativeImport,
+			[[maybe_unused]] const AdoptedSamplerDesc & desc,
+			Error * error
+		) noexcept
 		{
 			return fail_value<SamplerHandle>(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native sampler to adopt");
 		}
 
-		bool null_get_native_texture_view([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureViewHandle view,
-			[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+		bool null_get_native_texture_view(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] TextureViewHandle view,
+			[[maybe_unused]] void * outNativeImport,
+			Error * error
+		) noexcept
 		{
 			return fail(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native texture view to hand back");
 		}
 
-		bool null_get_native_sampler([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] SamplerHandle sampler,
-			[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+		bool null_get_native_sampler(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] SamplerHandle sampler,
+			[[maybe_unused]] void * outNativeImport,
+			Error * error
+		) noexcept
 		{
 			return fail(error, ErrorCode::eUnsupportedFeature, "the Null backend has no native sampler to hand back");
 		}
 
-		BufferHandle null_adopt_buffer(void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-			[[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
+		BufferHandle null_adopt_buffer(
+			void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] const void * nativeImport,
+			[[maybe_unused]] const AdoptedBufferDesc & desc,
+			Error * error
+		) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.importBuffer");
 			return return_value(mint_handle<BufferHandle>(static_cast<null::NullDevice *>(impl)), error);
 		}
 
-		TextureHandle null_adopt_texture(void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-			[[maybe_unused]] const AdoptedTextureDesc & desc, Error * error) noexcept
+		TextureHandle null_adopt_texture(
+			void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] const void * nativeImport,
+			[[maybe_unused]] const AdoptedTextureDesc & desc,
+			Error * error
+		) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.importTexture");
 			return return_value(mint_handle<TextureHandle>(static_cast<null::NullDevice *>(impl)), error);
 		}
 
-		bool null_get_native_buffer([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] BufferHandle buffer,
-			[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+		bool null_get_native_buffer(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] BufferHandle buffer,
+			[[maybe_unused]] void * outNativeImport,
+			Error * error
+		) noexcept
 		{
 			return succeed(error);
 		}
 
-		bool null_get_native_texture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
-			[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+		bool null_get_native_texture(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] GraphicsApiId api,
+			[[maybe_unused]] TextureHandle texture,
+			[[maybe_unused]] void * outNativeImport,
+			Error * error
+		) noexcept
 		{
 			return succeed(error);
 		}
@@ -933,7 +1025,8 @@ namespace azo::rhi
 					[](const null::NullObject &)
 					{
 						return false;
-					});
+					}
+				);
 				refusal != nullptr)
 			{
 				return fail(error, ErrorCode::eInvalidState, refusal);
@@ -973,14 +1066,17 @@ namespace azo::rhi
 				return return_value(static_cast<void *>(recycled), error);
 			}
 
-			void * listObject = alloc_object(device,
-				publishing_object<Published<RenderCommandApi, &RenderCommandBlock>,
+			void * listObject = alloc_object(
+				device,
+				publishing_object<
+					Published<RenderCommandApi, &RenderCommandBlock>,
 					Published<AliasingCommandApi, &AliasingCommandBlock>,
 					Published<RayTracingCommandApi, &RayTracingCommandBlock>,
 					Published<QueryCommandApi, &QueryCommandBlock>,
 					Published<IndirectApi, &IndirectBlock>,
 					Published<IndirectCountApi, &IndirectCountBlock>,
-					Published<NativeEscapeApi, &NativeEscapeBlock>>());
+					Published<NativeEscapeApi, &NativeEscapeBlock>>()
+			);
 			if (listObject == nullptr)
 			{
 				return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Null command list allocation failed");
@@ -1009,7 +1105,12 @@ namespace azo::rhi
 			return succeed(error);
 		}
 
-		bool null_begin_native_mutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
+		bool null_begin_native_mutation(
+			[[maybe_unused]] void * impl,
+			GraphicsApiId api,
+			[[maybe_unused]] const NativeMutationDesc & desc,
+			Error * error
+		) noexcept
 		{
 			if (api != NullApi::kId)
 			{
@@ -1062,14 +1163,23 @@ namespace azo::rhi
 			return succeed(error);
 		}
 
-		bool null_bind_descriptor_set([[maybe_unused]] void * impl, [[maybe_unused]] PipelineLayoutHandle layout, [[maybe_unused]] std::uint32_t setIndex,
-			[[maybe_unused]] DescriptorSetHandle set, [[maybe_unused]] std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
+		bool null_bind_descriptor_set(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] PipelineLayoutHandle layout,
+			[[maybe_unused]] std::uint32_t setIndex,
+			[[maybe_unused]] DescriptorSetHandle set,
+			[[maybe_unused]] std::span<const DynamicDescriptorOffset> dynamicOffsets,
+			Error * error
+		) noexcept
 		{
 			return succeed(error);
 		}
 
 		bool null_command_list_build_acceleration_structures(
-			[[maybe_unused]] void * impl, [[maybe_unused]] std::span<const AccelerationStructureBuildDesc> builds, Error * error) noexcept
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] std::span<const AccelerationStructureBuildDesc> builds,
+			Error * error
+		) noexcept
 		{
 			return succeed(error);
 		}
@@ -1084,11 +1194,17 @@ namespace azo::rhi
 					// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index, cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					.imageAvailable = swapchain->presentSemaphores[0],
 				},
-				error);
+				error
+			);
 		}
 
-		PresentResult null_present([[maybe_unused]] void * impl, [[maybe_unused]] std::uint32_t imageIndex,
-			[[maybe_unused]] BinarySemaphoreHandle renderFinished, [[maybe_unused]] void * queueImpl, Error * error) noexcept
+		PresentResult null_present(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] std::uint32_t imageIndex,
+			[[maybe_unused]] BinarySemaphoreHandle renderFinished,
+			[[maybe_unused]] void * queueImpl,
+			Error * error
+		) noexcept
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.null.present");
 			return return_value(PresentResult{ .status = SwapchainStatus::eOk }, error);

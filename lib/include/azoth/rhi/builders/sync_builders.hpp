@@ -181,9 +181,11 @@ namespace azo::rhi
 
 		[[nodiscard]] BarrierBatch build() const noexcept
 		{
-			return BarrierBatch{ .memory = std::span<const MemoryBarrier>{ m_memory.data(), m_memory.size() },
-				.buffers				 = std::span<const BufferBarrier>{ m_buffers.data(), m_buffers.size() },
-				.textures				 = std::span<const TextureBarrier>{ m_textures.data(), m_textures.size() }, };
+			return BarrierBatch{
+				.memory	  = std::span<const MemoryBarrier>{ m_memory.data(), m_memory.size() },
+				.buffers  = std::span<const BufferBarrier>{ m_buffers.data(), m_buffers.size() },
+				.textures = std::span<const TextureBarrier>{ m_textures.data(), m_textures.size() },
+			};
 		}
 
 	private:
@@ -233,11 +235,13 @@ namespace azo::rhi
 
 		[[nodiscard]] SubmitDesc build() noexcept
 		{
-			return SubmitDesc{ .commandLists = std::span{ m_commandLists.data(), m_commandLists.size() },
-				.waits						 = std::span<const TimelinePoint>{ m_waits.data(), m_waits.size() },
-				.signals					 = std::span<const TimelinePoint>{ m_signals.data(), m_signals.size() },
-				.swapchains					 = std::span<const SwapchainSync>{ m_swapchains.data(), m_swapchains.size() },
-				.debugName					 = m_debugName.empty() ? nullptr : m_debugName.c_str(), };
+			return SubmitDesc{
+				.commandLists = std::span{ m_commandLists.data(), m_commandLists.size() },
+				.waits		  = std::span<const TimelinePoint>{ m_waits.data(), m_waits.size() },
+				.signals	  = std::span<const TimelinePoint>{ m_signals.data(), m_signals.size() },
+				.swapchains	  = std::span<const SwapchainSync>{ m_swapchains.data(), m_swapchains.size() },
+				.debugName	  = m_debugName.empty() ? nullptr : m_debugName.c_str(),
+			};
 		}
 
 	private:

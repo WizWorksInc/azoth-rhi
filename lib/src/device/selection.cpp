@@ -142,11 +142,13 @@ namespace azo::rhi
 
 		void sort_for_reproducible_order(detail::HostVector<BackendEntry> & entries)
 		{
-			std::ranges::sort(entries,
+			std::ranges::sort(
+				entries,
 				[](const BackendEntry & lhs, const BackendEntry & rhs)
 				{
 					return lhs.rank != rhs.rank ? lhs.rank < rhs.rank : lhs.canonicalName < rhs.canonicalName;
-				});
+				}
+			);
 		}
 
 	}
@@ -331,11 +333,13 @@ namespace azo::rhi
 	{
 		Result<void> firstFailure;
 
-		const auto named = std::ranges::find_if(entries,
+		const auto named = std::ranges::find_if(
+			entries,
 			[this](const BackendEntry & entry)
 			{
 				return name_refers_to(m_requestedName, entry.canonicalName);
-			});
+			}
+		);
 
 		if (named != entries.end())
 		{
@@ -394,11 +398,13 @@ namespace azo::rhi
 		for (const BackendEntry & entry : available_backends())
 		{
 			const std::span<const BackendEntry> mine{ catalog.data(), selfRegistered };
-			const bool shadowed = std::ranges::any_of(mine,
+			const bool shadowed = std::ranges::any_of(
+				mine,
 				[&entry](const BackendEntry & ours)
 				{
 					return ours.id == entry.id;
-				});
+				}
+			);
 
 			if (!shadowed)
 			{

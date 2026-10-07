@@ -16,7 +16,6 @@
 	#include "backends/metal4/internal.hpp"
 	#include "backends/registration.hpp"
 
-
 	#include <string_view>
 
 namespace azo::rhi
@@ -65,7 +64,8 @@ namespace azo::rhi
 	{
 		Metal4CommandListView NativeAccess<Metal4Api>::make_command_list_view(void * commandListImpl) noexcept
 		{
-			metal4::CmdList * list = metal4::list_of(static_cast<metal4::Metal4Object *>(detail::native_impl_of(commandListImpl, metal4::render_command_block())));
+			metal4::CmdList * list =
+				metal4::list_of(static_cast<metal4::Metal4Object *>(detail::native_impl_of(commandListImpl, metal4::render_command_block())));
 			return Metal4CommandListView{ .commandBuffer = list != nullptr ? list->commandBuffer.get() : nullptr };
 		}
 	}
@@ -113,7 +113,8 @@ namespace azo::rhi
 	{
 		[[nodiscard]] metal4::CmdList * list_behind(CommandList commandList) noexcept
 		{
-			auto * object = static_cast<metal4::Metal4Object *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), metal4::render_command_block()));
+			auto * object =
+				static_cast<metal4::Metal4Object *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(commandList), metal4::render_command_block()));
 			return metal4::list_of(object);
 		}
 	}

@@ -14,13 +14,20 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/device.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <string_view>
 
 namespace azo::rhi::metal4
 {
-	bool metal4_refuse_unexportable(const Flags<ExternalHandleType> declared, const Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept
+	bool metal4_refuse_unexportable(
+		const Flags<ExternalHandleType> declared,
+		const Flags<ExternalHandleType> allowed,
+		const char * what,
+		Error * error
+	) noexcept
 	{
 		const Flags<ExternalHandleType> unsupported = declared & ~allowed;
 		return unsupported.empty() ? true : fail(error, ErrorCode::eUnsupportedFeature, what);

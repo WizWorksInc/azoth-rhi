@@ -8,6 +8,7 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/blocks/swapchain.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
@@ -17,16 +18,20 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/present/swapchain.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.hpp>
+
 #include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_core.h>
 
 namespace azo::rhi::vulkan
 {
@@ -84,18 +89,22 @@ namespace azo::rhi::vulkan
 		for (std::size_t i = 0; i < shared; ++i)
 		{
 			static_cast<void>(device->textureSlots.retire(swapchain->backBufferTextures[i], true));
-			swapchain->backBufferTextures[i] = device->textureSlots.store(TextureSlot{
-				.image	  = swapchain->bundle.Images[i],
-				.format	  = swapchain->bundle.ColorFormat,
-				.lifetime = SlotLifetime::eSwapchainBorrowed,
-			});
+			swapchain->backBufferTextures[i] = device->textureSlots.store(
+				TextureSlot{
+					.image	  = swapchain->bundle.Images[i],
+					.format	  = swapchain->bundle.ColorFormat,
+					.lifetime = SlotLifetime::eSwapchainBorrowed,
+				}
+			);
 
 			static_cast<void>(device->textureViewSlots.retire(swapchain->backBufferViews[i], true));
-			swapchain->backBufferViews[i] = device->textureViewSlots.store(TextureViewSlot{
-				.view	  = swapchain->bundle.Views[i],
-				.format	  = swapchain->bundle.ColorFormat,
-				.lifetime = SlotLifetime::eSwapchainBorrowed,
-			});
+			swapchain->backBufferViews[i] = device->textureViewSlots.store(
+				TextureViewSlot{
+					.view	  = swapchain->bundle.Views[i],
+					.format	  = swapchain->bundle.ColorFormat,
+					.lifetime = SlotLifetime::eSwapchainBorrowed,
+				}
+			);
 
 			if (!swapchain->backBufferTextures[i].is_valid() || !swapchain->backBufferViews[i].is_valid())
 			{
@@ -110,17 +119,21 @@ namespace azo::rhi::vulkan
 
 		for (std::size_t i = shared; i < imageCount; ++i)
 		{
-			const TextureHandle texture = device->textureSlots.store(TextureSlot{
-				.image	  = swapchain->bundle.Images[i],
-				.format	  = swapchain->bundle.ColorFormat,
-				.lifetime = SlotLifetime::eSwapchainBorrowed,
-			});
+			const TextureHandle texture = device->textureSlots.store(
+				TextureSlot{
+					.image	  = swapchain->bundle.Images[i],
+					.format	  = swapchain->bundle.ColorFormat,
+					.lifetime = SlotLifetime::eSwapchainBorrowed,
+				}
+			);
 
-			const TextureViewHandle view = device->textureViewSlots.store(TextureViewSlot{
-				.view	  = swapchain->bundle.Views[i],
-				.format	  = swapchain->bundle.ColorFormat,
-				.lifetime = SlotLifetime::eSwapchainBorrowed,
-			});
+			const TextureViewHandle view = device->textureViewSlots.store(
+				TextureViewSlot{
+					.view	  = swapchain->bundle.Views[i],
+					.format	  = swapchain->bundle.ColorFormat,
+					.lifetime = SlotLifetime::eSwapchainBorrowed,
+				}
+			);
 
 			if (!texture.is_valid() || !view.is_valid())
 			{
@@ -203,7 +216,8 @@ namespace azo::rhi::vulkan
 			desiredPresentModes.push_back(map_present_mode(mode));
 		}
 
-		SwapchainBundle bundle = create_swapchain(device->device,
+		SwapchainBundle bundle = create_swapchain(
+			device->device,
 			device->dispatch,
 			device->phys,
 			device->allocator,
@@ -213,7 +227,8 @@ namespace azo::rhi::vulkan
 			nullptr,
 			desiredFormats,
 			desiredPresentModes,
-			desc.imageCount);
+			desc.imageCount
+		);
 		if (!bundle.Swapchain)
 		{
 			return fail_native_value<void *>(error, "Vulkan swapchain creation failed", bundle.Failure);
@@ -257,7 +272,8 @@ namespace azo::rhi::vulkan
 		auto * swapchain	  = static_cast<VulkanSwapchain *>(impl);
 		VulkanDevice * device = swapchain->owner;
 
-		SwapchainBundle next = create_swapchain(device->device,
+		SwapchainBundle next = create_swapchain(
+			device->device,
 			device->dispatch,
 			device->phys,
 			device->allocator,
@@ -267,7 +283,8 @@ namespace azo::rhi::vulkan
 			swapchain->bundle.Swapchain,
 			swapchain->desiredFormats,
 			swapchain->desiredPresentModes,
-			swapchain->desiredImageCount);
+			swapchain->desiredImageCount
+		);
 
 		if (!next.Swapchain)
 		{
@@ -329,7 +346,8 @@ namespace azo::rhi::vulkan
 					.imageIndex		= 0,
 					.imageAvailable = {},
 				},
-				error);
+				error
+			);
 		}
 
 		return return_value(AcquireResult{ .status = status,

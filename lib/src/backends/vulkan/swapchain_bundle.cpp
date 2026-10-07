@@ -8,11 +8,15 @@
 // limitations under the License.
 
 #include "backends/vulkan/swapchain_bundle.hpp"
+
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/host/allocator.hpp"
+
 #include "vulkan/vulkan.hpp"
-#include <vulkan/vulkan.hpp>
+
 #include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -23,7 +27,11 @@ namespace azo::rhi::vulkan
 {
 
 	vk::PresentModeKHR select_present_mode(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, vk::SurfaceKHR surface, std::span<const vk::PresentModeKHR> desired)
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		vk::SurfaceKHR surface,
+		std::span<const vk::PresentModeKHR> desired
+	)
 	{
 		const auto supported = phys.getSurfacePresentModesKHR<HostAllocatorAdapter<vk::PresentModeKHR>>(surface, dispatch);
 		if (supported.result != vk::Result::eSuccess)
@@ -42,9 +50,19 @@ namespace azo::rhi::vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	SwapchainBundle create_swapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, vk::PhysicalDevice phys, VmaAllocator allocator,
-		vk::SurfaceKHR surface, std::uint32_t width, std::uint32_t height, vk::SwapchainKHR old, std::span<const vk::Format> desiredFormats,
-		std::span<const vk::PresentModeKHR> desiredPresentModes, std::uint32_t desiredImageCount)
+	SwapchainBundle create_swapchain(
+		vk::Device device,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		vk::PhysicalDevice phys,
+		VmaAllocator allocator,
+		vk::SurfaceKHR surface,
+		std::uint32_t width,
+		std::uint32_t height,
+		vk::SwapchainKHR old,
+		std::span<const vk::Format> desiredFormats,
+		std::span<const vk::PresentModeKHR> desiredPresentModes,
+		std::uint32_t desiredImageCount
+	)
 	{
 		SwapchainBundle sc;
 
@@ -102,8 +120,10 @@ namespace azo::rhi::vulkan
 		}
 
 		sc.Extent = caps.currentExtent.width != UINT32_MAX ? caps.currentExtent
-														   : vk::Extent2D(std::clamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
-																 std::clamp(height, caps.minImageExtent.height, caps.maxImageExtent.height));
+														   : vk::Extent2D(
+																 std::clamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
+																 std::clamp(height, caps.minImageExtent.height, caps.maxImageExtent.height)
+															 );
 
 		std::uint32_t imageCount = desiredImageCount != 0 ? desiredImageCount : caps.minImageCount + 1;
 		imageCount				 = std::max(imageCount, caps.minImageCount);
@@ -121,7 +141,8 @@ namespace azo::rhi::vulkan
 			sc.CaptureCapable = true;
 		}
 
-		vk::SwapchainCreateInfoKHR const info({},
+		vk::SwapchainCreateInfoKHR const info(
+			{},
 			surface,
 			imageCount,
 			sc.ColorFormat,
@@ -135,7 +156,8 @@ namespace azo::rhi::vulkan
 			vk::CompositeAlphaFlagBitsKHR::eOpaque,
 			sc.PresentMode,
 			VK_TRUE,
-			old);
+			old
+		);
 
 		const auto created = device.createSwapchainKHR(info, nullptr, dispatch);
 		if (created.result != vk::Result::eSuccess)
@@ -158,9 +180,16 @@ namespace azo::rhi::vulkan
 		{
 			const auto view = device.createImageView(
 				vk::ImageViewCreateInfo(
-					{}, img, vk::ImageViewType::e2D, sc.ColorFormat, {}, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)),
+					{},
+					img,
+					vk::ImageViewType::e2D,
+					sc.ColorFormat,
+					{},
+					vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+				),
 				nullptr,
-				dispatch);
+				dispatch
+			);
 			if (view.result != vk::Result::eSuccess || !detail::try_push_back(sc.Views, view.value))
 			{
 				if (view.result == vk::Result::eSuccess)
@@ -173,7 +202,8 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		const VkImageCreateInfo depthInfo = vk::ImageCreateInfo({},
+		const VkImageCreateInfo depthInfo = vk::ImageCreateInfo(
+			{},
 			vk::ImageType::e2D,
 			sc.DepthFormat,
 			vk::Extent3D(sc.Extent.width, sc.Extent.height, 1),
@@ -181,7 +211,8 @@ namespace azo::rhi::vulkan
 			1,
 			vk::SampleCountFlagBits::e1,
 			vk::ImageTiling::eOptimal,
-			vk::ImageUsageFlagBits::eDepthStencilAttachment);
+			vk::ImageUsageFlagBits::eDepthStencilAttachment
+		);
 
 		VmaAllocationCreateInfo depthAllocInfo{};
 		depthAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -197,9 +228,16 @@ namespace azo::rhi::vulkan
 		sc.DepthImage		 = vk::Image(rawDepth);
 		const auto depthView = device.createImageView(
 			vk::ImageViewCreateInfo(
-				{}, sc.DepthImage, vk::ImageViewType::e2D, sc.DepthFormat, {}, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)),
+				{},
+				sc.DepthImage,
+				vk::ImageViewType::e2D,
+				sc.DepthFormat,
+				{},
+				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)
+			),
 			nullptr,
-			dispatch);
+			dispatch
+		);
 		if (depthView.result != vk::Result::eSuccess)
 		{
 			destroy_swapchain(device, dispatch, allocator, sc);

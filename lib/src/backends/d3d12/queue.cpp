@@ -46,7 +46,8 @@ namespace azo::rhi::d3d12
 				[](const D3D12CommandList & record)
 				{
 					return ListStillRunning(record);
-				});
+				}
+			);
 			refusal != nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, refusal);
@@ -223,7 +224,17 @@ namespace azo::rhi::d3d12
 		UINT rangeTileCount					   = numTiles;
 
 		queue->queue->UpdateTileMappings(
-			resource.Get(), 1, &coord, &region, heapRef.Get(), 1, &rangeFlag, &heapTileOffset, &rangeTileCount, D3D12_TILE_MAPPING_FLAG_NONE);
+			resource.Get(),
+			1,
+			&coord,
+			&region,
+			heapRef.Get(),
+			1,
+			&rangeFlag,
+			&heapTileOffset,
+			&rangeTileCount,
+			D3D12_TILE_MAPPING_FLAG_NONE
+		);
 		return Succeed(error);
 	}
 
@@ -321,7 +332,17 @@ namespace azo::rhi::d3d12
 		UINT rangeTileCount					   = region.NumTiles;
 
 		queue->queue->UpdateTileMappings(
-			resource.Get(), 1, &coord, &region, heapRef.Get(), 1, &rangeFlag, &heapTileOffset, &rangeTileCount, D3D12_TILE_MAPPING_FLAG_NONE);
+			resource.Get(),
+			1,
+			&coord,
+			&region,
+			heapRef.Get(),
+			1,
+			&rangeFlag,
+			&heapTileOffset,
+			&rangeTileCount,
+			D3D12_TILE_MAPPING_FLAG_NONE
+		);
 		return Succeed(error);
 	}
 

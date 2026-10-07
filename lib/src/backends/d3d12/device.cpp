@@ -17,8 +17,13 @@
 
 namespace azo::rhi::d3d12
 {
-	void ReportBackendMessage(const ValidationMessageCallback onMessage, void * userData, const ValidationMessageSeverity severity, const char * source,
-		const char * message) noexcept
+	void ReportBackendMessage(
+		const ValidationMessageCallback onMessage,
+		void * userData,
+		const ValidationMessageSeverity severity,
+		const char * source,
+		const char * message
+	) noexcept
 	{
 		if (message == nullptr)
 		{
@@ -288,20 +293,24 @@ namespace azo::rhi::d3d12
 				}
 			}
 
-			std::erase_if(owner.instances,
+			std::erase_if(
+				owner.instances,
 				[](const HostUniquePtr<D3D12Instance> & instance)
 				{
 					return instance == nullptr;
-				});
+				}
+			);
 
 			return;
 		}
 
-		std::erase_if(owner.instances,
+		std::erase_if(
+			owner.instances,
 			[owningInstance](const HostUniquePtr<D3D12Instance> & instance)
 			{
 				return instance.get() == owningInstance;
-			});
+			}
+		);
 	}
 
 	GraphicsApiId D3D12DeviceApiId([[maybe_unused]] void * impl) noexcept
@@ -628,8 +637,9 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		auto dev			 = host_new<D3D12Device>();
-		dev->object			 = publishing_object<Published<CoreDeviceApi, &CoreDeviceBlock>,
+		auto dev	= host_new<D3D12Device>();
+		dev->object = publishing_object<
+			Published<CoreDeviceApi, &CoreDeviceBlock>,
 			Published<PresentApi, &PresentBlock>,
 			Published<PlacedMemoryApi, &PlacedMemoryBlock>,
 			Published<QueryApi, &QueryBlock>,
@@ -700,7 +710,8 @@ namespace azo::rhi::d3d12
 			[deviceTag]() noexcept
 			{
 				detail::device_tags().release(deviceTag);
-			});
+			}
+		);
 
 		dev->bufferSlots.rebind(deviceTag);
 		dev->textureSlots.rebind(deviceTag);

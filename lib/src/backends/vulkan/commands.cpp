@@ -35,13 +35,16 @@
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/layouts.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_core.h>
 
 namespace azo::rhi::vulkan
 {
@@ -112,7 +115,9 @@ namespace azo::rhi::vulkan
 		}
 
 		const auto buffers = device->device.allocateCommandBuffers<HostAllocatorAdapter<vk::CommandBuffer>>(
-			vk::CommandBufferAllocateInfo(commandPool->pool, vk::CommandBufferLevel::ePrimary, 1), device->dispatch);
+			vk::CommandBufferAllocateInfo(commandPool->pool, vk::CommandBufferLevel::ePrimary, 1),
+			device->dispatch
+		);
 
 		if (buffers.result != vk::Result::eSuccess || buffers.value.empty())
 		{
@@ -164,7 +169,8 @@ namespace azo::rhi::vulkan
 				return nullptr;
 			}
 
-			return query_published<Published<RenderCommandApi, &render_command_block>,
+			return query_published<
+				Published<RenderCommandApi, &render_command_block>,
 				Published<AliasingCommandApi, &aliasing_command_block>,
 				Published<QueryCommandApi, &query_command_block>,
 				Published<IndirectApi, &indirect_block>,
@@ -289,11 +295,10 @@ namespace azo::rhi::vulkan
 		// A recording buffer is excluded because vkBeginCommandBuffer forbids it even with the reset bit, per VUID 00049, so it takes the retire path.
 		const bool resetHere = list->pool != nullptr && list->pool->resetsIndividualLists && !running && list->lifecycle != ListLifecycle::eRecording;
 		if ((used && !resetHere) && (!RetireAndReplaceBuffer(list, running, error)))
-		
-			{
-				return false;
-			}
-		
+
+		{
+			return false;
+		}
 
 		if (const vk::Result began = list->buffer.begin(vk::CommandBufferBeginInfo(), device->dispatch); began != vk::Result::eSuccess)
 		{
@@ -344,7 +349,14 @@ namespace azo::rhi::vulkan
 	}
 
 	bool vulkan_cmd_copy_buffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept
 	{
 		auto * list			  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device = list->owner;
@@ -445,8 +457,15 @@ namespace azo::rhi::vulkan
 		return succeed(error);
 	}
 
-	bool vulkan_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept
+	bool vulkan_cmd_resolve_query_data(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
@@ -461,23 +480,27 @@ namespace azo::rhi::vulkan
 			return fail(error, ErrorCode::eInvalidArgument, "resolveQueryData runs past the end of the pool");
 		}
 
-		list->buffer.copyQueryPoolResults(poolSlot->pool,
+		list->buffer.copyQueryPoolResults(
+			poolSlot->pool,
 			firstQuery,
 			queryCount,
 			vk::Buffer(dstSlot->buffer),
 			dstOffset,
 			sizeof(std::uint64_t),
 			vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait,
-			list->owner->dispatch);
+			list->owner->dispatch
+		);
 		return succeed(error);
 	}
 
 	[[nodiscard]] std::array<float, 4> unpack_label_color(std::uint32_t color) noexcept
 	{
-		return { static_cast<float>((color >> 24) & 0xFFu) / 255.0f,
+		return {
+			static_cast<float>((color >> 24) & 0xFFu) / 255.0f,
 			static_cast<float>((color >> 16) & 0xFFu) / 255.0f,
 			static_cast<float>((color >> 8) & 0xFFu) / 255.0f,
-			static_cast<float>(color & 0xFFu) / 255.0f, };
+			static_cast<float>(color & 0xFFu) / 255.0f,
+		};
 	}
 
 	bool vulkan_cmd_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept
@@ -553,15 +576,15 @@ namespace azo::rhi::vulkan
 			case OwnershipOp::eRelease:
 			{
 				const std::uint32_t there = list->owner->family_for_type(ownership.counterpart);
-				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ .src=here, .dst=there };
+				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ .src = here, .dst = there };
 			}
 			case OwnershipOp::eAcquire:
 			{
 				const std::uint32_t there = list->owner->family_for_type(ownership.counterpart);
-				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ .src=there, .dst=here };
+				return here == there ? OwnershipFamilies{} : OwnershipFamilies{ .src = there, .dst = here };
 			}
-			case OwnershipOp::eReleaseToExternal:	return { .src=here, .dst=VK_QUEUE_FAMILY_EXTERNAL };
-			case OwnershipOp::eAcquireFromExternal: return { .src=VK_QUEUE_FAMILY_EXTERNAL, .dst=here };
+			case OwnershipOp::eReleaseToExternal:	return { .src = here, .dst = VK_QUEUE_FAMILY_EXTERNAL };
+			case OwnershipOp::eAcquireFromExternal: return { .src = VK_QUEUE_FAMILY_EXTERNAL, .dst = here };
 			case OwnershipOp::eNone:				break;
 			}
 
@@ -585,10 +608,12 @@ namespace azo::rhi::vulkan
 
 		for (const MemoryBarrier & b : barriers.memory)
 		{
-			memoryBarriers.emplace_back(map_barrier_stages(b.before.stages, b.before.use),
+			memoryBarriers.emplace_back(
+				map_barrier_stages(b.before.stages, b.before.use),
 				map_barrier_access(b.before.use),
 				map_barrier_stages(b.after.stages, b.after.use),
-				map_barrier_access(b.after.use));
+				map_barrier_access(b.after.use)
+			);
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
@@ -601,7 +626,8 @@ namespace azo::rhi::vulkan
 
 			const OwnershipFamilies families = families_for(list, b.ownership);
 
-			bufferBarriers.emplace_back(map_barrier_stages(b.before.stages, b.before.use),
+			bufferBarriers.emplace_back(
+				map_barrier_stages(b.before.stages, b.before.use),
 				map_barrier_access(b.before.use),
 				map_barrier_stages(b.after.stages, b.after.use),
 				map_barrier_access(b.after.use),
@@ -609,7 +635,8 @@ namespace azo::rhi::vulkan
 				families.dst,
 				vk::Buffer(slot->buffer),
 				b.offset,
-				b.size);
+				b.size
+			);
 		}
 
 		for (const TextureBarrier & b : barriers.textures)
@@ -622,7 +649,8 @@ namespace azo::rhi::vulkan
 
 			const OwnershipFamilies families = families_for(list, b.ownership);
 
-			imageBarriers.emplace_back(map_barrier_stages(b.before.stages, b.before.use),
+			imageBarriers.emplace_back(
+				map_barrier_stages(b.before.stages, b.before.use),
 				map_barrier_access(b.before.use),
 				map_barrier_stages(b.after.stages, b.after.use),
 				map_barrier_access(b.after.use),
@@ -631,7 +659,8 @@ namespace azo::rhi::vulkan
 				families.src,
 				families.dst,
 				image,
-				map_subresource_range(b.range));
+				map_subresource_range(b.range)
+			);
 		}
 
 		vk::DependencyInfo depInfo;
@@ -677,10 +706,12 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		const vk::MemoryBarrier2 memory(vk::PipelineStageFlagBits2::eAllCommands,
+		const vk::MemoryBarrier2 memory(
+			vk::PipelineStageFlagBits2::eAllCommands,
 			vk::AccessFlagBits2::eMemoryWrite,
 			vk::PipelineStageFlagBits2::eAllCommands,
-			vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite);
+			vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite
+		);
 		vk::DependencyInfo depInfo;
 		depInfo.setMemoryBarriers(memory);
 		if (list->owner->coreVk13)
@@ -721,12 +752,14 @@ namespace azo::rhi::vulkan
 				return fail(error, ErrorCode::eInvalidHandle, "rendering color attachment with an invalid view handle");
 			}
 			// An attachment count past this array is refused above. NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			key.colors[i] = RenderPassAttachmentKey{ .format = slot->format,
+			key.colors[i] = RenderPassAttachmentKey{
+				.format = slot->format,
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				.samples = slot->samples,
 				.loadOp	 = map_load_op(a.load),
 				.storeOp = map_store_op(a.store),
-				.layout	 = layout_for_use(a.state.use, device->unifiedImageLayouts), };
+				.layout	 = layout_for_use(a.state.use, device->unifiedImageLayouts),
+			};
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearColorValue(std::array<float, 4>{ a.clearColor.r, a.clearColor.g, a.clearColor.b, a.clearColor.a }));
 		}
@@ -739,11 +772,13 @@ namespace azo::rhi::vulkan
 				return fail(error, ErrorCode::eInvalidHandle, "rendering depth attachment with an invalid view handle");
 			}
 			key.hasDepth = true;
-			key.depth	 = RenderPassAttachmentKey{ .format = slot->format,
-				.samples								 = slot->samples,
-				.loadOp									 = map_load_op(desc.depthStencil->load),
-				.storeOp								 = map_store_op(desc.depthStencil->store),
-				.layout									 = layout_for_use(desc.depthStencil->state.use, device->unifiedImageLayouts), };
+			key.depth	 = RenderPassAttachmentKey{
+				.format	 = slot->format,
+				.samples = slot->samples,
+				.loadOp	 = map_load_op(desc.depthStencil->load),
+				.storeOp = map_store_op(desc.depthStencil->store),
+				.layout	 = layout_for_use(desc.depthStencil->state.use, device->unifiedImageLayouts),
+			};
 			views.push_back(slot->view);
 			clears.emplace_back(vk::ClearDepthStencilValue(desc.depthStencil->clearDepthStencil.depth, desc.depthStencil->clearDepthStencil.stencil));
 		}
@@ -964,8 +999,15 @@ namespace azo::rhi::vulkan
 		return succeed(error);
 	}
 
-	bool vulkan_cmd_push_constants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
-		const void * data, Error * error) noexcept
+	bool vulkan_cmd_push_constants(
+		void * impl,
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept
 	{
 		auto * list						  = static_cast<VulkanCommandList *>(impl);
 		const vk::PipelineLayout vkLayout = resolve_pipeline_layout(list->owner, layout);
@@ -1006,15 +1048,28 @@ namespace azo::rhi::vulkan
 	}
 
 	bool vulkan_cmd_draw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.draw(vertexCount, instanceCount, firstVertex, firstInstance, list->owner->dispatch);
 		return succeed(error);
 	}
 
-	bool vulkan_cmd_draw_indexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept
+	bool vulkan_cmd_draw_indexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		list->buffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, list->owner->dispatch);
@@ -1024,8 +1079,15 @@ namespace azo::rhi::vulkan
 	namespace
 	{
 		template <typename RecordFn>
-		[[nodiscard]] bool lower_multi_draw(const VulkanCommandList & list, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride,
-			std::size_t commandSize, Error * error, const RecordFn & record) noexcept
+		[[nodiscard]] bool lower_multi_draw(
+			const VulkanCommandList & list,
+			std::uint64_t offset,
+			std::uint32_t drawCount,
+			std::uint32_t stride,
+			std::size_t commandSize,
+			Error * error,
+			const RecordFn & record
+		) noexcept
 		{
 			if (drawCount > 1 && !list.owner->caps.supportsMultiDrawIndirect)
 			{
@@ -1056,7 +1118,8 @@ namespace azo::rhi::vulkan
 			return fail(error, ErrorCode::eInvalidHandle, "drawIndirect with an invalid buffer handle");
 		}
 
-		return lower_multi_draw(*list,
+		return lower_multi_draw(
+			*list,
 			offset,
 			drawCount,
 			stride,
@@ -1065,11 +1128,18 @@ namespace azo::rhi::vulkan
 			[list, slot, stride](std::uint64_t commandOffset, std::uint32_t count) noexcept
 			{
 				list->buffer.drawIndirect(vk::Buffer(slot->buffer), commandOffset, count, stride, list->owner->dispatch);
-			});
+			}
+		);
 	}
 
 	bool vulkan_cmd_draw_indexed_indirect(
-		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		auto * list		  = static_cast<VulkanCommandList *>(impl);
 		BufferSlot * slot = resolve_buffer(list->owner, args);
@@ -1078,7 +1148,8 @@ namespace azo::rhi::vulkan
 			return fail(error, ErrorCode::eInvalidHandle, "drawIndexedIndirect with an invalid buffer handle");
 		}
 
-		return lower_multi_draw(*list,
+		return lower_multi_draw(
+			*list,
 			offset,
 			drawCount,
 			stride,
@@ -1087,11 +1158,20 @@ namespace azo::rhi::vulkan
 			[list, slot, stride](std::uint64_t commandOffset, std::uint32_t count) noexcept
 			{
 				list->buffer.drawIndexedIndirect(vk::Buffer(slot->buffer), commandOffset, count, stride, list->owner->dispatch);
-			});
+			}
+		);
 	}
 
-	bool vulkan_cmd_draw_indirect_count(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
+	bool vulkan_cmd_draw_indirect_count(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (!list->owner->caps.supportsIndirectCount)
@@ -1107,12 +1187,27 @@ namespace azo::rhi::vulkan
 		}
 
 		list->buffer.drawIndirectCount(
-			vk::Buffer(argsSlot->buffer), argsOffset, vk::Buffer(countSlot->buffer), countOffset, maxDrawCount, stride, list->owner->dispatch);
+			vk::Buffer(argsSlot->buffer),
+			argsOffset,
+			vk::Buffer(countSlot->buffer),
+			countOffset,
+			maxDrawCount,
+			stride,
+			list->owner->dispatch
+		);
 		return succeed(error);
 	}
 
-	bool vulkan_cmd_draw_indexed_indirect_count(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
+	bool vulkan_cmd_draw_indexed_indirect_count(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 		if (!list->owner->caps.supportsIndirectCount)
@@ -1128,7 +1223,14 @@ namespace azo::rhi::vulkan
 		}
 
 		list->buffer.drawIndexedIndirectCount(
-			vk::Buffer(argsSlot->buffer), argsOffset, vk::Buffer(countSlot->buffer), countOffset, maxDrawCount, stride, list->owner->dispatch);
+			vk::Buffer(argsSlot->buffer),
+			argsOffset,
+			vk::Buffer(countSlot->buffer),
+			countOffset,
+			maxDrawCount,
+			stride,
+			list->owner->dispatch
+		);
 		return succeed(error);
 	}
 
@@ -1156,12 +1258,14 @@ namespace azo::rhi::vulkan
 
 		for (const BufferTextureCopy & r : regions)
 		{
-			copies.emplace_back(r.bufferOffset,
+			copies.emplace_back(
+				r.bufferOffset,
 				r.bufferRowLength,
 				r.bufferImageHeight,
 				map_subresource_layers(r.subresource),
 				vk::Offset3D(r.textureOffset.x, r.textureOffset.y, r.textureOffset.z),
-				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth));
+				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth)
+			);
 		}
 
 		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eCopyDst, list->owner->unifiedImageLayouts);
@@ -1188,12 +1292,14 @@ namespace azo::rhi::vulkan
 
 		for (const BufferTextureCopy & r : regions)
 		{
-			copies.emplace_back(r.bufferOffset,
+			copies.emplace_back(
+				r.bufferOffset,
 				r.bufferRowLength,
 				r.bufferImageHeight,
 				map_subresource_layers(r.subresource),
 				vk::Offset3D(r.textureOffset.x, r.textureOffset.y, r.textureOffset.z),
-				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth));
+				vk::Extent3D(r.textureExtent.width, r.textureExtent.height, r.textureExtent.depth)
+			);
 		}
 
 		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
@@ -1220,11 +1326,13 @@ namespace azo::rhi::vulkan
 
 		for (const TextureCopy & r : regions)
 		{
-			copies.emplace_back(map_subresource_layers(r.srcSubresource),
+			copies.emplace_back(
+				map_subresource_layers(r.srcSubresource),
 				vk::Offset3D(r.srcOffset.x, r.srcOffset.y, r.srcOffset.z),
 				map_subresource_layers(r.dstSubresource),
 				vk::Offset3D(r.dstOffset.x, r.dstOffset.y, r.dstOffset.z),
-				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth));
+				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth)
+			);
 		}
 
 		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eCopySrc, list->owner->unifiedImageLayouts);
@@ -1278,10 +1386,14 @@ namespace azo::rhi::vulkan
 
 		for (const TextureBlit & r : regions)
 		{
-			const std::array<vk::Offset3D, 2> srcBox{ vk::Offset3D(azo::rhi::detail::at(r.srcOffsets, 0).x, azo::rhi::detail::at(r.srcOffsets, 0).y, azo::rhi::detail::at(r.srcOffsets, 0).z),
-				vk::Offset3D(azo::rhi::detail::at(r.srcOffsets, 1).x, azo::rhi::detail::at(r.srcOffsets, 1).y, azo::rhi::detail::at(r.srcOffsets, 1).z), };
-			const std::array<vk::Offset3D, 2> dstBox{ vk::Offset3D(azo::rhi::detail::at(r.dstOffsets, 0).x, azo::rhi::detail::at(r.dstOffsets, 0).y, azo::rhi::detail::at(r.dstOffsets, 0).z),
-				vk::Offset3D(azo::rhi::detail::at(r.dstOffsets, 1).x, azo::rhi::detail::at(r.dstOffsets, 1).y, azo::rhi::detail::at(r.dstOffsets, 1).z), };
+			const std::array<vk::Offset3D, 2> srcBox{
+				vk::Offset3D(azo::rhi::detail::at(r.srcOffsets, 0).x, azo::rhi::detail::at(r.srcOffsets, 0).y, azo::rhi::detail::at(r.srcOffsets, 0).z),
+				vk::Offset3D(azo::rhi::detail::at(r.srcOffsets, 1).x, azo::rhi::detail::at(r.srcOffsets, 1).y, azo::rhi::detail::at(r.srcOffsets, 1).z),
+			};
+			const std::array<vk::Offset3D, 2> dstBox{
+				vk::Offset3D(azo::rhi::detail::at(r.dstOffsets, 0).x, azo::rhi::detail::at(r.dstOffsets, 0).y, azo::rhi::detail::at(r.dstOffsets, 0).z),
+				vk::Offset3D(azo::rhi::detail::at(r.dstOffsets, 1).x, azo::rhi::detail::at(r.dstOffsets, 1).y, azo::rhi::detail::at(r.dstOffsets, 1).z),
+			};
 			blits.emplace_back(map_subresource_layers(r.srcSubresource), srcBox, map_subresource_layers(r.dstSubresource), dstBox);
 		}
 
@@ -1320,7 +1432,8 @@ namespace azo::rhi::vulkan
 		const vk::ImageLayout dstLayout = layout_for_use(ResourceUse::eCopyDst, device->unifiedImageLayouts);
 		const auto transition			= [&](std::uint32_t mip)
 		{
-			const vk::ImageMemoryBarrier2 barrier(vk::PipelineStageFlagBits2::eTransfer,
+			const vk::ImageMemoryBarrier2 barrier(
+				vk::PipelineStageFlagBits2::eTransfer,
 				vk::AccessFlagBits2::eTransferWrite,
 				vk::PipelineStageFlagBits2::eTransfer,
 				vk::AccessFlagBits2::eTransferRead,
@@ -1329,7 +1442,8 @@ namespace azo::rhi::vulkan
 				VK_QUEUE_FAMILY_IGNORED,
 				VK_QUEUE_FAMILY_IGNORED,
 				image,
-				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, mip, 1, 0, layers));
+				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, mip, 1, 0, layers)
+			);
 			vk::DependencyInfo dep;
 			dep.setImageMemoryBarriers(barrier);
 			device->coreVk13 ? list->buffer.pipelineBarrier2(dep, device->dispatch) : list->buffer.pipelineBarrier2KHR(dep, device->dispatch);
@@ -1345,10 +1459,12 @@ namespace azo::rhi::vulkan
 			const std::int32_t nextDepth  = mipDepth > 1 ? mipDepth / 2 : 1;
 			const std::array<vk::Offset3D, 2> srcBox{ vk::Offset3D(0, 0, 0), vk::Offset3D(mipWidth, mipHeight, mipDepth) };
 			const std::array<vk::Offset3D, 2> dstBox{ vk::Offset3D(0, 0, 0), vk::Offset3D(nextWidth, nextHeight, nextDepth) };
-			const vk::ImageBlit blit(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, layers),
+			const vk::ImageBlit blit(
+				vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, layers),
 				srcBox,
 				vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, layers),
-				dstBox);
+				dstBox
+			);
 			list->buffer.blitImage(image, srcLayout, image, dstLayout, blit, vk::Filter::eLinear, device->dispatch);
 
 			transition(i);
@@ -1376,7 +1492,12 @@ namespace azo::rhi::vulkan
 	}
 
 	bool vulkan_cmd_clear_texture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<VulkanCommandList *>(impl);
 
@@ -1422,11 +1543,13 @@ namespace azo::rhi::vulkan
 
 		for (const TextureResolve & r : regions)
 		{
-			resolves.emplace_back(map_subresource_layers(r.srcSubresource),
+			resolves.emplace_back(
+				map_subresource_layers(r.srcSubresource),
 				vk::Offset3D(r.srcOffset.x, r.srcOffset.y, r.srcOffset.z),
 				map_subresource_layers(r.dstSubresource),
 				vk::Offset3D(r.dstOffset.x, r.dstOffset.y, r.dstOffset.z),
-				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth));
+				vk::Extent3D(r.extent.width, r.extent.height, r.extent.depth)
+			);
 		}
 
 		const vk::ImageLayout srcLayout = layout_for_use(ResourceUse::eResolveSrc, list->owner->unifiedImageLayouts);

@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/device/device.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
@@ -14,12 +16,14 @@
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
-#include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/resources/resources.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Metal/MTLBuffer.hpp>
 #include <Metal/MTLResource.hpp>
+
 #include <atomic>
 #include <cstdint>
 #include <limits>
@@ -188,7 +192,12 @@ namespace azo::rhi::metal4
 	}
 
 	bool metal4_collect_garbage_timeline(
-		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept
+		void * impl,
+		ResourceType type,
+		[[maybe_unused]] TimelineHandle timeline,
+		[[maybe_unused]] std::uint64_t completedValue,
+		Error * error
+	) noexcept
 	{
 		return metal4_collect_garbage(impl, type, error);
 	}

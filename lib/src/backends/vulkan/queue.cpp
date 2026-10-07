@@ -8,6 +8,7 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/blocks/queue.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
@@ -19,9 +20,11 @@
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/resources/resources.hpp"
+
 #include "backends/vulkan/barrier_tables.hpp"
 #include "backends/vulkan/internal.hpp"
 #include "vulkan/vulkan.hpp"
+
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -117,14 +120,19 @@ namespace azo::rhi::vulkan
 	}
 
 	bool submission_still_running(
-		VulkanDevice * device, const std::uint32_t submitTimeline, const std::uint64_t submitValue, const std::span<const TimelinePoint> callerSignals) noexcept
+		VulkanDevice * device,
+		const std::uint32_t submitTimeline,
+		const std::uint64_t submitValue,
+		const std::span<const TimelinePoint> callerSignals
+	) noexcept
 	{
 		if (submitTimeline == kNoSubmitTimeline || submitValue == 0 || submitTimeline >= device->submitTimelines.size())
 		{
 			return false;
 		}
 
-		const auto reached = device->device.getSemaphoreCounterValue(azo::rhi::detail::at(device->submitTimelines, submitTimeline)->semaphore, device->dispatch);
+		const auto reached =
+			device->device.getSemaphoreCounterValue(azo::rhi::detail::at(device->submitTimelines, submitTimeline)->semaphore, device->dispatch);
 		if (reached.result != vk::Result::eSuccess)
 		{
 			// A counter that cannot be read is treated as still running, because freeing or reusing a live buffer is the worse mistake.
@@ -383,7 +391,8 @@ namespace azo::rhi::vulkan
 				[](const VulkanCommandList & record)
 				{
 					return list_still_running(&record);
-				});
+				}
+			);
 			refusal != nullptr)
 		{
 			return fail(error, ErrorCode::eInvalidState, refusal);

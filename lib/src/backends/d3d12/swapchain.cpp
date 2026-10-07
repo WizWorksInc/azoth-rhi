@@ -67,41 +67,49 @@ namespace azo::rhi::d3d12
 				}
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
 
-				const TextureHandle texture	 = device->textureSlots.store(TextureSlot{ .resource = resource,
-					.format																		= sc->viewFormat,
-					.type																		= TextureType::eTex2D,
-					.mipLevels																	= 1,
-					.arrayLayers																= 1,
-					.usage																		= Flags<TextureUsage>(TextureUsage::eColorAttachment),
-					.lifetime																	= SlotLifetime::eSwapchainBorrowed });
-				const TextureViewHandle view = device->textureViewSlots.store(TextureViewSlot{ .texture = texture,
-					.format																				= sc->viewFormat,
-					.type																				= TextureViewType::eTex2D,
-					.rtvIndex																			= rtvIndex,
-					.lifetime																			= SlotLifetime::eSwapchainBorrowed });
+				const TextureHandle texture = device->textureSlots.store(
+					TextureSlot{ .resource = resource,
+						.format			   = sc->viewFormat,
+						.type			   = TextureType::eTex2D,
+						.mipLevels		   = 1,
+						.arrayLayers	   = 1,
+						.usage			   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
+						.lifetime		   = SlotLifetime::eSwapchainBorrowed }
+				);
+				const TextureViewHandle view = device->textureViewSlots.store(
+					TextureViewSlot{ .texture = texture,
+						.format				  = sc->viewFormat,
+						.type				  = TextureViewType::eTex2D,
+						.rtvIndex			  = rtvIndex,
+						.lifetime			  = SlotLifetime::eSwapchainBorrowed }
+				);
 				sc->backBuffers.push_back(texture);
 				sc->backBufferViews.push_back(view);
 			}
 			else
 			{
 				static_cast<void>(device->textureSlots.retire(sc->backBuffers[i], true));
-				sc->backBuffers[i] = device->textureSlots.store(TextureSlot{ .resource = resource,
-					.format															   = sc->viewFormat,
-					.type															   = TextureType::eTex2D,
-					.mipLevels														   = 1,
-					.arrayLayers													   = 1,
-					.usage															   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
-					.lifetime														   = SlotLifetime::eSwapchainBorrowed });
+				sc->backBuffers[i] = device->textureSlots.store(
+					TextureSlot{ .resource = resource,
+						.format			   = sc->viewFormat,
+						.type			   = TextureType::eTex2D,
+						.mipLevels		   = 1,
+						.arrayLayers	   = 1,
+						.usage			   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
+						.lifetime		   = SlotLifetime::eSwapchainBorrowed }
+				);
 
 				const TextureViewSlot * const oldView = device->textureViewSlots.resolve(sc->backBufferViews[i], true);
 				const std::uint32_t rtvIndex		  = oldView != nullptr ? oldView->rtvIndex : kInvalidIndex;
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
 				static_cast<void>(device->textureViewSlots.retire(sc->backBufferViews[i], true));
-				sc->backBufferViews[i] = device->textureViewSlots.store(TextureViewSlot{ .texture = sc->backBuffers[i],
-					.format																		  = sc->viewFormat,
-					.type																		  = TextureViewType::eTex2D,
-					.rtvIndex																	  = rtvIndex,
-					.lifetime																	  = SlotLifetime::eSwapchainBorrowed });
+				sc->backBufferViews[i] = device->textureViewSlots.store(
+					TextureViewSlot{ .texture = sc->backBuffers[i],
+						.format				  = sc->viewFormat,
+						.type				  = TextureViewType::eTex2D,
+						.rtvIndex			  = rtvIndex,
+						.lifetime			  = SlotLifetime::eSwapchainBorrowed }
+				);
 			}
 		}
 		return Succeed(error);
@@ -192,8 +200,13 @@ namespace azo::rhi::d3d12
 		};
 	}
 
-	PresentResult D3D12SwapchainPresent(void * impl, [[maybe_unused]] std::uint32_t imageIndex, [[maybe_unused]] BinarySemaphoreHandle renderFinished,
-		[[maybe_unused]] void * queueImpl, Error * error) noexcept
+	PresentResult D3D12SwapchainPresent(
+		void * impl,
+		[[maybe_unused]] std::uint32_t imageIndex,
+		[[maybe_unused]] BinarySemaphoreHandle renderFinished,
+		[[maybe_unused]] void * queueImpl,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.present");
 

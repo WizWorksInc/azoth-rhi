@@ -37,7 +37,10 @@ namespace azo::rhi::detail
 	};
 
 	[[nodiscard]] constexpr ResolvedSubresourceRange resolve_subresource_range(
-		const TextureSubresourceRange & range, std::uint32_t mipLevels, std::uint32_t arrayLayers) noexcept
+		const TextureSubresourceRange & range,
+		std::uint32_t mipLevels,
+		std::uint32_t arrayLayers
+	) noexcept
 	{
 		ResolvedSubresourceRange out{};
 		out.baseMip	  = range.baseMip;

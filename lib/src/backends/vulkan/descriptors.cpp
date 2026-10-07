@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/resources/descriptors.hpp"
+
 #include "azoth/rhi/backend/blocks/descriptor_arena.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
@@ -15,10 +17,11 @@
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/host/allocator.hpp"
-#include "azoth/rhi/resources/descriptors.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/layouts.hpp"
 #include "vulkan/vulkan.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -99,7 +102,10 @@ namespace azo::rhi::vulkan
 				if (b.immutableSamplers.size() != b.count)
 				{
 					return fail_value<DescriptorSetLayoutHandle>(
-						error, ErrorCode::eInvalidArgument, "a binding's immutable sampler list must hold exactly count entries");
+						error,
+						ErrorCode::eInvalidArgument,
+						"a binding's immutable sampler list must hold exactly count entries"
+					);
 				}
 
 				immutable = immutableSamplers.data() + immutableSamplers.size();
@@ -109,7 +115,10 @@ namespace azo::rhi::vulkan
 					if (slot == nullptr)
 					{
 						return fail_value<DescriptorSetLayoutHandle>(
-							error, ErrorCode::eInvalidHandle, "a binding names an immutable sampler this device never created");
+							error,
+							ErrorCode::eInvalidHandle,
+							"a binding names an immutable sampler this device never created"
+						);
 					}
 					immutableSamplers.push_back(slot->sampler);
 				}
@@ -178,16 +187,20 @@ namespace azo::rhi::vulkan
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.createDescriptorArena");
 		auto * device				= static_cast<VulkanDevice *>(impl);
 		const std::uint32_t perType = desc.maxDescriptors > 0 ? desc.maxDescriptors : 1;
-		const std::array<vk::DescriptorPoolSize, 10> poolSizes{ { { vk::DescriptorType::eUniformBuffer, perType },
-			{ vk::DescriptorType::eStorageBuffer, perType },
-			{ vk::DescriptorType::eSampledImage, perType },
-			{ vk::DescriptorType::eStorageImage, perType },
-			{ vk::DescriptorType::eSampler, perType },
-			{ vk::DescriptorType::eCombinedImageSampler, perType },
-			{ vk::DescriptorType::eUniformBufferDynamic, perType },
-			{ vk::DescriptorType::eStorageBufferDynamic, perType },
-			{ vk::DescriptorType::eUniformTexelBuffer, perType },
-			{ vk::DescriptorType::eStorageTexelBuffer, perType }, }, };
+		const std::array<vk::DescriptorPoolSize, 10> poolSizes{
+			{
+				{ vk::DescriptorType::eUniformBuffer, perType },
+				{ vk::DescriptorType::eStorageBuffer, perType },
+				{ vk::DescriptorType::eSampledImage, perType },
+				{ vk::DescriptorType::eStorageImage, perType },
+				{ vk::DescriptorType::eSampler, perType },
+				{ vk::DescriptorType::eCombinedImageSampler, perType },
+				{ vk::DescriptorType::eUniformBufferDynamic, perType },
+				{ vk::DescriptorType::eStorageBufferDynamic, perType },
+				{ vk::DescriptorType::eUniformTexelBuffer, perType },
+				{ vk::DescriptorType::eStorageTexelBuffer, perType },
+			},
+		};
 		const std::uint32_t maxSets = desc.maxSets > 0 ? desc.maxSets : 1;
 
 		vk::DescriptorPoolCreateFlags poolFlags{};
@@ -264,7 +277,8 @@ namespace azo::rhi::vulkan
 			[arena](const DescriptorSetSlot & slot) noexcept
 			{
 				return slot.arena == arena;
-			}));
+			}
+		));
 
 		return succeed(error);
 	}
@@ -352,8 +366,14 @@ namespace azo::rhi::vulkan
 		return succeed(error);
 	}
 
-	bool vulkan_cmd_bind_descriptor_set(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
+	bool vulkan_cmd_bind_descriptor_set(
+		void * impl,
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept
 	{
 		auto * list						  = static_cast<VulkanCommandList *>(impl);
 		VulkanDevice * device			  = list->owner;
@@ -381,11 +401,13 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		std::ranges::sort(dynamics,
+		std::ranges::sort(
+			dynamics,
 			[](const DescriptorBinding * lhs, const DescriptorBinding * rhs) noexcept
 			{
 				return lhs->binding < rhs->binding;
-			});
+			}
+		);
 
 		detail::HostVector<std::uint32_t> offsets;
 		for (const DescriptorBinding * dynamic : dynamics)

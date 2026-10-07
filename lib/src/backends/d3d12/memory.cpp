@@ -152,7 +152,12 @@ namespace azo::rhi::d3d12
 	}
 
 	bool D3D12CollectGarbageTimeline(
-		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept
+		void * impl,
+		ResourceType type,
+		[[maybe_unused]] TimelineHandle timeline,
+		[[maybe_unused]] std::uint64_t completedValue,
+		Error * error
+	) noexcept
 	{
 		return D3D12CollectGarbage(impl, type, error);
 	}

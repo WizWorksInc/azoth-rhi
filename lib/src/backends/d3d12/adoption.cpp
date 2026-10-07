@@ -37,13 +37,17 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(device->bufferSlots.store(BufferSlot{
-							   .resource = external,
-							   .size	 = desc.desc.size,
-							   .lifetime = LifetimeOf(desc.lifetime),
-							   .desc	 = detail::recorded(desc.desc),
-						   }),
-			error);
+		return ReturnValue(
+			device->bufferSlots.store(
+				BufferSlot{
+					.resource = external,
+					.size	  = desc.desc.size,
+					.lifetime = LifetimeOf(desc.lifetime),
+					.desc	  = detail::recorded(desc.desc),
+				}
+			),
+			error
+		);
 	}
 
 	TextureHandle D3D12AdoptTexture(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept
@@ -62,17 +66,21 @@ namespace azo::rhi::d3d12
 		}
 
 		auto * device = static_cast<D3D12Device *>(impl);
-		return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = external,
-							   .format										 = MapFormat(desc.desc.format),
-							   .rhiFormat									 = desc.desc.format,
-							   .type										 = desc.desc.type,
-							   .mipLevels									 = desc.desc.mipLevels,
-							   .arrayLayers									 = desc.desc.arrayLayers,
-							   .usage										 = desc.desc.usage,
-							   .mutableFormat								 = desc.desc.allowFormatViews,
-							   .lifetime									 = LifetimeOf(desc.lifetime),
-							   .desc										 = detail::recorded(desc.desc) }),
-			error);
+		return ReturnValue(
+			device->textureSlots.store(
+				TextureSlot{ .resource = external,
+					.format			   = MapFormat(desc.desc.format),
+					.rhiFormat		   = desc.desc.format,
+					.type			   = desc.desc.type,
+					.mipLevels		   = desc.desc.mipLevels,
+					.arrayLayers	   = desc.desc.arrayLayers,
+					.usage			   = desc.desc.usage,
+					.mutableFormat	   = desc.desc.allowFormatViews,
+					.lifetime		   = LifetimeOf(desc.lifetime),
+					.desc			   = detail::recorded(desc.desc) }
+			),
+			error
+		);
 	}
 
 	bool D3D12GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
@@ -111,28 +119,54 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	TextureViewHandle D3D12AdoptTextureView([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-		[[maybe_unused]] const AdoptedTextureViewDesc & desc, Error * error) noexcept
+	TextureViewHandle D3D12AdoptTextureView(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] const void * nativeImport,
+		[[maybe_unused]] const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept
 	{
 		return FailValue<TextureViewHandle>(
-			error, ErrorCode::eUnsupportedFeature, "Direct3D 12 builds views as descriptors and not objects, so there is none to adopt");
+			error,
+			ErrorCode::eUnsupportedFeature,
+			"Direct3D 12 builds views as descriptors and not objects, so there is none to adopt"
+		);
 	}
 
-	SamplerHandle D3D12AdoptSampler([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-		[[maybe_unused]] const AdoptedSamplerDesc & desc, Error * error) noexcept
+	SamplerHandle D3D12AdoptSampler(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] const void * nativeImport,
+		[[maybe_unused]] const AdoptedSamplerDesc & desc,
+		Error * error
+	) noexcept
 	{
 		return FailValue<SamplerHandle>(
-			error, ErrorCode::eUnsupportedFeature, "Direct3D 12 builds samplers as descriptors and not objects, so there is none to adopt");
+			error,
+			ErrorCode::eUnsupportedFeature,
+			"Direct3D 12 builds samplers as descriptors and not objects, so there is none to adopt"
+		);
 	}
 
-	bool D3D12GetNativeTextureView([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureViewHandle view,
-		[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+	bool D3D12GetNativeTextureView(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] TextureViewHandle view,
+		[[maybe_unused]] void * outNativeImport,
+		Error * error
+	) noexcept
 	{
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no view object to hand back");
 	}
 
-	bool D3D12GetNativeSampler([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] SamplerHandle sampler,
-		[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+	bool D3D12GetNativeSampler(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] SamplerHandle sampler,
+		[[maybe_unused]] void * outNativeImport,
+		Error * error
+	) noexcept
 	{
 		return Fail(error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no sampler object to hand back");
 	}
@@ -155,12 +189,19 @@ namespace azo::rhi::d3d12
 		return ReturnValue(device->timelineSlots.store(TimelineSlot{ .fence = adopted, .lifetime = LifetimeOf(desc.lifetime) }), error);
 	}
 
-	BinarySemaphoreHandle D3D12AdoptBinarySemaphore([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api,
-		[[maybe_unused]] const void * nativeImport, [[maybe_unused]] const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+	BinarySemaphoreHandle D3D12AdoptBinarySemaphore(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] const void * nativeImport,
+		[[maybe_unused]] const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept
 	{
-		return FailValue<BinarySemaphoreHandle>(error,
+		return FailValue<BinarySemaphoreHandle>(
+			error,
 			ErrorCode::eUnsupportedFeature,
-			"Direct3D 12 models a binary semaphore as a fence plus counters this device advances, which cannot be recovered from an adopted fence");
+			"Direct3D 12 models a binary semaphore as a fence plus counters this device advances, which cannot be recovered from an adopted fence"
+		);
 	}
 
 	bool D3D12GetNativeTimeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept

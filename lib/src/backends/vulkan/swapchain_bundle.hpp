@@ -43,11 +43,25 @@ namespace azo::rhi::vulkan
 	};
 
 	vk::PresentModeKHR select_present_mode(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, vk::SurfaceKHR surface, std::span<const vk::PresentModeKHR> desired);
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		vk::SurfaceKHR surface,
+		std::span<const vk::PresentModeKHR> desired
+	);
 
-	SwapchainBundle create_swapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, vk::PhysicalDevice phys, VmaAllocator allocator,
-		vk::SurfaceKHR surface, std::uint32_t width, std::uint32_t height, vk::SwapchainKHR old, std::span<const vk::Format> desiredFormats,
-		std::span<const vk::PresentModeKHR> desiredPresentModes, std::uint32_t desiredImageCount = 0);
+	SwapchainBundle create_swapchain(
+		vk::Device device,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		vk::PhysicalDevice phys,
+		VmaAllocator allocator,
+		vk::SurfaceKHR surface,
+		std::uint32_t width,
+		std::uint32_t height,
+		vk::SwapchainKHR old,
+		std::span<const vk::Format> desiredFormats,
+		std::span<const vk::PresentModeKHR> desiredPresentModes,
+		std::uint32_t desiredImageCount = 0
+	);
 
 	void destroy_swapchain(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, VmaAllocator allocator, SwapchainBundle & sc);
 

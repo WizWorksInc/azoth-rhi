@@ -8,6 +8,7 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/allocation_tracker.hpp"
+
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/handle.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
@@ -50,11 +51,13 @@ namespace azo::rhi::detail
 			return true;
 		}
 
-		if (!try_push_back(records.pending,
+		if (!try_push_back(
+				records.pending,
 				Pending{
 					.span	   = span,
 					.safeAfter = desc.safeAfter,
-				}))
+				}
+			))
 		{
 			return false;
 		}
@@ -64,7 +67,11 @@ namespace azo::rhi::detail
 	}
 
 	void AllocationTracker::take_releasable(
-		const ResourceType type, const TimelineHandle timeline, const std::uint64_t completedValue, HostVector<MemorySpan> & out) noexcept
+		const ResourceType type,
+		const TimelineHandle timeline,
+		const std::uint64_t completedValue,
+		HostVector<MemorySpan> & out
+	) noexcept
 	{
 		DeviceRecords & records = azo::rhi::detail::at(m_records, static_cast<std::size_t>(type));
 

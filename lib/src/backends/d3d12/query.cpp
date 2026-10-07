@@ -89,8 +89,15 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept
+	bool D3D12CmdResolveQueryData(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);

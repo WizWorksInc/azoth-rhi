@@ -222,13 +222,19 @@ namespace azo::rhi::d3d12
 	}
 
 	[[nodiscard]] bool BindingMapsAgree(
-		D3D12Device * device, const PipelineLayoutSlot & layout, const std::span<const ShaderBinary> shaders, Error * error) noexcept
+		D3D12Device * device,
+		const PipelineLayoutSlot & layout,
+		const std::span<const ShaderBinary> shaders,
+		Error * error
+	) noexcept
 	{
-		const bool anyMapped = std::ranges::any_of(shaders,
+		const bool anyMapped = std::ranges::any_of(
+			shaders,
 			[](const ShaderBinary & shader) noexcept
 			{
 				return shader.bindingMap != nullptr;
-			});
+			}
+		);
 		if (!anyMapped)
 		{
 			return true;
@@ -265,7 +271,10 @@ namespace azo::rhi::d3d12
 			if (bad.wrongAbiVersion)
 			{
 				return Fail(
-					error, ErrorCode::eUnsupportedFormat, "a shader binary was built against a revision of the binding ABI this build does not implement");
+					error,
+					ErrorCode::eUnsupportedFormat,
+					"a shader binary was built against a revision of the binding ABI this build does not implement"
+				);
 			}
 
 			if (bad.unknownToLayout)
@@ -285,7 +294,10 @@ namespace azo::rhi::d3d12
 		if (desc.vertexInput == nullptr)
 		{
 			return FailValue<GraphicsPipelineHandle>(
-				error, ErrorCode::eUnsupportedFeature, "graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have"
+			);
 		}
 
 		const VertexInputDesc & vertexInput = *desc.vertexInput;
@@ -298,13 +310,19 @@ namespace azo::rhi::d3d12
 		if (desc.raster.conservativeRasterEnable && device->caps.conservativeRasterTier == ConservativeRasterTier::eNone)
 		{
 			return FailValue<GraphicsPipelineHandle>(
-				error, ErrorCode::eUnsupportedFeature, "conservative rasterization was requested on a device that reports none");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"conservative rasterization was requested on a device that reports none"
+			);
 		}
 
 		if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 		{
 			return FailValue<GraphicsPipelineHandle>(
-				error, ErrorCode::eInvalidArgument, "graphics pipeline names more color attachments than a render target can hold");
+				error,
+				ErrorCode::eInvalidArgument,
+				"graphics pipeline names more color attachments than a render target can hold"
+			);
 		}
 
 		PipelineLayoutSlot * layout = ResolvePipelineLayout(device, desc.layout);
@@ -484,18 +502,22 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(device->graphicsPipelineSlots.store(GraphicsPipelineSlot{ .pipeline = std::move(pipeline),
-							   .rootSignature												   = layout->rootSignature,
-							   .topology													   = MapPrimitiveTopology(vertexInput.topology),
-							   .vertexStrides												   = vertexStrides,
-							   .bakeBlendConstants											   = !dynamic.contains(DynamicState::eBlendConstants),
-							   .blendConstants												   = desc.blend.blendConstants,
-							   .bakeStencilReference										   = !dynamic.contains(DynamicState::eStencilReference),
-							   .stencilReference											   = desc.depthStencil.front.reference,
-							   .depthBoundsTestEnable										   = desc.depthStencil.depthBoundsTestEnable,
-							   .minDepthBounds												   = desc.depthStencil.minDepthBounds,
-							   .maxDepthBounds												   = desc.depthStencil.maxDepthBounds }),
-			error);
+		return ReturnValue(
+			device->graphicsPipelineSlots.store(
+				GraphicsPipelineSlot{ .pipeline = std::move(pipeline),
+					.rootSignature				= layout->rootSignature,
+					.topology					= MapPrimitiveTopology(vertexInput.topology),
+					.vertexStrides				= vertexStrides,
+					.bakeBlendConstants			= !dynamic.contains(DynamicState::eBlendConstants),
+					.blendConstants				= desc.blend.blendConstants,
+					.bakeStencilReference		= !dynamic.contains(DynamicState::eStencilReference),
+					.stencilReference			= desc.depthStencil.front.reference,
+					.depthBoundsTestEnable		= desc.depthStencil.depthBoundsTestEnable,
+					.minDepthBounds				= desc.depthStencil.minDepthBounds,
+					.maxDepthBounds				= desc.depthStencil.maxDepthBounds }
+			),
+			error
+		);
 	}
 
 	ComputePipelineHandle D3D12CreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept
@@ -504,9 +526,11 @@ namespace azo::rhi::d3d12
 
 		if (!desc.shader.threadgroupSize.IsStated())
 		{
-			return FailValue<ComputePipelineHandle>(error,
+			return FailValue<ComputePipelineHandle>(
+				error,
 				ErrorCode::eInvalidArgument,
-				"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary");
+				"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary"
+			);
 		}
 
 		auto * device				= static_cast<D3D12Device *>(impl);
@@ -555,11 +579,15 @@ namespace azo::rhi::d3d12
 			return FailValueNative<ComputePipelineHandle>(error, hr, "ID3D12Device::CreateComputePipelineState failed");
 		}
 
-		return ReturnValue(device->computePipelineSlots.store(ComputePipelineSlot{
-							   .pipeline	  = std::move(pipeline),
-							   .rootSignature = layout->rootSignature,
-						   }),
-			error);
+		return ReturnValue(
+			device->computePipelineSlots.store(
+				ComputePipelineSlot{
+					.pipeline	   = std::move(pipeline),
+					.rootSignature = layout->rootSignature,
+				}
+			),
+			error
+		);
 	}
 
 	PipelineCacheHandle D3D12CreatePipelineCache(void * impl, const PipelineCacheDesc & desc, Error * error) noexcept

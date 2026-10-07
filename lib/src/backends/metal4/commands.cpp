@@ -23,10 +23,10 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
-#include <cstddef>
 
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSRange.hpp>
 #include <Foundation/NSSharedPtr.hpp>
@@ -44,6 +44,7 @@
 #include <Metal/MTLResource.hpp>
 #include <Metal/MTLTexture.hpp>
 #include <Metal/MTLTypes.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -157,22 +158,32 @@ namespace azo::rhi::metal4
 			return out;
 		}
 
-		static_assert(stages_for(Stage::eIndirectFetch) == static_cast<MTL::Stages>(MTL::StageVertex | MTL::StageDispatch),
+		static_assert(
+			stages_for(Stage::eIndirectFetch) == static_cast<MTL::Stages>(MTL::StageVertex | MTL::StageDispatch),
 			"an indirect dispatch fetches its arguments on the dispatch stage, so naming vertex alone leaves the fetch unordered against the write that filled "
-			"the argument buffer");
+			"the argument buffer"
+		);
 
-		static_assert(stages_for(stages_of(ResourceState{ .use = ResourceUse::eAccelRead })) ==
-						  static_cast<MTL::Stages>(MTL::StageAccelerationStructure | MTL::StageVertex | MTL::StageFragment | MTL::StageDispatch),
-			"reading an acceleration structure happens in the shaders that trace as well as in a refit, so the build stage alone never orders the trace");
+		static_assert(
+			stages_for(stages_of(ResourceState{ .use = ResourceUse::eAccelRead })) ==
+				static_cast<MTL::Stages>(MTL::StageAccelerationStructure | MTL::StageVertex | MTL::StageFragment | MTL::StageDispatch),
+			"reading an acceleration structure happens in the shaders that trace as well as in a refit, so the build stage alone never orders the trace"
+		);
 
-		static_assert((static_cast<NS::UInteger>(stages_for(Stage::eRayTracing)) & MTL::StageAccelerationStructure) == 0,
-			"Apple's acceleration structure stage is where a build runs and not where a tracing shader runs, which is what eAccelBuild names instead");
+		static_assert(
+			(static_cast<NS::UInteger>(stages_for(Stage::eRayTracing)) & MTL::StageAccelerationStructure) == 0,
+			"Apple's acceleration structure stage is where a build runs and not where a tracing shader runs, which is what eAccelBuild names instead"
+		);
 
-		static_assert(stages_for(Flags<Stage>{}) == MTL::StageAll,
-			"an empty mask has to widen to everything, since PlaceBarrier holds this value and FlushPending reads a zero consumer as nothing pending");
+		static_assert(
+			stages_for(Flags<Stage>{}) == MTL::StageAll,
+			"an empty mask has to widen to everything, since PlaceBarrier holds this value and FlushPending reads a zero consumer as nothing pending"
+		);
 
-		static_assert(stages_for(stages_of(ResourceState{ .use = ResourceUse::eAccelBuildScratch })) == MTL::StageAccelerationStructure,
-			"a build scratch is touched by the build and by nothing else here, so it names the one stage that runs a build and never widens to everything");
+		static_assert(
+			stages_for(stages_of(ResourceState{ .use = ResourceUse::eAccelBuildScratch })) == MTL::StageAccelerationStructure,
+			"a build scratch is touched by the build and by nothing else here, so it names the one stage that runs a build and never widens to everything"
+		);
 
 		constexpr MTL::Stages kRenderEncoderStages	 = static_cast<MTL::Stages>(MTL::StageVertex | MTL::StageFragment);
 		constexpr MTL::Stages kRenderWaitableStages	 = MTL::StageVertex;
@@ -185,8 +196,14 @@ namespace azo::rhi::metal4
 		}
 
 		template <typename EncoderT>
-		void record_barrier(EncoderT * encoder, const MTL::Stages waitable, const MTL::Stages runnable, const MTL::Stages producer, const MTL::Stages consumer,
-			const MTL4::VisibilityOptions visibility) noexcept
+		void record_barrier(
+			EncoderT * encoder,
+			const MTL::Stages waitable,
+			const MTL::Stages runnable,
+			const MTL::Stages producer,
+			const MTL::Stages consumer,
+			const MTL4::VisibilityOptions visibility
+		) noexcept
 		{
 			encoder->barrierAfterStages(producer, consumer, visibility);
 
@@ -303,7 +320,10 @@ namespace azo::rhi::metal4
 		if (list->renderEncoder.get() != nullptr)
 		{
 			return fail_value<MTL4::ComputeCommandEncoder *>(
-				error, ErrorCode::eInvalidState, "a transfer or compute command cannot be recorded inside a rendering scope, so record it between passes");
+				error,
+				ErrorCode::eInvalidState,
+				"a transfer or compute command cannot be recorded inside a rendering scope, so record it between passes"
+			);
 		}
 
 		MTL4::ComputeCommandEncoder * encoder = list->commandBuffer->computeCommandEncoder();
@@ -663,8 +683,15 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-	bool metal4_cmd_copy_buffer(void * impl, BufferHandle dst, const std::uint64_t dstOffset, BufferHandle src, const std::uint64_t srcOffset,
-		const std::uint64_t size, Error * error) noexcept
+	bool metal4_cmd_copy_buffer(
+		void * impl,
+		BufferHandle dst,
+		const std::uint64_t dstOffset,
+		BufferHandle src,
+		const std::uint64_t srcOffset,
+		const std::uint64_t size,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.copyBuffer");
 
@@ -718,10 +745,11 @@ namespace azo::rhi::metal4
 		{
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
-			const auto bytesPerRow	 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
+			const auto bytesPerRow			 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
 			const NS::UInteger bytesPerImage = bytesPerRow * detail::block_rows(format, imageRows);
 
-			encoder->copyFromBuffer(buffer,
+			encoder->copyFromBuffer(
+				buffer,
 				region.bufferOffset,
 				bytesPerRow,
 				bytesPerImage,
@@ -729,9 +757,12 @@ namespace azo::rhi::metal4
 				texture,
 				region.subresource.layer,
 				region.subresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.textureOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.textureOffset.x),
 					static_cast<NS::UInteger>(region.textureOffset.y),
-					static_cast<NS::UInteger>(region.textureOffset.z)));
+					static_cast<NS::UInteger>(region.textureOffset.z)
+				)
+			);
 		}
 
 		return succeed(error);
@@ -767,20 +798,24 @@ namespace azo::rhi::metal4
 		{
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
-			const auto bytesPerRow	 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
+			const auto bytesPerRow			 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
 			const NS::UInteger bytesPerImage = bytesPerRow * detail::block_rows(format, imageRows);
 
-			encoder->copyFromTexture(texture,
+			encoder->copyFromTexture(
+				texture,
 				region.subresource.layer,
 				region.subresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.textureOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.textureOffset.x),
 					static_cast<NS::UInteger>(region.textureOffset.y),
-					static_cast<NS::UInteger>(region.textureOffset.z)),
+					static_cast<NS::UInteger>(region.textureOffset.z)
+				),
 				MTL::Size::Make(region.textureExtent.width, region.textureExtent.height, region.textureExtent.depth),
 				buffer,
 				region.bufferOffset,
 				bytesPerRow,
-				bytesPerImage);
+				bytesPerImage
+			);
 		}
 
 		return succeed(error);
@@ -808,26 +843,38 @@ namespace azo::rhi::metal4
 
 		for (const TextureCopy & region : regions)
 		{
-			encoder->copyFromTexture(source,
+			encoder->copyFromTexture(
+				source,
 				region.srcSubresource.layer,
 				region.srcSubresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.srcOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.srcOffset.x),
 					static_cast<NS::UInteger>(region.srcOffset.y),
-					static_cast<NS::UInteger>(region.srcOffset.z)),
+					static_cast<NS::UInteger>(region.srcOffset.z)
+				),
 				MTL::Size::Make(region.extent.width, region.extent.height, region.extent.depth),
 				destination,
 				region.dstSubresource.layer,
 				region.dstSubresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.dstOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.dstOffset.x),
 					static_cast<NS::UInteger>(region.dstOffset.y),
-					static_cast<NS::UInteger>(region.dstOffset.z)));
+					static_cast<NS::UInteger>(region.dstOffset.z)
+				)
+			);
 		}
 
 		return succeed(error);
 	}
 
 	bool metal4_cmd_clear_buffer(
-		void * impl, BufferHandle buffer, const std::uint64_t offset, const std::uint64_t size, const std::uint32_t value, Error * error) noexcept
+		void * impl,
+		BufferHandle buffer,
+		const std::uint64_t offset,
+		const std::uint64_t size,
+		const std::uint32_t value,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.clearBuffer");
 
@@ -885,7 +932,12 @@ namespace azo::rhi::metal4
 	}
 
 	bool metal4_cmd_clear_texture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.clearTexture");
 
@@ -981,7 +1033,10 @@ namespace azo::rhi::metal4
 		if (slot != nullptr && (is_compressed_format(slot->format) || is_integer_format(slot->format) || is_depth_format(slot->format)))
 		{
 			return fail(
-				error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)"
+			);
 		}
 
 		MTL4::ComputeCommandEncoder * encoder = begin_compute(object, error);
@@ -994,7 +1049,14 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-	bool metal4_cmd_blit(void * impl, TextureHandle /*unused*/, TextureHandle /*unused*/, std::span<const TextureBlit> /*unused*/, Filter /*unused*/, Error * error) noexcept
+	bool metal4_cmd_blit(
+		void * impl,
+		TextureHandle /*unused*/,
+		TextureHandle /*unused*/,
+		std::span<const TextureBlit> /*unused*/,
+		Filter /*unused*/,
+		Error * error
+	) noexcept
 	{
 		static_cast<void>(impl);
 		return fail(error, ErrorCode::eUnsupportedFeature, "Metal has no scaled blit, so resampling goes through the utility target's compute path");

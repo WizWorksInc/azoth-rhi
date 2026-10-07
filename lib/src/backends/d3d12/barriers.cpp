@@ -55,7 +55,11 @@ namespace azo::rhi::d3d12
 	}
 
 	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(
-		D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, Error * error) noexcept
+		D3D12CommandList * list,
+		D3D12_INDIRECT_ARGUMENT_TYPE type,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		D3D12CommandPool * pool = list->pool;
 		if (pool == nullptr)
@@ -87,12 +91,14 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		if (!detail::try_push_back(pool->commandSignatures,
+		if (!detail::try_push_back(
+				pool->commandSignatures,
 				CommandSignatureEntry{
 					.type	   = type,
 					.stride	   = stride,
 					.signature = signature,
-				}))
+				}
+			))
 		{
 			Fail(error, ErrorCode::eOutOfHostMemory, "the command pool could not store another indirect command signature");
 			return nullptr;
@@ -134,13 +140,17 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(device->queryPoolSlots.store(QueryPoolSlot{
-							   .heap	   = std::move(heap),
-							   .copyHeap   = std::move(copyHeap),
-							   .type	   = desc.type,
-							   .queryCount = desc.queryCount,
-						   }),
-			error);
+		return ReturnValue(
+			device->queryPoolSlots.store(
+				QueryPoolSlot{
+					.heap		= std::move(heap),
+					.copyHeap	= std::move(copyHeap),
+					.type		= desc.type,
+					.queryCount = desc.queryCount,
+				}
+			),
+			error
+		);
 	}
 
 	bool D3D12DestroyQueryPool(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -176,12 +186,14 @@ namespace azo::rhi::d3d12
 
 		for (const auto & m : barriers.memory)
 		{
-			globals.push_back(D3D12_GLOBAL_BARRIER{
-				.SyncBefore	  = MapBarrierSync(m.before.stages, m.before.use, queue),
-				.SyncAfter	  = MapBarrierSync(m.after.stages, m.after.use, queue),
-				.AccessBefore = MapBarrierAccess(m.before.use, queue),
-				.AccessAfter  = MapBarrierAccess(m.after.use, queue),
-			});
+			globals.push_back(
+				D3D12_GLOBAL_BARRIER{
+					.SyncBefore	  = MapBarrierSync(m.before.stages, m.before.use, queue),
+					.SyncAfter	  = MapBarrierSync(m.after.stages, m.after.use, queue),
+					.AccessBefore = MapBarrierAccess(m.before.use, queue),
+					.AccessAfter  = MapBarrierAccess(m.after.use, queue),
+				}
+			);
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
@@ -203,15 +215,17 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidArgument, "a barrier on an acceleration structure buffer named a use it can never be in");
 			}
 
-			buffers.push_back(D3D12_BUFFER_BARRIER{
-				.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
-				.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
-				.AccessBefore = accessBefore,
-				.AccessAfter  = accessAfter,
-				.pResource	  = slot->resource.Get(),
-				.Offset		  = 0,
-				.Size		  = std::numeric_limits<UINT64>::max(),
-			});
+			buffers.push_back(
+				D3D12_BUFFER_BARRIER{
+					.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
+					.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
+					.AccessBefore = accessBefore,
+					.AccessAfter  = accessAfter,
+					.pResource	  = slot->resource.Get(),
+					.Offset		  = 0,
+					.Size		  = std::numeric_limits<UINT64>::max(),
+				}
+			);
 		}
 
 		for (const TextureBarrier & t : barriers.textures)
@@ -249,17 +263,19 @@ namespace azo::rhi::d3d12
 
 			const D3D12_BARRIER_LAYOUT before = crossesIn ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.before.use, queue);
 			const D3D12_BARRIER_LAYOUT after  = crossesOut ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.after.use, queue);
-			textures.push_back(D3D12_TEXTURE_BARRIER{
-				.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
-				.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
-				.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.before.use, queue),
-				.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.after.use, queue),
-				.LayoutBefore = before,
-				.LayoutAfter  = after,
-				.pResource	  = slot->resource.Get(),
-				.Subresources = subresources,
-				.Flags		  = TextureBarrierFlags(before),
-			});
+			textures.push_back(
+				D3D12_TEXTURE_BARRIER{
+					.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
+					.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
+					.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.before.use, queue),
+					.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.after.use, queue),
+					.LayoutBefore = before,
+					.LayoutAfter  = after,
+					.pResource	  = slot->resource.Get(),
+					.Subresources = subresources,
+					.Flags		  = TextureBarrierFlags(before),
+				}
+			);
 		}
 
 		std::array<D3D12_BARRIER_GROUP, 3> groups{};
@@ -342,17 +358,19 @@ namespace azo::rhi::d3d12
 			}
 
 			const D3D12_BARRIER_LAYOUT before = MapBarrierLayout(ResourceUse::eDiscard, queue);
-			textures.push_back(D3D12_TEXTURE_BARRIER{
-				.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
-				.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
-				.AccessBefore = D3D12_BARRIER_ACCESS_NO_ACCESS,
-				.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON,
-				.LayoutBefore = before,
-				.LayoutAfter  = MapBarrierLayout(ResourceUse::eNone, queue),
-				.pResource	  = slot->resource.Get(),
-				.Subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{ .IndexOrFirstMipLevel = kAllSubresources },
-				.Flags		  = TextureBarrierFlags(before),
-			});
+			textures.push_back(
+				D3D12_TEXTURE_BARRIER{
+					.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
+					.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
+					.AccessBefore = D3D12_BARRIER_ACCESS_NO_ACCESS,
+					.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON,
+					.LayoutBefore = before,
+					.LayoutAfter  = MapBarrierLayout(ResourceUse::eNone, queue),
+					.pResource	  = slot->resource.Get(),
+					.Subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{ .IndexOrFirstMipLevel = kAllSubresources },
+					.Flags		  = TextureBarrierFlags(before),
+				}
+			);
 		}
 
 		const D3D12_GLOBAL_BARRIER global{

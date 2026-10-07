@@ -8,6 +8,7 @@
 // limitations under the License.
 
 #include "azoth/rhi/backend/blocks/swapchain.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
 #include "azoth/rhi/commands/sync.hpp"
@@ -17,14 +18,18 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/present/swapchain.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <CoreFoundation/CFCGTypes.h>
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Metal/MTL4CommandQueue.hpp>
 #include <Metal/MTLTexture.hpp>
 #include <QuartzCore/CAMetalDrawable.hpp>
+
 #include <cstdint>
 #include <utility>
 
@@ -79,7 +84,12 @@ namespace azo::rhi::metal4
 	}
 
 	PresentResult metal4_swapchain_present(
-		void * impl, [[maybe_unused]] std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, [[maybe_unused]] void * queueImpl, Error * error) noexcept
+		void * impl,
+		[[maybe_unused]] std::uint32_t imageIndex,
+		BinarySemaphoreHandle renderFinished,
+		[[maybe_unused]] void * queueImpl,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.present");
 
@@ -166,7 +176,7 @@ namespace azo::rhi::metal4
 		auto * swapchain  = static_cast<Metal4Swapchain *>(impl);
 		swapchain->width  = width;
 		swapchain->height = height;
-		swapchain->layer->setDrawableSize(CGSize{ .width=static_cast<CGFloat>(width), .height=static_cast<CGFloat>(height) });
+		swapchain->layer->setDrawableSize(CGSize{ .width = static_cast<CGFloat>(width), .height = static_cast<CGFloat>(height) });
 		return succeed(error);
 	}
 
@@ -230,7 +240,7 @@ namespace azo::rhi::metal4
 
 		layer->setDevice(device->device.get());
 		layer->setPixelFormat(metal_pixel_format(desc.preferredFormat));
-		layer->setDrawableSize(CGSize{ .width=static_cast<CGFloat>(desc.width), .height=static_cast<CGFloat>(desc.height) });
+		layer->setDrawableSize(CGSize{ .width = static_cast<CGFloat>(desc.width), .height = static_cast<CGFloat>(desc.height) });
 		layer->setFramebufferOnly(false);
 		const PresentMode presentMode = effective_present_mode(desc.presentMode);
 		layer->setDisplaySyncEnabled(presentMode != PresentMode::eImmediate);

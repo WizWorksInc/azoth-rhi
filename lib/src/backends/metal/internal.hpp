@@ -375,7 +375,11 @@ namespace azo::rhi::metal
 	[[nodiscard]] void * alloc_object(MetalDevice * device, const BackendObject * published, QueueType queueType = QueueType::eGraphics);
 
 	[[nodiscard]] bool metal_refuse_unexportable(
-		Flags<ExternalHandleType> declared, Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept;
+		Flags<ExternalHandleType> declared,
+		Flags<ExternalHandleType> allowed,
+		const char * what,
+		Error * error
+	) noexcept;
 	[[nodiscard]] MetalBackendOwner & backend_owner();
 	GraphicsApiId metal_device_api_id([[maybe_unused]] void * impl) noexcept;
 	std::string_view metal_device_api_name([[maybe_unused]] void * impl) noexcept;
@@ -415,15 +419,33 @@ namespace azo::rhi::metal
 	bool metal_cmd_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
 	bool metal_cmd_end_debug_label(void * impl, Error * error) noexcept;
 	bool metal_clear_texture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept;
 	bool metal_resolve_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
 	bool metal_copy_buffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept;
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept;
 	bool metal_copy_buffer_to_texture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
 	bool metal_copy_texture_to_buffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
 	bool metal_copy_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
-	bool metal_blit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src, [[maybe_unused]] std::span<const TextureBlit> regions,
-		[[maybe_unused]] Filter filter, Error * error) noexcept;
+	bool metal_blit(
+		void * impl,
+		[[maybe_unused]] TextureHandle dst,
+		[[maybe_unused]] TextureHandle src,
+		[[maybe_unused]] std::span<const TextureBlit> regions,
+		[[maybe_unused]] Filter filter,
+		Error * error
+	) noexcept;
 	bool metal_generate_mips(void * impl, TextureHandle texture, Error * error) noexcept;
 	bool metal_clear_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
 	[[nodiscard]] MTL::Texture * resolve_texture_view(MetalDevice * device, TextureViewHandle handle) noexcept;
@@ -440,14 +462,41 @@ namespace azo::rhi::metal
 	bool metal_set_depth_bias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept;
 	bool metal_set_vertex_buffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
 	bool metal_set_index_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
-	bool metal_push_constants(void * impl, [[maybe_unused]] PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
-		const void * data, Error * error) noexcept;
+	bool metal_push_constants(
+		void * impl,
+		[[maybe_unused]] PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept;
 	bool metal_draw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept;
-	bool metal_draw_indexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept;
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
+	bool metal_draw_indexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
 	bool metal_draw_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool metal_draw_indexed_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
+	bool metal_draw_indexed_indirect(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
 	inline constexpr std::uint64_t kDebugScopeCommandBuffer = 0;
 	inline constexpr std::uint64_t kDebugScopeClosed		= std::numeric_limits<std::uint64_t>::max();
 
@@ -455,8 +504,14 @@ namespace azo::rhi::metal
 
 	[[nodiscard]] bool ensure_compute_encoder(MetalObject * object, Error * error) noexcept;
 	bool metal_set_compute_pipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
-	bool metal_bind_descriptor_set(void * impl, [[maybe_unused]] PipelineLayoutHandle layout, [[maybe_unused]] std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
+	bool metal_bind_descriptor_set(
+		void * impl,
+		[[maybe_unused]] PipelineLayoutHandle layout,
+		[[maybe_unused]] std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept;
 	bool metal_update_descriptors_buffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
 	bool metal_update_descriptors_texture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
 	bool metal_update_descriptors_sampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
@@ -475,23 +530,56 @@ namespace azo::rhi::metal
 	bool metal_cmd_write_timestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
 	bool metal_cmd_begin_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool metal_cmd_end_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool metal_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept;
+	bool metal_cmd_resolve_query_data(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept;
 	bool metal_destroy(void * impl, ResourceType type, RawHandle handle, [[maybe_unused]] const DestroyDesc & desc, Error * error) noexcept;
 	bool metal_collect_garbage(void * impl, ResourceType type, Error * error) noexcept;
 	bool metal_collect_garbage_timeline(
-		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept;
+		void * impl,
+		ResourceType type,
+		[[maybe_unused]] TimelineHandle timeline,
+		[[maybe_unused]] std::uint64_t completedValue,
+		Error * error
+	) noexcept;
 	BufferHandle metal_adopt_buffer(
-		void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept;
-	TextureHandle metal_adopt_texture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-		[[maybe_unused]] const AdoptedTextureDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		[[maybe_unused]] const AdoptedBufferDesc & desc,
+		Error * error
+	) noexcept;
+	TextureHandle metal_adopt_texture(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] const void * nativeImport,
+		[[maybe_unused]] const AdoptedTextureDesc & desc,
+		Error * error
+	) noexcept;
 	bool metal_get_native_buffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
-	bool metal_get_native_texture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
-		[[maybe_unused]] void * outNativeImport, Error * error) noexcept;
+	bool metal_get_native_texture(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] TextureHandle texture,
+		[[maybe_unused]] void * outNativeImport,
+		Error * error
+	) noexcept;
 	AccelerationStructureHandle metal_create_acceleration_structure(
-		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept;
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] const AccelerationStructureDesc & desc,
+		Error * error
+	) noexcept;
 	RayTracingPipelineHandle metal_create_ray_tracing_pipeline(
-		[[maybe_unused]] void * impl, [[maybe_unused]] const RayTracingPipelineDesc & desc, Error * error) noexcept;
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] const RayTracingPipelineDesc & desc,
+		Error * error
+	) noexcept;
 	bool metal_begin_native_mutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept;
 	DescriptorSetHandle metal_arena_allocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept;
 	bool metal_arena_reset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
@@ -503,13 +591,23 @@ namespace azo::rhi::metal
 	const QueryApi & query_block() noexcept;
 	const ResidencyApi & residency_block() noexcept;
 	TextureViewHandle metal_adopt_texture_view(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept;
 	SamplerHandle metal_adopt_sampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
 	bool metal_get_native_texture_view(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
 	bool metal_get_native_sampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
 	TimelineHandle metal_adopt_timeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
 	BinarySemaphoreHandle metal_adopt_binary_semaphore(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept;
 	bool metal_get_native_timeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
 	bool metal_get_native_binary_semaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
 	const AdoptionApi & adoption_block() noexcept;
@@ -524,8 +622,13 @@ namespace azo::rhi::metal
 	const NativeEscapeApi & native_escape_block() noexcept;
 	const DescriptorArenaApi & descriptor_arena_block() noexcept;
 	AcquireResult metal_swapchain_acquire(void * impl, [[maybe_unused]] std::uint64_t timeoutNanoseconds, Error * error) noexcept;
-	PresentResult metal_swapchain_present(void * impl, [[maybe_unused]] std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished,
-		[[maybe_unused]] void * queueImpl, Error * error) noexcept;
+	PresentResult metal_swapchain_present(
+		void * impl,
+		[[maybe_unused]] std::uint32_t imageIndex,
+		BinarySemaphoreHandle renderFinished,
+		[[maybe_unused]] void * queueImpl,
+		Error * error
+	) noexcept;
 	TextureHandle metal_swapchain_back_buffer(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept;
 	TextureViewHandle metal_swapchain_back_buffer_view(void * impl, [[maybe_unused]] std::uint32_t imageIndex) noexcept;
 	BinarySemaphoreHandle metal_swapchain_present_semaphore(void * impl, std::uint32_t imageIndex) noexcept;
@@ -680,7 +783,10 @@ namespace azo::rhi::metal
 			if (!binding.immutableSamplers.empty())
 			{
 				return fail_value<DescriptorSetLayoutHandle>(
-					error, ErrorCode::eUnsupportedFeature, "Metal does not bake samplers into a descriptor set layout, so write the sampler into the set");
+					error,
+					ErrorCode::eUnsupportedFeature,
+					"Metal does not bake samplers into a descriptor set layout, so write the sampler into the set"
+				);
 			}
 		}
 

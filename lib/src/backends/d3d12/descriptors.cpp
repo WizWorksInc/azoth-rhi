@@ -189,7 +189,10 @@ namespace azo::rhi::d3d12
 	}
 
 	[[nodiscard]] DescriptorType LayoutBufferType(
-		const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, DescriptorType fallback) noexcept
+		const detail::HostVector<DescriptorBinding> & bindings,
+		std::uint32_t binding,
+		DescriptorType fallback
+	) noexcept
 	{
 		for (const DescriptorBinding & b : bindings)
 		{
@@ -262,7 +265,11 @@ namespace azo::rhi::d3d12
 			}
 
 			device->device->CopyDescriptorsSimple(
-				1, CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				1,
+				CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index),
+				cpu,
+				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+			);
 		}
 		return Succeed(error);
 	}
@@ -370,7 +377,11 @@ namespace azo::rhi::d3d12
 			}
 
 			device->device->CopyDescriptorsSimple(
-				1, CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				1,
+				CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index),
+				cpu,
+				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+			);
 
 			if (write.type == DescriptorType::eCombinedImageSampler)
 			{
@@ -390,7 +401,11 @@ namespace azo::rhi::d3d12
 				const D3D12_CPU_DESCRIPTOR_HANDLE samplerCpu = CpuHandleAt(arena->samplerStaging.Get(), arena->samplerIncrement, samplerIndex);
 				device->device->CreateSampler(&sampler->desc, samplerCpu);
 				device->device->CopyDescriptorsSimple(
-					1, CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, samplerIndex), samplerCpu, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+					1,
+					CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, samplerIndex),
+					samplerCpu,
+					D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER
+				);
 			}
 		}
 		return Succeed(error);
@@ -418,14 +433,20 @@ namespace azo::rhi::d3d12
 			const std::uint32_t index			  = set->samplerBase + inClass + write.arrayIndex;
 			const D3D12_CPU_DESCRIPTOR_HANDLE cpu = CpuHandleAt(arena->samplerStaging.Get(), arena->samplerIncrement, index);
 			device->device->CreateSampler(&sampler->desc, cpu);
-			device->device->CopyDescriptorsSimple(
-				1, CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+			device->device
+				->CopyDescriptorsSimple(1, CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 		}
 		return Succeed(error);
 	}
 
-	bool D3D12CmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
+	bool D3D12CmdBindDescriptorSet(
+		void * impl,
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.bindDescriptorSet");
 

@@ -17,16 +17,20 @@
 #include "azoth/rhi/resources/pipeline.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.hpp>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <span>
 #include <utility>
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_core.h>
 
 namespace azo::rhi::vulkan
 {
@@ -81,7 +85,10 @@ namespace azo::rhi::vulkan
 			usage.contains(BufferUsage::eAccelerationStructureStorage))
 		{
 			return fail(
-				error, ErrorCode::eUnsupportedFeature, "a shader binding table or acceleration structure buffer needs ray tracing, which this device declines");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"a shader binding table or acceleration structure buffer needs ray tracing, which this device declines"
+			);
 		}
 
 		return true;
@@ -311,12 +318,17 @@ namespace azo::rhi::vulkan
 
 	vk::ComponentMapping map_component_mapping(const ComponentMapping mapping) noexcept
 	{
-		return vk::ComponentMapping{
-			map_component_swizzle(mapping.r), map_component_swizzle(mapping.g), map_component_swizzle(mapping.b), map_component_swizzle(mapping.a)
-		};
+		return vk::ComponentMapping{ map_component_swizzle(mapping.r),
+			map_component_swizzle(mapping.g),
+			map_component_swizzle(mapping.b),
+			map_component_swizzle(mapping.a) };
 	}
 
-	bool query_portability_subset_features(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, PortabilitySubsetFeatures & out) noexcept
+	bool query_portability_subset_features(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		PortabilitySubsetFeatures & out
+	) noexcept
 	{
 		auto * const physical  = static_cast<VkPhysicalDevice>(phys);
 		std::uint32_t extCount = 0;
@@ -331,11 +343,13 @@ namespace azo::rhi::vulkan
 			return false;
 		}
 
-		const bool portability = std::ranges::any_of(exts,
+		const bool portability = std::ranges::any_of(
+			exts,
 			[](const VkExtensionProperties & ep) noexcept
 			{
 				return std::strcmp(ep.extensionName, "VK_KHR_portability_subset") == 0;
-			});
+			}
+		);
 		if (!portability)
 		{
 			return false;
@@ -480,13 +494,18 @@ namespace azo::rhi::vulkan
 	}
 
 	[[nodiscard]] bool adapter_supports_all_features(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, std::span<const DeviceFeature> features) noexcept
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		std::span<const DeviceFeature> features
+	) noexcept
 	{
-		return std::ranges::all_of(features,
+		return std::ranges::all_of(
+			features,
 			[phys, &dispatch](const DeviceFeature feature) noexcept
 			{
 				return adapter_supports_feature(phys, dispatch, feature);
-			});
+			}
+		);
 	}
 
 	void enable_feature_bit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept

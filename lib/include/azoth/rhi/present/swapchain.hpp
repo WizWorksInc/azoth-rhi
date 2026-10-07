@@ -97,7 +97,9 @@ namespace azo::rhi
 
 		[[nodiscard]] AcquireResult acquire_next_image(std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
 		[[nodiscard]] AcquireResult acquire_next_image(std::uint64_t timeoutNanoseconds, Error & error) noexcept;
-		[[nodiscard]] Result<AcquireResult> acquire_next_image_with_result(std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
+		[[nodiscard]] Result<AcquireResult> acquire_next_image_with_result(
+			std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()
+		) noexcept;
 		[[nodiscard]] PresentResult present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept;
 		[[nodiscard]] PresentResult present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, Error & error) noexcept;
 		[[nodiscard]] Result<PresentResult> present_with_result(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept;

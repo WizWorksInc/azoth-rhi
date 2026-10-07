@@ -7,9 +7,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/commands/render.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/commands/command.hpp"
-#include "azoth/rhi/commands/render.hpp"
 #include "azoth/rhi/core/build_config.hpp"
 #include "azoth/rhi/core/constants.hpp"
 #include "azoth/rhi/core/flags.hpp"
@@ -20,6 +21,7 @@
 
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Foundation/NSTypes.hpp>
@@ -31,6 +33,7 @@
 #include <Metal/MTLRenderCommandEncoder.hpp>
 #include <Metal/MTLRenderPass.hpp>
 #include <Metal/MTLTexture.hpp>
+
 #include <cstdint>
 
 namespace azo::rhi::metal
@@ -201,7 +204,12 @@ namespace azo::rhi::metal
 		}
 
 		const MTL::Viewport vp{
-			.originX = viewport.x, .originY = originY, .width = viewport.width, .height = height, .znear = viewport.minDepth, .zfar = viewport.maxDepth,
+			.originX = viewport.x,
+			.originY = originY,
+			.width	 = viewport.width,
+			.height	 = height,
+			.znear	 = viewport.minDepth,
+			.zfar	 = viewport.maxDepth,
 		};
 		object->list->renderEncoder->setViewport(vp);
 		return succeed(error);
@@ -215,7 +223,10 @@ namespace azo::rhi::metal
 			return fail(error, ErrorCode::eInvalidState, "setScissor outside a rendering scope");
 		}
 		const MTL::ScissorRect rect{
-			.x = static_cast<NS::UInteger>(scissor.x), .y = static_cast<NS::UInteger>(scissor.y), .width = scissor.width, .height = scissor.height,
+			.x		= static_cast<NS::UInteger>(scissor.x),
+			.y		= static_cast<NS::UInteger>(scissor.y),
+			.width	= scissor.width,
+			.height = scissor.height,
 		};
 		object->list->renderEncoder->setScissorRect(rect);
 		return succeed(error);
@@ -286,8 +297,15 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-	bool metal_push_constants(void * impl, [[maybe_unused]] const PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset,
-		std::uint32_t size, const void * data, Error * error) noexcept
+	bool metal_push_constants(
+		void * impl,
+		[[maybe_unused]] const PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr)
@@ -330,7 +348,13 @@ namespace azo::rhi::metal
 	}
 
 	bool metal_draw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		auto * object = static_cast<MetalObject *>(impl);
 		if (object->list == nullptr || object->list->renderEncoder.get() == nullptr)
@@ -341,8 +365,15 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-	bool metal_draw_indexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept
+	bool metal_draw_indexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		auto * object		= static_cast<MetalObject *>(impl);
 		MetalCmdList * list = object->list;
@@ -357,7 +388,15 @@ namespace azo::rhi::metal
 		const std::uint64_t indexSize	= (list->boundIndexType == MTL::IndexTypeUInt32) ? 4 : 2;
 		const std::uint64_t indexOffset = list->boundIndexOffset + (static_cast<std::uint64_t>(firstIndex) * indexSize);
 		list->renderEncoder->drawIndexedPrimitives(
-			list->boundPrimitive, indexCount, list->boundIndexType, list->boundIndexBuffer, indexOffset, instanceCount, vertexOffset, firstInstance);
+			list->boundPrimitive,
+			indexCount,
+			list->boundIndexType,
+			list->boundIndexBuffer,
+			indexOffset,
+			instanceCount,
+			vertexOffset,
+			firstInstance
+		);
 		return succeed(error);
 	}
 
@@ -386,7 +425,14 @@ namespace azo::rhi::metal
 		return succeed(error);
 	}
 
-	bool metal_draw_indexed_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
+	bool metal_draw_indexed_indirect(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		auto * object		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = object->owner;
@@ -410,12 +456,14 @@ namespace azo::rhi::metal
 		const std::uint64_t step						 = stride != 0 ? stride : kIndexedIndirectArgsSize;
 		for (std::uint32_t draw = 0; draw < drawCount; ++draw)
 		{
-			list->renderEncoder->drawIndexedPrimitives(list->boundPrimitive,
+			list->renderEncoder->drawIndexedPrimitives(
+				list->boundPrimitive,
 				list->boundIndexType,
 				list->boundIndexBuffer,
 				list->boundIndexOffset,
 				indirect,
-				offset + (static_cast<std::uint64_t>(draw) * step));
+				offset + (static_cast<std::uint64_t>(draw) * step)
+			);
 		}
 		return succeed(error);
 	}

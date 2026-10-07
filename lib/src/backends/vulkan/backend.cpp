@@ -128,7 +128,8 @@ namespace azo::rhi
 						.index		= index,
 						.generation = handle.generation,
 					},
-					true);
+					true
+				);
 				return slot != nullptr ? slot->semaphore : vk::Semaphore{};
 			}
 
@@ -215,7 +216,11 @@ namespace azo::rhi
 		}
 
 		void report_instance_message(
-			const VulkanInstance * instance, const ValidationMessageSeverity severity, const char * source, const char * message) noexcept
+			const VulkanInstance * instance,
+			const ValidationMessageSeverity severity,
+			const char * source,
+			const char * message
+		) noexcept
 		{
 			if (message == nullptr)
 			{
@@ -231,8 +236,12 @@ namespace azo::rhi
 			std::cerr << '[' << source << "] " << message << '\n';
 		}
 
-		VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-			[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types, const vk::DebugUtilsMessengerCallbackDataEXT * data, void * userData) noexcept
+		VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(
+			vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+			[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types,
+			const vk::DebugUtilsMessengerCallbackDataEXT * data,
+			void * userData
+		) noexcept
 		{
 			auto * instance		 = static_cast<VulkanInstance *>(userData);
 			const bool isError	 = severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
@@ -249,7 +258,11 @@ namespace azo::rhi
 			if (data != nullptr)
 			{
 				report_instance_message(
-					instance, isError ? ValidationMessageSeverity::eError : ValidationMessageSeverity::eWarning, "vulkan validation", data->pMessage);
+					instance,
+					isError ? ValidationMessageSeverity::eError : ValidationMessageSeverity::eWarning,
+					"vulkan validation",
+					data->pMessage
+				);
 			}
 
 			if ((isError && instance->breakOnError) || (isWarning && instance->breakOnWarning))
@@ -298,11 +311,13 @@ namespace azo::rhi
 			const detail::HostVector<vk::ExtensionProperties> & availExts = enumeratedExts.value;
 			auto extAvailable											  = [&](const char * name)
 			{
-				return std::ranges::any_of(availExts,
+				return std::ranges::any_of(
+					availExts,
 					[name](const vk::ExtensionProperties & ep)
 					{
 						return std::strcmp(ep.extensionName, name) == 0;
-					});
+					}
+				);
 			};
 
 			detail::HostVector<const char *> instanceExts;
@@ -318,13 +333,15 @@ namespace azo::rhi
 				instanceExts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			}
 
-			for (const char * surfaceExt : { VK_KHR_SURFACE_EXTENSION_NAME,
+			for (const char * surfaceExt : {
+					 VK_KHR_SURFACE_EXTENSION_NAME,
 					 "VK_EXT_metal_surface",
 					 "VK_MVK_macos_surface",
 					 "VK_KHR_win32_surface",
 					 "VK_KHR_xlib_surface",
 					 "VK_KHR_xcb_surface",
-					 "VK_KHR_wayland_surface", })
+					 "VK_KHR_wayland_surface",
+				 })
 			{
 				if (extAvailable(surfaceExt))
 				{
@@ -342,11 +359,13 @@ namespace azo::rhi
 			const detail::HostVector<vk::LayerProperties> & availLayers = enumeratedLayers.value;
 			auto layerAvailable											= [&](const char * name)
 			{
-				return std::ranges::any_of(availLayers,
+				return std::ranges::any_of(
+					availLayers,
 					[name](const vk::LayerProperties & lp)
 					{
 						return std::strcmp(lp.layerName, name) == 0;
-					});
+					}
+				);
 			};
 
 			detail::HostVector<const char *> layers;
@@ -382,15 +401,19 @@ namespace azo::rhi
 					}
 					if (!extAvailable(extra))
 					{
-						*error = Error{ .code = ErrorCode::eUnsupportedFeature,
-							.message		  = "an instance extension named in the Vulkan configuration block is not supported by the loader", };
+						*error = Error{
+							.code	 = ErrorCode::eUnsupportedFeature,
+							.message = "an instance extension named in the Vulkan configuration block is not supported by the loader",
+						};
 						return nullptr;
 					}
-					const bool alreadyEnabled = std::ranges::any_of(instanceExts,
+					const bool alreadyEnabled = std::ranges::any_of(
+						instanceExts,
 						[extra](const char * name) noexcept
 						{
 							return std::strcmp(name, extra) == 0;
-						});
+						}
+					);
 					if (!alreadyEnabled)
 					{
 						instanceExts.push_back(extra);
@@ -440,11 +463,13 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			const vk::ApplicationInfo appInfo(desc.applicationName,
+			const vk::ApplicationInfo appInfo(
+				desc.applicationName,
 				VK_MAKE_VERSION(desc.applicationVersionMajor, desc.applicationVersionMinor, 0),
 				desc.engineName,
 				VK_MAKE_VERSION(desc.engineVersionMajor, desc.engineVersionMinor, 0),
-				requestedApi);
+				requestedApi
+			);
 			vk::InstanceCreateInfo instInfo(instanceFlags, &appInfo);
 			instInfo.setPEnabledExtensionNames(instanceExts);
 			instInfo.setPEnabledLayerNames(layers);
@@ -463,8 +488,8 @@ namespace azo::rhi
 				return nullptr;
 			}
 
-			instance->object		  = publishing_object<Published<InstanceApi, &instance_block>, Published<ExternalCapabilityApi, &external_capability_block>>();
-			instance->breakOnError	  = native.breakOnError;
+			instance->object	   = publishing_object<Published<InstanceApi, &instance_block>, Published<ExternalCapabilityApi, &external_capability_block>>();
+			instance->breakOnError = native.breakOnError;
 			instance->breakOnWarning  = native.breakOnWarning;
 			instance->onMessage		  = native.onMessage;
 			instance->messageUserData = native.messageUserData;
@@ -517,7 +542,10 @@ namespace azo::rhi
 		}
 
 		[[nodiscard]] static bool vulkan_calibration_domains(
-			vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, vk::TimeDomainEXT & hostDomain) noexcept
+			vk::PhysicalDevice phys,
+			const vk::detail::DispatchLoaderDynamic & dispatch,
+			vk::TimeDomainEXT & hostDomain
+		) noexcept
 		{
 			const auto enumerated = phys.getCalibrateableTimeDomainsEXT<HostAllocatorAdapter<vk::TimeDomainEXT>>(dispatch);
 			if (enumerated.result != vk::Result::eSuccess)
@@ -589,11 +617,13 @@ namespace azo::rhi
 			const detail::HostVector<vk::ExtensionProperties> & availableExts = enumeratedExts.value;
 			const auto hasExt												  = [&availableExts](const char * name) noexcept
 			{
-				return std::ranges::any_of(availableExts,
+				return std::ranges::any_of(
+					availableExts,
 					[name](const vk::ExtensionProperties & ep)
 					{
 						return std::strcmp(ep.extensionName, name) == 0;
-					});
+					}
+				);
 			};
 
 			if (!hasExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
@@ -738,12 +768,14 @@ namespace azo::rhi
 
 					for (const DeviceFeature feature : desc.requiredFeatures)
 					{
-						const bool anySupports = std::ranges::any_of(physicals,
+						const bool anySupports = std::ranges::any_of(
+							physicals,
 							[feature, instance](vk::PhysicalDevice candidate) noexcept
 							{
 								return vulkan_adapter_refusal(candidate, instance->dispatch) == nullptr &&
 									   adapter_supports_feature(candidate, instance->dispatch, feature);
-							});
+							}
+						);
 
 						if (!anySupports)
 						{
@@ -836,11 +868,13 @@ namespace azo::rhi
 			const detail::HostVector<vk::ExtensionProperties> & availableExts = enumeratedExts.value;
 			const auto hasExt												  = [&availableExts](const char * name) noexcept
 			{
-				return std::ranges::any_of(availableExts,
+				return std::ranges::any_of(
+					availableExts,
 					[name](const vk::ExtensionProperties & ep)
 					{
 						return std::strcmp(ep.extensionName, name) == 0;
-					});
+					}
+				);
 			};
 
 			const bool adapterHasDynamicRendering = core13 || hasExt(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
@@ -969,11 +1003,13 @@ namespace azo::rhi
 						return nullptr;
 					}
 
-					const bool alreadyEnabled = std::ranges::any_of(deviceExts,
+					const bool alreadyEnabled = std::ranges::any_of(
+						deviceExts,
 						[extra](const char * name) noexcept
 						{
 							return std::strcmp(name, extra) == 0;
-						});
+						}
+					);
 					if (!alreadyEnabled)
 					{
 						deviceExts.push_back(extra);
@@ -1079,15 +1115,19 @@ namespace azo::rhi
 			const QueuePlan plan = plan_queues(desc.queues);
 			if (plan.computeDedicated && plan.computeCount > 0 && computeFamily == graphicsFamily)
 			{
-				*error = Error{ .code = ErrorCode::eUnsupportedFeature,
-					.message		  = "a dedicated compute queue was required but the adapter has no dedicated compute family", };
+				*error = Error{
+					.code	 = ErrorCode::eUnsupportedFeature,
+					.message = "a dedicated compute queue was required but the adapter has no dedicated compute family",
+				};
 				return nullptr;
 			}
 
 			if (plan.copyDedicated && plan.copyCount > 0 && copyFamily == graphicsFamily)
 			{
-				*error = Error{ .code = ErrorCode::eUnsupportedFeature,
-					.message		  = "a dedicated copy queue was required but the adapter has no dedicated transfer family", };
+				*error = Error{
+					.code	 = ErrorCode::eUnsupportedFeature,
+					.message = "a dedicated copy queue was required but the adapter has no dedicated transfer family",
+				};
 				return nullptr;
 			}
 
@@ -1124,10 +1164,12 @@ namespace azo::rhi
 					return;
 				}
 
-				families.push_back(FamilyQueues{
-					.family = family,
-					.count	= requested,
-				});
+				families.push_back(
+					FamilyQueues{
+						.family = family,
+						.count	= requested,
+					}
+				);
 			};
 			addRequest(graphicsFamily, plan.graphicsCount);
 			addRequest(computeFamily, plan.computeCount);
@@ -1166,7 +1208,8 @@ namespace azo::rhi
 			}
 
 			const bool sharesExternally	   = hasExternalMemoryFd || hasExternalMemoryWin32 || hasExternalSemaphoreFd || hasExternalSemaphoreWin32;
-			record->object				   = sharesExternally ? publishing_object<Published<CoreDeviceApi, &core_device_block>,
+			record->object				   = sharesExternally ? publishing_object<
+																	Published<CoreDeviceApi, &core_device_block>,
 																	Published<PresentApi, &present_block>,
 																	Published<PlacedMemoryApi, &placed_memory_block>,
 																	Published<QueryApi, &query_block>,
@@ -1175,7 +1218,8 @@ namespace azo::rhi
 																	Published<ResourceIntrospectionApi, &resource_introspection_block>,
 																	Published<AdoptionApi, &adoption_block>,
 																	Published<ExternalSharingApi, &external_sharing_block>>()
-															  : publishing_object<Published<CoreDeviceApi, &core_device_block>,
+															  : publishing_object<
+																	Published<CoreDeviceApi, &core_device_block>,
 																	Published<PresentApi, &present_block>,
 																	Published<PlacedMemoryApi, &placed_memory_block>,
 																	Published<QueryApi, &query_block>,
@@ -1229,7 +1273,8 @@ namespace azo::rhi
 				[deviceTag] noexcept
 				{
 					detail::device_tags().release(deviceTag);
-				});
+				}
+			);
 
 			record->bufferSlots.rebind(deviceTag);
 			record->pipelineLayoutSlots.rebind(deviceTag);
@@ -1279,8 +1324,10 @@ namespace azo::rhi
 			if (record->graphicsQueues.size() < plan.graphicsCount || record->computeQueues.size() < plan.computeCount ||
 				record->copyQueues.size() < plan.copyCount)
 			{
-				*error = Error{ .code = ErrorCode::eUnsupportedFeature,
-					.message		  = "the adapter cannot supply the requested minimum number of queues for a queue type", };
+				*error = Error{
+					.code	 = ErrorCode::eUnsupportedFeature,
+					.message = "the adapter cannot supply the requested minimum number of queues for a queue type",
+				};
 				return nullptr;
 			}
 
@@ -1339,10 +1386,10 @@ namespace azo::rhi
 
 			const auto propsChain =
 				phys.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceIDProperties>(record->dispatch);
-			const vk::PhysicalDeviceProperties & props			   = propsChain.get<vk::PhysicalDeviceProperties2>().properties;
-			const auto & driverProps = propsChain.get<vk::PhysicalDeviceDriverProperties>();
-			const vk::PhysicalDeviceLimits & limits				   = props.limits;
-			const vk::PhysicalDeviceFeatures feats				   = phys.getFeatures(record->dispatch);
+			const vk::PhysicalDeviceProperties & props = propsChain.get<vk::PhysicalDeviceProperties2>().properties;
+			const auto & driverProps				   = propsChain.get<vk::PhysicalDeviceDriverProperties>();
+			const vk::PhysicalDeviceLimits & limits	   = props.limits;
+			const vk::PhysicalDeviceFeatures feats	   = phys.getFeatures(record->dispatch);
 
 			record->adapterName		 = detail::HostString(props.deviceName.data());
 			record->driverInfo		 = detail::HostString(driverProps.driverInfo.data());
@@ -1396,12 +1443,12 @@ namespace azo::rhi
 			record->caps.supportsPartiallyBoundDescriptors = bindless;
 			record->caps.supportsUpdateAfterBind		   = static_cast<bool>(supported12.descriptorBindingSampledImageUpdateAfterBind);
 			vk::TimeDomainEXT calibrationHostDomain		   = vk::TimeDomainEXT::eDevice;
-			record->caps.supportsTimestampCalibration	   = hasCalibratedTimestamps && vulkan_calibration_domains(phys, record->dispatch, calibrationHostDomain);
-			record->caps.maxBindlessSampledTextures		   = bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
-			record->caps.maxBindlessStorageBuffers		   = bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
-			record->caps.maxSamplerDescriptors			   = bindless ? limits.maxPerStageDescriptorSamplers : 0u;
-			record->caps.supportsTimestampQueries		   = static_cast<bool>(limits.timestampComputeAndGraphics);
-			record->caps.supportsTimestampWritesInScope	   = record->caps.supportsTimestampQueries;
+			record->caps.supportsTimestampCalibration	= hasCalibratedTimestamps && vulkan_calibration_domains(phys, record->dispatch, calibrationHostDomain);
+			record->caps.maxBindlessSampledTextures		= bindless ? limits.maxPerStageDescriptorSampledImages : 0u;
+			record->caps.maxBindlessStorageBuffers		= bindless ? limits.maxPerStageDescriptorStorageBuffers : 0u;
+			record->caps.maxSamplerDescriptors			= bindless ? limits.maxPerStageDescriptorSamplers : 0u;
+			record->caps.supportsTimestampQueries		= static_cast<bool>(limits.timestampComputeAndGraphics);
+			record->caps.supportsTimestampWritesInScope = record->caps.supportsTimestampQueries;
 			// The spec forbids a timestamp write that happens after another in the same submission from carrying the lower value.
 			record->caps.supportsOrderedTimestamps		   = record->caps.supportsTimestampQueries;
 			record->caps.supportsAnisotropy				   = static_cast<bool>(enabledFeatures.samplerAnisotropy);
@@ -1441,11 +1488,15 @@ namespace azo::rhi
 			record->caps.maxColorAttachments = limits.maxColorAttachments;
 			record->caps.maxRenderTargets	 = limits.maxColorAttachments;
 
-			record->caps.maxDescriptorsPerSet				= std::min({ limits.maxDescriptorSetSamplers,
-				limits.maxDescriptorSetUniformBuffers,
-				limits.maxDescriptorSetStorageBuffers,
-				limits.maxDescriptorSetSampledImages,
-				limits.maxDescriptorSetStorageImages, });
+			record->caps.maxDescriptorsPerSet = std::min(
+				{
+					limits.maxDescriptorSetSamplers,
+					limits.maxDescriptorSetUniformBuffers,
+					limits.maxDescriptorSetStorageBuffers,
+					limits.maxDescriptorSetSampledImages,
+					limits.maxDescriptorSetStorageImages,
+				}
+			);
 			record->caps.maxDescriptorSets					= limits.maxBoundDescriptorSets;
 			record->caps.maxPushConstantBytes				= limits.maxPushConstantsSize;
 			record->caps.maxVertexBindings					= limits.maxVertexInputBindings;
@@ -1526,11 +1577,13 @@ namespace azo::rhi
 					}
 				}
 
-				std::erase_if(owner.devices,
+				std::erase_if(
+					owner.devices,
 					[](const HostUniquePtr<VulkanDevice> & device)
 					{
 						return device == nullptr;
-					});
+					}
+				);
 
 				if (owningInstance != nullptr && !InstanceStillUsed(owner, owningInstance))
 				{
@@ -1543,43 +1596,50 @@ namespace azo::rhi
 						}
 					}
 
-					std::erase_if(owner.instances,
+					std::erase_if(
+						owner.instances,
 						[](const HostUniquePtr<VulkanInstance> & instance)
 						{
 							return instance == nullptr;
-						});
+						}
+					);
 				}
 
 				return;
 			}
 
-			std::erase_if(owner.devices,
+			std::erase_if(
+				owner.devices,
 				[impl](const HostUniquePtr<VulkanDevice> & device)
 				{
 					return device.get() == impl;
-				});
+				}
+			);
 			detail::device_tags().release(releasedTag);
 
 			if ((owningInstance != nullptr) && (!InstanceStillUsed(owner, owningInstance)))
-			
-				{
-					std::erase_if(owner.instances,
-						[owningInstance](const HostUniquePtr<VulkanInstance> & instance)
-						{
-							return instance.get() == owningInstance;
-						});
-				}
-			
+
+			{
+				std::erase_if(
+					owner.instances,
+					[owningInstance](const HostUniquePtr<VulkanInstance> & instance)
+					{
+						return instance.get() == owningInstance;
+					}
+				);
+			}
 		}
 
 		void vulkan_destroy_instance(void * impl) noexcept
 		{
 			VulkanBackendOwner & owner = backend_owner();
-			std::erase_if(owner.instances,
+			std::erase_if(
+				owner.instances,
 				[impl](const HostUniquePtr<VulkanInstance> & instance)
 				{
 					return instance.get() == impl;
-				});
+				}
+			);
 		}
 
 		bool succeed(Error * error) noexcept
@@ -1661,8 +1721,10 @@ namespace azo::rhi
 				return {};
 			}
 
-			return ValidationMessageCounts{ .errors = inst->validationErrors.load(std::memory_order_relaxed),
-				.warnings							= inst->validationWarnings.load(std::memory_order_relaxed), };
+			return ValidationMessageCounts{
+				.errors	  = inst->validationErrors.load(std::memory_order_relaxed),
+				.warnings = inst->validationWarnings.load(std::memory_order_relaxed),
+			};
 		}
 
 		bool vulkan_get_texture_info(void * impl, const TextureHandle texture, TextureInfo * out, Error * error) noexcept
@@ -1773,10 +1835,12 @@ namespace azo::rhi
 					return fail_value<BufferHandle>(error, ErrorCode::eUnsupportedFeature, "this device cannot bind sparse memory to a buffer");
 				}
 
-				const vk::BufferCreateInfo bufferInfo(vk::BufferCreateFlagBits::eSparseBinding | vk::BufferCreateFlagBits::eSparseResidency,
+				const vk::BufferCreateInfo bufferInfo(
+					vk::BufferCreateFlagBits::eSparseBinding | vk::BufferCreateFlagBits::eSparseResidency,
 					desc.size,
 					vk::BufferUsageFlags(map_buffer_usage(desc.usage)),
-					vk::SharingMode::eExclusive);
+					vk::SharingMode::eExclusive
+				);
 
 				const auto created = device->device.createBuffer(bufferInfo, nullptr, device->dispatch);
 				if (created.result != vk::Result::eSuccess)
@@ -1803,13 +1867,15 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createBuffer");
 			auto * device = static_cast<VulkanDevice *>(impl);
-			if (!vulkan_refuse_unexportable(device,
+			if (!vulkan_refuse_unexportable(
+					device,
 					desc.exportableHandleTypes,
 					ExternalObjectKind::eBuffer,
 					Format::eUndefined,
 					map_buffer_usage(desc.usage),
 					"buffer creation asked for an external handle type this adapter cannot export",
-					error))
+					error
+				))
 			{
 				return BufferHandle{};
 			}
@@ -1852,7 +1918,11 @@ namespace azo::rhi
 				if (const VkResult made = vmaCreateDedicatedBuffer(device->allocator, &bufferInfo, &allocInfo, &exportInfo, &raw, &allocation, nullptr);
 					made != VK_SUCCESS)
 				{
-					return fail_allocation_value<BufferHandle>(error, "vmaCreateDedicatedBuffer failed for an exportable buffer", static_cast<vk::Result>(made));
+					return fail_allocation_value<BufferHandle>(
+						error,
+						"vmaCreateDedicatedBuffer failed for an exportable buffer",
+						static_cast<vk::Result>(made)
+					);
 				}
 			}
 			else if (const VkResult made = vmaCreateBuffer(device->allocator, &bufferInfo, &allocInfo, &raw, &allocation, nullptr); made != VK_SUCCESS)
@@ -1875,14 +1945,18 @@ namespace azo::rhi
 				return fail_value<BufferHandle>(error, ErrorCode::eNativeApiError, "a host visible buffer came back from VMA without the mapping it asked for");
 			}
 
-			const BufferHandle handle = device->bufferSlots.store(BufferSlot{ .buffer = raw,
-				.allocation															  = allocation,
-				.size																  = desc.size,
-				.coherent															  = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
-				.hostVisible														  = mappable,
-				.mapped																  = allocated.pMappedData,
-				.exportableHandleTypes												  = desc.exportableHandleTypes,
-				.desc																  = detail::recorded(desc), });
+			const BufferHandle handle = device->bufferSlots.store(
+				BufferSlot{
+					.buffer				   = raw,
+					.allocation			   = allocation,
+					.size				   = desc.size,
+					.coherent			   = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
+					.hostVisible		   = mappable,
+					.mapped				   = allocated.pMappedData,
+					.exportableHandleTypes = desc.exportableHandleTypes,
+					.desc				   = detail::recorded(desc),
+				}
+			);
 			if (!handle.is_valid())
 			{
 				vmaDestroyBuffer(device->allocator, raw, allocation);
@@ -1936,7 +2010,8 @@ namespace azo::rhi
 					.size	  = mapSize,
 					.coherent = slot->coherent,
 				},
-				error);
+				error
+			);
 		}
 
 		bool vulkan_unmap(void * impl, BufferHandle handle, Error * error) noexcept
@@ -2064,15 +2139,15 @@ namespace azo::rhi
 			name_vulkan_object(device, vk::ObjectType::eImage, std::bit_cast<std::uint64_t>(image), desc.debugName);
 
 			constexpr vk::ImageUsageFlags kViewCapableUsage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage |
-															 vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eDepthStencilAttachment |
-															 vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eTransientAttachment;
+															  vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eDepthStencilAttachment |
+															  vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eTransientAttachment;
 
 			const vk::Format format = map_format(desc.format);
 			VkImageView view		= VK_NULL_HANDLE;
 			if ((map_texture_usage(desc.usage) & kViewCapableUsage) && !is_multi_planar_format(desc.format))
 			{
 				const vk::ImageAspectFlags aspect = is_depth_format(desc.format) ? vk::ImageAspectFlags{ vk::ImageAspectFlagBits::eDepth }
-																			   : vk::ImageAspectFlags{ vk::ImageAspectFlagBits::eColor };
+																				 : vk::ImageAspectFlags{ vk::ImageAspectFlagBits::eColor };
 				vk::ImageViewCreateInfo viewInfo{};
 				viewInfo.image			  = image;
 				viewInfo.viewType		  = map_view_type(desc.type);
@@ -2089,22 +2164,26 @@ namespace azo::rhi
 				view = created.value;
 			}
 
-			const TextureHandle handle = device->textureSlots.store(TextureSlot{ .image = image,
-				.allocation																= allocation,
-				.defaultView															= view,
-				.format																	= format,
-				.samples																= map_sample_count(desc.samples),
-				.mipLevels																= desc.mipLevels,
-				.arrayLayers															= desc.arrayLayers,
-				.width																	= desc.width,
-				.height																	= desc.height,
-				.depth																	= desc.depth,
-				.rhiFormat																= desc.format,
-				.usage																	= desc.usage,
-				.mutableFormat															= desc.allowFormatViews,
-				.sparse																	= desc.allowSparseBinding,
-				.exportableHandleTypes													= desc.exportableHandleTypes,
-				.desc																	= detail::recorded(desc), });
+			const TextureHandle handle = device->textureSlots.store(
+				TextureSlot{
+					.image				   = image,
+					.allocation			   = allocation,
+					.defaultView		   = view,
+					.format				   = format,
+					.samples			   = map_sample_count(desc.samples),
+					.mipLevels			   = desc.mipLevels,
+					.arrayLayers		   = desc.arrayLayers,
+					.width				   = desc.width,
+					.height				   = desc.height,
+					.depth				   = desc.depth,
+					.rhiFormat			   = desc.format,
+					.usage				   = desc.usage,
+					.mutableFormat		   = desc.allowFormatViews,
+					.sparse				   = desc.allowSparseBinding,
+					.exportableHandleTypes = desc.exportableHandleTypes,
+					.desc				   = detail::recorded(desc),
+				}
+			);
 			if (!handle.is_valid())
 			{
 				if (view != VK_NULL_HANDLE)
@@ -2123,13 +2202,15 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createTexture");
 			auto * device = static_cast<VulkanDevice *>(impl);
-			if (!vulkan_refuse_unexportable(device,
+			if (!vulkan_refuse_unexportable(
+					device,
 					desc.exportableHandleTypes,
 					ExternalObjectKind::eTexture,
 					desc.format,
 					kExternalQueryBufferUsage,
 					"texture creation asked for an external handle type this adapter cannot export for that format",
-					error))
+					error
+				))
 			{
 				return TextureHandle{};
 			}
@@ -2184,7 +2265,11 @@ namespace azo::rhi
 				if (const VkResult made = vmaCreateDedicatedImage(device->allocator, &cImageInfo, &allocInfo, &exportInfo, &image, &allocation, nullptr);
 					made != VK_SUCCESS)
 				{
-					return fail_allocation_value<TextureHandle>(error, "vmaCreateDedicatedImage failed for an exportable texture", static_cast<vk::Result>(made));
+					return fail_allocation_value<TextureHandle>(
+						error,
+						"vmaCreateDedicatedImage failed for an exportable texture",
+						static_cast<vk::Result>(made)
+					);
 				}
 			}
 			else if (const VkResult made = vmaCreateImage(device->allocator, &cImageInfo, &allocInfo, &image, &allocation, nullptr); made != VK_SUCCESS)
@@ -2195,8 +2280,14 @@ namespace azo::rhi
 			return vulkan_finish_texture(device, desc, image, allocation, error);
 		}
 
-		[[nodiscard]] bool find_memory_type_for_heap(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, HeapType type,
-			std::uint32_t & outIndex, bool & outHostVisible, bool & outCoherent) noexcept
+		[[nodiscard]] bool find_memory_type_for_heap(
+			vk::PhysicalDevice phys,
+			const vk::detail::DispatchLoaderDynamic & dispatch,
+			HeapType type,
+			std::uint32_t & outIndex,
+			bool & outHostVisible,
+			bool & outCoherent
+		) noexcept
 		{
 			const vk::PhysicalDeviceMemoryProperties props = phys.getMemoryProperties(dispatch);
 			const bool wantHost							   = type == HeapType::eCpuUpload || type == HeapType::eCpuReadback;
@@ -2227,13 +2318,15 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createHeap");
 			auto * device = static_cast<VulkanDevice *>(impl);
-			if (!vulkan_refuse_unexportable(device,
+			if (!vulkan_refuse_unexportable(
+					device,
 					desc.exportableHandleTypes,
 					ExternalObjectKind::eHeap,
 					Format::eUndefined,
 					kExternalQueryBufferUsage,
 					"heap creation asked for an external handle type this adapter cannot export",
-					error))
+					error
+				))
 			{
 				return HeapHandle{};
 			}
@@ -2277,13 +2370,17 @@ namespace azo::rhi
 				}
 			}
 
-			const HeapHandle handle = device->heapSlots.store(HeapSlot{ .memory = allocated.value,
-				.size															= desc.size,
-				.memoryTypeIndex												= typeIndex,
-				.hostVisible													= hostVisible,
-				.coherent														= coherent,
-				.mapped															= mapped,
-				.exportableHandleTypes											= desc.exportableHandleTypes, });
+			const HeapHandle handle = device->heapSlots.store(
+				HeapSlot{
+					.memory				   = allocated.value,
+					.size				   = desc.size,
+					.memoryTypeIndex	   = typeIndex,
+					.hostVisible		   = hostVisible,
+					.coherent			   = coherent,
+					.mapped				   = mapped,
+					.exportableHandleTypes = desc.exportableHandleTypes,
+				}
+			);
 			if (!handle.is_valid())
 			{
 				device->device.freeMemory(allocated.value, nullptr, device->dispatch);
@@ -2317,7 +2414,10 @@ namespace azo::rhi
 			}
 
 			const auto created = device->device.createBuffer(
-				vk::BufferCreateInfo({}, desc.buffer.size, map_buffer_usage(desc.buffer.usage), vk::SharingMode::eExclusive), nullptr, device->dispatch);
+				vk::BufferCreateInfo({}, desc.buffer.size, map_buffer_usage(desc.buffer.usage), vk::SharingMode::eExclusive),
+				nullptr,
+				device->dispatch
+			);
 			if (created.result != vk::Result::eSuccess)
 			{
 				return fail_native_value<BufferHandle>(error, "Vulkan placed buffer creation failed", created.result);
@@ -2338,15 +2438,19 @@ namespace azo::rhi
 				return fail_native_value<BufferHandle>(error, "Vulkan placed buffer memory binding failed", bound);
 			}
 
-			const BufferHandle handle = device->bufferSlots.store(BufferSlot{ .buffer = buffer,
-				.allocation															  = nullptr,
-				.size																  = desc.buffer.size,
-				.coherent															  = heap.coherent,
-				.hostVisible														  = heap.hostVisible,
-				.placedMemory														  = heap.memory,
-				.placedOffset														  = desc.offset,
-				.placedHeap															  = desc.heap,
-				.desc																  = detail::recorded(desc.buffer), });
+			const BufferHandle handle = device->bufferSlots.store(
+				BufferSlot{
+					.buffer		  = buffer,
+					.allocation	  = nullptr,
+					.size		  = desc.buffer.size,
+					.coherent	  = heap.coherent,
+					.hostVisible  = heap.hostVisible,
+					.placedMemory = heap.memory,
+					.placedOffset = desc.offset,
+					.placedHeap	  = desc.heap,
+					.desc		  = detail::recorded(desc.buffer),
+				}
+			);
 			if (!handle.is_valid())
 			{
 				device->device.destroyBuffer(buffer, nullptr, device->dispatch);
@@ -2411,7 +2515,11 @@ namespace azo::rhi
 				reqs.size > heap.size - desc.offset)
 			{
 				device->device.destroyImage(image, nullptr, device->dispatch);
-				return fail_value<TextureHandle>(error, ErrorCode::eValidationFailed, "placed texture does not fit the heap (memory type, alignment, or range)");
+				return fail_value<TextureHandle>(
+					error,
+					ErrorCode::eValidationFailed,
+					"placed texture does not fit the heap (memory type, alignment, or range)"
+				);
 			}
 
 			if (const vk::Result bound = device->device.bindImageMemory(image, heap.memory, desc.offset, device->dispatch); bound != vk::Result::eSuccess)
@@ -2440,20 +2548,24 @@ namespace azo::rhi
 				placedView = createdView.value;
 			}
 
-			const TextureHandle handle = device->textureSlots.store(TextureSlot{ .image = image,
-				.allocation																= nullptr,
-				.defaultView															= placedView,
-				.format																	= format,
-				.samples																= map_sample_count(t.samples),
-				.mipLevels																= t.mipLevels,
-				.arrayLayers															= layers,
-				.width																	= t.width,
-				.height																	= t.height,
-				.depth																	= t.depth,
-				.rhiFormat																= t.format,
-				.usage																	= t.usage,
-				.mutableFormat															= t.allowFormatViews,
-				.desc																	= detail::recorded(t), });
+			const TextureHandle handle = device->textureSlots.store(
+				TextureSlot{
+					.image		   = image,
+					.allocation	   = nullptr,
+					.defaultView   = placedView,
+					.format		   = format,
+					.samples	   = map_sample_count(t.samples),
+					.mipLevels	   = t.mipLevels,
+					.arrayLayers   = layers,
+					.width		   = t.width,
+					.height		   = t.height,
+					.depth		   = t.depth,
+					.rhiFormat	   = t.format,
+					.usage		   = t.usage,
+					.mutableFormat = t.allowFormatViews,
+					.desc		   = detail::recorded(t),
+				}
+			);
 			if (!handle.is_valid())
 			{
 				if (placedView != VK_NULL_HANDLE)
@@ -2526,7 +2638,10 @@ namespace azo::rhi
 			}
 
 			const auto created = device->device.createBuffer(
-				vk::BufferCreateInfo({}, desc.size, map_buffer_usage(desc.usage), vk::SharingMode::eExclusive), nullptr, device->dispatch);
+				vk::BufferCreateInfo({}, desc.size, map_buffer_usage(desc.usage), vk::SharingMode::eExclusive),
+				nullptr,
+				device->dispatch
+			);
 			if (created.result != vk::Result::eSuccess)
 			{
 				return fail_native(error, "Vulkan buffer memory query failed", created.result);
@@ -2578,16 +2693,21 @@ namespace azo::rhi
 				if (usage_forbids_swizzle(resolve_view_usage(desc.usage, texUsage)))
 				{
 					return fail_value<TextureViewHandle>(
-						error, ErrorCode::eInvalidArgument, "a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled");
+						error,
+						ErrorCode::eInvalidArgument,
+						"a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled"
+					);
 				}
 			}
 
 			const TextureSubresourceRange & r = desc.range;
 			if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 			{
-				return fail_value<TextureViewHandle>(error,
+				return fail_value<TextureViewHandle>(
+					error,
 					ErrorCode::eInvalidArgument,
-					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+					"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes"
+				);
 			}
 			if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip)
 			{
@@ -2606,12 +2726,18 @@ namespace azo::rhi
 				if (!device->caps.supportsSamplerYcbcrConversion)
 				{
 					return fail_value<TextureViewHandle>(
-						error, ErrorCode::eUnsupportedFeature, "texture view Y'CbCr conversion is not supported by this Vulkan adapter");
+						error,
+						ErrorCode::eUnsupportedFeature,
+						"texture view Y'CbCr conversion is not supported by this Vulkan adapter"
+					);
 				}
 				if (plane != kNoPlane)
 				{
 					return fail_value<TextureViewHandle>(
-						error, ErrorCode::eInvalidArgument, "a texture view naming a plane reads it raw and cannot also carry a Y'CbCr conversion");
+						error,
+						ErrorCode::eInvalidArgument,
+						"a texture view naming a plane reads it raw and cannot also carry a Y'CbCr conversion"
+					);
 				}
 				vk::Result conversionResult = vk::Result::eSuccess;
 				conversionInfo.conversion	= acquire_ycbcr_conversion(device, *desc.ycbcrConversion, conversionResult);
@@ -2623,7 +2749,10 @@ namespace azo::rhi
 			else if (plane == kNoPlane && is_multi_planar_format(texRhiFormat))
 			{
 				return fail_value<TextureViewHandle>(
-					error, ErrorCode::eInvalidArgument, "a texture view of a multi-planar format must either name a plane aspect or carry a Y'CbCr conversion");
+					error,
+					ErrorCode::eInvalidArgument,
+					"a texture view of a multi-planar format must either name a plane aspect or carry a Y'CbCr conversion"
+				);
 			}
 
 			vk::Format viewFormat = vk::Format::eUndefined;
@@ -2633,7 +2762,10 @@ namespace azo::rhi
 				if (planeFormat == Format::eUndefined)
 				{
 					return fail_value<TextureViewHandle>(
-						error, ErrorCode::eInvalidArgument, "texture view names a plane the source texture's format does not have");
+						error,
+						ErrorCode::eInvalidArgument,
+						"texture view names a plane the source texture's format does not have"
+					);
 				}
 				viewFormat = desc.format == Format::eUndefined ? map_format(planeFormat) : map_format(desc.format);
 			}
@@ -2644,7 +2776,10 @@ namespace azo::rhi
 				if (viewFormat != textureFormat && !texMutableFormat)
 				{
 					return fail_value<TextureViewHandle>(
-						error, ErrorCode::eInvalidArgument, "texture view names a format the source texture was not created with allowFormatViews for");
+						error,
+						ErrorCode::eInvalidArgument,
+						"texture view names a format the source texture was not created with allowFormatViews for"
+					);
 				}
 			}
 
@@ -2672,11 +2807,13 @@ namespace azo::rhi
 				return fail_native_value<TextureViewHandle>(error, "Vulkan texture view creation failed", created.result);
 			}
 
-			const TextureViewHandle handle = device->textureViewSlots.store(TextureViewSlot{
-				.view	 = created.value,
-				.format	 = viewFormat,
-				.samples = texSamples,
-			});
+			const TextureViewHandle handle = device->textureViewSlots.store(
+				TextureViewSlot{
+					.view	 = created.value,
+					.format	 = viewFormat,
+					.samples = texSamples,
+				}
+			);
 			if (!handle.is_valid())
 			{
 				device->device.destroyImageView(created.value, nullptr, device->dispatch);
@@ -2689,13 +2826,19 @@ namespace azo::rhi
 		namespace
 		{
 			[[nodiscard]] bool binding_maps_agree(
-				VulkanDevice * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
+				VulkanDevice * device,
+				const PipelineLayoutHandle layoutHandle,
+				const std::span<const ShaderBinary> shaders,
+				Error * error
+			) noexcept
 			{
-				if (std::ranges::none_of(shaders,
+				if (std::ranges::none_of(
+						shaders,
 						[](const ShaderBinary & shader) noexcept
 						{
 							return shader.bindingMap != nullptr;
-						}))
+						}
+					))
 				{
 					return true;
 				}
@@ -2740,9 +2883,11 @@ namespace azo::rhi
 
 					if (bad.wrongAbiVersion)
 					{
-						return fail(error,
+						return fail(
+							error,
 							ErrorCode::eUnsupportedFormat,
-							"a shader binary was built against a revision of the binding ABI this build does not implement");
+							"a shader binary was built against a revision of the binding ABI this build does not implement"
+						);
 					}
 
 					if (bad.unknownToLayout)
@@ -2751,7 +2896,10 @@ namespace azo::rhi
 					}
 
 					return fail(
-						error, ErrorCode::eInvalidArgument, "a shader binary put a binding at a different set and binding than this pipeline layout uses");
+						error,
+						ErrorCode::eInvalidArgument,
+						"a shader binary put a binding at a different set and binding than this pipeline layout uses"
+					);
 				}
 
 				return true;
@@ -2804,7 +2952,11 @@ namespace azo::rhi
 		}
 
 		[[nodiscard]] vk::RenderPass get_or_create_render_pass(
-			VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key, vk::Result & outResult)
+			VulkanDevice * device,
+			detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache,
+			const RenderPassKey & key,
+			vk::Result & outResult
+		)
 		{
 			outResult = vk::Result::eSuccess;
 			if (const auto it = cache.find(key); it != cache.end())
@@ -2825,7 +2977,8 @@ namespace azo::rhi
 				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 				const RenderPassAttachmentKey & a = key.colors[i];
 				// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				attachments.emplace_back(vk::AttachmentDescriptionFlags{},
+				attachments.emplace_back(
+					vk::AttachmentDescriptionFlags{},
 					a.format,
 					a.samples,
 					a.loadOp,
@@ -2833,7 +2986,8 @@ namespace azo::rhi
 					vk::AttachmentLoadOp::eDontCare,
 					vk::AttachmentStoreOp::eDontCare,
 					a.layout,
-					a.layout);
+					a.layout
+				);
 				colorRefs.emplace_back(i, a.layout);
 			}
 
@@ -2841,7 +2995,8 @@ namespace azo::rhi
 			if (key.hasDepth)
 			{
 				const bool stencil = key.depth.format == vk::Format::eD24UnormS8Uint || key.depth.format == vk::Format::eD32SfloatS8Uint;
-				attachments.emplace_back(vk::AttachmentDescriptionFlags{},
+				attachments.emplace_back(
+					vk::AttachmentDescriptionFlags{},
 					key.depth.format,
 					key.depth.samples,
 					key.depth.loadOp,
@@ -2849,7 +3004,8 @@ namespace azo::rhi
 					stencil ? key.depth.loadOp : vk::AttachmentLoadOp::eDontCare,
 					stencil ? key.depth.storeOp : vk::AttachmentStoreOp::eDontCare,
 					key.depth.layout,
-					key.depth.layout);
+					key.depth.layout
+				);
 				depthRef = vk::AttachmentReference(key.colorCount, key.depth.layout);
 			}
 
@@ -2892,22 +3048,26 @@ namespace azo::rhi
 			for (std::uint32_t i = 0; i < colorCount; ++i)
 			{
 				// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-				key.colors[i] = RenderPassAttachmentKey{ .format = map_format(desc.renderTarget.colorFormats[i]),
+				key.colors[i] = RenderPassAttachmentKey{
+					.format = map_format(desc.renderTarget.colorFormats[i]),
 					// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 					.samples = samples,
 					.loadOp	 = vk::AttachmentLoadOp::eLoad,
 					.storeOp = vk::AttachmentStoreOp::eStore,
-					.layout	 = vk::ImageLayout::eColorAttachmentOptimal, };
+					.layout	 = vk::ImageLayout::eColorAttachmentOptimal,
+				};
 			}
 
 			if (desc.renderTarget.depthStencilFormat != Format::eUndefined)
 			{
 				key.hasDepth = true;
-				key.depth	 = RenderPassAttachmentKey{ .format = map_format(desc.renderTarget.depthStencilFormat),
-					.samples								 = samples,
-					.loadOp									 = vk::AttachmentLoadOp::eLoad,
-					.storeOp								 = vk::AttachmentStoreOp::eStore,
-					.layout									 = vk::ImageLayout::eDepthStencilAttachmentOptimal, };
+				key.depth	 = RenderPassAttachmentKey{
+					.format	 = map_format(desc.renderTarget.depthStencilFormat),
+					.samples = samples,
+					.loadOp	 = vk::AttachmentLoadOp::eLoad,
+					.storeOp = vk::AttachmentStoreOp::eStore,
+					.layout	 = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+				};
 			}
 			return key;
 		}
@@ -2956,16 +3116,21 @@ namespace azo::rhi
 			auto * device = static_cast<VulkanDevice *>(impl);
 			if (desc.vertexInput == nullptr)
 			{
-				return fail_value<GraphicsPipelineHandle>(error,
+				return fail_value<GraphicsPipelineHandle>(
+					error,
 					ErrorCode::eUnsupportedFeature,
-					"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have");
+					"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have"
+				);
 			}
 
 			const VertexInputDesc & vertexInput = *desc.vertexInput;
 			if (desc.raster.conservativeRasterEnable && device->caps.conservativeRasterTier == ConservativeRasterTier::eNone)
 			{
 				return fail_value<GraphicsPipelineHandle>(
-					error, ErrorCode::eUnsupportedFeature, "conservative rasterization was requested on a device that reports none");
+					error,
+					ErrorCode::eUnsupportedFeature,
+					"conservative rasterization was requested on a device that reports none"
+				);
 			}
 
 			if (vertexInput.topology == PrimitiveTopology::ePatchList && vertexInput.patchControlPoints == 0)
@@ -2976,7 +3141,10 @@ namespace azo::rhi
 			if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 			{
 				return fail_value<GraphicsPipelineHandle>(
-					error, ErrorCode::eInvalidArgument, "graphics pipeline names more color attachments than a render target can hold");
+					error,
+					ErrorCode::eInvalidArgument,
+					"graphics pipeline names more color attachments than a render target can hold"
+				);
 			}
 
 			if (desc.shaders.empty())
@@ -2996,7 +3164,8 @@ namespace azo::rhi
 							device->device.destroyShaderModule(module, nullptr, device->dispatch);
 						}
 					}
-				});
+				}
+			);
 
 			const vk::PipelineLayout layout = resolve_pipeline_layout(device, desc.layout);
 			if (!layout)
@@ -3026,7 +3195,10 @@ namespace azo::rhi
 				}
 
 				const auto created = device->device.createShaderModule(
-					vk::ShaderModuleCreateInfo({}, shader.size, static_cast<const std::uint32_t *>(shader.data)), nullptr, device->dispatch);
+					vk::ShaderModuleCreateInfo({}, shader.size, static_cast<const std::uint32_t *>(shader.data)),
+					nullptr,
+					device->dispatch
+				);
 				if (created.result != vk::Result::eSuccess)
 				{
 					return fail_native_value<GraphicsPipelineHandle>(error, "Vulkan shader module creation failed", created.result);
@@ -3049,7 +3221,10 @@ namespace azo::rhi
 			const vk::PipelineVertexInputStateCreateInfo vertexInputState({}, bindings, attrs);
 
 			const vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
-				{}, map_topology(vertexInput.topology), vertexInput.primitiveRestartEnable ? VK_TRUE : VK_FALSE);
+				{},
+				map_topology(vertexInput.topology),
+				vertexInput.primitiveRestartEnable ? VK_TRUE : VK_FALSE
+			);
 
 			const vk::PipelineTessellationStateCreateInfo tessellation({}, vertexInput.patchControlPoints);
 			const bool patches = vertexInput.topology == PrimitiveTopology::ePatchList;
@@ -3123,7 +3298,8 @@ namespace azo::rhi
 			const detail::HostVector<vk::DynamicState> dynamics = map_dynamic_states(desc.dynamicStates);
 			const vk::PipelineDynamicStateCreateInfo dynamicState({}, dynamics);
 
-			vk::GraphicsPipelineCreateInfo pipelineInfo({},
+			vk::GraphicsPipelineCreateInfo pipelineInfo(
+				{},
 				stages,
 				&vertexInputState,
 				&inputAssembly,
@@ -3134,7 +3310,8 @@ namespace azo::rhi
 				&depthStencil,
 				&colorBlend,
 				&dynamicState,
-				layout);
+				layout
+			);
 
 			detail::HostVector<vk::Format> colorFormats;
 			vk::PipelineRenderingCreateInfo renderingInfo;
@@ -3159,8 +3336,9 @@ namespace azo::rhi
 			}
 			else
 			{
-				vk::Result renderPassResult		= vk::Result::eSuccess;
-				const vk::RenderPass renderPass = get_or_create_render_pass(device, device->renderPasses, make_pipeline_render_pass_key(desc), renderPassResult);
+				vk::Result renderPassResult = vk::Result::eSuccess;
+				const vk::RenderPass renderPass =
+					get_or_create_render_pass(device, device->renderPasses, make_pipeline_render_pass_key(desc), renderPassResult);
 				if (!renderPass)
 				{
 					return fail_native_value<GraphicsPipelineHandle>(error, "Vulkan render pass creation failed", renderPassResult);
@@ -3181,7 +3359,8 @@ namespace azo::rhi
 				[&]
 				{
 					device->device.destroyPipeline(created.value, nullptr, device->dispatch);
-				});
+				}
+			);
 
 			const GraphicsPipelineHandle storedHandle = device->graphicsPipelineSlots.store(GraphicsPipelineSlot{ .pipeline = created.value });
 			if (!storedHandle.is_valid())
@@ -3197,13 +3376,15 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createTimeline");
 			auto * device = static_cast<VulkanDevice *>(impl);
-			if (!vulkan_refuse_unexportable(device,
+			if (!vulkan_refuse_unexportable(
+					device,
 					desc.exportableHandleTypes,
 					ExternalObjectKind::eTimeline,
 					Format::eUndefined,
 					kExternalQueryBufferUsage,
 					"timeline creation asked for an external handle type this adapter cannot export",
-					error))
+					error
+				))
 			{
 				return TimelineHandle{};
 			}
@@ -3368,15 +3549,21 @@ namespace azo::rhi
 			{
 				if (!device->caps.supportsSamplerYcbcrConversion)
 				{
-					return fail_value<SamplerHandle>(error, ErrorCode::eUnsupportedFeature, "sampler Y'CbCr conversion is not supported by this Vulkan adapter");
+					return fail_value<SamplerHandle>(
+						error,
+						ErrorCode::eUnsupportedFeature,
+						"sampler Y'CbCr conversion is not supported by this Vulkan adapter"
+					);
 				}
 				const bool clampsToEdge =
 					desc.addressU == AddressMode::eClampToEdge && desc.addressV == AddressMode::eClampToEdge && desc.addressW == AddressMode::eClampToEdge;
 				if (!clampsToEdge || desc.anisotropyEnable || desc.compareEnable)
 				{
-					return fail_value<SamplerHandle>(error,
+					return fail_value<SamplerHandle>(
+						error,
 						ErrorCode::eInvalidArgument,
-						"a sampler with a Y'CbCr conversion must clamp to edge on every axis and enable neither anisotropy nor depth comparison");
+						"a sampler with a Y'CbCr conversion must clamp to edge on every axis and enable neither anisotropy nor depth comparison"
+					);
 				}
 
 				vk::Result conversionResult = vk::Result::eSuccess;
@@ -3387,7 +3574,8 @@ namespace azo::rhi
 				}
 			}
 
-			vk::SamplerCreateInfo info({},
+			vk::SamplerCreateInfo info(
+				{},
 				map_filter(desc.magFilter),
 				map_filter(desc.minFilter),
 				map_mipmap_mode(desc.mipmapMode),
@@ -3402,7 +3590,8 @@ namespace azo::rhi
 				desc.minLod,
 				desc.maxLod,
 				map_border_color(desc.borderColor),
-				VK_FALSE);
+				VK_FALSE
+			);
 			if (desc.ycbcrConversion != nullptr)
 			{
 				info.pNext = &conversionInfo;
@@ -3430,9 +3619,11 @@ namespace azo::rhi
 
 			if (!desc.shader.threadgroupSize.is_stated())
 			{
-				return fail_value<ComputePipelineHandle>(error,
+				return fail_value<ComputePipelineHandle>(
+					error,
 					ErrorCode::eInvalidArgument,
-					"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary");
+					"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary"
+				);
 			}
 			auto * device					= static_cast<VulkanDevice *>(impl);
 			const vk::PipelineLayout layout = resolve_pipeline_layout(device, desc.layout);
@@ -3453,7 +3644,10 @@ namespace azo::rhi
 			}
 
 			const auto createdModule = device->device.createShaderModule(
-				vk::ShaderModuleCreateInfo({}, desc.shader.size, static_cast<const std::uint32_t *>(desc.shader.data)), nullptr, device->dispatch);
+				vk::ShaderModuleCreateInfo({}, desc.shader.size, static_cast<const std::uint32_t *>(desc.shader.data)),
+				nullptr,
+				device->dispatch
+			);
 			if (createdModule.result != vk::Result::eSuccess)
 			{
 				return fail_native_value<ComputePipelineHandle>(error, "Vulkan shader module creation failed", createdModule.result);
@@ -3463,7 +3657,8 @@ namespace azo::rhi
 				[&]
 				{
 					device->device.destroyShaderModule(createdModule.value, nullptr, device->dispatch);
-				});
+				}
+			);
 
 			const vk::PipelineShaderStageCreateInfo stage({}, vk::ShaderStageFlagBits::eCompute, createdModule.value, desc.shader.entryPoint);
 			const vk::ComputePipelineCreateInfo info({}, stage, layout);
@@ -3478,7 +3673,8 @@ namespace azo::rhi
 				[&]
 				{
 					device->device.destroyPipeline(created.value, nullptr, device->dispatch);
-				});
+				}
+			);
 
 			const ComputePipelineHandle storedHandle = device->computePipelineSlots.store(ComputePipelineSlot{ .pipeline = created.value });
 			if (!storedHandle.is_valid())
@@ -3547,13 +3743,15 @@ namespace azo::rhi
 		{
 			AZO_RHI_PROFILE_ZONE("rhi.vulkan.createBinarySemaphore");
 			auto * device = static_cast<VulkanDevice *>(impl);
-			if (!vulkan_refuse_unexportable(device,
+			if (!vulkan_refuse_unexportable(
+					device,
 					desc.exportableHandleTypes,
 					ExternalObjectKind::eBinarySemaphore,
 					Format::eUndefined,
 					kExternalQueryBufferUsage,
 					"binary semaphore creation asked for an external handle type this adapter cannot export",
-					error))
+					error
+				))
 			{
 				return BinarySemaphoreHandle{};
 			}
@@ -3635,7 +3833,6 @@ namespace azo::rhi
 				{
 					return fail(error, ErrorCode::eInvalidHandle, "setResidencyPriority with an invalid texture handle");
 				}
-				
 			}
 			return succeed(error);
 		}
@@ -3658,8 +3855,12 @@ namespace azo::rhi
 				return fail(error, ErrorCode::eUnsupportedFeature, "the adapter cannot calibrate the device and host clocks together");
 			}
 
-			const std::array<vk::CalibratedTimestampInfoEXT, 2> infos{ { vk::CalibratedTimestampInfoEXT{ vk::TimeDomainEXT::eDevice },
-				vk::CalibratedTimestampInfoEXT{ hostDomain }, }, };
+			const std::array<vk::CalibratedTimestampInfoEXT, 2> infos{
+				{
+					vk::CalibratedTimestampInfoEXT{ vk::TimeDomainEXT::eDevice },
+					vk::CalibratedTimestampInfoEXT{ hostDomain },
+				},
+			};
 			const auto calibrated = device->device.getCalibratedTimestampsEXT<HostAllocatorAdapter<std::uint64_t>>(infos, device->dispatch);
 			if (calibrated.result != vk::Result::eSuccess)
 			{
@@ -3710,14 +3911,16 @@ namespace azo::rhi
 			};
 		}
 
-		return VulkanNativeDevice{ .instance = impl->instance,
-			.physicalDevice					 = impl->phys,
-			.device							 = impl->device,
-			.graphicsQueue					 = impl->graphicsQueues.empty() ? vk::Queue{} : impl->graphicsQueues.front(),
-			.graphicsQueueFamily			 = impl->graphicsFamily,
-			.allocator						 = impl->allocator,
-			.debugUtils						 = impl->debugUtils,
-			.dispatch						 = &impl->dispatch, };
+		return VulkanNativeDevice{
+			.instance			 = impl->instance,
+			.physicalDevice		 = impl->phys,
+			.device				 = impl->device,
+			.graphicsQueue		 = impl->graphicsQueues.empty() ? vk::Queue{} : impl->graphicsQueues.front(),
+			.graphicsQueueFamily = impl->graphicsFamily,
+			.allocator			 = impl->allocator,
+			.debugUtils			 = impl->debugUtils,
+			.dispatch			 = &impl->dispatch,
+		};
 	}
 
 	Result<void> set_vulkan_device_surface(Device device, vk::SurfaceKHR surface)
@@ -3755,21 +3958,24 @@ namespace azo::rhi
 		}
 
 		const vulkan::SwapchainBundle & bundle = impl->bundle;
-		return VulkanNativeSwapchain{ .swapchain = bundle.Swapchain,
-			.colorFormat						 = bundle.ColorFormat,
-			.depthFormat						 = bundle.DepthFormat,
-			.extent								 = bundle.Extent,
-			.images								 = bundle.Images,
-			.views								 = bundle.Views,
-			.depthImage							 = bundle.DepthImage,
-			.depthView							 = bundle.DepthView,
-			.presentMode						 = bundle.PresentMode,
-			.captureCapable						 = bundle.CaptureCapable, };
+		return VulkanNativeSwapchain{
+			.swapchain		= bundle.Swapchain,
+			.colorFormat	= bundle.ColorFormat,
+			.depthFormat	= bundle.DepthFormat,
+			.extent			= bundle.Extent,
+			.images			= bundle.Images,
+			.views			= bundle.Views,
+			.depthImage		= bundle.DepthImage,
+			.depthView		= bundle.DepthView,
+			.presentMode	= bundle.PresentMode,
+			.captureCapable = bundle.CaptureCapable,
+		};
 	}
 
 	Result<vk::Semaphore> get_vulkan_semaphore(const Swapchain swapchain, BinarySemaphoreHandle semaphore)
 	{
-		const auto * impl = static_cast<vulkan::VulkanSwapchain *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(swapchain), vulkan::swapchain_block()));
+		const auto * impl =
+			static_cast<vulkan::VulkanSwapchain *>(detail::native_impl_of(detail::FacadeBuilder::impl_of(swapchain), vulkan::swapchain_block()));
 		if (impl == nullptr)
 		{
 			return Error{

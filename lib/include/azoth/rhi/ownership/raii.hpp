@@ -41,13 +41,13 @@ namespace azo::rhi::raii
 	using Timeline				= Unique<TimelineHandle>;
 	using BinarySemaphore		= Unique<BinarySemaphoreHandle>;
 
-	using 	rhi::CommandList;
+	using rhi::CommandList;
 	using DescriptorSet = DescriptorSetHandle;
 
-	using 			  rhi::Queue;
-	using 	  rhi::CommandPool;
+	using rhi::CommandPool;
 	using rhi::DescriptorArena;
-	using 		  rhi::Swapchain;
+	using rhi::Queue;
+	using rhi::Swapchain;
 
 	class Device final
 	{

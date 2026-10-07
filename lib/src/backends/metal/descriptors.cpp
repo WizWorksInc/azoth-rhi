@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/resources/descriptors.hpp"
+
 #include "azoth/rhi/backend/blocks/command_pool.hpp"
 #include "azoth/rhi/backend/blocks/descriptor_arena.hpp"
 #include "azoth/rhi/backend/blocks/queue.hpp"
@@ -20,15 +22,17 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/host/allocator.hpp"
-#include "azoth/rhi/resources/descriptors.hpp"
 #include "azoth/rhi/resources/native_slot.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Metal/MTLCommandEncoder.hpp>
 #include <Metal/MTLRenderCommandEncoder.hpp>
 #include <Metal/MTLResource.hpp>
+
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -103,7 +107,11 @@ namespace azo::rhi::metal
 		}
 
 		[[nodiscard]] bool metal_argument_member_index(
-			const MetalDescriptorSetLayout & layout, const std::uint32_t binding, std::uint32_t & outMember, std::uint32_t & outCount) noexcept
+			const MetalDescriptorSetLayout & layout,
+			const std::uint32_t binding,
+			std::uint32_t & outMember,
+			std::uint32_t & outCount
+		) noexcept
 		{
 			std::uint32_t member = 0;
 			bool found			 = false;
@@ -194,8 +202,14 @@ namespace azo::rhi::metal
 		}
 	}
 
-	bool metal_bind_descriptor_set(void * impl, [[maybe_unused]] PipelineLayoutHandle layout, const std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
+	bool metal_bind_descriptor_set(
+		void * impl,
+		[[maybe_unused]] PipelineLayoutHandle layout,
+		const std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.bindDescriptorSet");
 
@@ -376,7 +390,7 @@ namespace azo::rhi::metal
 			{
 				return fail(error, ErrorCode::eInvalidHandle, "descriptor write names a set this device never created");
 			}
-			const auto * sampler										  = device->samplers.resolve(write.sampler, kHandleAlreadyChecked);
+			const auto * sampler										   = device->samplers.resolve(write.sampler, kHandleAlreadyChecked);
 			set->bindings[descriptor_key(write.binding, write.arrayIndex)] = MetalDescriptor{
 				.type	 = DescriptorType::eSampler,
 				.sampler = sampler != nullptr ? sampler->get() : nullptr,
@@ -516,13 +530,15 @@ namespace azo::rhi::metal
 			}
 		}
 
-		const DescriptorSetHandle handle = device->descriptorSets.store(MetalDescriptorSet{
-			.bindings		= {},
-			.arena			= arena,
-			.epoch			= arena->arenaEpoch.load(std::memory_order_acquire),
-			.layout			= desc.layout,
-			.argumentBuffer = std::move(argumentBuffer),
-		});
+		const DescriptorSetHandle handle = device->descriptorSets.store(
+			MetalDescriptorSet{
+				.bindings		= {},
+				.arena			= arena,
+				.epoch			= arena->arenaEpoch.load(std::memory_order_acquire),
+				.layout			= desc.layout,
+				.argumentBuffer = std::move(argumentBuffer),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<DescriptorSetHandle>(error, ErrorCode::eOutOfHostMemory, "Metal descriptor set tracking failed");
@@ -544,7 +560,8 @@ namespace azo::rhi::metal
 			[arena, bumped](const MetalDescriptorSet & set)
 			{
 				return set.arena == arena && set.epoch < bumped;
-			});
+			}
+		);
 
 		return succeed(error);
 	}

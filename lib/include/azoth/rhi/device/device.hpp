@@ -851,7 +851,10 @@ namespace azo::rhi
 		template <GraphicsApiTag Api>
 		[[nodiscard]] TextureViewHandle adopt_texture_view(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<TextureViewHandle> adopt_texture_view_with_result(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept;
+		[[nodiscard]] Result<TextureViewHandle> adopt_texture_view_with_result(
+			const NativeTextureView<Api> & native,
+			const AdoptedTextureViewDesc & desc
+		) noexcept;
 		template <GraphicsApiTag Api>
 		[[nodiscard]] SamplerHandle adopt_sampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
@@ -880,10 +883,15 @@ namespace azo::rhi
 		[[nodiscard]] BinarySemaphoreHandle adopt_binary_semaphore(const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
 		[[nodiscard]] BinarySemaphoreHandle adopt_binary_semaphore(
-			const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc, Error & error) noexcept;
+			const NativeBinarySemaphore<Api> & native,
+			const AdoptedBinarySemaphoreDesc & desc,
+			Error & error
+		) noexcept;
 		template <GraphicsApiTag Api>
 		[[nodiscard]] Result<BinarySemaphoreHandle> adopt_binary_semaphore_with_result(
-			const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept;
+			const NativeBinarySemaphore<Api> & native,
+			const AdoptedBinarySemaphoreDesc & desc
+		) noexcept;
 		template <GraphicsApiTag Api>
 		[[nodiscard]] bool get_native_timeline(TimelineHandle timeline, NativeTimeline<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
@@ -951,7 +959,11 @@ namespace azo::rhi
 		bool GetNativeSamplerRaw(GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
 		TimelineHandle AdoptTimelineRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
 		BinarySemaphoreHandle AdoptBinarySemaphoreRaw(
-			GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
+			GraphicsApiId api,
+			const void * nativeImport,
+			const AdoptedBinarySemaphoreDesc & desc,
+			Error * error
+		) noexcept;
 		bool GetNativeTimelineRaw(GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
 		bool GetNativeBinarySemaphoreRaw(GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
 
@@ -1145,11 +1157,13 @@ namespace azo::rhi
 
 		[[nodiscard]] const BackendInfo * find(const std::string_view name) const noexcept
 		{
-			const auto found = std::ranges::find_if(m_infos,
+			const auto found = std::ranges::find_if(
+				m_infos,
 				[name](const BackendInfo & info)
 				{
 					return name == info.canonicalName || name == short_api_name(info.canonicalName);
-				});
+				}
+			);
 			return found != m_infos.end() ? &*found : nullptr;
 		}
 
@@ -1301,7 +1315,10 @@ namespace azo::rhi
 
 	template <GraphicsApiTag Api>
 	BinarySemaphoreHandle Device::adopt_binary_semaphore(
-		const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc, Error & error) noexcept
+		const NativeBinarySemaphore<Api> & native,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return AdoptBinarySemaphoreRaw(Api::kId, &native, desc, &error);
@@ -1309,7 +1326,9 @@ namespace azo::rhi
 
 	template <GraphicsApiTag Api>
 	Result<BinarySemaphoreHandle> Device::adopt_binary_semaphore_with_result(
-		const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept
+		const NativeBinarySemaphore<Api> & native,
+		const AdoptedBinarySemaphoreDesc & desc
+	) noexcept
 	{
 		Error error{};
 		const BinarySemaphoreHandle handle = AdoptBinarySemaphoreRaw(Api::kId, &native, desc, &error);
@@ -1356,7 +1375,7 @@ namespace azo::rhi
 		Error error{};
 		NativeBinarySemaphore<Api> out{};
 		return GetNativeBinarySemaphoreRaw(Api::kId, semaphore, &out, &error) ? Result<NativeBinarySemaphore<Api>>{ out }
-																			 : Result<NativeBinarySemaphore<Api>>{ error };
+																			  : Result<NativeBinarySemaphore<Api>>{ error };
 	}
 
 }

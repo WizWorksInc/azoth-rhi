@@ -14,10 +14,13 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/resources/resources.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Metal/MTLPixelFormat.hpp>
 #include <Metal/MTLResource.hpp>
+
 #include <cstdint>
 
 namespace azo::rhi::metal

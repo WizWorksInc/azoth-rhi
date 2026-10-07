@@ -59,8 +59,8 @@ namespace azo::rhi
 	struct VulkanApi final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.vulkan";
-		static constexpr std::string_view kDisplayName	= "Vulkan";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Vulkan";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<VulkanApi>);
@@ -68,8 +68,8 @@ namespace azo::rhi
 	struct D3D12Api final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.d3d12";
-		static constexpr std::string_view kDisplayName	= "Direct3D 12";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Direct3D 12";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<D3D12Api>);
@@ -77,8 +77,8 @@ namespace azo::rhi
 	struct MetalApi final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.metal";
-		static constexpr std::string_view kDisplayName	= "Metal 3";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Metal 3";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<MetalApi>);
@@ -86,8 +86,8 @@ namespace azo::rhi
 	struct Metal4Api final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.metal4";
-		static constexpr std::string_view kDisplayName	= "Metal 4";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Metal 4";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<Metal4Api>);
@@ -100,8 +100,8 @@ namespace azo::rhi
 	struct NullApi final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.null";
-		static constexpr std::string_view kDisplayName	= "Null RHI";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Null RHI";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<NullApi>);

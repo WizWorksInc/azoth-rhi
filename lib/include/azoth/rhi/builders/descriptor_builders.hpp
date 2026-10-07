@@ -96,8 +96,10 @@ namespace azo::rhi
 
 		[[nodiscard]] DescriptorSetLayoutDesc build() const noexcept
 		{
-			return DescriptorSetLayoutDesc{ .bindings = std::span<const DescriptorBinding>{ m_bindings.data(), m_bindings.size() },
-				.debugName							  = m_debugName.empty() ? nullptr : m_debugName.c_str(), };
+			return DescriptorSetLayoutDesc{
+				.bindings  = std::span<const DescriptorBinding>{ m_bindings.data(), m_bindings.size() },
+				.debugName = m_debugName.empty() ? nullptr : m_debugName.c_str(),
+			};
 		}
 
 	private:
@@ -128,11 +130,13 @@ namespace azo::rhi
 
 		PipelineLayoutBuilder & push_constant(Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size)
 		{
-			m_pushConstants.push_back(PushConstantRange{
-				.stages = stages,
-				.offset = offset,
-				.size	= size,
-			});
+			m_pushConstants.push_back(
+				PushConstantRange{
+					.stages = stages,
+					.offset = offset,
+					.size	= size,
+				}
+			);
 			return *this;
 		}
 
@@ -162,9 +166,11 @@ namespace azo::rhi
 
 		[[nodiscard]] PipelineLayoutDesc build() const noexcept
 		{
-			return PipelineLayoutDesc{ .sets = std::span<const DescriptorSetLayoutHandle>{ m_sets.data(), m_sets.size() },
-				.pushConstants				 = std::span<const PushConstantRange>{ m_pushConstants.data(), m_pushConstants.size() },
-				.debugName					 = m_debugName.empty() ? nullptr : m_debugName.c_str(), };
+			return PipelineLayoutDesc{
+				.sets		   = std::span<const DescriptorSetLayoutHandle>{ m_sets.data(), m_sets.size() },
+				.pushConstants = std::span<const PushConstantRange>{ m_pushConstants.data(), m_pushConstants.size() },
+				.debugName	   = m_debugName.empty() ? nullptr : m_debugName.c_str(),
+			};
 		}
 
 	private:

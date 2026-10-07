@@ -7,8 +7,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/blocks/instance.hpp"
+
+#include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
@@ -25,6 +26,7 @@
 
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSArray.hpp>
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSProcessInfo.hpp>
@@ -293,7 +295,8 @@ namespace azo::rhi::metal4
 		}
 
 		auto device	   = host_new<Metal4Device>();
-		device->object = publishing_object<Published<CoreDeviceApi, &core_device_block>,
+		device->object = publishing_object<
+			Published<CoreDeviceApi, &core_device_block>,
 			Published<PresentApi, &present_block>,
 			Published<PlacedMemoryApi, &placed_memory_block>,
 			Published<RayTracingApi, &ray_tracing_block>,
@@ -371,8 +374,10 @@ namespace azo::rhi::metal4
 			MTL4::Compiler * compiler = mtl->newCompiler(compilerDesc.get(), &compilerError);
 			if (compiler == nullptr)
 			{
-				refusal = Error{ .code = ErrorCode::eNativeApiError,
-					.message		   = "this adapter would not make the Metal 4 compiler the backend builds pipelines with", };
+				refusal = Error{
+					.code	 = ErrorCode::eNativeApiError,
+					.message = "this adapter would not make the Metal 4 compiler the backend builds pipelines with",
+				};
 				return nullptr;
 			}
 
@@ -460,11 +465,13 @@ namespace azo::rhi::metal4
 			}
 		}
 
-		std::erase_if(owner.devices,
+		std::erase_if(
+			owner.devices,
 			[impl](const HostUniquePtr<Metal4Device> & device)
 			{
 				return device.get() == impl;
-			});
+			}
+		);
 		detail::device_tags().release(releasedTag);
 
 		if (owningInstance != nullptr)
@@ -480,11 +487,13 @@ namespace azo::rhi::metal4
 			}
 			if (!stillUsed)
 			{
-				std::erase_if(owner.instances,
+				std::erase_if(
+					owner.instances,
 					[owningInstance](const HostUniquePtr<Metal4Instance> & instance)
 					{
 						return instance.get() == owningInstance;
-					});
+					}
+				);
 			}
 		}
 	}
@@ -492,15 +501,21 @@ namespace azo::rhi::metal4
 	void metal4_destroy_instance(void * impl) noexcept
 	{
 		Metal4BackendOwner & owner = backend_owner();
-		std::erase_if(owner.instances,
+		std::erase_if(
+			owner.instances,
 			[impl](const HostUniquePtr<Metal4Instance> & instance)
 			{
 				return instance.get() == impl;
-			});
+			}
+		);
 	}
 
 	bool metal4_query_external_handle_support(
-		[[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
+		[[maybe_unused]] void * impl,
+		const ExternalHandleSupportDesc & desc,
+		ExternalHandleSupport * out,
+		Error * error
+	) noexcept
 	{
 		if (out == nullptr)
 		{

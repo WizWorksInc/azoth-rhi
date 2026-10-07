@@ -17,11 +17,14 @@
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 #include "azoth/rhi/native/vulkan_native.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
 #include <bit>
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
 
 namespace azo::rhi::vulkan
 {
@@ -49,12 +52,14 @@ namespace azo::rhi::vulkan
 
 		auto * device = static_cast<VulkanDevice *>(impl);
 
-		const BufferHandle handle = device->bufferSlots.store(BufferSlot{
-			.buffer	  = static_cast<VkBuffer>(adopted),
-			.size	  = desc.desc.size,
-			.lifetime = lifetime_of(desc.lifetime),
-			.desc	  = detail::recorded(desc.desc),
-		});
+		const BufferHandle handle = device->bufferSlots.store(
+			BufferSlot{
+				.buffer	  = static_cast<VkBuffer>(adopted),
+				.size	  = desc.desc.size,
+				.lifetime = lifetime_of(desc.lifetime),
+				.desc	  = detail::recorded(desc.desc),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<BufferHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan adopted buffer handle tracking failed");
@@ -84,21 +89,23 @@ namespace azo::rhi::vulkan
 			return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFormat, "adopted texture: undefined or unsupported format");
 		}
 
-		const TextureHandle handle = device->textureSlots.store(TextureSlot{
-			.image		   = static_cast<VkImage>(adopted),
-			.format		   = map_format(desc.desc.format),
-			.samples	   = map_sample_count(desc.desc.samples),
-			.mipLevels	   = desc.desc.mipLevels,
-			.arrayLayers   = desc.desc.arrayLayers,
-			.width		   = desc.desc.width,
-			.height		   = desc.desc.height,
-			.depth		   = desc.desc.depth,
-			.rhiFormat	   = desc.desc.format,
-			.usage		   = desc.desc.usage,
-			.mutableFormat = desc.desc.allowFormatViews,
-			.lifetime	   = lifetime_of(desc.lifetime),
-			.desc		   = detail::recorded(desc.desc),
-		});
+		const TextureHandle handle = device->textureSlots.store(
+			TextureSlot{
+				.image		   = static_cast<VkImage>(adopted),
+				.format		   = map_format(desc.desc.format),
+				.samples	   = map_sample_count(desc.desc.samples),
+				.mipLevels	   = desc.desc.mipLevels,
+				.arrayLayers   = desc.desc.arrayLayers,
+				.width		   = desc.desc.width,
+				.height		   = desc.desc.height,
+				.depth		   = desc.desc.depth,
+				.rhiFormat	   = desc.desc.format,
+				.usage		   = desc.desc.usage,
+				.mutableFormat = desc.desc.allowFormatViews,
+				.lifetime	   = lifetime_of(desc.lifetime),
+				.desc		   = detail::recorded(desc.desc),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan adopted texture handle tracking failed");
@@ -145,7 +152,12 @@ namespace azo::rhi::vulkan
 	}
 
 	TextureViewHandle vulkan_adopt_texture_view(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.adoptTextureView");
 		if (api != VulkanApi::kId)
@@ -165,12 +177,14 @@ namespace azo::rhi::vulkan
 			return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "an adopted texture view names a texture this device never handed out");
 		}
 
-		const TextureViewHandle handle = device->textureViewSlots.store(TextureViewSlot{
-			.view	  = adopted,
-			.format	  = map_format(desc.format),
-			.samples  = map_sample_count(desc.samples),
-			.lifetime = lifetime_of(desc.lifetime),
-		});
+		const TextureViewHandle handle = device->textureViewSlots.store(
+			TextureViewSlot{
+				.view	  = adopted,
+				.format	  = map_format(desc.format),
+				.samples  = map_sample_count(desc.samples),
+				.lifetime = lifetime_of(desc.lifetime),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<TextureViewHandle>(error, ErrorCode::eOutOfHostMemory, "Vulkan adopted texture view handle tracking failed");
@@ -242,7 +256,12 @@ namespace azo::rhi::vulkan
 	}
 
 	TimelineHandle vulkan_adopt_timeline(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTimelineDesc & desc,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.adoptTimeline");
 		if (api != VulkanApi::kId)
@@ -268,7 +287,12 @@ namespace azo::rhi::vulkan
 	}
 
 	BinarySemaphoreHandle vulkan_adopt_binary_semaphore(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.vulkan.adoptBinarySemaphore");
 		if (api != VulkanApi::kId)
@@ -313,7 +337,12 @@ namespace azo::rhi::vulkan
 	}
 
 	bool vulkan_get_native_binary_semaphore(
-		void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
+		void * impl,
+		const GraphicsApiId api,
+		const BinarySemaphoreHandle semaphore,
+		void * outNativeImport,
+		Error * error
+	) noexcept
 	{
 		if (api != VulkanApi::kId)
 		{

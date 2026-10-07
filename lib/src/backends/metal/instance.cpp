@@ -7,8 +7,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/blocks/instance.hpp"
+
+#include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/device_tag.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
@@ -25,6 +26,7 @@
 
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSArray.hpp>
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSProcessInfo.hpp>
@@ -36,6 +38,7 @@
 #include <Metal/MTLDevice.hpp>
 #include <Metal/MTLPixelFormat.hpp>
 #include <Metal/MTLResidencySet.hpp>
+
 #include <algorithm>
 #include <cstdint>
 #include <span>
@@ -64,8 +67,8 @@ namespace azo::rhi::metal
 
 		for (std::uint32_t i = 0; i < fill; ++i)
 		{
-			auto * device = static_cast<MTL::Device *>(all->object(i));
-			azo::rhi::detail::at(adapters, i)	  = AdapterInfo{
+			auto * device					  = static_cast<MTL::Device *>(all->object(i));
+			azo::rhi::detail::at(adapters, i) = AdapterInfo{
 				.type					   = device->hasUnifiedMemory() ? AdapterType::eIntegrated : AdapterType::eDiscrete,
 				.apiId					   = MetalApi::kId,
 				.adapterIndex			   = i,
@@ -260,7 +263,8 @@ namespace azo::rhi::metal
 		}
 
 		auto device	   = host_new<MetalDevice>();
-		device->object = publishing_object<Published<CoreDeviceApi, &core_device_block>,
+		device->object = publishing_object<
+			Published<CoreDeviceApi, &core_device_block>,
 			Published<PresentApi, &present_block>,
 			Published<PlacedMemoryApi, &placed_memory_block>,
 			Published<RayTracingApi, &ray_tracing_block>,
@@ -408,11 +412,13 @@ namespace azo::rhi::metal
 			}
 		}
 
-		std::erase_if(owner.devices,
+		std::erase_if(
+			owner.devices,
 			[impl](const HostUniquePtr<MetalDevice> & device)
 			{
 				return device.get() == impl;
-			});
+			}
+		);
 		detail::device_tags().release(releasedTag);
 
 		if (owningInstance != nullptr)
@@ -428,11 +434,13 @@ namespace azo::rhi::metal
 			}
 			if (!stillUsed)
 			{
-				std::erase_if(owner.instances,
+				std::erase_if(
+					owner.instances,
 					[owningInstance](const HostUniquePtr<MetalInstance> & instance)
 					{
 						return instance.get() == owningInstance;
-					});
+					}
+				);
 			}
 		}
 	}
@@ -440,15 +448,21 @@ namespace azo::rhi::metal
 	void metal_destroy_instance(void * impl) noexcept
 	{
 		MetalBackendOwner & owner = backend_owner();
-		std::erase_if(owner.instances,
+		std::erase_if(
+			owner.instances,
 			[impl](const HostUniquePtr<MetalInstance> & instance)
 			{
 				return instance.get() == impl;
-			});
+			}
+		);
 	}
 
 	bool metal_query_external_handle_support(
-		[[maybe_unused]] void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
+		[[maybe_unused]] void * impl,
+		const ExternalHandleSupportDesc & desc,
+		ExternalHandleSupport * out,
+		Error * error
+	) noexcept
 	{
 		if (out == nullptr)
 		{

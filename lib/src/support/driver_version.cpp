@@ -8,6 +8,7 @@
 // limitations under the License.
 
 #include "support/driver_version.hpp"
+
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/device/device.hpp"
 
@@ -64,10 +65,10 @@ namespace azo::rhi
 
 	detail::HostString format_d3_d12_driver_version(const std::uint64_t umdVersion)
 	{
-		const auto product	   = static_cast<std::uint32_t>((umdVersion >> 48) & 0xFFFFU);
-		const auto version	   = static_cast<std::uint32_t>((umdVersion >> 32) & 0xFFFFU);
+		const auto product	  = static_cast<std::uint32_t>((umdVersion >> 48) & 0xFFFFU);
+		const auto version	  = static_cast<std::uint32_t>((umdVersion >> 32) & 0xFFFFU);
 		const auto subVersion = static_cast<std::uint32_t>((umdVersion >> 16) & 0xFFFFU);
-		const auto build	   = static_cast<std::uint32_t>(umdVersion & 0xFFFFU);
+		const auto build	  = static_cast<std::uint32_t>(umdVersion & 0xFFFFU);
 		detail::HostString out;
 		std::format_to(std::back_inserter(out), "{}.{}.{}.{}", product, version, subVersion, build);
 		return out;

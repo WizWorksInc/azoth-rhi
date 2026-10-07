@@ -16,7 +16,6 @@
 	#include "backends/metal/internal.hpp"
 	#include "backends/registration.hpp"
 
-
 	#include <string_view>
 
 namespace azo::rhi

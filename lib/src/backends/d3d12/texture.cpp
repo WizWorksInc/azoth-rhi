@@ -198,10 +198,12 @@ namespace azo::rhi::d3d12
 
 	TextureHandle D3D12CreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept
 	{
-		if (!D3D12RefuseUnexportable(desc.exportableHandleTypes,
+		if (!D3D12RefuseUnexportable(
+				desc.exportableHandleTypes,
 				Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Resource,
 				"texture creation asked for an external handle type Direct3D 12 cannot export",
-				error))
+				error
+			))
 		{
 			return TextureHandle{};
 		}
@@ -217,7 +219,10 @@ namespace azo::rhi::d3d12
 		if (desc.allowFormatViews && TypelessResourceFormat(format) == format)
 		{
 			return FailValue<TextureHandle>(
-				error, ErrorCode::eUnsupportedFormat, "allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not");
+				error,
+				ErrorCode::eUnsupportedFormat,
+				"allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not"
+			);
 		}
 		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
 		{
@@ -254,9 +259,11 @@ namespace azo::rhi::d3d12
 		{
 			if (!desc.exportableHandleTypes.empty())
 			{
-				return FailValue<TextureHandle>(error,
+				return FailValue<TextureHandle>(
+					error,
 					ErrorCode::eUnsupportedFeature,
-					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse texture cannot also be exportable");
+					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse texture cannot also be exportable"
+				);
 			}
 
 			D3D12_RESOURCE_DESC reservedDesc = resourceDesc;
@@ -270,17 +277,21 @@ namespace azo::rhi::d3d12
 
 			NameD3D12Object(reserved.Get(), desc.debugName, device->debugNames);
 
-			return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = std::move(reserved),
-								   .format										 = format,
-								   .rhiFormat									 = desc.format,
-								   .type										 = desc.type,
-								   .mipLevels									 = desc.mipLevels,
-								   .arrayLayers									 = static_cast<std::uint32_t>(reservedDesc.DepthOrArraySize),
-								   .usage										 = desc.usage,
-								   .mutableFormat								 = desc.allowFormatViews,
-								   .reserved									 = true,
-								   .desc										 = detail::recorded(desc) }),
-				error);
+			return ReturnValue(
+				device->textureSlots.store(
+					TextureSlot{ .resource = std::move(reserved),
+						.format			   = format,
+						.rhiFormat		   = desc.format,
+						.type			   = desc.type,
+						.mipLevels		   = desc.mipLevels,
+						.arrayLayers	   = static_cast<std::uint32_t>(reservedDesc.DepthOrArraySize),
+						.usage			   = desc.usage,
+						.mutableFormat	   = desc.allowFormatViews,
+						.reserved		   = true,
+						.desc			   = detail::recorded(desc) }
+				),
+				error
+			);
 		}
 
 		D3D12MA::ALLOCATION_DESC allocationDesc{};
@@ -295,7 +306,13 @@ namespace azo::rhi::d3d12
 		ComPtr<D3D12MA::Allocation> allocation;
 		ComPtr<ID3D12Resource> resource;
 		const HRESULT hr = device->allocator->CreateResource(
-			&allocationDesc, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, clearPtr, allocation.GetAddressOf(), IID_PPV_ARGS(resource.GetAddressOf()));
+			&allocationDesc,
+			&resourceDesc,
+			D3D12_RESOURCE_STATE_COMMON,
+			clearPtr,
+			allocation.GetAddressOf(),
+			IID_PPV_ARGS(resource.GetAddressOf())
+		);
 		if (FAILED(hr))
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a texture");
@@ -303,18 +320,22 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.debugName, device->debugNames);
 
-		return ReturnValue(device->textureSlots.store(TextureSlot{ .allocation = std::move(allocation),
-							   .resource									   = std::move(resource),
-							   .format										   = format,
-							   .rhiFormat									   = desc.format,
-							   .type										   = desc.type,
-							   .mipLevels									   = desc.mipLevels,
-							   .arrayLayers									   = static_cast<std::uint32_t>(resourceDesc.DepthOrArraySize),
-							   .usage										   = desc.usage,
-							   .mutableFormat								   = desc.allowFormatViews,
-							   .exportableHandleTypes						   = desc.exportableHandleTypes,
-							   .desc										   = detail::recorded(desc) }),
-			error);
+		return ReturnValue(
+			device->textureSlots.store(
+				TextureSlot{ .allocation   = std::move(allocation),
+					.resource			   = std::move(resource),
+					.format				   = format,
+					.rhiFormat			   = desc.format,
+					.type				   = desc.type,
+					.mipLevels			   = desc.mipLevels,
+					.arrayLayers		   = static_cast<std::uint32_t>(resourceDesc.DepthOrArraySize),
+					.usage				   = desc.usage,
+					.mutableFormat		   = desc.allowFormatViews,
+					.exportableHandleTypes = desc.exportableHandleTypes,
+					.desc				   = detail::recorded(desc) }
+			),
+			error
+		);
 	}
 
 	bool D3D12GetTextureInfo(void * impl, const TextureHandle texture, TextureInfo * out, Error * error) noexcept
@@ -516,10 +537,12 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] UINT D3D12ShaderComponentMapping(ComponentMapping mapping) noexcept
 	{
-		return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(D3D12ComponentSource(mapping.r, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0),
+		return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+			D3D12ComponentSource(mapping.r, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0),
 			D3D12ComponentSource(mapping.g, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1),
 			D3D12ComponentSource(mapping.b, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2),
-			D3D12ComponentSource(mapping.a, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3));
+			D3D12ComponentSource(mapping.a, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3)
+		);
 	}
 
 	TextureViewHandle D3D12CreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept
@@ -553,9 +576,11 @@ namespace azo::rhi::d3d12
 		const TextureSubresourceRange & r = desc.range;
 		if (r.mipCount == kAllMips || r.layerCount == kAllLayers)
 		{
-			return FailValue<TextureViewHandle>(error,
+			return FailValue<TextureViewHandle>(
+				error,
 				ErrorCode::eInvalidArgument,
-				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes"
+			);
 		}
 		if (r.baseMip >= texMips || r.mipCount > texMips - r.baseMip)
 		{
@@ -570,7 +595,10 @@ namespace azo::rhi::d3d12
 		if (desc.ycbcrConversion != nullptr)
 		{
 			return FailValue<TextureViewHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views"
+			);
 		}
 		if (plane == kNoPlane && is_multi_planar_format(rhiFormat))
 		{
@@ -599,13 +627,19 @@ namespace azo::rhi::d3d12
 		if (plane == kNoPlane && format != textureFormat && !mutableFormat)
 		{
 			return FailValue<TextureViewHandle>(
-				error, ErrorCode::eInvalidArgument, "texture view names a format the source texture was not created with allowFormatViews for");
+				error,
+				ErrorCode::eInvalidArgument,
+				"texture view names a format the source texture was not created with allowFormatViews for"
+			);
 		}
 
 		if (!desc.swizzle.IsIdentity() && UsageForbidsSwizzle(ResolveViewUsage(desc.usage, usage)))
 		{
 			return FailValue<TextureViewHandle>(
-				error, ErrorCode::eInvalidArgument, "a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled");
+				error,
+				ErrorCode::eInvalidArgument,
+				"a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled"
+			);
 		}
 
 		std::uint32_t rtvIndex = kInvalidIndex;
@@ -634,15 +668,19 @@ namespace azo::rhi::d3d12
 			device->device->CreateRenderTargetView(resource.Get(), &rtv, device->rtvHeap.Handle(rtvIndex));
 		}
 
-		return ReturnValue(device->textureViewSlots.store(TextureViewSlot{ .texture = texture,
-							   .format												= format,
-							   .type												= desc.type,
-							   .range												= desc.range,
-							   .rtvIndex											= rtvIndex,
-							   .dsvIndex											= dsvIndex,
-							   .planeSlice											= plane == kNoPlane ? 0u : plane,
-							   .shaderComponentMapping								= D3D12ShaderComponentMapping(desc.swizzle) }),
-			error);
+		return ReturnValue(
+			device->textureViewSlots.store(
+				TextureViewSlot{ .texture	= texture,
+					.format					= format,
+					.type					= desc.type,
+					.range					= desc.range,
+					.rtvIndex				= rtvIndex,
+					.dsvIndex				= dsvIndex,
+					.planeSlice				= plane == kNoPlane ? 0u : plane,
+					.shaderComponentMapping = D3D12ShaderComponentMapping(desc.swizzle) }
+			),
+			error
+		);
 	}
 
 	bool D3D12DestroyTextureView(D3D12Device * device, RawHandle handle, Error * error) noexcept

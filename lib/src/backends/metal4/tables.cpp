@@ -13,6 +13,7 @@
 #include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/blocks/instance.hpp"
 #include "azoth/rhi/backend/blocks/queue.hpp"
+
 #include "backends/metal4/internal.hpp"
 
 namespace azo::rhi::metal4

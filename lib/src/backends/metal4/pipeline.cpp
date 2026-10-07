@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/resources/pipeline.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/enums.hpp"
@@ -17,9 +19,10 @@
 #include "azoth/rhi/resources/binding_abi.hpp"
 #include "azoth/rhi/resources/descriptors.hpp"
 #include "azoth/rhi/resources/native_slot.hpp"
-#include "azoth/rhi/resources/pipeline.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSArray.hpp>
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSError.hpp>
@@ -37,6 +40,7 @@
 #include <Metal/MTLRenderPipeline.hpp>
 #include <Metal/MTLTexture.hpp>
 #include <Metal/MTLVertexDescriptor.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -54,13 +58,19 @@ namespace azo::rhi::metal4
 	namespace
 	{
 		[[nodiscard]] bool binding_maps_agree_impl(
-			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const std::span<const ShaderBinary> shaders, Error * error) noexcept
+			Metal4Device * device,
+			const PipelineLayoutHandle layoutHandle,
+			const std::span<const ShaderBinary> shaders,
+			Error * error
+		) noexcept
 		{
-			if (std::ranges::none_of(shaders,
+			if (std::ranges::none_of(
+					shaders,
 					[](const ShaderBinary & shader) noexcept
 					{
 						return shader.bindingMap != nullptr;
-					}))
+					}
+				))
 			{
 				return true;
 			}
@@ -102,7 +112,10 @@ namespace azo::rhi::metal4
 				if (bad.wrongAbiVersion)
 				{
 					return fail(
-						error, ErrorCode::eUnsupportedFormat, "a shader binary was built against a revision of the binding ABI this build does not implement");
+						error,
+						ErrorCode::eUnsupportedFormat,
+						"a shader binary was built against a revision of the binding ABI this build does not implement"
+					);
 				}
 
 				if (bad.unknownToLayout)
@@ -111,14 +124,21 @@ namespace azo::rhi::metal4
 				}
 
 				return fail(
-					error, ErrorCode::eInvalidArgument, "a shader binary put a binding at a different argument-table index than this backend binds it at");
+					error,
+					ErrorCode::eInvalidArgument,
+					"a shader binary put a binding at a different argument-table index than this backend binds it at"
+				);
 			}
 
 			return true;
 		}
 
 		[[nodiscard]] bool function_buffers_are_bound_impl(
-			Metal4Device * device, const PipelineLayoutHandle layoutHandle, const NS::Array * bindings, Error * error) noexcept
+			Metal4Device * device,
+			const PipelineLayoutHandle layoutHandle,
+			const NS::Array * bindings,
+			Error * error
+		) noexcept
 		{
 			const Metal4PipelineLayout * const layout = device->pipelineLayouts.resolve(layoutHandle, kHandleAlreadyChecked);
 			if (layout == nullptr)
@@ -159,10 +179,12 @@ namespace azo::rhi::metal4
 
 				if (!bound)
 				{
-					return fail(error,
+					return fail(
+						error,
 						ErrorCode::eInvalidArgument,
 						"a shader wants a buffer at an index this pipeline layout never binds one to, which on a Slang shader usually means it declares no "
-						"push constant and so numbers its sets one below where this ABI reserves buffer 0 for one");
+						"push constant and so numbers its sets one below where this ABI reserves buffer 0 for one"
+					);
 				}
 			}
 
@@ -232,9 +254,11 @@ namespace azo::rhi::metal4
 
 		if (!desc.shader.threadgroupSize.is_stated())
 		{
-			return fail_value<ComputePipelineHandle>(error,
+			return fail_value<ComputePipelineHandle>(
+				error,
 				ErrorCode::eInvalidArgument,
-				"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary");
+				"compute pipeline needs a non-zero threadgroupSize on its shader, which no backend can recover from the binary"
+			);
 		}
 
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -300,24 +324,36 @@ namespace azo::rhi::metal4
 		if (desc.vertexInput == nullptr)
 		{
 			return fail_value<GraphicsPipelineHandle>(
-				error, ErrorCode::eUnsupportedFeature, "graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"graphics pipeline without vertex input needs a mesh or task stage, which this backend does not have"
+			);
 		}
 
 		const VertexInputDesc & vertexInput = *desc.vertexInput;
 		if (desc.raster.conservativeRasterEnable)
 		{
 			return fail_value<GraphicsPipelineHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Metal has no conservative rasterization, which conservativeRasterTier reports as eNone");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Metal has no conservative rasterization, which conservativeRasterTier reports as eNone"
+			);
 		}
 		if (vertexInput.topology == PrimitiveTopology::ePatchList)
 		{
 			return fail_value<GraphicsPipelineHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Metal tessellates through a compute pre-pass, which this backend does not build");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Metal tessellates through a compute pre-pass, which this backend does not build"
+			);
 		}
 		if (desc.renderTarget.colorFormatCount > desc.renderTarget.colorFormats.size() || desc.blend.attachmentCount > desc.blend.attachments.size())
 		{
 			return fail_value<GraphicsPipelineHandle>(
-				error, ErrorCode::eInvalidArgument, "graphics pipeline names more color attachments than a render target can hold");
+				error,
+				ErrorCode::eInvalidArgument,
+				"graphics pipeline names more color attachments than a render target can hold"
+			);
 		}
 
 		auto * device = static_cast<Metal4Device *>(impl);
@@ -387,7 +423,10 @@ namespace azo::rhi::metal4
 				if (vertexFormat == MTL::VertexFormatInvalid)
 				{
 					return fail_value<GraphicsPipelineHandle>(
-						error, ErrorCode::eUnsupportedFeature, "a vertex attribute names a format this backend has no Metal vertex format for");
+						error,
+						ErrorCode::eUnsupportedFeature,
+						"a vertex attribute names a format this backend has no Metal vertex format for"
+					);
 				}
 
 				MTL::VertexAttributeDescriptor * attr = vertexDescriptor->attributes()->object(attribute.location);

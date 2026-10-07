@@ -7,6 +7,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/resources/query.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/enums.hpp"
@@ -14,9 +16,10 @@
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
-#include "azoth/rhi/resources/query.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSRange.hpp>
@@ -28,6 +31,7 @@
 #include <Metal/MTLCounters.hpp>
 #include <Metal/MTLDevice.hpp>
 #include <Metal/MTLResource.hpp>
+
 #include <cstdint>
 #include <utility>
 
@@ -47,7 +51,10 @@ namespace azo::rhi::metal
 		if (desc.type != QueryType::eTimestamp)
 		{
 			return fail_value<QueryPoolHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp query pools only, and this pool asked for another type");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Metal implements timestamp query pools only, and this pool asked for another type"
+			);
 		}
 		if (device->timestampCounterSet.get() == nullptr)
 		{
@@ -75,12 +82,16 @@ namespace azo::rhi::metal
 			return fail_value<QueryPoolHandle>(error, ErrorCode::eNativeApiError, "MTLDevice::newCounterSampleBuffer failed");
 		}
 
-		return return_value(device->queryPools.store(MetalQueryPool{
-							   .sampleBuffer = std::move(buf),
-							   .type		 = desc.type,
-							   .queryCount	 = desc.queryCount,
-						   }),
-			error);
+		return return_value(
+			device->queryPools.store(
+				MetalQueryPool{
+					.sampleBuffer = std::move(buf),
+					.type		  = desc.type,
+					.queryCount	  = desc.queryCount,
+				}
+			),
+			error
+		);
 	}
 
 	bool metal_calibrate_timestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept
@@ -145,10 +156,12 @@ namespace azo::rhi::metal
 		{
 			if (!device->samplesAtDrawBoundary)
 			{
-				return fail(error,
+				return fail(
+					error,
 					ErrorCode::eUnsupportedFeature,
 					"this Metal adapter samples counters at stage boundaries only, so a timestamp cannot be written inside a rendering scope. Time the "
-					"scope with BeginRenderingDesc::timestamps instead");
+					"scope with BeginRenderingDesc::timestamps instead"
+				);
 			}
 			rec->renderEncoder->sampleCountersInBuffer(tracked->sampleBuffer.get(), query, false);
 			return succeed(error);
@@ -158,10 +171,12 @@ namespace azo::rhi::metal
 		{
 			if (!device->samplesAtDispatchBoundary)
 			{
-				return fail(error,
+				return fail(
+					error,
 					ErrorCode::eUnsupportedFeature,
 					"this Metal adapter samples counters at stage boundaries only, so a timestamp cannot be written inside a dispatch scope. Write it "
-					"before the scope's first binding or after the work that closes the scope");
+					"before the scope's first binding or after the work that closes the scope"
+				);
 			}
 			rec->computeEncoder->sampleCountersInBuffer(tracked->sampleBuffer.get(), query, false);
 			return succeed(error);
@@ -214,7 +229,12 @@ namespace azo::rhi::metal
 		return fail(error, ErrorCode::eUnsupportedFeature, "this Metal adapter samples counters at no point a timestamp write can reach");
 	}
 
-	bool metal_cmd_begin_query([[maybe_unused]] void * impl, [[maybe_unused]] QueryPoolHandle pool, [[maybe_unused]] std::uint32_t query, Error * error) noexcept
+	bool metal_cmd_begin_query(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] QueryPoolHandle pool,
+		[[maybe_unused]] std::uint32_t query,
+		Error * error
+	) noexcept
 	{
 		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and beginQuery serves the counting kinds");
 	}
@@ -224,8 +244,15 @@ namespace azo::rhi::metal
 		return fail(error, ErrorCode::eUnsupportedFeature, "Metal implements timestamp queries only, and endQuery serves the counting kinds");
 	}
 
-	bool metal_cmd_resolve_query_data(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept
+	bool metal_cmd_resolve_query_data(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept
 	{
 		auto * object			  = static_cast<MetalObject *>(impl);
 		MetalDevice * device	  = object->owner;

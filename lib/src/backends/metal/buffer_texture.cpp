@@ -17,8 +17,10 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSRange.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Foundation/NSTypes.hpp>
@@ -27,6 +29,7 @@
 #include <Metal/MTLPixelFormat.hpp>
 #include <Metal/MTLSampler.hpp>
 #include <Metal/MTLTexture.hpp>
+
 #include <utility>
 
 namespace azo::rhi::metal
@@ -74,10 +77,12 @@ namespace azo::rhi::metal
 
 	TextureHandle metal_create_texture(void * impl, const TextureDesc & desc, Error * error) noexcept
 	{
-		if (!metal_refuse_unexportable(desc.exportableHandleTypes,
+		if (!metal_refuse_unexportable(
+				desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedTexture,
 				"Metal exports a texture only through MTLSharedTextureHandle, and this asked for another handle type",
-				error))
+				error
+			))
 		{
 			return TextureHandle{};
 		}
@@ -108,12 +113,16 @@ namespace azo::rhi::metal
 
 		device->note_allocation(MetalDevice::Residency::eTextures, texture.get());
 
-		const TextureHandle handle = device->textures.store(MetalTextureSlot{ .texture = std::move(texture),
-			.format																	   = desc.format,
-			.usage																	   = desc.usage,
-			.mutableFormat															   = desc.allowFormatViews,
-			.shared																	   = shared,
-			.desc																	   = detail::recorded(desc), });
+		const TextureHandle handle = device->textures.store(
+			MetalTextureSlot{
+				.texture	   = std::move(texture),
+				.format		   = desc.format,
+				.usage		   = desc.usage,
+				.mutableFormat = desc.allowFormatViews,
+				.shared		   = shared,
+				.desc		   = detail::recorded(desc),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal texture handle tracking failed");
@@ -145,7 +154,10 @@ namespace azo::rhi::metal
 		if (!desc.swizzle.is_identity() && usage_forbids_swizzle(resolve_view_usage(desc.usage, texUsage)))
 		{
 			return fail_value<TextureViewHandle>(
-				error, ErrorCode::eInvalidArgument, "a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled");
+				error,
+				ErrorCode::eInvalidArgument,
+				"a swizzled texture view must be sampled only, so narrow TextureViewDesc::usage to eSampled"
+			);
 		}
 
 		const MTL::PixelFormat viewFormat = (desc.format == Format::eUndefined) ? source->pixelFormat() : metal_pixel_format(desc.format);
@@ -157,7 +169,10 @@ namespace azo::rhi::metal
 		if (viewFormat != source->pixelFormat() && !mutableFormat)
 		{
 			return fail_value<TextureViewHandle>(
-				error, ErrorCode::eInvalidArgument, "texture view names a format the source texture was not created with allowFormatViews for");
+				error,
+				ErrorCode::eInvalidArgument,
+				"texture view names a format the source texture was not created with allowFormatViews for"
+			);
 		}
 
 		if (!view_range_fits_texture(source, desc.range, error))
@@ -194,7 +209,10 @@ namespace azo::rhi::metal
 		if (desc.ycbcrConversion != nullptr)
 		{
 			return fail_value<SamplerHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Metal has no sampler Y'CbCr conversion, so convert in the shader over per-plane textures");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Metal has no sampler Y'CbCr conversion, so convert in the shader over per-plane textures"
+			);
 		}
 
 		auto * device = static_cast<MetalDevice *>(impl);

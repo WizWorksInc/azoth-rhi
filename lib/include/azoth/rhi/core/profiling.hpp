@@ -11,14 +11,16 @@
 
 #include "azoth/rhi/host/profiler.hpp"
 
-#define AZO_RHI_PROFILE_CONCAT_INNER(first, second) first## second
+#define AZO_RHI_PROFILE_CONCAT_INNER(first, second) first##second
 #define AZO_RHI_PROFILE_CONCAT(first, second)		AZO_RHI_PROFILE_CONCAT_INNER(first, second)
 
 #ifdef AZOTH_RHI_ENABLE_PROFILING
 
 	#define AZO_RHI_PROFILE_ZONE_IMPL(zoneName, zoneColor)                                                                                                     \
-		static constexpr ::azo::rhi::ZoneLocation AZO_RHI_PROFILE_CONCAT(                                                                                      \
-			azoRhiZoneLoc_, __LINE__){ .name = (zoneName), .file = __FILE__, .line = __LINE__, .color = (zoneColor) };                                         \
+		static constexpr ::azo::rhi::ZoneLocation AZO_RHI_PROFILE_CONCAT(azoRhiZoneLoc_, __LINE__){ .name = (zoneName),                                        \
+			.file																						  = __FILE__,                                          \
+			.line																						  = __LINE__,                                          \
+			.color																						  = (zoneColor) };                                     \
 		const ::azo::rhi::detail::ScopedZone AZO_RHI_PROFILE_CONCAT(azoRhiZone_, __LINE__)                                                                     \
 		{                                                                                                                                                      \
 			AZO_RHI_PROFILE_CONCAT(azoRhiZoneLoc_, __LINE__)                                                                                                   \
@@ -31,7 +33,7 @@
 	#define AZO_RHI_PROFILE_PLOT(plotName, plotValue)                                                                                                          \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                         \
 			{                                                                                                                                                  \
 				azoRhiSink->plot((plotName), static_cast<std::int64_t>(plotValue));                                                                            \
 			}                                                                                                                                                  \
@@ -40,24 +42,26 @@
 	#define AZO_RHI_PROFILE_ALLOC(allocAddress, allocSize, allocPool)                                                                                          \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                         \
 			{                                                                                                                                                  \
-				azoRhiSink->gpu_allocate((allocAddress), static_cast<std::uint64_t>(allocSize), (allocPool));                                                   \
+				azoRhiSink->gpu_allocate((allocAddress), static_cast<std::uint64_t>(allocSize), (allocPool));                                                  \
 			}                                                                                                                                                  \
 		} while (false)
 
 	#define AZO_RHI_PROFILE_FREE(freeAddress, freePool)                                                                                                        \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                         \
 			{                                                                                                                                                  \
-				azoRhiSink->gpu_free((freeAddress), (freePool));                                                                                                \
+				azoRhiSink->gpu_free((freeAddress), (freePool));                                                                                               \
 			}                                                                                                                                                  \
 		} while (false)
 
 	#define AZO_RHI_PROFILE_GPU_ZONE(cmdList, zoneName)                                                                                                        \
-		static constexpr ::azo::rhi::ZoneLocation AZO_RHI_PROFILE_CONCAT(                                                                                      \
-			azoRhiGpuLoc_, __LINE__){ .name = (zoneName), .file = __FILE__, .line = __LINE__, .color = 0u };                                                   \
+		static constexpr ::azo::rhi::ZoneLocation AZO_RHI_PROFILE_CONCAT(azoRhiGpuLoc_, __LINE__){ .name = (zoneName),                                         \
+			.file																						 = __FILE__,                                           \
+			.line																						 = __LINE__,                                           \
+			.color																						 = 0u };                                               \
 		const ::azo::rhi::detail::ScopedGpuZone AZO_RHI_PROFILE_CONCAT(azoRhiGpuZone_, __LINE__)                                                               \
 		{                                                                                                                                                      \
 			(cmdList), AZO_RHI_PROFILE_CONCAT(azoRhiGpuLoc_, __LINE__)                                                                                         \
@@ -66,9 +70,9 @@
 	#define AZO_RHI_PROFILE_GPU_COLLECT(cmdList)                                                                                                               \
 		do                                                                                                                                                     \
 		{                                                                                                                                                      \
-			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                          \
+			if (::azo::rhi::Profiler * azoRhiSink = ::azo::rhi::get_profiler(); azoRhiSink != nullptr)                                                         \
 			{                                                                                                                                                  \
-				azoRhiSink->collect_gpu(cmdList);                                                                                                               \
+				azoRhiSink->collect_gpu(cmdList);                                                                                                              \
 			}                                                                                                                                                  \
 		} while (false)
 

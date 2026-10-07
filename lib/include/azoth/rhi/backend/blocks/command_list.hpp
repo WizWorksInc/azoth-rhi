@@ -25,10 +25,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(RenderCommandApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**
@@ -263,13 +262,8 @@ namespace azo::rhi
 		 * \param regions Source buffer regions and destination texture subresources.
 		 * \param[out] error Optional output for failure details.
 		 */
-		bool (*copyBufferToTexture)(
-			void * impl,
-			TextureHandle dst,
-			BufferHandle src,
-			std::span<const BufferTextureCopy> regions,
-			Error * error
-		) noexcept = nullptr;
+		bool (*copyBufferToTexture)(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept =
+			nullptr;
 
 		/**
 		 * \brief Copies texture subresources into buffer regions.
@@ -279,13 +273,8 @@ namespace azo::rhi
 		 * \param regions Source texture subresources and destination buffer regions.
 		 * \param[out] error Optional output for failure details.
 		 */
-		bool (*copyTextureToBuffer)(
-			void * impl,
-			BufferHandle dst,
-			TextureHandle src,
-			std::span<const BufferTextureCopy> regions,
-			Error * error
-		) noexcept = nullptr;
+		bool (*copyTextureToBuffer)(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept =
+			nullptr;
 
 		/**
 		 * \brief Copies texture regions without scaling.
@@ -378,10 +367,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(AliasingCommandApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**
@@ -401,10 +389,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(RayTracingCommandApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**
@@ -468,10 +455,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(QueryCommandApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**
@@ -541,10 +527,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(IndirectApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**
@@ -556,14 +541,8 @@ namespace azo::rhi
 		 * \param stride Byte distance between argument records.
 		 * \param[out] error Optional output for failure details.
 		 */
-		bool (*drawIndirect)(
-			void * impl,
-			BufferHandle args,
-			std::uint64_t offset,
-			std::uint32_t drawCount,
-			std::uint32_t stride,
-			Error * error
-		) noexcept = nullptr;
+		bool (*drawIndirect)(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept =
+			nullptr;
 
 		/**
 		 * \brief Records drawCount indexed draws from argument records addressed by a byte offset and stride.
@@ -583,7 +562,6 @@ namespace azo::rhi
 			Error * error
 		) noexcept = nullptr;
 
-
 		/**
 		 * \brief Dispatches compute work using arguments at the given byte offset.
 		 * \param impl Backend command list instance.
@@ -602,10 +580,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(IndirectCountApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**
@@ -661,10 +638,9 @@ namespace azo::rhi
 		/**
 		 * \brief Interface size and version for block discovery.
 		 */
-		InterfaceHeader header
-		{
+		InterfaceHeader header{
 			.byteSize = sizeof(NativeEscapeApi),
-			.version = 1,
+			.version  = 1,
 		};
 
 		/**

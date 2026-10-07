@@ -62,10 +62,12 @@ namespace azo::rhi::d3d12
 
 	TimelineHandle D3D12CreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
 	{
-		if (!D3D12RefuseUnexportable(desc.exportableHandleTypes,
+		if (!D3D12RefuseUnexportable(
+				desc.exportableHandleTypes,
 				Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Fence,
 				"timeline creation asked for an external handle type Direct3D 12 cannot export",
-				error))
+				error
+			))
 		{
 			return TimelineHandle{};
 		}
@@ -105,10 +107,12 @@ namespace azo::rhi::d3d12
 
 	BinarySemaphoreHandle D3D12CreateBinarySemaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept
 	{
-		if (!D3D12RefuseUnexportable(desc.exportableHandleTypes,
+		if (!D3D12RefuseUnexportable(
+				desc.exportableHandleTypes,
 				Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Fence,
 				"binary semaphore creation asked for an external handle type Direct3D 12 cannot export",
-				error))
+				error
+			))
 		{
 			return BinarySemaphoreHandle{};
 		}
@@ -126,7 +130,9 @@ namespace azo::rhi::d3d12
 		}
 
 		return ReturnValue(
-			device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }), error);
+			device->binarySemaphoreSlots.store(BinarySemaphoreSlot{ .fence = std::move(fence), .exportableHandleTypes = desc.exportableHandleTypes }),
+			error
+		);
 	}
 
 	bool D3D12DestroyBinarySemaphore(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -148,8 +154,14 @@ namespace azo::rhi::d3d12
 
 	namespace
 	{
-		[[nodiscard]] bool CreateRecording(D3D12Device * device, D3D12_COMMAND_LIST_TYPE type, ComPtr<ID3D12CommandAllocator> & allocator,
-			ComPtr<ID3D12GraphicsCommandList> & list, ComPtr<ID3D12GraphicsCommandList7> & list7, Error * error) noexcept
+		[[nodiscard]] bool CreateRecording(
+			D3D12Device * device,
+			D3D12_COMMAND_LIST_TYPE type,
+			ComPtr<ID3D12CommandAllocator> & allocator,
+			ComPtr<ID3D12GraphicsCommandList> & list,
+			ComPtr<ID3D12GraphicsCommandList7> & list7,
+			Error * error
+		) noexcept
 		{
 			const HRESULT allocated = device->device->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf()));
 			if (FAILED(allocated))
@@ -202,7 +214,8 @@ namespace azo::rhi::d3d12
 				return false;
 			}
 
-			if (!detail::try_push_back(list->pool->retired,
+			if (!detail::try_push_back(
+					list->pool->retired,
 					RetiredCommandRecording{
 						.allocator		  = list->allocator,
 						.list			  = list->list,
@@ -210,7 +223,8 @@ namespace azo::rhi::d3d12
 						.clearStagingHeap = list->clearStagingHeap,
 						.submitFence	  = list->submitFence,
 						.submitValue	  = list->submitValue,
-					}))
+					}
+				))
 			{
 				return Fail(error, ErrorCode::eOutOfHostMemory, "could not park a command list that is still executing");
 			}
@@ -272,8 +286,9 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		auto cmd	   = host_new<D3D12CommandList>();
-		cmd->object	   = publishing_object<Published<RenderCommandApi, &RenderCommandBlock>,
+		auto cmd	= host_new<D3D12CommandList>();
+		cmd->object = publishing_object<
+			Published<RenderCommandApi, &RenderCommandBlock>,
 			Published<AliasingCommandApi, &AliasingCommandBlock>,
 			Published<QueryCommandApi, &QueryCommandBlock>,
 			Published<IndirectApi, &IndirectBlock>,
@@ -432,7 +447,14 @@ namespace azo::rhi::d3d12
 	}
 
 	bool D3D12CmdCopyBuffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.copyBuffer");
 

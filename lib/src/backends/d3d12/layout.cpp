@@ -83,9 +83,11 @@ namespace azo::rhi::d3d12
 		{
 			if (!binding.immutableSamplers.empty())
 			{
-				return FailValue<DescriptorSetLayoutHandle>(error,
+				return FailValue<DescriptorSetLayoutHandle>(
+					error,
 					ErrorCode::eUnsupportedFeature,
-					"Direct3D 12 does not bake samplers into a descriptor set layout here, so write the sampler into the set instead");
+					"Direct3D 12 does not bake samplers into a descriptor set layout here, so write the sampler into the set instead"
+				);
 			}
 		}
 
@@ -226,8 +228,11 @@ namespace azo::rhi::d3d12
 			param.Constants.ShaderRegister = static_cast<UINT>(i);
 			param.Constants.RegisterSpace  = kPushConstantRegisterSpace;
 			param.Constants.Num32BitValues = (desc.pushConstants[i].size + 3u) / 4u;
-			slot.pushConstantParams.push_back(PipelineLayoutSlot::PushConstantParam{
-				.rootParam = static_cast<std::uint32_t>(params.size()), .offset = desc.pushConstants[i].offset, .size = desc.pushConstants[i].size });
+			slot.pushConstantParams.push_back(
+				PipelineLayoutSlot::PushConstantParam{ .rootParam = static_cast<std::uint32_t>(params.size()),
+					.offset										  = desc.pushConstants[i].offset,
+					.size										  = desc.pushConstants[i].size }
+			);
 			params.push_back(param);
 		}
 

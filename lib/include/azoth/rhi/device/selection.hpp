@@ -49,7 +49,9 @@ namespace azo::rhi
 
 	template <GraphicsApiTag Api>
 	[[nodiscard]] constexpr BackendEntry make_backend_entry(
-		Result<void> (*const registerInto)(GraphicsApiRegistry &), const BackendRank rank = BackendRank::eHardware) noexcept
+		Result<void> (*const registerInto)(GraphicsApiRegistry &),
+		const BackendRank rank = BackendRank::eHardware
+	) noexcept
 	{
 		return BackendEntry{
 			.id			   = Api::kId,
@@ -96,7 +98,7 @@ namespace azo::rhi
 	[[nodiscard]] AZO_RHI_API const StaticBackendRegistration * self_registered_backends() noexcept;
 
 // Backend self-registration needs a generated namespace-scope object name. NOLINTBEGIN(cppcoreguidelines-macro-usage)
-#define AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b) a## b
+#define AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b) a##b
 #define AZO_RHI_DETAIL_REGISTER_CONCAT(a, b)	   AZO_RHI_DETAIL_REGISTER_CONCAT_INNER(a, b)
 
 #define AZO_RHI_REGISTER_BACKEND(entry)                                                                                                                        \

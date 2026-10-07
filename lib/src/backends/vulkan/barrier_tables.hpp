@@ -314,69 +314,106 @@ namespace azo::rhi::vulkan
 		return vk::PipelineStageFlagBits2::eAllCommands;
 	}
 
-	static_assert(map_stages(Stage::eVertexWork) == (vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::ePreRasterizationShaders),
-		"vertex work covers vertex input and every supported pre-rasterization shader stage");
+	static_assert(
+		map_stages(Stage::eVertexWork) == (vk::PipelineStageFlagBits2::eVertexInput | vk::PipelineStageFlagBits2::ePreRasterizationShaders),
+		"vertex work covers vertex input and every supported pre-rasterization shader stage"
+	);
 
 	static_assert(
 		!(map_stages(Stage::eVertexWork) & (vk::PipelineStageFlagBits2::eTessellationControlShader | vk::PipelineStageFlagBits2::eTessellationEvaluationShader |
-											  vk::PipelineStageFlagBits2::eGeometryShader)),
-		"vertex work must remain valid when optional tessellation and geometry features are disabled");
+											   vk::PipelineStageFlagBits2::eGeometryShader)),
+		"vertex work must remain valid when optional tessellation and geometry features are disabled"
+	);
 
-	static_assert(map_stages(Stage::eCopy) == (vk::PipelineStageFlagBits2::eCopy | vk::PipelineStageFlagBits2::eBlit | vk::PipelineStageFlagBits2::eClear),
-		"none of the three transfer stage bits implies the others, so a copy barrier naming only COPY never reaches a blit or a clear");
+	static_assert(
+		map_stages(Stage::eCopy) == (vk::PipelineStageFlagBits2::eCopy | vk::PipelineStageFlagBits2::eBlit | vk::PipelineStageFlagBits2::eClear),
+		"none of the three transfer stage bits implies the others, so a copy barrier naming only COPY never reaches a blit or a clear"
+	);
 
-	static_assert(map_stages(Stage::eDepthStencil) == (vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests),
-		"depth testing straddles both fragment test stages and the vocabulary deliberately stopped distinguishing them");
+	static_assert(
+		map_stages(Stage::eDepthStencil) == (vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests),
+		"depth testing straddles both fragment test stages and the vocabulary deliberately stopped distinguishing them"
+	);
 
 	static_assert(!map_stages(Flags<Stage>()), "an empty stage set has to stay empty, since it is what tells MapBarrierStages to derive from the use instead");
 
-	static_assert(map_barrier_access(ResourceUse::eDepthStencilTarget) ==
-					  (vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite),
-		"a depth target is read-write by definition, so naming only the write half loses the ordering against the test that reads it");
-
-	static_assert(map_barrier_access(ResourceUse::eAccelBuildInput) == vk::AccessFlagBits2::eShaderRead,
-		"build inputs are geometry read by the build and the spec names SHADER_READ for them, the structure bits covering the structures themselves");
-
-	static_assert(map_barrier_access(ResourceUse::eAccelRead) == vk::AccessFlagBits2::eAccelerationStructureReadKHR &&
-					  map_barrier_access(ResourceUse::eAccelWrite) == vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
-		"reading and building a structure are the two accesses the structure bits exist for");
-
-	static_assert(map_barrier_access(ResourceUse::eAccelBuildScratch) ==
-					  (vk::AccessFlagBits2::eAccelerationStructureReadKHR | vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
-		"the spec names the pair for a scratch, not the write bit alone, so naming half of it leaves the build's own reads of that memory unordered");
-
-	static_assert(map_barrier_stages(Flags<Stage>(), ResourceUse::eAccelBuildScratch) == vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
-		"the same sentence names the build stage for a scratch, which is the only stage that touches it");
-
-	static_assert(map_barrier_access(Flags<ResourceUse>(ResourceUse::eCopySrc) | ResourceUse::eResolveSrc) == vk::AccessFlagBits2::eTransferRead,
-		"Vulkan has no resolve access of its own, so a resolve reads and writes through the transfer accesses a copy uses");
-
-	static_assert(!map_barrier_access(ResourceUse::eDiscard) && !map_barrier_access(ResourceUse::ePresent),
-		"discard and present reach no access, which is what keeps either from deriving a stage and landing a full-pipeline barrier per frame");
-
-	static_assert(map_barrier_stages(Flags<Stage>(), ResourceUse::eColorTarget) == vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-		"a use with no stage must derive one, since an access mask with an empty stage mask is invalid under synchronization2");
-
-	static_assert(map_barrier_stages(Stage::eCompute, ResourceUse::eColorTarget) == vk::PipelineStageFlagBits2::eComputeShader,
-		"an explicit stage set is honoured as written and never widened by what the use would have derived");
-
-	static_assert(!map_barrier_stages(Flags<Stage>(), Flags<ResourceUse>()) && !map_barrier_stages(Flags<Stage>(), ResourceUse::ePresent),
-		"an empty state and a present state both stay empty, which is what every swept before-state relies on");
-
-	static_assert(map_barrier_stages(Flags<Stage>(), ResourceUse::eSampledRead) == vk::PipelineStageFlagBits2::eAllCommands,
-		"a shader read names no stage the barrier can narrow to, so the derivation stays conservative rather than guessing one");
+	static_assert(
+		map_barrier_access(ResourceUse::eDepthStencilTarget) ==
+			(vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite),
+		"a depth target is read-write by definition, so naming only the write half loses the ordering against the test that reads it"
+	);
 
 	static_assert(
-		is_one_timestamp_stage(Flags<Stage>()) && is_one_timestamp_stage(Stage::eCompute) && !is_one_timestamp_stage(Flags<Stage>(Stage::eCompute) | Stage::eCopy),
-		"a timestamp names one point in the pipeline, so a mask carrying two is refused rather than silently reduced to one of them");
+		map_barrier_access(ResourceUse::eAccelBuildInput) == vk::AccessFlagBits2::eShaderRead,
+		"build inputs are geometry read by the build and the spec names SHADER_READ for them, the structure bits covering the structures themselves"
+	);
 
-	static_assert(timestamp_stage(Stage::eCopy) == vk::PipelineStageFlagBits2::eAllTransfer,
-		"the barrier table answers eCopy with three bits and a timestamp may carry one, which ALL_TRANSFER covers without dropping blit or clear");
+	static_assert(
+		map_barrier_access(ResourceUse::eAccelRead) == vk::AccessFlagBits2::eAccelerationStructureReadKHR &&
+			map_barrier_access(ResourceUse::eAccelWrite) == vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
+		"reading and building a structure are the two accesses the structure bits exist for"
+	);
 
-	static_assert(timestamp_stage(Stage::eDepthStencil) == vk::PipelineStageFlagBits2::eLateFragmentTests,
-		"the later test is the one that has all the depth work behind it, so sampling there cannot land between the two halves");
+	static_assert(
+		map_barrier_access(ResourceUse::eAccelBuildScratch) ==
+			(vk::AccessFlagBits2::eAccelerationStructureReadKHR | vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
+		"the spec names the pair for a scratch, not the write bit alone, so naming half of it leaves the build's own reads of that memory unordered"
+	);
 
-	static_assert(timestamp_stage(Flags<Stage>()) == vk::PipelineStageFlagBits2::eAllCommands,
-		"an unset stage means after everything, since an empty mask is not a pipeline stage and cannot be written as one");
+	static_assert(
+		map_barrier_stages(Flags<Stage>(), ResourceUse::eAccelBuildScratch) == vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+		"the same sentence names the build stage for a scratch, which is the only stage that touches it"
+	);
+
+	static_assert(
+		map_barrier_access(Flags<ResourceUse>(ResourceUse::eCopySrc) | ResourceUse::eResolveSrc) == vk::AccessFlagBits2::eTransferRead,
+		"Vulkan has no resolve access of its own, so a resolve reads and writes through the transfer accesses a copy uses"
+	);
+
+	static_assert(
+		!map_barrier_access(ResourceUse::eDiscard) && !map_barrier_access(ResourceUse::ePresent),
+		"discard and present reach no access, which is what keeps either from deriving a stage and landing a full-pipeline barrier per frame"
+	);
+
+	static_assert(
+		map_barrier_stages(Flags<Stage>(), ResourceUse::eColorTarget) == vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+		"a use with no stage must derive one, since an access mask with an empty stage mask is invalid under synchronization2"
+	);
+
+	static_assert(
+		map_barrier_stages(Stage::eCompute, ResourceUse::eColorTarget) == vk::PipelineStageFlagBits2::eComputeShader,
+		"an explicit stage set is honoured as written and never widened by what the use would have derived"
+	);
+
+	static_assert(
+		!map_barrier_stages(Flags<Stage>(), Flags<ResourceUse>()) && !map_barrier_stages(Flags<Stage>(), ResourceUse::ePresent),
+		"an empty state and a present state both stay empty, which is what every swept before-state relies on"
+	);
+
+	static_assert(
+		map_barrier_stages(Flags<Stage>(), ResourceUse::eSampledRead) == vk::PipelineStageFlagBits2::eAllCommands,
+		"a shader read names no stage the barrier can narrow to, so the derivation stays conservative rather than guessing one"
+	);
+
+	static_assert(
+		is_one_timestamp_stage(Flags<Stage>()) && is_one_timestamp_stage(Stage::eCompute) &&
+			!is_one_timestamp_stage(Flags<Stage>(Stage::eCompute) | Stage::eCopy),
+		"a timestamp names one point in the pipeline, so a mask carrying two is refused rather than silently reduced to one of them"
+	);
+
+	static_assert(
+		timestamp_stage(Stage::eCopy) == vk::PipelineStageFlagBits2::eAllTransfer,
+		"the barrier table answers eCopy with three bits and a timestamp may carry one, which ALL_TRANSFER covers without dropping blit or clear"
+	);
+
+	static_assert(
+		timestamp_stage(Stage::eDepthStencil) == vk::PipelineStageFlagBits2::eLateFragmentTests,
+		"the later test is the one that has all the depth work behind it, so sampling there cannot land between the two halves"
+	);
+
+	static_assert(
+		timestamp_stage(Flags<Stage>()) == vk::PipelineStageFlagBits2::eAllCommands,
+		"an unset stage means after everything, since an empty mask is not a pipeline stage and cannot be written as one"
+	);
 
 }

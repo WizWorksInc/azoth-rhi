@@ -23,6 +23,7 @@
 #include "azoth/rhi/resources/texture_view.hpp"
 
 #include <dispatch/dispatch.h>
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSSharedPtr.hpp>
@@ -405,9 +406,11 @@ namespace azo::rhi::metal_common
 	{
 		if (range.mipCount == kAllMips || range.layerCount == kAllLayers)
 		{
-			return fail(error,
+			return fail(
+				error,
 				ErrorCode::eInvalidArgument,
-				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes"
+			);
 		}
 
 		const auto mips				= static_cast<std::uint32_t>(texture->mipmapLevelCount());

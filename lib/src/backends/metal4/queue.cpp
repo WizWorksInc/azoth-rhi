@@ -20,8 +20,10 @@
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/host/allocator.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSSharedPtr.hpp>
@@ -32,6 +34,7 @@
 #include <Metal/MTLAllocation.hpp>
 #include <Metal/MTLEvent.hpp>
 #include <Metal/MTLResidencySet.hpp>
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -89,7 +92,8 @@ namespace azo::rhi::metal4
 				[](const CmdList &)
 				{
 					return false;
-				});
+				}
+			);
 			refusal != nullptr)
 		{
 			return fail(error, ErrorCode::eInvalidState, refusal);
@@ -258,7 +262,12 @@ namespace azo::rhi::metal4
 		return metal_wait_for_event(event, value, timeoutNanoseconds, error);
 	}
 
-	bool metal4_queue_begin_debug_label([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
+	bool metal4_queue_begin_debug_label(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] CString name,
+		[[maybe_unused]] std::uint32_t color,
+		Error * error
+	) noexcept
 	{
 		return succeed(error);
 	}
@@ -279,7 +288,8 @@ namespace azo::rhi::metal4
 				return nullptr;
 			}
 
-			return query_published<Published<RenderCommandApi, &render_command_block>,
+			return query_published<
+				Published<RenderCommandApi, &render_command_block>,
 				Published<QueryCommandApi, &query_command_block>,
 				Published<AliasingCommandApi, &aliasing_command_block>,
 				Published<IndirectApi, &indirect_block>,

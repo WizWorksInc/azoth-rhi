@@ -7,18 +7,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/commands/sync.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/bounded_count.hpp"
 #include "azoth/rhi/backend/support/host_containers.hpp"
-#include "azoth/rhi/commands/sync.hpp"
 #include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/core/external.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/host/allocator.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSSharedPtr.hpp>
 #include <Metal/MTLBlitCommandEncoder.hpp>
 #include <Metal/MTLBuffer.hpp>
@@ -26,16 +29,19 @@
 #include <Metal/MTLEvent.hpp>
 #include <Metal/MTLRenderCommandEncoder.hpp>
 #include <Metal/MTLTexture.hpp>
+
 #include <utility>
 
 namespace azo::rhi::metal
 {
 	TimelineHandle metal_create_timeline(void * impl, const TimelineDesc & desc, Error * error) noexcept
 	{
-		if (!metal_refuse_unexportable(desc.exportableHandleTypes,
+		if (!metal_refuse_unexportable(
+				desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedEvent,
 				"Metal exports a timeline only through MTLSharedEventHandle, and this asked for another handle type",
-				error))
+				error
+			))
 		{
 			return TimelineHandle{};
 		}
@@ -168,7 +174,10 @@ namespace azo::rhi::metal
 		if (object->list->renderEncoder.get() != nullptr)
 		{
 			return fail_value<MTL::BlitCommandEncoder *>(
-				error, ErrorCode::eInvalidState, "a transfer command cannot be recorded inside a rendering scope, so record it between passes");
+				error,
+				ErrorCode::eInvalidState,
+				"a transfer command cannot be recorded inside a rendering scope, so record it between passes"
+			);
 		}
 
 		end_active_encoders(object);
@@ -201,10 +210,12 @@ namespace azo::rhi::metal
 
 	BinarySemaphoreHandle metal_create_binary_semaphore(void * impl, const BinarySemaphoreDesc & desc, Error * error) noexcept
 	{
-		if (!metal_refuse_unexportable(desc.exportableHandleTypes,
+		if (!metal_refuse_unexportable(
+				desc.exportableHandleTypes,
 				ExternalHandleType::eMtlSharedEvent,
 				"Metal exports a binary semaphore only through MTLSharedEventHandle, and this asked for another handle type",
-				error))
+				error
+			))
 		{
 			return BinarySemaphoreHandle{};
 		}
@@ -220,11 +231,13 @@ namespace azo::rhi::metal
 		NS::SharedPtr<MTL::SharedEvent> event = NS::TransferPtr(raw);
 		event->setSignaledValue(0);
 
-		const BinarySemaphoreHandle handle = device->binarySemaphores.store(MetalBinarySemaphore{
-			.event				   = std::move(event),
-			.value				   = 0,
-			.exportableHandleTypes = desc.exportableHandleTypes,
-		});
+		const BinarySemaphoreHandle handle = device->binarySemaphores.store(
+			MetalBinarySemaphore{
+				.event				   = std::move(event),
+				.value				   = 0,
+				.exportableHandleTypes = desc.exportableHandleTypes,
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal binary semaphore tracking failed");

@@ -111,8 +111,10 @@ namespace azo::rhi
 #else
 		try
 		{
-			return HostUniquePtr<T>{ std::construct_at(static_cast<T *>(storage), std::forward<Args>(args)...),
-				HostDeleter{ .size = sizeof(T), .alignment = alignof(T) }, };
+			return HostUniquePtr<T>{
+				std::construct_at(static_cast<T *>(storage), std::forward<Args>(args)...),
+				HostDeleter{ .size = sizeof(T), .alignment = alignof(T) },
+			};
 		}
 		catch (...)
 		{

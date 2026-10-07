@@ -33,9 +33,11 @@ namespace azo::rhi::detail
 
 	inline constexpr std::size_t kBlockHeaderWords = sizeof(InterfaceHeader) / sizeof(AnyDispatchEntry);
 
-	static_assert(sizeof(InterfaceHeader) == sizeof(AnyDispatchEntry),
+	static_assert(
+		sizeof(InterfaceHeader) == sizeof(AnyDispatchEntry),
 		"The sweep reads a block as a flat run of words with the header occupying whole ones. A header that is not a word wide would leave the entries "
-		"unaligned to that run.");
+		"unaligned to that run."
+	);
 
 	template <typename Block>
 	struct BlockEntries;
@@ -52,9 +54,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend instance publishes no InstanceApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(InstanceApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(InstanceApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from InstanceApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -95,9 +99,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend device publishes no CoreDeviceApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(CoreDeviceApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(CoreDeviceApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from CoreDeviceApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -107,9 +113,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no PresentApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(PresentApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(PresentApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from PresentApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -125,9 +133,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no PlacedMemoryApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(PlacedMemoryApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(PlacedMemoryApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from PlacedMemoryApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -141,9 +151,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no RayTracingApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(RayTracingApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(RayTracingApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from RayTracingApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -156,9 +168,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no QueryApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(QueryApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(QueryApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from QueryApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -180,9 +194,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no ExternalSharingApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(ExternalSharingApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(ExternalSharingApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from ExternalSharingApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -192,9 +208,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no ExternalCapabilityApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(ExternalCapabilityApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(ExternalCapabilityApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from ExternalCapabilityApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -207,22 +225,28 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no PipelineCacheApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(PipelineCacheApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(PipelineCacheApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from PipelineCacheApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
 	struct BlockEntries<ResourceIntrospectionApi> final
 	{
-		static constexpr std::array<std::string_view, 2> kNames{ "ResourceIntrospectionApi::getTextureInfo is null",
-			"ResourceIntrospectionApi::getBufferInfo is null", };
+		static constexpr std::array<std::string_view, 2> kNames{
+			"ResourceIntrospectionApi::getTextureInfo is null",
+			"ResourceIntrospectionApi::getBufferInfo is null",
+		};
 
 		static constexpr std::string_view kBlockMissing{ "the backend device publishes no ResourceIntrospectionApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(ResourceIntrospectionApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(ResourceIntrospectionApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from ResourceIntrospectionApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -235,9 +259,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no ResidencyApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(ResidencyApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(ResidencyApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from ResidencyApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -260,9 +286,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no AdoptionApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(AdoptionApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(AdoptionApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from AdoptionApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -281,9 +309,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend queue publishes no QueueApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(QueueApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(QueueApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from QueueApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -295,9 +325,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no SparseApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(SparseApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(SparseApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from SparseApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -310,9 +342,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend command pool publishes no CommandPoolApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(CommandPoolApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(CommandPoolApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from CommandPoolApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -327,9 +361,11 @@ namespace azo::rhi::detail
 			"the backend descriptor arena publishes no DescriptorArenaApi, or a shorter one than this build reads"
 		};
 
-		static_assert(sizeof(DescriptorArenaApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(DescriptorArenaApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from DescriptorArenaApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -370,9 +406,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend command list publishes no RenderCommandApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(RenderCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(RenderCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from RenderCommandApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -384,9 +422,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no AliasingCommandApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(AliasingCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(AliasingCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from AliasingCommandApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -402,9 +442,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no RayTracingCommandApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(RayTracingCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(RayTracingCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from RayTracingCommandApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -420,9 +462,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no QueryCommandApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(QueryCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(QueryCommandApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from QueryCommandApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -436,9 +480,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no IndirectApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(IndirectApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(IndirectApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from IndirectApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -451,9 +497,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no IndirectCountApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(IndirectCountApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(IndirectCountApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from IndirectCountApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -466,9 +514,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend object publishes no NativeEscapeApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(NativeEscapeApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(NativeEscapeApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from NativeEscapeApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <>
@@ -492,9 +542,11 @@ namespace azo::rhi::detail
 
 		static constexpr std::string_view kBlockMissing{ "the backend swapchain publishes no SwapchainApi, or a shorter one than this build reads" };
 
-		static_assert(sizeof(SwapchainApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
+		static_assert(
+			sizeof(SwapchainApi) == (kBlockHeaderWords + kNames.size()) * sizeof(AnyDispatchEntry),
 			"An entry was added to or removed from SwapchainApi without updating this list. The sweep reads a block as a flat run of function "
-			"pointers, so the two have to stay the same length.");
+			"pointers, so the two have to stay the same length."
+		);
 	};
 
 	template <typename Block>

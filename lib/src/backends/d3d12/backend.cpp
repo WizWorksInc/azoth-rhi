@@ -94,9 +94,11 @@ namespace azo::rhi
 			};
 		}
 
-		return D3D12NativeSwapchain{
-			.swapchain = impl->swapchain.Get(), .format = impl->format, .width = impl->width, .height = impl->height, .imageCount = impl->imageCount
-		};
+		return D3D12NativeSwapchain{ .swapchain = impl->swapchain.Get(),
+			.format								= impl->format,
+			.width								= impl->width,
+			.height								= impl->height,
+			.imageCount							= impl->imageCount };
 	}
 
 	Result<native::D3D12QueueView> get_d3_d12_queue_view(Queue queue)

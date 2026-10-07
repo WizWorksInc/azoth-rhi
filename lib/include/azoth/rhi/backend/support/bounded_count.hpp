@@ -104,7 +104,10 @@ namespace azo::rhi
 
 	// A fresh or recording list is refused everywhere, and a submitted one only where the backend or the pending work forbids it.
 	[[nodiscard]] constexpr const char * submit_refusal_for(
-		const ListLifecycle lifecycle, const bool backendResubmits, const bool earlierSubmitPending) noexcept
+		const ListLifecycle lifecycle,
+		const bool backendResubmits,
+		const bool earlierSubmitPending
+	) noexcept
 	{
 		switch (lifecycle)
 		{

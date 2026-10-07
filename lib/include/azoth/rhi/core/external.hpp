@@ -65,9 +65,11 @@ namespace azo::rhi
 		}
 	}
 
-	static_assert(detail::all_external_handle_bits() == (1u << kAllExternalHandleTypes.size()) - 1u,
+	static_assert(
+		detail::all_external_handle_bits() == (1u << kAllExternalHandleTypes.size()) - 1u,
 		"kAllExternalHandleTypes is missing an ExternalHandleType, or the values are no longer one contiguous run of bits from the low bit up. Every "
-		"site that sweeps handle types reads this list, so a gap here is a type nothing validates and nothing tests.");
+		"site that sweeps handle types reads this list, so a gap here is a type nothing validates and nothing tests."
+	);
 
 	struct ExternalHandle final
 	{

@@ -72,10 +72,12 @@ namespace azo::rhi::d3d12
 
 	BufferHandle D3D12CreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept
 	{
-		if (!D3D12RefuseUnexportable(desc.exportableHandleTypes,
+		if (!D3D12RefuseUnexportable(
+				desc.exportableHandleTypes,
 				Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Resource,
 				"buffer creation asked for an external handle type Direct3D 12 cannot export",
-				error))
+				error
+			))
 		{
 			return BufferHandle{};
 		}
@@ -93,9 +95,11 @@ namespace azo::rhi::d3d12
 
 		if (desc.usage.contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
-			return FailValue<BufferHandle>(error,
+			return FailValue<BufferHandle>(
+				error,
 				ErrorCode::eInvalidArgument,
-				"an acceleration structure buffer must be device local, since Direct3D 12 places one only in the default heap");
+				"an acceleration structure buffer must be device local, since Direct3D 12 places one only in the default heap"
+			);
 		}
 
 		D3D12_RESOURCE_DESC resourceDesc{};
@@ -122,28 +126,38 @@ namespace azo::rhi::d3d12
 		{
 			if (!desc.exportableHandleTypes.empty())
 			{
-				return FailValue<BufferHandle>(error,
+				return FailValue<BufferHandle>(
+					error,
 					ErrorCode::eUnsupportedFeature,
-					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse buffer cannot also be exportable");
+					"Direct3D 12 shares memory through a heap and a reserved resource has none, so a sparse buffer cannot also be exportable"
+				);
 			}
 
 			ComPtr<ID3D12Resource> reserved;
 			if (FAILED(device->device->CreateReservedResource(
-					&resourceDesc, InitialBufferState(D3D12_HEAP_TYPE_DEFAULT, desc.usage), nullptr, IID_PPV_ARGS(reserved.GetAddressOf()))))
+					&resourceDesc,
+					InitialBufferState(D3D12_HEAP_TYPE_DEFAULT, desc.usage),
+					nullptr,
+					IID_PPV_ARGS(reserved.GetAddressOf())
+				)))
 			{
 				return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreateReservedResource failed for a sparse buffer");
 			}
 
 			NameD3D12Object(reserved.Get(), desc.debugName, device->debugNames);
 
-			return ReturnValue(device->bufferSlots.store(BufferSlot{
-								   .resource	= std::move(reserved),
-								   .size		= desc.size,
-								   .hostVisible = false,
-								   .reserved	= true,
-								   .desc		= detail::recorded(desc),
-							   }),
-				error);
+			return ReturnValue(
+				device->bufferSlots.store(
+					BufferSlot{
+						.resource	 = std::move(reserved),
+						.size		 = desc.size,
+						.hostVisible = false,
+						.reserved	 = true,
+						.desc		 = detail::recorded(desc),
+					}
+				),
+				error
+			);
 		}
 
 		D3D12MA::ALLOCATION_DESC allocationDesc{};
@@ -154,7 +168,10 @@ namespace azo::rhi::d3d12
 			if (heapType != D3D12_HEAP_TYPE_DEFAULT)
 			{
 				return FailValue<BufferHandle>(
-					error, ErrorCode::eUnsupportedFeature, "Direct3D 12 cannot share upload or readback memory, so an exportable buffer must be device local");
+					error,
+					ErrorCode::eUnsupportedFeature,
+					"Direct3D 12 cannot share upload or readback memory, so an exportable buffer must be device local"
+				);
 			}
 
 			allocationDesc.ExtraHeapFlags |= D3D12_HEAP_FLAG_SHARED;
@@ -163,12 +180,14 @@ namespace azo::rhi::d3d12
 
 		ComPtr<D3D12MA::Allocation> allocation;
 		ComPtr<ID3D12Resource> resource;
-		const HRESULT hr = device->allocator->CreateResource(&allocationDesc,
+		const HRESULT hr = device->allocator->CreateResource(
+			&allocationDesc,
 			&resourceDesc,
 			InitialBufferState(heapType, desc.usage),
 			nullptr,
 			allocation.GetAddressOf(),
-			IID_PPV_ARGS(resource.GetAddressOf()));
+			IID_PPV_ARGS(resource.GetAddressOf())
+		);
 		if (FAILED(hr))
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "D3D12MA::CreateResource failed for a buffer");
@@ -176,14 +195,18 @@ namespace azo::rhi::d3d12
 
 		NameD3D12Object(resource.Get(), desc.debugName, device->debugNames);
 
-		return ReturnValue(device->bufferSlots.store(BufferSlot{ .allocation = std::move(allocation),
-							   .resource									 = std::move(resource),
-							   .size										 = desc.size,
-							   .hostVisible									 = hostVisible,
-							   .heapType									 = heapType,
-							   .exportableHandleTypes						 = desc.exportableHandleTypes,
-							   .desc										 = detail::recorded(desc) }),
-			error);
+		return ReturnValue(
+			device->bufferSlots.store(
+				BufferSlot{ .allocation	   = std::move(allocation),
+					.resource			   = std::move(resource),
+					.size				   = desc.size,
+					.hostVisible		   = hostVisible,
+					.heapType			   = heapType,
+					.exportableHandleTypes = desc.exportableHandleTypes,
+					.desc				   = detail::recorded(desc) }
+			),
+			error
+		);
 	}
 
 	MappedMemory D3D12Map(void * impl, BufferHandle handle, const MapDesc & desc, Error * error) noexcept
@@ -230,7 +253,8 @@ namespace azo::rhi::d3d12
 				.size	  = mapSize,
 				.coherent = HostReadsAreCoherent(slot->heapType),
 			},
-			error);
+			error
+		);
 	}
 
 	bool D3D12Unmap(void * impl, BufferHandle handle, Error * error) noexcept
@@ -250,7 +274,12 @@ namespace azo::rhi::d3d12
 	}
 
 	bool D3D12FlushMappedRange(
-		void * impl, BufferHandle handle, [[maybe_unused]] std::uint64_t offset, [[maybe_unused]] std::uint64_t size, Error * error) noexcept
+		void * impl,
+		BufferHandle handle,
+		[[maybe_unused]] std::uint64_t offset,
+		[[maybe_unused]] std::uint64_t size,
+		Error * error
+	) noexcept
 	{
 		auto * device = static_cast<D3D12Device *>(impl);
 		return ResolveBuffer(device, handle) != nullptr ? Succeed(error) : Fail(error, ErrorCode::eInvalidHandle, "flush of an invalid buffer handle");

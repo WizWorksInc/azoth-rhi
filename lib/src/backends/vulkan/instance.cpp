@@ -15,13 +15,16 @@
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/device.hpp"
 #include "azoth/rhi/host/allocator.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "support/driver_version.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <vulkan/vulkan.hpp>
 
 namespace azo::rhi::vulkan
 {
@@ -59,8 +62,8 @@ namespace azo::rhi::vulkan
 		for (const vk::PhysicalDevice & phys : physicals)
 		{
 			const auto chain = phys.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties>(instance->dispatch);
-			const vk::PhysicalDeviceProperties & props			   = chain.get<vk::PhysicalDeviceProperties2>().properties;
-			const auto & driverProps = chain.get<vk::PhysicalDeviceDriverProperties>();
+			const vk::PhysicalDeviceProperties & props = chain.get<vk::PhysicalDeviceProperties2>().properties;
+			const auto & driverProps				   = chain.get<vk::PhysicalDeviceDriverProperties>();
 
 			if (!detail::try_push_back(instance->adapterNames, props.deviceName.data()) ||
 				!detail::try_push_back(instance->driverInfos, driverProps.driverInfo.data()) ||
@@ -87,20 +90,23 @@ namespace azo::rhi::vulkan
 			}
 
 			const auto chain = physicals[i].getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceIDProperties>(
-				instance->dispatch);
-			const vk::PhysicalDeviceProperties & props			   = chain.get<vk::PhysicalDeviceProperties2>().properties;
-			const auto & driverProps = chain.get<vk::PhysicalDeviceDriverProperties>();
-			adapters[slot]										   = AdapterInfo{ .type = map_adapter_type(props.deviceType),
-				.apiId							= VulkanApi::kId,
-				.adapterIndex					= i,
-				.vendorId						= props.vendorID,
-				.deviceId						= props.deviceID,
+				instance->dispatch
+			);
+			const vk::PhysicalDeviceProperties & props = chain.get<vk::PhysicalDeviceProperties2>().properties;
+			const auto & driverProps				   = chain.get<vk::PhysicalDeviceDriverProperties>();
+			adapters[slot]							   = AdapterInfo{
+				.type					   = map_adapter_type(props.deviceType),
+				.apiId					   = VulkanApi::kId,
+				.adapterIndex			   = i,
+				.vendorId				   = props.vendorID,
+				.deviceId				   = props.deviceID,
 				.unifiedMemoryArchitecture = props.deviceType == vk::PhysicalDeviceType::eIntegratedGpu || props.deviceType == vk::PhysicalDeviceType::eCpu,
 				.name					   = instance->adapterNames[i].c_str(),
 				.driverId				   = map_driver_id(driverProps.driverID),
 				.driverVersionRaw		   = props.driverVersion,
 				.driverVersion			   = instance->driverVersions[i].c_str(),
-				.driverInfo				   = instance->driverInfos[i].c_str(), };
+				.driverInfo				   = instance->driverInfos[i].c_str(),
+			};
 			fill_adapter_identity(adapters[slot], chain.get<vk::PhysicalDeviceIDProperties>());
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 		}
@@ -210,8 +216,12 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	ExternalHandleSupport vulkan_external_support_of(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch,
-		const ExternalHandleSupportDesc & desc, const vk::BufferUsageFlags bufferUsage) noexcept
+	ExternalHandleSupport vulkan_external_support_of(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		const ExternalHandleSupportDesc & desc,
+		const vk::BufferUsageFlags bufferUsage
+	) noexcept
 	{
 		ExternalHandleSupport support{};
 
@@ -318,8 +328,15 @@ namespace azo::rhi::vulkan
 		return succeed(error);
 	}
 
-	bool vulkan_refuse_unexportable(const VulkanDevice * device, const Flags<ExternalHandleType> declared, const ExternalObjectKind kind, const Format format,
-		const vk::BufferUsageFlags bufferUsage, const char * what, Error * error) noexcept
+	bool vulkan_refuse_unexportable(
+		const VulkanDevice * device,
+		const Flags<ExternalHandleType> declared,
+		const ExternalObjectKind kind,
+		const Format format,
+		const vk::BufferUsageFlags bufferUsage,
+		const char * what,
+		Error * error
+	) noexcept
 	{
 		if (declared.empty())
 		{

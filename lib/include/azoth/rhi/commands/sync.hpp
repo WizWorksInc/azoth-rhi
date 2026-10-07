@@ -118,8 +118,8 @@ namespace azo::rhi
 	[[nodiscard]] constexpr bool queue_can_name_stage(const QueueType queue, const Flags<Stage> stage) noexcept
 	{
 		constexpr Flags<Stage> kEverywhere = Flags<Stage>(Stage::eHost) | Stage::eAllCommands;
-		constexpr Flags<Stage> kTransfer	  = kEverywhere | Stage::eCopy | Stage::eResolve;
-		constexpr Flags<Stage> kCompute	  = kTransfer | Stage::eIndirectFetch | Stage::eCompute | Stage::eRayTracing | Stage::eAccelBuild;
+		constexpr Flags<Stage> kTransfer   = kEverywhere | Stage::eCopy | Stage::eResolve;
+		constexpr Flags<Stage> kCompute	   = kTransfer | Stage::eIndirectFetch | Stage::eCompute | Stage::eRayTracing | Stage::eAccelBuild;
 
 		switch (queue)
 		{
@@ -335,7 +335,10 @@ namespace azo::rhi
 		[[nodiscard]] Result<std::uint64_t> get_completed_value_with_result(TimelineHandle timeline) const noexcept;
 
 		[[nodiscard]] bool wait(
-			TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
+			TimelineHandle timeline,
+			std::uint64_t value,
+			std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()
+		) noexcept;
 		[[nodiscard]] bool wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error & error) noexcept;
 
 		[[nodiscard]] bool signal(TimelineHandle timeline, std::uint64_t value) noexcept;

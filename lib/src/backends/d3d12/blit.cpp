@@ -79,12 +79,23 @@ namespace azo::rhi::d3d12
 
 		const std::array<UINT, 4> values{ value, value, value, value };
 		list->list->ClearUnorderedAccessViewUint(
-			GpuHandleAt(list->clearGpuHeap.Get(), list->clearHeapIncrement, index), stagingCpu, slot->resource.Get(), values.data(), 0, nullptr);
+			GpuHandleAt(list->clearGpuHeap.Get(), list->clearHeapIncrement, index),
+			stagingCpu,
+			slot->resource.Get(),
+			values.data(),
+			0,
+			nullptr
+		);
 		return Succeed(error);
 	}
 
 	bool D3D12CmdClearTexture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device = list->owner;
@@ -101,7 +112,10 @@ namespace azo::rhi::d3d12
 		if (!slot->usage.contains(TextureUsage::eColorAttachment))
 		{
 			return Fail(
-				error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Direct3D 12 clears through");
+				error,
+				ErrorCode::eInvalidArgument,
+				"clearTexture needs a texture usable as a color attachment, which is what Direct3D 12 clears through"
+			);
 		}
 
 		const std::array<float, 4> rgba{ color.r, color.g, color.b, color.a };
@@ -174,7 +188,8 @@ namespace azo::rhi::d3d12
 					.top						= region.srcOffset.y,
 					.right						= region.srcOffset.x + static_cast<LONG>(region.extent.width),
 					.bottom						= region.srcOffset.y + static_cast<LONG>(region.extent.height) };
-				list1->ResolveSubresourceRegion(dstSlot->resource.Get(),
+				list1->ResolveSubresourceRegion(
+					dstSlot->resource.Get(),
 					SubresourceIndex(region.dstSubresource, dstSlot->mipLevels),
 					static_cast<UINT>(region.dstOffset.x),
 					static_cast<UINT>(region.dstOffset.y),
@@ -182,22 +197,31 @@ namespace azo::rhi::d3d12
 					SubresourceIndex(region.srcSubresource, srcSlot->mipLevels),
 					const_cast<D3D12_RECT *>(&srcRect),
 					dstSlot->format,
-					D3D12_RESOLVE_MODE_AVERAGE);
+					D3D12_RESOLVE_MODE_AVERAGE
+				);
 			}
 			else
 			{
-				list->list->ResolveSubresource(dstSlot->resource.Get(),
+				list->list->ResolveSubresource(
+					dstSlot->resource.Get(),
 					SubresourceIndex(region.dstSubresource, dstSlot->mipLevels),
 					srcSlot->resource.Get(),
 					SubresourceIndex(region.srcSubresource, srcSlot->mipLevels),
-					dstSlot->format);
+					dstSlot->format
+				);
 			}
 		}
 		return Succeed(error);
 	}
 
-	bool D3D12CmdBlit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src,
-		[[maybe_unused]] std::span<const TextureBlit> regions, [[maybe_unused]] Filter filter, Error * error) noexcept
+	bool D3D12CmdBlit(
+		void * impl,
+		[[maybe_unused]] TextureHandle dst,
+		[[maybe_unused]] TextureHandle src,
+		[[maybe_unused]] std::span<const TextureBlit> regions,
+		[[maybe_unused]] Filter filter,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.blit");
 		static_cast<void>(impl);

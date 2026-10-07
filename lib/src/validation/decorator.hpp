@@ -217,10 +217,12 @@ namespace azo::rhi::validation
 	template <class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct Forward<Member>
 	{
-		static_assert(!kIsHandle<R>,
+		static_assert(
+			!kIsHandle<R>,
 			"an entry returning a Handle must use Vending, which records it with the validation registry. "
 			"Forward passes the handle straight through, so nothing has heard of it and the first use is "
-			"refused as stale.");
+			"refused as stale."
+		);
 
 		static R call(void * impl, Args... args) noexcept
 		{
@@ -255,11 +257,13 @@ namespace azo::rhi::validation
 			return true;
 		}
 
-		return validator.Handles().lookup(RegisteredHandle{
-				   .type	   = detail::ResourceTypeOf<Handle<Tag>>::kValue,
-				   .index	   = handle.index,
-				   .generation = handle.generation,
-			   }) != nullptr;
+		return validator.Handles().lookup(
+				   RegisteredHandle{
+					   .type	   = detail::ResourceTypeOf<Handle<Tag>>::kValue,
+					   .index	   = handle.index,
+					   .generation = handle.generation,
+				   }
+			   ) != nullptr;
 	}
 
 	template <class... Handles>
@@ -499,8 +503,8 @@ namespace azo::rhi::validation
 
 	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const SparseBindDesc & desc) noexcept
 	{
-		return argument_is_usable(validator, desc.buffers) && argument_is_usable(validator, desc.textures) && argument_is_usable(validator, desc.timelineWaits) &&
-			   argument_is_usable(validator, desc.timelineSignals);
+		return argument_is_usable(validator, desc.buffers) && argument_is_usable(validator, desc.textures) &&
+			   argument_is_usable(validator, desc.timelineWaits) && argument_is_usable(validator, desc.timelineSignals);
 	}
 
 	template <auto Member>
@@ -618,7 +622,9 @@ namespace azo::rhi::validation
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
 				return self->validator->fail_value<R>(
-					error, "a transfer or dispatch recorded inside a rendering scope, which has to be recorded between passes");
+					error,
+					"a transfer or dispatch recorded inside a rendering scope, which has to be recorded between passes"
+				);
 			}
 
 			return RecordedCheckedEntry<ChecksThread, Member>::call(impl, args...);
@@ -775,8 +781,8 @@ namespace azo::rhi::validation
 
 		if (is_depth_format(format))
 		{
-			const auto depth = static_cast<std::uint64_t>(TextureAspect::eDepth);
-			const bool stencil		  = format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
+			const auto depth   = static_cast<std::uint64_t>(TextureAspect::eDepth);
+			const bool stencil = format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
 			return stencil ? depth | static_cast<std::uint64_t>(TextureAspect::eStencil) : depth;
 		}
 
@@ -785,8 +791,10 @@ namespace azo::rhi::validation
 
 	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const TextureDesc & desc) noexcept
 	{
-		static_assert(std::numeric_limits<std::underlying_type_t<TextureUsage>>::digits <= kMipCountShift,
-			"a texture usage bit reaches the mip count, so the two would overwrite each other");
+		static_assert(
+			std::numeric_limits<std::underlying_type_t<TextureUsage>>::digits <= kMipCountShift,
+			"a texture usage bit reaches the mip count, so the two would overwrite each other"
+		);
 		static_assert((kAspectMax << kAspectShift) < kExtentsDeclared, "the aspect field runs into the declared-extents and declared-usage flags above it");
 		static_assert(kAllAspects.bits() <= kAspectMax, "an aspect enumerator reaches past the field, so it would be read as one of the flags above it");
 

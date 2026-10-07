@@ -7,16 +7,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/commands/render.hpp"
+
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/commands/command.hpp"
-#include "azoth/rhi/commands/render.hpp"
 #include "azoth/rhi/core/build_config.hpp"
 #include "azoth/rhi/core/constants.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Foundation/NSTypes.hpp>
@@ -28,6 +31,7 @@
 #include <Metal/MTLRenderCommandEncoder.hpp>
 #include <Metal/MTLRenderPass.hpp>
 #include <Metal/MTLTexture.hpp>
+
 #include <cstdint>
 
 namespace azo::rhi::metal4
@@ -197,7 +201,14 @@ namespace azo::rhi::metal4
 			height	= -static_cast<double>(viewport.height);
 		}
 
-		list->renderEncoder->setViewport(MTL::Viewport{ .originX=viewport.x, .originY=originY, .width=viewport.width, .height=height, .znear=viewport.minDepth, .zfar=viewport.maxDepth });
+		list->renderEncoder->setViewport(
+			MTL::Viewport{ .originX = viewport.x,
+				.originY			= originY,
+				.width				= viewport.width,
+				.height				= height,
+				.znear				= viewport.minDepth,
+				.zfar				= viewport.maxDepth }
+		);
 		return succeed(error);
 	}
 
@@ -209,10 +220,14 @@ namespace azo::rhi::metal4
 			return fail(error, ErrorCode::eInvalidState, "setScissor outside a rendering scope");
 		}
 
-		list->renderEncoder->setScissorRect(MTL::ScissorRect{ .x=static_cast<NS::UInteger>(scissor.x),
-			.y=static_cast<NS::UInteger>(scissor.y),
-			.width=static_cast<NS::UInteger>(scissor.width),
-			.height=static_cast<NS::UInteger>(scissor.height), });
+		list->renderEncoder->setScissorRect(
+			MTL::ScissorRect{
+				.x		= static_cast<NS::UInteger>(scissor.x),
+				.y		= static_cast<NS::UInteger>(scissor.y),
+				.width	= static_cast<NS::UInteger>(scissor.width),
+				.height = static_cast<NS::UInteger>(scissor.height),
+			}
+		);
 		return succeed(error);
 	}
 
@@ -299,8 +314,14 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-	bool metal4_cmd_draw(void * impl, const std::uint32_t vertexCount, const std::uint32_t instanceCount, const std::uint32_t firstVertex,
-		const std::uint32_t firstInstance, Error * error) noexcept
+	bool metal4_cmd_draw(
+		void * impl,
+		const std::uint32_t vertexCount,
+		const std::uint32_t instanceCount,
+		const std::uint32_t firstVertex,
+		const std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		CmdList * list = list_of(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -313,8 +334,15 @@ namespace azo::rhi::metal4
 		return succeed(error);
 	}
 
-	bool metal4_cmd_draw_indexed(void * impl, const std::uint32_t indexCount, const std::uint32_t instanceCount, const std::uint32_t firstIndex,
-		const std::int32_t vertexOffset, const std::uint32_t firstInstance, Error * error) noexcept
+	bool metal4_cmd_draw_indexed(
+		void * impl,
+		const std::uint32_t indexCount,
+		const std::uint32_t instanceCount,
+		const std::uint32_t firstIndex,
+		const std::int32_t vertexOffset,
+		const std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		CmdList * list = list_of(static_cast<Metal4Object *>(impl));
 		if (list == nullptr || list->renderEncoder.get() == nullptr)
@@ -334,20 +362,28 @@ namespace azo::rhi::metal4
 			return fail(error, ErrorCode::eInvalidArgument, "drawIndexed reads past the end of the bound index buffer");
 		}
 
-		list->renderEncoder->drawIndexedPrimitives(list->boundPrimitive,
+		list->renderEncoder->drawIndexedPrimitives(
+			list->boundPrimitive,
 			indexCount,
 			list->boundIndexType,
 			list->boundIndexBuffer + byteStart,
 			list->boundIndexLength - byteStart,
 			instanceCount,
 			vertexOffset,
-			firstInstance);
+			firstInstance
+		);
 		list->scopeDrew = true;
 		return succeed(error);
 	}
 
 	bool metal4_cmd_draw_indirect(
-		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
+		void * impl,
+		BufferHandle args,
+		const std::uint64_t offset,
+		const std::uint32_t drawCount,
+		const std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -374,7 +410,13 @@ namespace azo::rhi::metal4
 	}
 
 	bool metal4_cmd_draw_indexed_indirect(
-		void * impl, BufferHandle args, const std::uint64_t offset, const std::uint32_t drawCount, const std::uint32_t stride, Error * error) noexcept
+		void * impl,
+		BufferHandle args,
+		const std::uint64_t offset,
+		const std::uint32_t drawCount,
+		const std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		auto * object		  = static_cast<Metal4Object *>(impl);
 		Metal4Device * device = object->owner;
@@ -397,11 +439,13 @@ namespace azo::rhi::metal4
 		const std::uint32_t step = stride != 0 ? stride : 20;
 		for (std::uint32_t draw = 0; draw < drawCount; ++draw)
 		{
-			list->renderEncoder->drawIndexedPrimitives(list->boundPrimitive,
+			list->renderEncoder->drawIndexedPrimitives(
+				list->boundPrimitive,
 				list->boundIndexType,
 				list->boundIndexBuffer,
 				list->boundIndexLength,
-				buffer->gpuAddress() + offset + (static_cast<std::uint64_t>(draw) * step));
+				buffer->gpuAddress() + offset + (static_cast<std::uint64_t>(draw) * step)
+			);
 			list->scopeDrew = true;
 		}
 

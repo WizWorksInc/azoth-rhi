@@ -21,8 +21,10 @@
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
 #include "azoth/rhi/resources/texture_view.hpp"
+
 #include "backends/metal/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Foundation/NSString.hpp>
@@ -38,6 +40,7 @@
 #include <Metal/MTLResource.hpp>
 #include <Metal/MTLTexture.hpp>
 #include <Metal/MTLTypes.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -287,7 +290,14 @@ namespace azo::rhi::metal
 	}
 
 	bool metal_copy_buffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.copyBuffer");
 
@@ -352,9 +362,10 @@ namespace azo::rhi::metal
 		{
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
-			const auto bytesPerRow	 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
+			const auto bytesPerRow			 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
 			const NS::UInteger bytesPerImage = bytesPerRow * detail::block_rows(format, imageRows);
-			encoder->copyFromBuffer(buffer,
+			encoder->copyFromBuffer(
+				buffer,
 				region.bufferOffset,
 				bytesPerRow,
 				bytesPerImage,
@@ -362,9 +373,12 @@ namespace azo::rhi::metal
 				texture,
 				region.subresource.layer,
 				region.subresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.textureOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.textureOffset.x),
 					static_cast<NS::UInteger>(region.textureOffset.y),
-					static_cast<NS::UInteger>(region.textureOffset.z)));
+					static_cast<NS::UInteger>(region.textureOffset.z)
+				)
+			);
 		}
 		encoder->endEncoding();
 		return succeed(error);
@@ -405,19 +419,23 @@ namespace azo::rhi::metal
 		{
 			const std::uint32_t rowTexels	 = region.bufferRowLength != 0 ? region.bufferRowLength : region.textureExtent.width;
 			const std::uint32_t imageRows	 = region.bufferImageHeight != 0 ? region.bufferImageHeight : region.textureExtent.height;
-			const auto bytesPerRow	 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
+			const auto bytesPerRow			 = static_cast<NS::UInteger>(detail::tight_row_pitch(format, rowTexels));
 			const NS::UInteger bytesPerImage = bytesPerRow * detail::block_rows(format, imageRows);
-			encoder->copyFromTexture(texture,
+			encoder->copyFromTexture(
+				texture,
 				region.subresource.layer,
 				region.subresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.textureOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.textureOffset.x),
 					static_cast<NS::UInteger>(region.textureOffset.y),
-					static_cast<NS::UInteger>(region.textureOffset.z)),
+					static_cast<NS::UInteger>(region.textureOffset.z)
+				),
 				MTL::Size::Make(region.textureExtent.width, region.textureExtent.height, region.textureExtent.depth),
 				buffer,
 				region.bufferOffset,
 				bytesPerRow,
-				bytesPerImage);
+				bytesPerImage
+			);
 		}
 		encoder->endEncoding();
 		return succeed(error);
@@ -450,26 +468,38 @@ namespace azo::rhi::metal
 		}
 		for (const TextureCopy & region : regions)
 		{
-			encoder->copyFromTexture(source,
+			encoder->copyFromTexture(
+				source,
 				region.srcSubresource.layer,
 				region.srcSubresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.srcOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.srcOffset.x),
 					static_cast<NS::UInteger>(region.srcOffset.y),
-					static_cast<NS::UInteger>(region.srcOffset.z)),
+					static_cast<NS::UInteger>(region.srcOffset.z)
+				),
 				MTL::Size::Make(region.extent.width, region.extent.height, region.extent.depth),
 				destination,
 				region.dstSubresource.layer,
 				region.dstSubresource.mip,
-				MTL::Origin::Make(static_cast<NS::UInteger>(region.dstOffset.x),
+				MTL::Origin::Make(
+					static_cast<NS::UInteger>(region.dstOffset.x),
 					static_cast<NS::UInteger>(region.dstOffset.y),
-					static_cast<NS::UInteger>(region.dstOffset.z)));
+					static_cast<NS::UInteger>(region.dstOffset.z)
+				)
+			);
 		}
 		encoder->endEncoding();
 		return succeed(error);
 	}
 
-	bool metal_blit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src, [[maybe_unused]] std::span<const TextureBlit> regions,
-		[[maybe_unused]] Filter filter, Error * error) noexcept
+	bool metal_blit(
+		void * impl,
+		[[maybe_unused]] TextureHandle dst,
+		[[maybe_unused]] TextureHandle src,
+		[[maybe_unused]] std::span<const TextureBlit> regions,
+		[[maybe_unused]] Filter filter,
+		Error * error
+	) noexcept
 	{
 		[[maybe_unused]] auto * object = static_cast<MetalObject *>(impl);
 		return fail(error, ErrorCode::eUnsupportedFeature, "Metal has no scaled blit; use generateMips or a compute downsample");
@@ -502,7 +532,10 @@ namespace azo::rhi::metal
 		if (tracked != nullptr && (is_compressed_format(tracked->format) || is_integer_format(tracked->format) || is_depth_format(tracked->format)))
 		{
 			return fail(
-				error, ErrorCode::eUnsupportedFeature, "generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"generateMips needs a linear-filterable, renderable format (not block-compressed, integer, or depth)"
+			);
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
@@ -559,7 +592,12 @@ namespace azo::rhi::metal
 	}
 
 	bool metal_clear_texture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.clearTexture");
 

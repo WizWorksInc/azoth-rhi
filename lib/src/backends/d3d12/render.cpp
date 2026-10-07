@@ -98,7 +98,11 @@ namespace azo::rhi::d3d12
 		}
 
 		list->list->OMSetRenderTargets(
-			static_cast<UINT>(rtvHandles.size()), rtvHandles.empty() ? nullptr : rtvHandles.data(), FALSE, haveDepth ? &dsvHandle : nullptr);
+			static_cast<UINT>(rtvHandles.size()),
+			rtvHandles.empty() ? nullptr : rtvHandles.data(),
+			FALSE,
+			haveDepth ? &dsvHandle : nullptr
+		);
 
 		for (std::size_t i = 0; i < desc.colors.size(); ++i)
 		{
@@ -112,12 +116,14 @@ namespace azo::rhi::d3d12
 		if (haveDepth && desc.depthStencil->load == LoadOp::eClear)
 		{
 			const D3D12_CLEAR_FLAGS clearFlags = dsvHasStencil ? (D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL) : D3D12_CLEAR_FLAG_DEPTH;
-			list->list->ClearDepthStencilView(dsvHandle,
+			list->list->ClearDepthStencilView(
+				dsvHandle,
 				clearFlags,
 				desc.depthStencil->clearDepthStencil.depth,
 				static_cast<UINT8>(desc.depthStencil->clearDepthStencil.stencil),
 				0,
-				nullptr);
+				nullptr
+			);
 		}
 		return Succeed(error);
 	}
@@ -188,8 +194,15 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12CmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data,
-		Error * error) noexcept
+	bool D3D12CmdPushConstants(
+		void * impl,
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept
 	{
 		auto * list						= static_cast<D3D12CommandList *>(impl);
 		PipelineLayoutSlot * layoutSlot = ResolvePipelineLayout(list->owner, layout);
@@ -346,7 +359,13 @@ namespace azo::rhi::d3d12
 	}
 
 	bool D3D12CmdDraw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<D3D12CommandList *>(impl);
 		FlushPendingDescriptorSets(list);
@@ -354,8 +373,15 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12CmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept
+	bool D3D12CmdDrawIndexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept
 	{
 		auto * list = static_cast<D3D12CommandList *>(impl);
 		FlushPendingDescriptorSets(list);
@@ -363,8 +389,18 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12ExecuteIndirect(D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, BufferHandle args, std::uint64_t argsOffset,
-		std::uint32_t maxCount, BufferHandle count, std::uint64_t countOffset, bool hasCount, Error * error) noexcept
+	bool D3D12ExecuteIndirect(
+		D3D12CommandList * list,
+		D3D12_INDIRECT_ARGUMENT_TYPE type,
+		std::uint32_t stride,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		std::uint32_t maxCount,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		bool hasCount,
+		Error * error
+	) noexcept
 	{
 		D3D12Device * device  = list->owner;
 		BufferSlot * argsSlot = ResolveBuffer(device, args);
@@ -396,27 +432,80 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
 	{
 		return D3D12ExecuteIndirect(
-			static_cast<D3D12CommandList *>(impl), D3D12_INDIRECT_ARGUMENT_TYPE_DRAW, stride, args, offset, drawCount, {}, 0, false, error);
+			static_cast<D3D12CommandList *>(impl),
+			D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+			stride,
+			args,
+			offset,
+			drawCount,
+			{},
+			0,
+			false,
+			error
+		);
 	}
 
 	bool D3D12CmdDrawIndexedIndirect(
-		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		return D3D12ExecuteIndirect(
-			static_cast<D3D12CommandList *>(impl), D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED, stride, args, offset, drawCount, {}, 0, false, error);
+			static_cast<D3D12CommandList *>(impl),
+			D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED,
+			stride,
+			args,
+			offset,
+			drawCount,
+			{},
+			0,
+			false,
+			error
+		);
 	}
 
-	bool D3D12CmdDrawIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
+	bool D3D12CmdDrawIndirectCount(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		return D3D12ExecuteIndirect(
-			static_cast<D3D12CommandList *>(impl), D3D12_INDIRECT_ARGUMENT_TYPE_DRAW, stride, args, argsOffset, maxDrawCount, count, countOffset, true, error);
+			static_cast<D3D12CommandList *>(impl),
+			D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+			stride,
+			args,
+			argsOffset,
+			maxDrawCount,
+			count,
+			countOffset,
+			true,
+			error
+		);
 	}
 
-	bool D3D12CmdDrawIndexedIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept
+	bool D3D12CmdDrawIndexedIndirectCount(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
-		return D3D12ExecuteIndirect(static_cast<D3D12CommandList *>(impl),
+		return D3D12ExecuteIndirect(
+			static_cast<D3D12CommandList *>(impl),
 			D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED,
 			stride,
 			args,
@@ -425,7 +514,8 @@ namespace azo::rhi::d3d12
 			count,
 			countOffset,
 			true,
-			error);
+			error
+		);
 	}
 
 	bool D3D12CmdDispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept
@@ -438,7 +528,8 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept
 	{
-		return D3D12ExecuteIndirect(static_cast<D3D12CommandList *>(impl),
+		return D3D12ExecuteIndirect(
+			static_cast<D3D12CommandList *>(impl),
 			D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH,
 			static_cast<std::uint32_t>(sizeof(D3D12_DISPATCH_ARGUMENTS)),
 			args,
@@ -447,7 +538,8 @@ namespace azo::rhi::d3d12
 			{},
 			0,
 			false,
-			error);
+			error
+		);
 	}
 
 }

@@ -87,7 +87,12 @@ namespace azo::rhi
 	}
 
 	[[nodiscard]] inline NativeBinding native_binding_for(
-		const GraphicsApiId api, const BindingTier tier, const ShaderAbiLayout & layout, const std::uint32_t set, const std::uint32_t binding) noexcept
+		const GraphicsApiId api,
+		const BindingTier tier,
+		const ShaderAbiLayout & layout,
+		const std::uint32_t set,
+		const std::uint32_t binding
+	) noexcept
 	{
 		if (set >= layout.sets.size())
 		{
@@ -265,7 +270,11 @@ namespace azo::rhi
 	};
 
 	[[nodiscard]] inline ShaderBindingDisagreement check_shader_binding_map(
-		const GraphicsApiId api, const BindingTier tier, const ShaderAbiLayout & layout, const ShaderBindingMap & map) noexcept
+		const GraphicsApiId api,
+		const BindingTier tier,
+		const ShaderAbiLayout & layout,
+		const ShaderBindingMap & map
+	) noexcept
 	{
 		if (map.bindings.empty())
 		{

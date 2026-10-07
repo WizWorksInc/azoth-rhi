@@ -7,24 +7,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/core/external.hpp"
+
 #include "azoth/rhi/backend/blocks/device.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
 #include "azoth/rhi/backend/support/resource_record.hpp"
 #include "azoth/rhi/backend/support/scope_guard.hpp"
 #include "azoth/rhi/commands/sync.hpp"
-#include "azoth/rhi/core/external.hpp"
 #include "azoth/rhi/core/flags.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
+
 #include "backends/vulkan/internal.hpp"
 #include "backends/vulkan/swapchain_bundle.hpp"
 #include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
 #include <bit>
 #include <cstdint>
 #include <optional>
-#include <vulkan/vulkan_core.h>
 
 #ifndef _WIN32
 	#include <unistd.h>
@@ -84,8 +88,14 @@ namespace azo::rhi::vulkan
 #endif
 		}
 
-		[[nodiscard]] bool export_memory(VulkanDevice * device, const vk::DeviceMemory memory, const Flags<ExternalHandleType> declared,
-			const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+		[[nodiscard]] bool export_memory(
+			VulkanDevice * device,
+			const vk::DeviceMemory memory,
+			const Flags<ExternalHandleType> declared,
+			const ExternalHandleType type,
+			ExternalHandle * out,
+			Error * error
+		) noexcept
 		{
 			if (out == nullptr)
 			{
@@ -150,8 +160,14 @@ namespace azo::rhi::vulkan
 			return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 		}
 
-		[[nodiscard]] bool export_semaphore(VulkanDevice * device, const vk::Semaphore semaphore, const Flags<ExternalHandleType> declared,
-			const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+		[[nodiscard]] bool export_semaphore(
+			VulkanDevice * device,
+			const vk::Semaphore semaphore,
+			const Flags<ExternalHandleType> declared,
+			const ExternalHandleType type,
+			ExternalHandle * out,
+			Error * error
+		) noexcept
 		{
 			if (out == nullptr)
 			{
@@ -362,11 +378,18 @@ namespace azo::rhi::vulkan
 	}
 
 	bool vulkan_export_binary_semaphore(
-		void * impl, const BinarySemaphoreHandle semaphore, const ExternalHandleType type, ExternalHandle * out, Error * error) noexcept
+		void * impl,
+		const BinarySemaphoreHandle semaphore,
+		const ExternalHandleType type,
+		ExternalHandle * out,
+		Error * error
+	) noexcept
 	{
 		auto * device					 = static_cast<VulkanDevice *>(impl);
 		const BinarySemaphoreSlot * slot = device->binarySemaphoreSlots.resolve(
-			BinarySemaphoreHandle{ .index = semaphore.index & ~kDeviceBinarySemaphoreBit, .generation = semaphore.generation }, kHandleAlreadyChecked);
+			BinarySemaphoreHandle{ .index = semaphore.index & ~kDeviceBinarySemaphoreBit, .generation = semaphore.generation },
+			kHandleAlreadyChecked
+		);
 		if (slot == nullptr)
 		{
 			return fail(error, ErrorCode::eInvalidHandle, "export of an invalid binary semaphore handle");
@@ -414,7 +437,8 @@ namespace azo::rhi::vulkan
 			[&]
 			{
 				release_unconsumed(chain.ownedFd);
-			});
+			}
+		);
 
 		const VkBufferCreateInfo bufferInfo = bufferCreateInfo;
 		VmaAllocationCreateFlags allocFlags = 0;
@@ -444,16 +468,23 @@ namespace azo::rhi::vulkan
 		{
 			vmaDestroyBuffer(device->allocator, raw, allocation);
 			return fail_value<BufferHandle>(
-				error, ErrorCode::eNativeApiError, "a host visible imported buffer came back from VMA without the mapping it asked for");
+				error,
+				ErrorCode::eNativeApiError,
+				"a host visible imported buffer came back from VMA without the mapping it asked for"
+			);
 		}
 
-		const BufferHandle handle = device->bufferSlots.store(BufferSlot{ .buffer = raw,
-			.allocation															  = allocation,
-			.size																  = desc.desc.size,
-			.coherent															  = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
-			.hostVisible														  = mappable,
-			.mapped																  = allocated.pMappedData,
-			.desc																  = detail::recorded(desc.desc), });
+		const BufferHandle handle = device->bufferSlots.store(
+			BufferSlot{
+				.buffer		 = raw,
+				.allocation	 = allocation,
+				.size		 = desc.desc.size,
+				.coherent	 = (memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
+				.hostVisible = mappable,
+				.mapped		 = allocated.pMappedData,
+				.desc		 = detail::recorded(desc.desc),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			vmaDestroyBuffer(device->allocator, raw, allocation);
@@ -470,7 +501,10 @@ namespace azo::rhi::vulkan
 		if (desc.desc.allowSparseBinding)
 		{
 			return fail_value<TextureHandle>(
-				error, ErrorCode::eInvalidArgument, "a sparse texture binds its own tiles and cannot be built over imported memory");
+				error,
+				ErrorCode::eInvalidArgument,
+				"a sparse texture binds its own tiles and cannot be built over imported memory"
+			);
 		}
 
 		vk::ImageCreateInfo imageCreateInfo{};
@@ -498,7 +532,8 @@ namespace azo::rhi::vulkan
 			[&]
 			{
 				release_unconsumed(chain.ownedFd);
-			});
+			}
+		);
 
 		const VkImageCreateInfo imageInfo	= imageCreateInfo;
 		VmaAllocationCreateFlags allocFlags = 0;
@@ -548,7 +583,8 @@ namespace azo::rhi::vulkan
 			[&]
 			{
 				release_unconsumed(chain.ownedFd);
-			});
+			}
+		);
 
 		vk::MemoryAllocateInfo allocateInfo(desc.desc.size, typeIndex);
 		allocateInfo.pNext = chain.head;
@@ -572,12 +608,16 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		const HeapHandle handle = device->heapSlots.store(HeapSlot{ .memory = allocated.value,
-			.size															= desc.desc.size,
-			.memoryTypeIndex												= typeIndex,
-			.hostVisible													= hostVisible,
-			.coherent														= coherent,
-			.mapped															= mapped, });
+		const HeapHandle handle = device->heapSlots.store(
+			HeapSlot{
+				.memory			 = allocated.value,
+				.size			 = desc.desc.size,
+				.memoryTypeIndex = typeIndex,
+				.hostVisible	 = hostVisible,
+				.coherent		 = coherent,
+				.mapped			 = mapped,
+			}
+		);
 		if (!handle.is_valid())
 		{
 			device->device.freeMemory(allocated.value, nullptr, device->dispatch);
@@ -677,7 +717,8 @@ namespace azo::rhi::vulkan
 			[&]
 			{
 				device->device.destroySemaphore(semaphore, nullptr, device->dispatch);
-			});
+			}
+		);
 
 		if (!import_semaphore_payload(device, semaphore, desc.handle, error))
 		{
@@ -711,7 +752,8 @@ namespace azo::rhi::vulkan
 			[&]
 			{
 				device->device.destroySemaphore(semaphore, nullptr, device->dispatch);
-			});
+			}
+		);
 
 		if (!import_semaphore_payload(device, semaphore, desc.handle, error))
 		{

@@ -158,8 +158,16 @@ namespace azo::rhi
 			return value;
 		}
 
-		[[nodiscard]] bool reserve_span(Device device, DeviceMemoryAllocator * allocator, const MemoryInfo & info, const HeapType heapType, const bool forBuffer,
-			CString debugName, MemorySpan & out, Error * error)
+		[[nodiscard]] bool reserve_span(
+			Device device,
+			DeviceMemoryAllocator * allocator,
+			const MemoryInfo & info,
+			const HeapType heapType,
+			const bool forBuffer,
+			CString debugName,
+			MemorySpan & out,
+			Error * error
+		)
 		{
 			const MemoryRequest request{
 				.size		   = info.size,
@@ -201,31 +209,46 @@ namespace azo::rhi
 		}
 
 		[[nodiscard]] bool record_span(
-			BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation, const MemorySpan & span) noexcept
+			BackendBlockSet & blocks,
+			const ResourceType type,
+			const std::uint32_t index,
+			const std::uint32_t generation,
+			const MemorySpan & span
+		) noexcept
 		{
-			return blocks.tracker().record(type,
+			return blocks.tracker().record(
+				type,
 				RawHandle{
 					.index		= index,
 					.generation = generation,
 				},
-				span);
+				span
+			);
 		}
 
-		[[nodiscard]] bool take_retired_span(BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const DestroyDesc & desc, MemorySpan & out)
+		[[nodiscard]] bool take_retired_span(
+			BackendBlockSet & blocks,
+			const ResourceType type,
+			const std::uint32_t index,
+			const std::uint32_t generation,
+			const DestroyDesc & desc,
+			MemorySpan & out
+		)
 		{
 			if (blocks.allocator() == nullptr)
 			{
 				return false;
 			}
 
-			return blocks.tracker().retire(type,
+			return blocks.tracker().retire(
+				type,
 				RawHandle{
 					.index		= index,
 					.generation = generation,
 				},
 				desc,
-				out);
+				out
+			);
 		}
 
 		template <class Collect>
@@ -409,14 +432,16 @@ namespace azo::rhi
 
 			if (handle.is_valid() && !record_span(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, span))
 			{
-				static_cast<void>(m_blocks->device().core->destroy(m_impl,
+				static_cast<void>(m_blocks->device().core->destroy(
+					m_impl,
 					ResourceType::eBuffer,
 					{
 						.index		= handle.index,
 						.generation = handle.generation,
 					},
 					DestroyDesc{},
-					nullptr));
+					nullptr
+				));
 				handle = {};
 				fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this buffer");
 			}
@@ -488,14 +513,16 @@ namespace azo::rhi
 
 			if (handle.is_valid() && !record_span(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, span))
 			{
-				static_cast<void>(m_blocks->device().core->destroy(m_impl,
+				static_cast<void>(m_blocks->device().core->destroy(
+					m_impl,
 					ResourceType::eTexture,
 					{
 						.index		= handle.index,
 						.generation = handle.generation,
 					},
 					DestroyDesc{},
-					nullptr));
+					nullptr
+				));
 				handle = {};
 				fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this texture");
 			}
@@ -978,7 +1005,7 @@ namespace azo::rhi
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->object_guard());
-		void * impl						 = m_blocks->device().core->createDescriptorArena(m_impl, desc, &error);
+		void * impl		   = m_blocks->device().core->createDescriptorArena(m_impl, desc, &error);
 		const auto * block = detail::checked_block<DescriptorArenaApi>(impl, &error);
 		settle(block, error);
 
@@ -1029,7 +1056,7 @@ namespace azo::rhi
 		}
 
 		const std::scoped_lock guard(m_blocks->object_guard());
-		void * impl				   = m_blocks->device().present->createSwapchain(m_impl, desc, &error);
+		void * impl		   = m_blocks->device().present->createSwapchain(m_impl, desc, &error);
 		const auto * block = detail::checked_block<SwapchainApi>(impl, &error);
 		settle(block, error);
 
@@ -1378,14 +1405,16 @@ namespace azo::rhi
 		bool destroyed = false;
 		{
 			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
-			destroyed = m_blocks->device().core->destroy(m_impl,
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eBuffer,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				nullptr);
+				nullptr
+			);
 			if (destroyed)
 			{
 				hasSpan = take_retired_span(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, desc, released);
@@ -1410,14 +1439,16 @@ namespace azo::rhi
 		bool destroyed = false;
 		{
 			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
-			destroyed = m_blocks->device().core->destroy(m_impl,
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eBuffer,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				&error);
+				&error
+			);
 			if (destroyed)
 			{
 				hasSpan = take_retired_span(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, desc, released);
@@ -1441,14 +1472,16 @@ namespace azo::rhi
 		bool destroyed = false;
 		{
 			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
-			destroyed = m_blocks->device().core->destroy(m_impl,
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eTexture,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				nullptr);
+				nullptr
+			);
 			if (destroyed)
 			{
 				hasSpan = take_retired_span(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, desc, released);
@@ -1473,14 +1506,16 @@ namespace azo::rhi
 		bool destroyed = false;
 		{
 			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
-			destroyed = m_blocks->device().core->destroy(m_impl,
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eTexture,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				&error);
+				&error
+			);
 			if (destroyed)
 			{
 				hasSpan = take_retired_span(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, desc, released);
@@ -1499,379 +1534,435 @@ namespace azo::rhi
 	bool Device::destroy(TextureViewHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTextureView));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTextureView,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(TextureViewHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTextureView));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTextureView,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(SamplerHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eSampler));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eSampler,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(SamplerHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eSampler));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eSampler,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(HeapHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eHeap,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(HeapHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eHeap,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSetLayout));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSetLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSetLayout));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSetLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(DescriptorSetHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSet,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(DescriptorSetHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSet,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(PipelineLayoutHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineLayout));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(PipelineLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineLayout));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eGraphicsPipeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eGraphicsPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eGraphicsPipeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eGraphicsPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(ComputePipelineHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eComputePipeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eComputePipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(ComputePipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eComputePipeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eComputePipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eRayTracingPipeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eRayTracingPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eRayTracingPipeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eRayTracingPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(PipelineCacheHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineCache));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineCache,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(PipelineCacheHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineCache));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineCache,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(AccelerationStructureHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eAccelerationStructure));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eAccelerationStructure,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(AccelerationStructureHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eAccelerationStructure));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eAccelerationStructure,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(QueryPoolHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eQueryPool));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eQueryPool,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(QueryPoolHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eQueryPool));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eQueryPool,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(TimelineHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTimeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(TimelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTimeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc) noexcept
 	{
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eBinarySemaphore,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
 	bool Device::destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
-		return m_blocks->device().core->destroy(m_impl,
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eBinarySemaphore,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
 	bool Device::collect_garbage() noexcept
@@ -1879,13 +1970,15 @@ namespace azo::rhi
 		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = collect_every_kind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			nullptr,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
 				m_blocks->tracker().take_all(type, released);
 				return core->collectGarbage(m_impl, type, kindError);
-			});
+			}
+		);
 
 		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
@@ -1897,13 +1990,15 @@ namespace azo::rhi
 		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = collect_every_kind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			&error,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
 				m_blocks->tracker().take_all(type, released);
 				return core->collectGarbage(m_impl, type, kindError);
-			});
+			}
+		);
 
 		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
@@ -1914,13 +2009,15 @@ namespace azo::rhi
 		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = collect_every_kind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			nullptr,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
 				m_blocks->tracker().take_releasable(type, timeline, completedValue, released);
 				return core->collectGarbageTimeline(m_impl, type, timeline, completedValue, kindError);
-			});
+			}
+		);
 
 		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
@@ -1932,13 +2029,15 @@ namespace azo::rhi
 		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = collect_every_kind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			&error,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
 				m_blocks->tracker().take_releasable(type, timeline, completedValue, released);
 				return core->collectGarbageTimeline(m_impl, type, timeline, completedValue, kindError);
-			});
+			}
+		);
 
 		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
@@ -2348,7 +2447,11 @@ namespace azo::rhi
 	}
 
 	BinarySemaphoreHandle Device::AdoptBinarySemaphoreRaw(
-		GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept
 	{
 		if (m_blocks->device().adoption == nullptr)
 		{
@@ -2557,10 +2660,14 @@ namespace azo::rhi
 
 	bool CommandList::transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
 	{
-		const std::array textures{ TextureBarrier{ .texture = texture,
-			.before											= { .use = fromUse },
-			.after											= { .use = toUse },
-			.range											= { .aspects = kAllAspects, .mipCount = kAllMips, .layerCount = kAllLayers }, }, };
+		const std::array textures{
+			TextureBarrier{
+				.texture = texture,
+				.before	 = { .use = fromUse },
+				.after	 = { .use = toUse },
+				.range	 = { .aspects = kAllAspects, .mipCount = kAllMips, .layerCount = kAllLayers },
+			},
+		};
 		return barriers(BarrierBatch{ .textures = textures }, error);
 	}
 
@@ -2645,26 +2752,46 @@ namespace azo::rhi
 	}
 
 	bool CommandList::bind_descriptor_set(
-		PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set, std::span<const DynamicDescriptorOffset> dynamicOffsets) noexcept
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets
+	) noexcept
 	{
 		return m_blocks->render->bindDescriptorSet(m_impl, layout, setIndex, set, dynamicOffsets, nullptr);
 	}
 
-	bool CommandList::bind_descriptor_set(PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error & error) noexcept
+	bool CommandList::bind_descriptor_set(
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->bindDescriptorSet(m_impl, layout, setIndex, set, dynamicOffsets, &error);
 	}
 
 	bool CommandList::push_constants(
-		PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data) noexcept
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data
+	) noexcept
 	{
 		return m_blocks->render->pushConstants(m_impl, layout, stages, offset, size, data, nullptr);
 	}
 
 	bool CommandList::push_constants(
-		PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data, Error & error) noexcept
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->pushConstants(m_impl, layout, stages, offset, size, data, &error);
@@ -2753,20 +2880,36 @@ namespace azo::rhi
 	}
 
 	bool CommandList::draw(
-		std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error & error) noexcept
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->draw(m_impl, vertexCount, instanceCount, firstVertex, firstInstance, &error);
 	}
 
 	bool CommandList::draw_indexed(
-		std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset, std::uint32_t firstInstance) noexcept
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance
+	) noexcept
 	{
 		return m_blocks->render->drawIndexed(m_impl, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, nullptr);
 	}
 
-	bool CommandList::draw_indexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error & error) noexcept
+	bool CommandList::draw_indexed(
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->drawIndexed(m_impl, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, &error);
@@ -2799,15 +2942,28 @@ namespace azo::rhi
 	}
 
 	bool CommandList::draw_indirect_count(
-		BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount, std::uint32_t stride) noexcept
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride
+	) noexcept
 	{
 		return m_blocks->indirectCount != nullptr
 				   ? m_blocks->indirectCount->drawIndirectCount(m_impl, args, argsOffset, count, countOffset, maxDrawCount, stride, nullptr)
 				   : decline<bool>(nullptr, kNoIndirectCount);
 	}
 
-	bool CommandList::draw_indirect_count(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-		std::uint32_t stride, Error & error) noexcept
+	bool CommandList::draw_indirect_count(
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->indirectCount != nullptr
@@ -2816,15 +2972,28 @@ namespace azo::rhi
 	}
 
 	bool CommandList::draw_indexed_indirect_count(
-		BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount, std::uint32_t stride) noexcept
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride
+	) noexcept
 	{
 		return m_blocks->indirectCount != nullptr
 				   ? m_blocks->indirectCount->drawIndexedIndirectCount(m_impl, args, argsOffset, count, countOffset, maxDrawCount, stride, nullptr)
 				   : decline<bool>(nullptr, kNoIndirectCount);
 	}
 
-	bool CommandList::draw_indexed_indirect_count(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error & error) noexcept
+	bool CommandList::draw_indexed_indirect_count(
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->indirectCount != nullptr
@@ -2912,7 +3081,13 @@ namespace azo::rhi
 	}
 
 	bool CommandList::copy_buffer(
-		BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error & error) noexcept
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->copyBuffer(m_impl, dst, dstOffset, src, srcOffset, size, &error);
@@ -3053,14 +3228,25 @@ namespace azo::rhi
 	}
 
 	bool CommandList::resolve_query_data(
-		QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset) noexcept
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset
+	) noexcept
 	{
 		return m_blocks->query != nullptr ? m_blocks->query->resolveQueryData(m_impl, pool, firstQuery, queryCount, dst, dstOffset, nullptr)
 										  : decline<bool>(nullptr, kNoQueryCommand);
 	}
 
 	bool CommandList::resolve_query_data(
-		QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset, Error & error) noexcept
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->query != nullptr ? m_blocks->query->resolveQueryData(m_impl, pool, firstQuery, queryCount, dst, dstOffset, &error)
@@ -3266,7 +3452,11 @@ namespace azo::rhi
 	{
 
 		[[nodiscard]] void * create_backend_instance(
-			GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc, Error & error)
+			GraphicsApiRegistry & registry,
+			std::span<const GraphicsApiId> preferredApis,
+			const InstanceDesc & desc,
+			Error & error
+		)
 		{
 			for (GraphicsApiId id : preferredApis)
 			{

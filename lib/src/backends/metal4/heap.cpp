@@ -13,8 +13,10 @@
 #include "azoth/rhi/core/resource_handles.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/resources/resources.hpp"
+
 #include "backends/metal4/internal.hpp"
 #include "backends/metal_common/conversions.hpp"
+
 #include <Foundation/NSAutoreleasePool.hpp>
 #include <Foundation/NSSharedPtr.hpp>
 #include <Foundation/NSString.hpp>
@@ -22,6 +24,7 @@
 #include <Metal/MTLBuffer.hpp>
 #include <Metal/MTLHeap.hpp>
 #include <Metal/MTLTexture.hpp>
+
 #include <utility>
 
 namespace azo::rhi::metal4
@@ -137,11 +140,15 @@ namespace azo::rhi::metal4
 		set_metal_label(raw, desc.texture.debugName);
 		NS::SharedPtr<MTL::Texture> texture = NS::TransferPtr(raw);
 
-		const TextureHandle handle = device->textures.store(Metal4TextureSlot{ .texture = std::move(texture),
-			.format																		= desc.texture.format,
-			.usage																		= desc.texture.usage,
-			.mutableFormat																= desc.texture.allowFormatViews,
-			.desc																		= detail::recorded(desc.texture), });
+		const TextureHandle handle = device->textures.store(
+			Metal4TextureSlot{
+				.texture	   = std::move(texture),
+				.format		   = desc.texture.format,
+				.usage		   = desc.texture.usage,
+				.mutableFormat = desc.texture.allowFormatViews,
+				.desc		   = detail::recorded(desc.texture),
+			}
+		);
 		if (!handle.is_valid())
 		{
 			return fail_value<TextureHandle>(error, ErrorCode::eOutOfHostMemory, "Metal placed texture handle tracking failed");

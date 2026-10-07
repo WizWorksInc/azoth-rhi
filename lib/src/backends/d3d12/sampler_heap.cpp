@@ -79,7 +79,10 @@ namespace azo::rhi::d3d12
 		if (desc.ycbcrConversion != nullptr)
 		{
 			return FailValue<SamplerHandle>(
-				error, ErrorCode::eUnsupportedFeature, "Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views");
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"Direct3D 12 has no sampler Y'CbCr conversion, so convert in the shader over per-plane views"
+			);
 		}
 
 		D3D12_SAMPLER_DESC sampler{};
@@ -130,10 +133,12 @@ namespace azo::rhi::d3d12
 
 	HeapHandle D3D12CreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept
 	{
-		if (!D3D12RefuseUnexportable(desc.exportableHandleTypes,
+		if (!D3D12RefuseUnexportable(
+				desc.exportableHandleTypes,
 				Flags<ExternalHandleType>(ExternalHandleType::eOpaqueWin32) | ExternalHandleType::eD3D12Heap,
 				"heap creation asked for an external handle type Direct3D 12 cannot export",
-				error))
+				error
+			))
 		{
 			return HeapHandle{};
 		}
@@ -157,7 +162,10 @@ namespace azo::rhi::d3d12
 			if (heapDesc.Properties.Type != D3D12_HEAP_TYPE_DEFAULT)
 			{
 				return FailValue<HeapHandle>(
-					error, ErrorCode::eUnsupportedFeature, "Direct3D 12 cannot share upload or readback memory, so an exportable heap must be device local");
+					error,
+					ErrorCode::eUnsupportedFeature,
+					"Direct3D 12 cannot share upload or readback memory, so an exportable heap must be device local"
+				);
 			}
 
 			heapDesc.Flags |= D3D12_HEAP_FLAG_SHARED;
@@ -169,13 +177,17 @@ namespace azo::rhi::d3d12
 			return FailValue<HeapHandle>(error, ErrorCode::eOutOfDeviceMemory, "ID3D12Device::CreateHeap failed");
 		}
 
-		return ReturnValue(device->heapSlots.store(HeapSlot{
-							   .heap				  = std::move(heap),
-							   .type				  = heapDesc.Properties.Type,
-							   .size				  = desc.size,
-							   .exportableHandleTypes = desc.exportableHandleTypes,
-						   }),
-			error);
+		return ReturnValue(
+			device->heapSlots.store(
+				HeapSlot{
+					.heap				   = std::move(heap),
+					.type				   = heapDesc.Properties.Type,
+					.size				   = desc.size,
+					.exportableHandleTypes = desc.exportableHandleTypes,
+				}
+			),
+			error
+		);
 	}
 
 	BufferHandle D3D12CreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept
@@ -213,27 +225,39 @@ namespace azo::rhi::d3d12
 
 		if (desc.buffer.usage.contains(BufferUsage::eAccelerationStructureStorage) && heapType != D3D12_HEAP_TYPE_DEFAULT)
 		{
-			return FailValue<BufferHandle>(error,
+			return FailValue<BufferHandle>(
+				error,
 				ErrorCode::eInvalidArgument,
-				"an acceleration structure buffer must be placed in a device-local heap, since Direct3D 12 places one only in the default heap");
+				"an acceleration structure buffer must be placed in a device-local heap, since Direct3D 12 places one only in the default heap"
+			);
 		}
 
 		ComPtr<ID3D12Resource> resource;
 		if (FAILED(device->device->CreatePlacedResource(
-				heap.Get(), desc.offset, &resourceDesc, InitialBufferState(heapType, desc.buffer.usage), nullptr, IID_PPV_ARGS(resource.GetAddressOf()))))
+				heap.Get(),
+				desc.offset,
+				&resourceDesc,
+				InitialBufferState(heapType, desc.buffer.usage),
+				nullptr,
+				IID_PPV_ARGS(resource.GetAddressOf())
+			)))
 		{
 			return FailValue<BufferHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a buffer");
 		}
 
 		const bool hostVisible = heapType == D3D12_HEAP_TYPE_UPLOAD || heapType == D3D12_HEAP_TYPE_READBACK;
-		return ReturnValue(device->bufferSlots.store(BufferSlot{
-							   .resource	= std::move(resource),
-							   .size		= desc.buffer.size,
-							   .hostVisible = hostVisible,
-							   .heapType	= heapType,
-							   .desc		= detail::recorded(desc.buffer),
-						   }),
-			error);
+		return ReturnValue(
+			device->bufferSlots.store(
+				BufferSlot{
+					.resource	 = std::move(resource),
+					.size		 = desc.buffer.size,
+					.hostVisible = hostVisible,
+					.heapType	 = heapType,
+					.desc		 = detail::recorded(desc.buffer),
+				}
+			),
+			error
+		);
 	}
 
 	TextureHandle D3D12CreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept
@@ -249,7 +273,10 @@ namespace azo::rhi::d3d12
 		if (desc.texture.allowFormatViews && TypelessResourceFormat(format) == format)
 		{
 			return FailValue<TextureHandle>(
-				error, ErrorCode::eUnsupportedFormat, "allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not");
+				error,
+				ErrorCode::eUnsupportedFormat,
+				"allowFormatViews needs a format with a Direct3D 12 typeless family, which this one has not"
+			);
 		}
 
 		if (desc.texture.width == 0 || desc.texture.height == 0 || desc.texture.depth == 0)
@@ -275,22 +302,28 @@ namespace azo::rhi::d3d12
 
 		const D3D12_RESOURCE_DESC resourceDesc = MakeTextureResourceDesc(desc.texture);
 		ComPtr<ID3D12Resource> resource;
-		if (FAILED(device->device->CreatePlacedResource(
-				heap.Get(), desc.offset, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(resource.GetAddressOf()))))
+		if (FAILED(
+				device->device
+					->CreatePlacedResource(heap.Get(), desc.offset, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(resource.GetAddressOf()))
+			))
 		{
 			return FailValue<TextureHandle>(error, ErrorCode::eOutOfDeviceMemory, "CreatePlacedResource failed for a texture");
 		}
 
-		return ReturnValue(device->textureSlots.store(TextureSlot{ .resource = std::move(resource),
-							   .format										 = format,
-							   .rhiFormat									 = desc.texture.format,
-							   .type										 = desc.texture.type,
-							   .mipLevels									 = desc.texture.mipLevels,
-							   .arrayLayers									 = static_cast<std::uint32_t>(resourceDesc.DepthOrArraySize),
-							   .usage										 = desc.texture.usage,
-							   .mutableFormat								 = desc.texture.allowFormatViews,
-							   .desc										 = detail::recorded(desc.texture) }),
-			error);
+		return ReturnValue(
+			device->textureSlots.store(
+				TextureSlot{ .resource = std::move(resource),
+					.format			   = format,
+					.rhiFormat		   = desc.texture.format,
+					.type			   = desc.texture.type,
+					.mipLevels		   = desc.texture.mipLevels,
+					.arrayLayers	   = static_cast<std::uint32_t>(resourceDesc.DepthOrArraySize),
+					.usage			   = desc.texture.usage,
+					.mutableFormat	   = desc.texture.allowFormatViews,
+					.desc			   = detail::recorded(desc.texture) }
+			),
+			error
+		);
 	}
 
 	bool D3D12DestroyHeap(D3D12Device * device, RawHandle handle, Error * error) noexcept

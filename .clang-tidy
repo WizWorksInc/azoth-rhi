@@ -93,10 +93,9 @@ ExcludeHeaderFilterRegex: '.*/_deps/.*'
 FormatStyle: none
 SystemHeaders: false
 CheckOptions:
-  # Darwin private headers (and platform.hpp, whose macros read as unused off that OS) that include-cleaner would otherwise write into or strip from cross-platform files.
+
   misc-include-cleaner.IgnoreHeaders: '.*/sys/_types/.*;.*/sys/_pthread/.*;.*/sys/fcntl\.h;.*/sys/signal\.h;.*/sys/unistd\.h;.*/sys/syslimits\.h;.*/malloc/_malloc\.h;.*/mach/(arm|arm64|i386|machine)/.*;.*/_time\.h;.*/_stdlib\.h;.*/azoth/base/config/platform\.hpp'
   bugprone-reserved-identifier.AllowedIdentifiers: '^__has_cpp_attribute$'
-  # Empty initializer fix-its remove required argument separators.
   readability-trailing-comma.SingleLineCommaPolicy: 'Ignore'
   readability-identifier-length.MinimumVariableNameLength: '2'
   readability-identifier-length.MinimumParameterNameLength: '2'
@@ -104,24 +103,13 @@ CheckOptions:
   readability-identifier-length.IgnoredVariableNames: '^[a-km-z]$'
   readability-identifier-length.IgnoredParameterNames: '^([a-km-z]|to)$'
   readability-identifier-length.IgnoredLoopCounterNames: '^[a-km-z_]$'
-  # Plain all-public aggregates (POD bundles, internal detail structs) are intentional here; adding
-  # accessor scaffolding to them would be noise. Classes with mixed visibility are still flagged.
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: 'true'
-  # File-local subsystem singletons, log-category objects, and test fixtures are intentional
-  # internal-linkage globals. The check keeps flagging cross-TU (external-linkage) global state.
   cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: 'true'
-  # The log and assert macros expand to a do/if enabled-gate that inflates cognitive complexity
-  # without reflecting author-written control flow. Measure the code as written, not macro internals.
   readability-function-cognitive-complexity.IgnoreMacros: 'true'
-  # The real hazard is bitwise ops on signed variables (sign bit is UB/impl-defined). Positive
-  # integer literals (mask constants, shift counts) are not that hazard, so do not flag them.
   bugprone-signed-bitwise.IgnorePositiveIntegerLiterals: 'true'
-  # flat_hash_map::operator[] inserts like std::map, and bit_vector::operator[] throws out_of_range in every build.
   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::azo::FlatHashMap;::azo::BitVector'
-  # azo::at in core/bounds.hpp traps an out-of-range index in every build.
   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.FixMode: 'function'
   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.FixFunction: 'azo::at'
-  # Naming, see docs/style-conventions.md. The ignore patterns accept compliant names whose acronyms CamelCase would split (eRGBA8Unorm, g_GPUTime).
   readability-identifier-naming.NamespaceCase: lower_case
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase
@@ -144,7 +132,6 @@ CheckOptions:
   readability-identifier-naming.ProtectedMemberCase: camelBack
   readability-identifier-naming.ProtectedMemberPrefix: m_
   readability-identifier-naming.ProtectedMemberIgnoredRegexp: '^m_[a-z][A-Za-z0-9]*$'
-  # thread_local has no kind of its own, so t_ names are accepted wherever a global or static is. CVars take their console group (r_bloom for r.Bloom).
   readability-identifier-naming.GlobalVariableCase: CamelCase
   readability-identifier-naming.GlobalVariablePrefix: g_
   readability-identifier-naming.GlobalVariableIgnoredRegexp: '^([gt]_[A-Z][A-Za-z0-9]*|r_[a-z][A-Za-z0-9]*)$'
@@ -154,7 +141,6 @@ CheckOptions:
   readability-identifier-naming.ClassMemberCase: CamelCase
   readability-identifier-naming.ClassMemberPrefix: s_
   readability-identifier-naming.ClassMemberIgnoredRegexp: '^[st]_[A-Z][A-Za-z0-9]*$'
-  # Trait value variable templates are PascalCase then _v (VariantSize_v) instead of k.
   readability-identifier-naming.ConstexprVariableCase: CamelCase
   readability-identifier-naming.ConstexprVariablePrefix: k
   readability-identifier-naming.ConstexprVariableIgnoredRegexp: '^[A-Z][A-Za-z0-9]*_v$'
