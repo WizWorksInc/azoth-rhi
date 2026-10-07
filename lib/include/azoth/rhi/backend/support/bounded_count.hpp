@@ -43,6 +43,13 @@ namespace azo::rhi
 			return *this;
 		}
 
+		BoundedCount(BoundedCount && other) noexcept : m_count(other.load()) {}
+
+		BoundedCount & operator=(BoundedCount && other) noexcept
+		{
+			return *this = other;
+		}
+
 		~BoundedCount() = default;
 
 		[[nodiscard]] bool try_acquire(const std::uint32_t bound) noexcept
@@ -92,22 +99,20 @@ namespace azo::rhi
 		std::atomic<std::uint32_t> m_count{ 0 };
 	};
 
-	// The bound here is the counter's own range, so this fires only where one more map would wrap the count rather than at any useful limit.
-	inline constexpr const char * kMapCountWouldOverflow = "map of a buffer whose outstanding map count would overflow";
+	inline constexpr auto kMapCountWouldOverflow = "map of a buffer whose outstanding map count would overflow";
 
-	inline constexpr const char * kSubmitOfRecordingList = "submit of a command list that is still recording, so End was never called on it";
+	inline constexpr auto kSubmitOfRecordingList = "submit of a command list that is still recording, so End was never called on it";
 
-	inline constexpr const char * kSubmitOfNeverBegunList = "submit of a command list that was never begun, so it carries no recorded work";
+	inline constexpr auto kSubmitOfNeverBegunList = "submit of a command list that was never begun, so it carries no recorded work";
 
-	inline constexpr const char * kSubmitOfSubmittedList = "submit of a command list that was already submitted, so begin it again before submitting it again";
+	inline constexpr auto kSubmitOfSubmittedList = "submit of a command list that was already submitted, so begin it again before submitting it again";
 
-	inline constexpr const char * kResetOfPoolWithRunningList =
+	inline constexpr auto kResetOfPoolWithRunningList =
 		"reset of a command pool holding a command list that is still executing, so wait for that work to complete first";
 
-	inline constexpr const char * kSubmitOfPendingList =
+	inline constexpr auto kSubmitOfPendingList =
 		"submit of a command list whose earlier submission is still executing, so wait for that submission to complete first";
 
-	// A fresh or recording list is refused everywhere, and a submitted one only where the backend or the pending work forbids it.
 	[[nodiscard]] constexpr const char * submit_refusal_for(
 		const ListLifecycle lifecycle,
 		const bool backendResubmits,
@@ -131,7 +136,6 @@ namespace azo::rhi
 		return nullptr;
 	}
 
-	// The whole pre-submit sweep, so the loop, the null skip and the unwrap are not copied once per backend alongside the message table.
 	template <typename Lists, typename RecordOf, typename Pending>
 	[[nodiscard]] const char * submit_refusal_for_lists(const Lists & lists, const bool backendResubmits, RecordOf recordOf, Pending pending)
 	{
@@ -157,8 +161,7 @@ namespace azo::rhi
 		return nullptr;
 	}
 
-	// Every backend refuses a Begin past the budget in the same words, so the message lives here rather than in five copies.
-	inline constexpr const char * kOpenListBudgetExhausted =
+	inline constexpr auto kOpenListBudgetExhausted =
 		"too many command lists are begun and not yet submitted on this queue, so submit or reset one before beginning another";
 
 	class OpenListBudget final
@@ -214,4 +217,4 @@ namespace azo::rhi
 		BoundedCount m_compute;
 		BoundedCount m_copy;
 	};
-}
+} // namespace azo::rhi
