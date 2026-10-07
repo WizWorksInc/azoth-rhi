@@ -85,7 +85,7 @@ namespace
 		Tracked * object = pool.New(11);
 		ASSERT_NE(object, nullptr);
 		EXPECT_EQ(object->payload, 11);
-		EXPECT_EQ(pool.LiveCount(), 1u);
+		EXPECT_EQ(pool.live_count(), 1u);
 		EXPECT_EQ(Tracked::constructedCount, 1);
 	}
 
@@ -117,7 +117,7 @@ namespace
 		}
 
 		EXPECT_EQ(pool.New(4), nullptr) << "the pool grew past its page limit";
-		EXPECT_EQ(pool.LiveCount(), 4u);
+		EXPECT_EQ(pool.live_count(), 4u);
 	}
 
 	TEST_F(ObjectPoolTest, ZeroBlocksPerPageIsTreatedAsOne)
@@ -126,7 +126,7 @@ namespace
 
 		EXPECT_NE(pool.New(1), nullptr);
 		EXPECT_NE(pool.New(2), nullptr);
-		EXPECT_EQ(pool.LiveCount(), 2u);
+		EXPECT_EQ(pool.live_count(), 2u);
 	}
 
 	TEST_F(ObjectPoolTest, ResetDestroysEverythingAndReleasesThePages)
@@ -142,10 +142,10 @@ namespace
 
 		EXPECT_EQ(Tracked::liveCount, 0);
 		EXPECT_EQ(Tracked::destroyedCount, 5);
-		EXPECT_EQ(pool.LiveCount(), 0u);
+		EXPECT_EQ(pool.live_count(), 0u);
 
 		EXPECT_NE(pool.New(99), nullptr);
-		EXPECT_EQ(pool.LiveCount(), 1u);
+		EXPECT_EQ(pool.live_count(), 1u);
 	}
 
 	TEST_F(ObjectPoolTest, DestructorDestroysWhatResetWasNeverCalledOn)
@@ -173,7 +173,7 @@ namespace
 		detail::TypedObjectPool<Tracked> moved(std::move(source));
 
 		EXPECT_EQ(Tracked::destroyedCount, 0) << "moving the pool destroyed its objects";
-		EXPECT_EQ(moved.LiveCount(), 2u);
+		EXPECT_EQ(moved.live_count(), 2u);
 		EXPECT_EQ(object->payload, 5) << "the object moved when the pool did";
 	}
 
@@ -190,15 +190,15 @@ namespace
 		target = std::move(source);
 
 		EXPECT_EQ(Tracked::destroyedCount, 2) << "the objects the target already held were not released";
-		EXPECT_EQ(target.LiveCount(), 1u);
+		EXPECT_EQ(target.live_count(), 1u);
 		EXPECT_EQ(survivor->payload, 3);
 	}
 
 	TEST_F(ObjectPoolTest, KeepsTheDebugNameItWasGiven)
 	{
 		const detail::TypedObjectPool<Tracked> pool(4, 0, "rhi.test.pool");
-		ASSERT_NE(pool.DebugName(), nullptr);
-		EXPECT_STREQ(pool.DebugName(), "rhi.test.pool");
+		ASSERT_NE(pool.debug_name(), nullptr);
+		EXPECT_STREQ(pool.debug_name(), "rhi.test.pool");
 	}
 
 	TEST(ObjectPoolAlignment, RespectsOverAlignedTypes)

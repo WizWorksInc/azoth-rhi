@@ -82,7 +82,7 @@ namespace
 		class MetalOnlyWindow final : public rhi::SurfaceSource
 		{
 		public:
-			[[nodiscard]] bool Provide(const rhi::SurfaceRequest & request) override
+			[[nodiscard]] bool provide(const rhi::SurfaceRequest & request) override
 			{
 				auto * metal = rhi::SurfacePayloadOf<rhi::native::MetalSurfacePayload>(request);
 				if (metal == nullptr)
@@ -100,17 +100,17 @@ namespace
 		MetalOnlyWindow window;
 
 		rhi::native::MetalSurfacePayload metal{};
-		EXPECT_TRUE(window.Provide(RequestFor(metal)));
+		EXPECT_TRUE(window.provide(RequestFor(metal)));
 		EXPECT_EQ(metal.layer, &window.m_layer);
 
 		rhi::native::VulkanSurfacePayload vulkan{};
-		EXPECT_FALSE(window.Provide(RequestFor(vulkan))) << "a window that has no Vulkan claimed to have answered";
+		EXPECT_FALSE(window.provide(RequestFor(vulkan))) << "a window that has no Vulkan claimed to have answered";
 		EXPECT_EQ(vulkan.surface, 0u);
 	}
 
 	TEST(ResolveVulkanLoader, AnswersTheSameThingEveryTime)
 	{
-		EXPECT_EQ(rhi::native::ResolveVulkanLoader(), rhi::native::ResolveVulkanLoader());
+		EXPECT_EQ(rhi::native::resolve_vulkan_loader(), rhi::native::resolve_vulkan_loader());
 	}
 
 }

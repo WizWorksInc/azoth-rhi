@@ -39,7 +39,7 @@ namespace
 	TEST_P(SwapchainTest, ADefaultConstructedSwapchainIsInert)
 	{
 		const rhi::Swapchain swapchain;
-		EXPECT_FALSE(swapchain.IsValid());
+		EXPECT_FALSE(swapchain.is_valid());
 	}
 
 	TEST_P(SwapchainTest, ADefaultSurfaceHandleNamesNothing)
@@ -59,11 +59,11 @@ namespace
 		desc.debugName = "azoth.rhi.test.swapchain";
 
 		rhi::Error error{};
-		const rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
+		const rhi::Swapchain swapchain = Dev().create_swapchain(desc, error);
 
-		if (swapchain.IsValid())
+		if (swapchain.is_valid())
 		{
-			EXPECT_GT(swapchain.GetImageCount(), 0u) << "a swapchain reported no images";
+			EXPECT_GT(swapchain.get_image_count(), 0u) << "a swapchain reported no images";
 			return;
 		}
 
@@ -104,7 +104,7 @@ namespace
 		constexpr rhi::AcquireResult acquire{};
 		static_assert(acquire.status == rhi::SwapchainStatus::eOk);
 		static_assert(acquire.imageIndex == 0);
-		static_assert(!acquire.imageAvailable.IsValid());
+		static_assert(!acquire.imageAvailable.is_valid());
 
 		constexpr rhi::PresentResult present{};
 		static_assert(present.status == rhi::SwapchainStatus::eOk);
@@ -127,8 +127,8 @@ namespace
 		rhi::GraphicsApiRegistry registry;
 		ASSERT_TRUE(test::Ok(CurrentBackend().RegisterInto(registry)));
 
-		ASSERT_EQ(registry.EnumerateBackends().size(), 1u);
-		const rhi::BackendInfo & info = registry.EnumerateBackends().front();
+		ASSERT_EQ(registry.enumerate_backends().size(), 1u);
+		const rhi::BackendInfo & info = registry.enumerate_backends().front();
 
 		if (!info.supportsSurfaces)
 		{
@@ -137,9 +137,9 @@ namespace
 			desc.height = 64;
 
 			rhi::Error error{};
-			const rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
+			const rhi::Swapchain swapchain = Dev().create_swapchain(desc, error);
 
-			if (!swapchain.IsValid())
+			if (!swapchain.is_valid())
 			{
 				EXPECT_TRUE(test::ErrorIsPopulated(error));
 			}
@@ -153,13 +153,13 @@ namespace
 		desc.height = 64;
 
 		rhi::Error error{};
-		rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
-		if (!swapchain.IsValid())
+		rhi::Swapchain swapchain = Dev().create_swapchain(desc, error);
+		if (!swapchain.is_valid())
 		{
 			GTEST_SKIP() << "no swapchain without a surface on this backend: " << test::Describe(error);
 		}
 
-		static_cast<void>(swapchain.SupportsReadback());
+		static_cast<void>(swapchain.supports_readback());
 		SUCCEED();
 	}
 
@@ -171,13 +171,13 @@ namespace
 		desc.presentMode = rhi::PresentMode::eFifoRelaxed;
 
 		rhi::Error error{};
-		rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
-		if (!swapchain.IsValid())
+		rhi::Swapchain swapchain = Dev().create_swapchain(desc, error);
+		if (!swapchain.is_valid())
 		{
 			GTEST_SKIP() << "no swapchain without a surface on this backend: " << test::Describe(error);
 		}
 
-		const rhi::PresentMode effective = swapchain.GetPresentMode();
+		const rhi::PresentMode effective = swapchain.get_present_mode();
 		EXPECT_TRUE(effective == rhi::PresentMode::eFifoRelaxed || effective == rhi::PresentMode::eFifo)
 			<< "relaxed FIFO fell back to a tearing mode instead of FIFO";
 	}
@@ -189,29 +189,29 @@ namespace
 		desc.height = 64;
 
 		rhi::Error error{};
-		rhi::Swapchain swapchain = Dev().CreateSwapchain(desc, error);
-		if (!swapchain.IsValid())
+		rhi::Swapchain swapchain = Dev().create_swapchain(desc, error);
+		if (!swapchain.is_valid())
 		{
 			GTEST_SKIP() << "no swapchain without a surface on this backend: " << test::Describe(error);
 		}
 
-		for (std::uint32_t index = 0; index < swapchain.GetImageCount(); ++index)
+		for (std::uint32_t index = 0; index < swapchain.get_image_count(); ++index)
 		{
-			const rhi::TextureHandle backBuffer = swapchain.GetBackBuffer(index);
-			const rhi::TextureViewHandle view	= swapchain.GetBackBufferView(index);
-			ASSERT_TRUE(backBuffer.IsValid()) << "image " << index << " has no back buffer";
-			ASSERT_TRUE(view.IsValid()) << "image " << index << " has no back buffer view";
+			const rhi::TextureHandle backBuffer = swapchain.get_back_buffer(index);
+			const rhi::TextureViewHandle view	= swapchain.get_back_buffer_view(index);
+			ASSERT_TRUE(backBuffer.is_valid()) << "image " << index << " has no back buffer";
+			ASSERT_TRUE(view.is_valid()) << "image " << index << " has no back buffer view";
 
 			rhi::Error textureError{};
-			EXPECT_FALSE(Dev().Destroy(backBuffer, {}, textureError)) << "image " << index << "'s back buffer was destroyed out from under the swapchain";
+			EXPECT_FALSE(Dev().destroy(backBuffer, {}, textureError)) << "image " << index << "'s back buffer was destroyed out from under the swapchain";
 			EXPECT_EQ(textureError.code, rhi::ErrorCode::eValidationFailed);
 
 			rhi::Error viewError{};
-			EXPECT_FALSE(Dev().Destroy(view, {}, viewError)) << "image " << index << "'s back buffer view was destroyed out from under the swapchain";
+			EXPECT_FALSE(Dev().destroy(view, {}, viewError)) << "image " << index << "'s back buffer view was destroyed out from under the swapchain";
 			EXPECT_EQ(viewError.code, rhi::ErrorCode::eValidationFailed);
 
-			EXPECT_EQ(swapchain.GetBackBuffer(index), backBuffer) << "a refused destroy still took the back buffer";
-			EXPECT_EQ(swapchain.GetBackBufferView(index), view) << "a refused destroy still took the back buffer view";
+			EXPECT_EQ(swapchain.get_back_buffer(index), backBuffer) << "a refused destroy still took the back buffer";
+			EXPECT_EQ(swapchain.get_back_buffer_view(index), view) << "a refused destroy still took the back buffer view";
 		}
 	}
 

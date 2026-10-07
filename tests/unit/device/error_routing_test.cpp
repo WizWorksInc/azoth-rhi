@@ -142,15 +142,15 @@ namespace
 		g_handle = kPlausible;
 		Answer(rhi::Error{ .code = rhi::ErrorCode::eOutOfDeviceMemory, .message = "out of memory, here is a handle anyway" });
 
-		EXPECT_FALSE(Dev().CreateBuffer(rhi::BufferDesc{}).IsValid()) << "the plain form handed back a handle the backend also failed on";
+		EXPECT_FALSE(Dev().create_buffer(rhi::BufferDesc{}).is_valid()) << "the plain form handed back a handle the backend also failed on";
 
 		rhi::Error error{};
-		EXPECT_FALSE(Dev().CreateBuffer(rhi::BufferDesc{}, error).IsValid());
+		EXPECT_FALSE(Dev().create_buffer(rhi::BufferDesc{}, error).is_valid());
 		EXPECT_EQ(error.code, rhi::ErrorCode::eOutOfDeviceMemory);
 
-		const rhi::Result<rhi::BufferHandle> asResult = Dev().CreateBufferWithResult(rhi::BufferDesc{});
-		EXPECT_FALSE(asResult.HasValue());
-		EXPECT_EQ(asResult.GetError().code, rhi::ErrorCode::eOutOfDeviceMemory);
+		const rhi::Result<rhi::BufferHandle> asResult = Dev().create_buffer_with_result(rhi::BufferDesc{});
+		EXPECT_FALSE(asResult.has_value());
+		EXPECT_EQ(asResult.get_error().code, rhi::ErrorCode::eOutOfDeviceMemory);
 	}
 
 	TEST_F(ErrorRoutingTest, AFailureWithNoCodeStillReadsAsAFailure)
@@ -158,27 +158,27 @@ namespace
 		g_handle = {};
 
 		rhi::Error error{};
-		EXPECT_FALSE(Dev().CreateBuffer(rhi::BufferDesc{}, error).IsValid());
+		EXPECT_FALSE(Dev().create_buffer(rhi::BufferDesc{}, error).is_valid());
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 		EXPECT_NE(error.message, nullptr);
 
-		const rhi::Result<rhi::BufferHandle> asResult = Dev().CreateBufferWithResult(rhi::BufferDesc{});
-		EXPECT_FALSE(asResult.HasValue());
-		EXPECT_EQ(asResult.GetError().code, error.code);
+		const rhi::Result<rhi::BufferHandle> asResult = Dev().create_buffer_with_result(rhi::BufferDesc{});
+		EXPECT_FALSE(asResult.has_value());
+		EXPECT_EQ(asResult.get_error().code, error.code);
 	}
 
 	TEST_F(ErrorRoutingTest, ACleanSuccessIsStillASuccessInAllThreeForms)
 	{
 		g_handle = kPlausible;
 
-		EXPECT_TRUE(Dev().CreateBuffer(rhi::BufferDesc{}).IsValid());
+		EXPECT_TRUE(Dev().create_buffer(rhi::BufferDesc{}).is_valid());
 
 		rhi::Error error{};
-		EXPECT_TRUE(Dev().CreateBuffer(rhi::BufferDesc{}, error).IsValid());
+		EXPECT_TRUE(Dev().create_buffer(rhi::BufferDesc{}, error).is_valid());
 		EXPECT_EQ(error.code, rhi::ErrorCode::eOk);
 
-		const rhi::Result<rhi::BufferHandle> asResult = Dev().CreateBufferWithResult(rhi::BufferDesc{});
-		ASSERT_TRUE(asResult.HasValue());
+		const rhi::Result<rhi::BufferHandle> asResult = Dev().create_buffer_with_result(rhi::BufferDesc{});
+		ASSERT_TRUE(asResult.has_value());
 		EXPECT_EQ(asResult.Value(), kPlausible);
 	}
 
@@ -189,13 +189,13 @@ namespace
 
 		rhi::MemoryInfo info{ .size = 1 };
 		rhi::Error error{};
-		EXPECT_FALSE(Dev().GetBufferMemoryInfo(rhi::BufferDesc{}, info, error));
+		EXPECT_FALSE(Dev().get_buffer_memory_info(rhi::BufferDesc{}, info, error));
 		EXPECT_EQ(info.size, 0u) << "a refused query left a plausible footprint behind";
 		EXPECT_EQ(error.code, rhi::ErrorCode::eNativeApiError);
 
-		const rhi::Result<rhi::MemoryInfo> asResult = Dev().GetBufferMemoryInfoWithResult(rhi::BufferDesc{});
-		EXPECT_FALSE(asResult.HasValue());
-		EXPECT_EQ(asResult.GetError().code, rhi::ErrorCode::eNativeApiError);
+		const rhi::Result<rhi::MemoryInfo> asResult = Dev().get_buffer_memory_info_with_result(rhi::BufferDesc{});
+		EXPECT_FALSE(asResult.has_value());
+		EXPECT_EQ(asResult.get_error().code, rhi::ErrorCode::eNativeApiError);
 	}
 
 	TEST_F(ErrorRoutingTest, AMappingHandedBackBesideAFailureIsRefused)
@@ -207,9 +207,9 @@ namespace
 
 		EXPECT_EQ(Dev().Map(rhi::BufferHandle{}, rhi::MapDesc{}).data, nullptr);
 
-		const rhi::Result<rhi::MappedMemory> asResult = Dev().MapWithResult(rhi::BufferHandle{}, rhi::MapDesc{});
-		EXPECT_FALSE(asResult.HasValue());
-		EXPECT_EQ(asResult.GetError().code, rhi::ErrorCode::eInvalidState);
+		const rhi::Result<rhi::MappedMemory> asResult = Dev().map_with_result(rhi::BufferHandle{}, rhi::MapDesc{});
+		EXPECT_FALSE(asResult.has_value());
+		EXPECT_EQ(asResult.get_error().code, rhi::ErrorCode::eInvalidState);
 	}
 
 }

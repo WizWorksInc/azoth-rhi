@@ -26,22 +26,22 @@ namespace
 
 	TEST(BuildConfig, TheClipSpaceSettlesOnceAndHoldsThatChoice)
 	{
-		EXPECT_EQ(rhi::GetClipSpace(), rhi::ClipSpaceConvention::eYUp) << "a process that never settles the convention runs on eYUp throughout";
+		EXPECT_EQ(rhi::get_clip_space(), rhi::ClipSpaceConvention::eYUp) << "a process that never settles the convention runs on eYUp throughout";
 
-		EXPECT_TRUE(rhi::SetClipSpace(rhi::ClipSpaceConvention::eYDown));
-		EXPECT_EQ(rhi::GetClipSpace(), rhi::ClipSpaceConvention::eYDown);
+		EXPECT_TRUE(rhi::set_clip_space(rhi::ClipSpaceConvention::eYDown));
+		EXPECT_EQ(rhi::get_clip_space(), rhi::ClipSpaceConvention::eYDown);
 
-		EXPECT_FALSE(rhi::SetClipSpace(rhi::ClipSpaceConvention::eYUp));
-		EXPECT_EQ(rhi::GetClipSpace(), rhi::ClipSpaceConvention::eYDown);
+		EXPECT_FALSE(rhi::set_clip_space(rhi::ClipSpaceConvention::eYUp));
+		EXPECT_EQ(rhi::get_clip_space(), rhi::ClipSpaceConvention::eYDown);
 
-		EXPECT_FALSE(rhi::SetClipSpace(rhi::ClipSpaceConvention::eYDown));
-		EXPECT_EQ(rhi::GetClipSpace(), rhi::ClipSpaceConvention::eYDown);
+		EXPECT_FALSE(rhi::set_clip_space(rhi::ClipSpaceConvention::eYDown));
+		EXPECT_EQ(rhi::get_clip_space(), rhi::ClipSpaceConvention::eYDown);
 	}
 
 	TEST(BuildConfig, TheUmbrellaCarriesTheClipSpaceConvention)
 	{
 		static_assert(std::is_enum_v<rhi::ClipSpaceConvention>);
-		static_assert(std::is_same_v<decltype(rhi::GetClipSpace()), rhi::ClipSpaceConvention>);
+		static_assert(std::is_same_v<decltype(rhi::get_clip_space()), rhi::ClipSpaceConvention>);
 
 		SUCCEED();
 	}

@@ -70,7 +70,7 @@ namespace
 		const rhi::CoreDeviceApi table = WholeTable<rhi::CoreDeviceApi>();
 
 		rhi::Error error{};
-		EXPECT_TRUE(rhi::detail::RequireCompleteBlock(&table, &error));
+		EXPECT_TRUE(rhi::detail::require_complete_block(&table, &error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eOk);
 	}
 
@@ -80,7 +80,7 @@ namespace
 		ASSERT_TRUE(ClearEntry(table, "CoreDeviceApi::createBuffer is null"));
 
 		rhi::Error error{};
-		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&table, &error));
+		EXPECT_FALSE(rhi::detail::require_complete_block(&table, &error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eValidationFailed);
 		ASSERT_NE(error.message, nullptr);
 		EXPECT_EQ(std::string_view{ error.message }, "CoreDeviceApi::createBuffer is null");
@@ -93,7 +93,7 @@ namespace
 		ASSERT_TRUE(ClearEntry(table, "CoreDeviceApi::destroy is null"));
 
 		rhi::Error error{};
-		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&table, &error));
+		EXPECT_FALSE(rhi::detail::require_complete_block(&table, &error));
 		ASSERT_NE(error.message, nullptr);
 		EXPECT_EQ(std::string_view{ error.message }, "CoreDeviceApi::createTexture is null") << "the sweep reported a later hole than the first one";
 	}
@@ -104,7 +104,7 @@ namespace
 		ASSERT_TRUE(ClearEntry(table, "CoreDeviceApi::getValidationMessageCounts is null"));
 
 		rhi::Error error{};
-		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&table, &error));
+		EXPECT_FALSE(rhi::detail::require_complete_block(&table, &error));
 		ASSERT_NE(error.message, nullptr);
 		EXPECT_EQ(std::string_view{ error.message }, "CoreDeviceApi::getValidationMessageCounts is null");
 	}
@@ -115,7 +115,7 @@ namespace
 		ASSERT_TRUE(ClearEntry(table, "CoreDeviceApi::destroyDevice is null"));
 
 		rhi::Error error{};
-		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&table, &error));
+		EXPECT_FALSE(rhi::detail::require_complete_block(&table, &error));
 		ASSERT_NE(error.message, nullptr);
 		EXPECT_EQ(std::string_view{ error.message }, "CoreDeviceApi::destroyDevice is null");
 	}
@@ -158,7 +158,7 @@ namespace
 		block.header.byteSize = static_cast<std::uint32_t>(sizeof(rhi::InterfaceHeader) + (kBuiltAgainst * sizeof(rhi::detail::AnyDispatchEntry)));
 
 		rhi::Error error{};
-		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&block, &error));
+		EXPECT_FALSE(rhi::detail::require_complete_block(&block, &error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eValidationFailed);
 		ASSERT_NE(error.message, nullptr);
 		EXPECT_EQ(std::string_view{ error.message }, rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames[kBuiltAgainst])
@@ -173,7 +173,7 @@ namespace
 		block.header.byteSize	 = static_cast<std::uint32_t>(sizeof(block) + (4 * sizeof(rhi::detail::AnyDispatchEntry)));
 
 		rhi::Error error{};
-		EXPECT_TRUE(rhi::detail::RequireCompleteBlock(&block, &error));
+		EXPECT_TRUE(rhi::detail::require_complete_block(&block, &error));
 		EXPECT_EQ(rhi::detail::DeclaredEntryCount(block), rhi::detail::BlockEntries<rhi::CoreDeviceApi>::kNames.size());
 	}
 
@@ -182,7 +182,7 @@ namespace
 		rhi::InstanceApi table = WholeTable<rhi::InstanceApi>();
 		ASSERT_TRUE(ClearEntry(table, "InstanceApi::createDevice is null"));
 
-		EXPECT_FALSE(rhi::detail::RequireCompleteBlock(&table, nullptr));
+		EXPECT_FALSE(rhi::detail::require_complete_block(&table, nullptr));
 	}
 
 }

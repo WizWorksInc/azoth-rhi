@@ -51,32 +51,32 @@ namespace
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return target.IsValid() && view.IsValid() && src.IsValid() && dst.IsValid();
+			return target.is_valid() && view.is_valid() && src.is_valid() && dst.is_valid();
 		}
 	};
 
 	[[nodiscard]] Scene MakeScene(rhi::Device device, rhi::Error & error)
 	{
 		Scene scene{};
-		scene.target = device.CreateTexture(test::samples::ColorTarget2D(), error);
-		if (!scene.target.IsValid())
+		scene.target = device.create_texture(test::samples::ColorTarget2D(), error);
+		if (!scene.target.is_valid())
 		{
 			return {};
 		}
 
-		scene.view = device.CreateTextureView(scene.target, test::samples::FullTextureView(), error);
-		scene.src  = device.CreateBuffer(test::samples::StorageBuffer(), error);
-		scene.dst  = device.CreateBuffer(test::samples::StorageBuffer(), error);
+		scene.view = device.create_texture_view(scene.target, test::samples::FullTextureView(), error);
+		scene.src  = device.create_buffer(test::samples::StorageBuffer(), error);
+		scene.dst  = device.create_buffer(test::samples::StorageBuffer(), error);
 		return scene;
 	}
 
 	void DestroyScene(rhi::Device device, const Scene & scene)
 	{
 		rhi::Error error{};
-		static_cast<void>(device.Destroy(scene.dst, {}, error));
-		static_cast<void>(device.Destroy(scene.src, {}, error));
-		static_cast<void>(device.Destroy(scene.view, {}, error));
-		static_cast<void>(device.Destroy(scene.target, {}, error));
+		static_cast<void>(device.destroy(scene.dst, {}, error));
+		static_cast<void>(device.destroy(scene.src, {}, error));
+		static_cast<void>(device.destroy(scene.view, {}, error));
+		static_cast<void>(device.destroy(scene.target, {}, error));
 	}
 
 	[[nodiscard]] std::array<rhi::RenderingAttachment, 1> ColorAttachment(const rhi::TextureViewHandle view)
@@ -104,7 +104,7 @@ namespace
 			const std::array colors = ColorAttachment(scene.view);
 			const rhi::BeginRenderingDesc rendering{ .colors = colors, .width = test::samples::kTextureDim, .height = test::samples::kTextureDim };
 
-			if (!recording.List().BeginRendering(rendering, error))
+			if (!recording.List().begin_rendering(rendering, error))
 			{
 				static_cast<void>(recording.End());
 				DestroyScene(Dev(), scene);
@@ -112,16 +112,16 @@ namespace
 			}
 
 			rhi::Error copyError{};
-			EXPECT_FALSE(recording.List().CopyBuffer(scene.dst, 0, scene.src, 0, test::samples::kBufferSize, copyError))
+			EXPECT_FALSE(recording.List().copy_buffer(scene.dst, 0, scene.src, 0, test::samples::kBufferSize, copyError))
 				<< "a buffer copy was accepted inside a rendering scope";
 			EXPECT_TRUE(test::ErrorIsPopulated(copyError));
 
 			rhi::Error clearError{};
-			EXPECT_FALSE(recording.List().ClearBuffer(scene.dst, 0, test::samples::kBufferSize, 0u, clearError))
+			EXPECT_FALSE(recording.List().clear_buffer(scene.dst, 0, test::samples::kBufferSize, 0u, clearError))
 				<< "a buffer clear was accepted inside a rendering scope";
 			EXPECT_TRUE(test::ErrorIsPopulated(clearError));
 
-			EXPECT_TRUE(test::Ok(recording.List().EndRendering(error), error)) << "the rendering scope did not survive the refusal";
+			EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error)) << "the rendering scope did not survive the refusal";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
@@ -138,8 +138,8 @@ namespace
 			test::Recording recording(Dev());
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-			EXPECT_TRUE(test::Ok(recording.List().CopyBuffer(scene.dst, 0, scene.src, 0, test::samples::kBufferSize, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().ClearBuffer(scene.dst, 0, test::samples::kBufferSize, 0u, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().copy_buffer(scene.dst, 0, scene.src, 0, test::samples::kBufferSize, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().clear_buffer(scene.dst, 0, test::samples::kBufferSize, 0u, error), error));
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
@@ -161,7 +161,7 @@ namespace
 			const std::array colors = ColorAttachment(scene.view);
 			const rhi::BeginRenderingDesc rendering{ .colors = colors, .width = test::samples::kTextureDim, .height = test::samples::kTextureDim };
 
-			if (!recording.List().BeginRendering(rendering, error))
+			if (!recording.List().begin_rendering(rendering, error))
 			{
 				static_cast<void>(recording.End());
 				DestroyScene(Dev(), scene);
@@ -172,7 +172,7 @@ namespace
 			EXPECT_FALSE(recording.List().Dispatch(1, 1, 1, dispatchError)) << "a dispatch was accepted inside a rendering scope";
 			EXPECT_TRUE(test::ErrorIsPopulated(dispatchError));
 
-			EXPECT_TRUE(test::Ok(recording.List().EndRendering(error), error)) << "the rendering scope did not survive the refusal";
+			EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error)) << "the rendering scope did not survive the refusal";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
@@ -191,13 +191,13 @@ namespace
 			test::Recording recording(Dev());
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-			EXPECT_TRUE(test::Ok(recording.List().CopyBuffer(scene.dst, 0, scene.src, 0, test::samples::kBufferSize, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().copy_buffer(scene.dst, 0, scene.src, 0, test::samples::kBufferSize, error), error));
 
-			rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+			rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics);
 			std::array<const rhi::CommandList *, 1> lists{ &recording.List() };
 
 			rhi::Error submitError{};
-			EXPECT_FALSE(queue.Submit({ .commandLists = lists, .debugName = "scope.unclosed" }, submitError))
+			EXPECT_FALSE(queue.submit({ .commandLists = lists, .debugName = "scope.unclosed" }, submitError))
 				<< "a command list was submitted while still recording, so End was never called on it";
 			EXPECT_TRUE(test::ErrorIsPopulated(submitError));
 
@@ -220,20 +220,20 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			rhi::Error directError{};
-			EXPECT_FALSE(recording.List().Draw(3, 1, 0, 0, directError)) << "a direct draw outside a rendering scope was accepted";
+			EXPECT_FALSE(recording.List().draw(3, 1, 0, 0, directError)) << "a direct draw outside a rendering scope was accepted";
 
 			rhi::Error indirectError{};
-			EXPECT_FALSE(recording.List().DrawIndirect(scene.src, 0, 1, 0, indirectError))
+			EXPECT_FALSE(recording.List().draw_indirect(scene.src, 0, 1, 0, indirectError))
 				<< "an indirect draw outside a rendering scope was accepted while its direct form was refused";
 			EXPECT_TRUE(test::ErrorIsPopulated(indirectError));
 
 			rhi::Error countError{};
-			EXPECT_FALSE(recording.List().DrawIndirectCount(scene.src, 0, scene.dst, 0, 1, 0, countError))
+			EXPECT_FALSE(recording.List().draw_indirect_count(scene.src, 0, scene.dst, 0, 1, 0, countError))
 				<< "an indirect count draw outside a rendering scope was accepted while its direct form was refused";
 			EXPECT_TRUE(test::ErrorIsPopulated(countError));
 
 			rhi::Error dispatchError{};
-			EXPECT_FALSE(recording.List().DispatchIndirect(scene.src, 0, dispatchError))
+			EXPECT_FALSE(recording.List().dispatch_indirect(scene.src, 0, dispatchError))
 				<< "an indirect dispatch with no compute pipeline bound was accepted while its direct form was refused";
 			EXPECT_TRUE(test::ErrorIsPopulated(dispatchError));
 
@@ -258,7 +258,7 @@ namespace
 			const std::array colors = ColorAttachment(scene.view);
 			const rhi::BeginRenderingDesc rendering{ .colors = colors, .width = test::samples::kTextureDim, .height = test::samples::kTextureDim };
 
-			if (!recording.List().BeginRendering(rendering, error))
+			if (!recording.List().begin_rendering(rendering, error))
 			{
 				static_cast<void>(recording.End());
 				DestroyScene(Dev(), scene);
@@ -268,11 +268,11 @@ namespace
 			const std::array barriers{ rhi::BufferBarrier{ .buffer = scene.dst, .before = kStorageRead, .after = kCopyDst } };
 
 			rhi::Error barrierError{};
-			EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = barriers }, barrierError))
+			EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = barriers }, barrierError))
 				<< "a barrier was accepted inside a rendering scope, which Vulkan forbids outright, Metal 3 discards and Metal 4 honours only for vertex";
 			EXPECT_TRUE(test::ErrorIsPopulated(barrierError));
 
-			EXPECT_TRUE(test::Ok(recording.List().EndRendering(error), error)) << "the rendering scope did not survive the refusal";
+			EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error)) << "the rendering scope did not survive the refusal";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
@@ -293,7 +293,7 @@ namespace
 
 			const std::array barriers{ rhi::BufferBarrier{ .buffer = scene.dst, .before = kStorageRead, .after = kCopyDst } };
 
-			EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = barriers }, error), error))
+			EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = barriers }, error), error))
 				<< "the same barrier was refused between passes, so the refusal above is not the rendering scope";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}

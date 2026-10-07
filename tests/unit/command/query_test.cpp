@@ -47,8 +47,8 @@ namespace
 
 	[[nodiscard]] bool SubmitAndWait(rhi::Device device, rhi::CommandList & list, rhi::Error & error)
 	{
-		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
-		if (!queue.IsValid())
+		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
+		if (!queue.is_valid())
 		{
 			return false;
 		}
@@ -58,7 +58,7 @@ namespace
 			.commandLists = lists,
 			.debugName	  = "azoth.rhi.test.querySubmit",
 		};
-		return queue.Submit(submit, error) && queue.WaitIdle(error);
+		return queue.submit(submit, error) && queue.wait_idle(error);
 	}
 
 	[[nodiscard]] bool ReadTimestampPair(rhi::Device device, rhi::BufferHandle results, std::uint64_t & first, std::uint64_t & second, rhi::Error & error)
@@ -89,23 +89,23 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error)) << "a device reporting timestamp queries refused to create a pool";
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error)) << "a device reporting timestamp queries refused to create a pool";
 
-		const rhi::BufferHandle results = Dev().CreateBuffer(test::samples::ReadbackBuffer(), error);
-		ASSERT_TRUE(test::Ok(results.IsValid(), error));
-		const rhi::BufferHandle scratch = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(scratch.IsValid(), error));
+		const rhi::BufferHandle results = Dev().create_buffer(test::samples::ReadbackBuffer(), error);
+		ASSERT_TRUE(test::Ok(results.is_valid(), error));
+		const rhi::BufferHandle scratch = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(scratch.is_valid(), error));
 
 		{
 			test::Recording recording(Dev());
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-			EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eAllCommands, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().ClearBuffer(scratch, 0, test::samples::kBufferSize, 0u, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 1, rhi::Stage::eAllCommands, error), error));
-			EXPECT_TRUE(test::Ok(recording.List().ResolveQueryData(pool, 0, 2, results, 0, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().reset_query_pool(pool, 0, kPoolQueries, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().write_timestamp(pool, 0, rhi::Stage::eAllCommands, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().clear_buffer(scratch, 0, test::samples::kBufferSize, 0u, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().write_timestamp(pool, 1, rhi::Stage::eAllCommands, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().resolve_query_data(pool, 0, 2, results, 0, error), error));
 
 			ASSERT_TRUE(recording.End());
 			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), recording.List(), error), error));
@@ -115,9 +115,9 @@ namespace
 		std::uint64_t second = 0;
 		if (!ReadTimestampPair(Dev(), results, first, second, error))
 		{
-			static_cast<void>(Dev().Destroy(pool, {}, error));
-			static_cast<void>(Dev().Destroy(results, {}, error));
-			static_cast<void>(Dev().Destroy(scratch, {}, error));
+			static_cast<void>(Dev().destroy(pool, {}, error));
+			static_cast<void>(Dev().destroy(results, {}, error));
+			static_cast<void>(Dev().destroy(scratch, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
@@ -132,9 +132,9 @@ namespace
 			}
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(results, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(scratch, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(results, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(scratch, {}, error), error));
 
 		if (!Caps().supportsOrderedTimestamps)
 		{
@@ -147,16 +147,16 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		const rhi::BufferHandle results = Dev().CreateBuffer(test::samples::ReadbackBuffer(), error);
-		ASSERT_TRUE(test::Ok(results.IsValid(), error));
+		const rhi::BufferHandle results = Dev().create_buffer(test::samples::ReadbackBuffer(), error);
+		ASSERT_TRUE(test::Ok(results.is_valid(), error));
 
-		const rhi::TextureHandle target = Dev().CreateTexture(test::samples::ColorTarget2D(), error);
-		ASSERT_TRUE(test::Ok(target.IsValid(), error));
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
-		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+		const rhi::TextureHandle target = Dev().create_texture(test::samples::ColorTarget2D(), error);
+		ASSERT_TRUE(test::Ok(target.is_valid(), error));
+		const rhi::TextureViewHandle view = Dev().create_texture_view(target, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.is_valid(), error));
 
 		const std::array colors{
 			rhi::RenderingAttachment{
@@ -185,18 +185,18 @@ namespace
 			test::Recording recording(Dev());
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-			EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
-			if (!recording.List().BeginRendering(rendering, error))
+			EXPECT_TRUE(test::Ok(recording.List().reset_query_pool(pool, 0, kPoolQueries, error), error));
+			if (!recording.List().begin_rendering(rendering, error))
 			{
 				static_cast<void>(recording.End());
-				static_cast<void>(Dev().Destroy(pool, {}, error));
-				static_cast<void>(Dev().Destroy(results, {}, error));
-				static_cast<void>(Dev().Destroy(view, {}, error));
-				static_cast<void>(Dev().Destroy(target, {}, error));
+				static_cast<void>(Dev().destroy(pool, {}, error));
+				static_cast<void>(Dev().destroy(results, {}, error));
+				static_cast<void>(Dev().destroy(view, {}, error));
+				static_cast<void>(Dev().destroy(target, {}, error));
 				GTEST_SKIP() << "this backend refused a dynamic rendering scope: " << test::Describe(error);
 			}
-			EXPECT_TRUE(test::Ok(recording.List().EndRendering(error), error));
-			EXPECT_TRUE(test::Ok(recording.List().ResolveQueryData(pool, 0, 2, results, 0, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error));
+			EXPECT_TRUE(test::Ok(recording.List().resolve_query_data(pool, 0, 2, results, 0, error), error));
 
 			ASSERT_TRUE(recording.End());
 			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), recording.List(), error), error));
@@ -206,10 +206,10 @@ namespace
 		std::uint64_t closed = 0;
 		if (!ReadTimestampPair(Dev(), results, opened, closed, error))
 		{
-			static_cast<void>(Dev().Destroy(pool, {}, error));
-			static_cast<void>(Dev().Destroy(results, {}, error));
-			static_cast<void>(Dev().Destroy(view, {}, error));
-			static_cast<void>(Dev().Destroy(target, {}, error));
+			static_cast<void>(Dev().destroy(pool, {}, error));
+			static_cast<void>(Dev().destroy(results, {}, error));
+			static_cast<void>(Dev().destroy(view, {}, error));
+			static_cast<void>(Dev().destroy(target, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
@@ -220,10 +220,10 @@ namespace
 			EXPECT_GE(closed, opened) << "the rendering scope closed before it opened";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(results, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(target, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(results, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(target, {}, error), error));
 	}
 
 	TEST_P(QueryTest, AcceptsOrRefusesAMidScopeWriteExactlyAsTheCapabilitySays)
@@ -231,13 +231,13 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
-		const rhi::TextureHandle target = Dev().CreateTexture(test::samples::ColorTarget2D(), error);
-		ASSERT_TRUE(test::Ok(target.IsValid(), error));
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
-		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+		const rhi::TextureHandle target = Dev().create_texture(test::samples::ColorTarget2D(), error);
+		ASSERT_TRUE(test::Ok(target.is_valid(), error));
+		const rhi::TextureViewHandle view = Dev().create_texture_view(target, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.is_valid(), error));
 
 		const std::array colors{
 			rhi::RenderingAttachment{
@@ -262,17 +262,17 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		if (!recording.List().BeginRendering(rendering, error))
+		if (!recording.List().begin_rendering(rendering, error))
 		{
 			static_cast<void>(recording.End());
-			static_cast<void>(Dev().Destroy(pool, {}, error));
-			static_cast<void>(Dev().Destroy(view, {}, error));
-			static_cast<void>(Dev().Destroy(target, {}, error));
+			static_cast<void>(Dev().destroy(pool, {}, error));
+			static_cast<void>(Dev().destroy(view, {}, error));
+			static_cast<void>(Dev().destroy(target, {}, error));
 			GTEST_SKIP() << "this backend refused a dynamic rendering scope: " << test::Describe(error);
 		}
 
 		rhi::Error writeError{};
-		const bool written = recording.List().WriteTimestamp(pool, 2, rhi::Stage::eAllCommands, writeError);
+		const bool written = recording.List().write_timestamp(pool, 2, rhi::Stage::eAllCommands, writeError);
 
 		if (Caps().supportsTimestampWritesInScope)
 		{
@@ -284,12 +284,12 @@ namespace
 			EXPECT_TRUE(test::ErrorIsPopulated(writeError));
 		}
 
-		EXPECT_TRUE(test::Ok(recording.List().EndRendering(error), error));
+		EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error));
 		EXPECT_TRUE(recording.End());
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(target, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(target, {}, error), error));
 	}
 
 	TEST_P(QueryTest, RefusesAQueryPastTheEndOfThePool)
@@ -299,23 +299,23 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "a backend that remembers how large a pool it created");
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		rhi::Error writeError{};
-		EXPECT_FALSE(recording.List().WriteTimestamp(pool, kPoolQueries, rhi::Stage::eAllCommands, writeError))
+		EXPECT_FALSE(recording.List().write_timestamp(pool, kPoolQueries, rhi::Stage::eAllCommands, writeError))
 			<< "a timestamp was written past the end of the pool";
 		EXPECT_TRUE(test::ErrorIsPopulated(writeError));
 
 		rhi::Error resetError{};
-		EXPECT_FALSE(recording.List().ResetQueryPool(pool, kPoolQueries - 1, 2, resetError)) << "a reset ran past the end of the pool";
+		EXPECT_FALSE(recording.List().reset_query_pool(pool, kPoolQueries - 1, 2, resetError)) << "a reset ran past the end of the pool";
 		EXPECT_TRUE(test::ErrorIsPopulated(resetError));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 	TEST_P(QueryTest, RefusesAStageMaskNamingMoreThanOneStage)
@@ -325,23 +325,23 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		EXPECT_TRUE(test::Ok(recording.List().ResetQueryPool(pool, 0, kPoolQueries, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().reset_query_pool(pool, 0, kPoolQueries, error), error));
 
 		rhi::Error maskError{};
-		EXPECT_FALSE(recording.List().WriteTimestamp(pool, 0, rhi::Flags<rhi::Stage>(rhi::Stage::eCompute) | rhi::Stage::eCopy, maskError))
+		EXPECT_FALSE(recording.List().write_timestamp(pool, 0, rhi::Flags<rhi::Stage>(rhi::Stage::eCompute) | rhi::Stage::eCopy, maskError))
 			<< "a timestamp was written at a mask naming two stages";
 		EXPECT_TRUE(test::ErrorIsPopulated(maskError));
 
-		EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eCompute, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().write_timestamp(pool, 0, rhi::Stage::eCompute, error), error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 	TEST_P(QueryTest, RefusesRenderingWritesNamingAPoolThisDeviceNeverCreated)
@@ -351,10 +351,10 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "a backend that remembers which pools it created");
 
 		rhi::Error error{};
-		const rhi::TextureHandle target = Dev().CreateTexture(test::samples::ColorTarget2D(), error);
-		ASSERT_TRUE(test::Ok(target.IsValid(), error));
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
-		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+		const rhi::TextureHandle target = Dev().create_texture(test::samples::ColorTarget2D(), error);
+		ASSERT_TRUE(test::Ok(target.is_valid(), error));
+		const rhi::TextureViewHandle view = Dev().create_texture_view(target, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.is_valid(), error));
 
 		const std::array colors{
 			rhi::RenderingAttachment{
@@ -383,19 +383,19 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		rhi::Error beginError{};
-		EXPECT_FALSE(recording.List().BeginRendering(rendering, beginError)) << "a rendering scope opened against a query pool that does not exist";
+		EXPECT_FALSE(recording.List().begin_rendering(rendering, beginError)) << "a rendering scope opened against a query pool that does not exist";
 		EXPECT_TRUE(test::ErrorIsPopulated(beginError));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(target, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(target, {}, error), error));
 	}
 
 	TEST_P(QueryTest, CalibratesTheTwoClocksOrSaysItCannot)
 	{
 		rhi::Error error{};
 		rhi::TimestampCalibration calibration{};
-		const bool calibrated = Dev().CalibrateTimestamp(rhi::QueueType::eGraphics, calibration, error);
+		const bool calibrated = Dev().calibrate_timestamp(rhi::QueueType::eGraphics, calibration, error);
 
 		if (!Caps().supportsTimestampCalibration)
 		{

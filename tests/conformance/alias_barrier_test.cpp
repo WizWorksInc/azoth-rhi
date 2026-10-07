@@ -53,7 +53,7 @@ namespace
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return heap.IsValid() && before.IsValid() && after.IsValid();
+			return heap.is_valid() && before.is_valid() && after.is_valid();
 		}
 	};
 
@@ -62,20 +62,20 @@ namespace
 		const rhi::BufferDesc desc = test::samples::StorageBuffer();
 
 		AliasedPair pair{};
-		pair.heap = device.CreateHeap(test::samples::GpuHeap(), error);
-		if (!pair.heap.IsValid())
+		pair.heap = device.create_heap(test::samples::GpuHeap(), error);
+		if (!pair.heap.is_valid())
 		{
 			return {};
 		}
 
 		const rhi::PlacedBufferDesc placed{ .buffer = desc, .heap = pair.heap, .offset = 0 };
-		pair.before = device.CreatePlacedBuffer(placed, error);
-		if (!pair.before.IsValid())
+		pair.before = device.create_placed_buffer(placed, error);
+		if (!pair.before.is_valid())
 		{
 			return pair;
 		}
 
-		pair.after = device.CreatePlacedBuffer(placed, error);
+		pair.after = device.create_placed_buffer(placed, error);
 		return pair;
 	}
 
@@ -84,21 +84,21 @@ namespace
 		rhi::Error ignored{};
 		for (const rhi::BufferHandle buffer : { pair.after, pair.before })
 		{
-			if (buffer.IsValid())
+			if (buffer.is_valid())
 			{
-				static_cast<void>(device.Destroy(buffer, {}, ignored));
+				static_cast<void>(device.destroy(buffer, {}, ignored));
 			}
 		}
-		if (pair.heap.IsValid())
+		if (pair.heap.is_valid())
 		{
-			static_cast<void>(device.Destroy(pair.heap, {}, ignored));
+			static_cast<void>(device.destroy(pair.heap, {}, ignored));
 		}
 	}
 
 	[[nodiscard]] rhi::BufferHandle FilledUploadBuffer(rhi::Device device, const std::uint8_t pattern, rhi::Error & error)
 	{
-		const rhi::BufferHandle upload = device.CreateBuffer(test::samples::UploadBuffer(), error);
-		if (!upload.IsValid())
+		const rhi::BufferHandle upload = device.create_buffer(test::samples::UploadBuffer(), error);
+		if (!upload.is_valid())
 		{
 			return {};
 		}
@@ -112,7 +112,7 @@ namespace
 		std::memset(staging.data, pattern, test::samples::kBufferSize);
 		if (!staging.coherent)
 		{
-			static_cast<void>(device.FlushMappedRange(upload, 0, test::samples::kBufferSize, error));
+			static_cast<void>(device.flush_mapped_range(upload, 0, test::samples::kBufferSize, error));
 		}
 		static_cast<void>(device.Unmap(upload, error));
 
@@ -133,11 +133,11 @@ namespace
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::TextureHandle target = Dev().CreateTexture(test::samples::ColorTarget2D(), error);
-		ASSERT_TRUE(test::Ok(target.IsValid(), error));
+		const rhi::TextureHandle target = Dev().create_texture(test::samples::ColorTarget2D(), error);
+		ASSERT_TRUE(test::Ok(target.is_valid(), error));
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(target, test::samples::FullTextureView(), error);
-		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+		const rhi::TextureViewHandle view = Dev().create_texture_view(target, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.is_valid(), error));
 
 		const AliasedPair pair = PlaceOverlapping(Dev(), error);
 
@@ -153,28 +153,28 @@ namespace
 			} };
 			const rhi::BeginRenderingDesc rendering{ .colors = colors, .width = test::samples::kTextureDim, .height = test::samples::kTextureDim };
 
-			if (!recording.List().BeginRendering(rendering, error))
+			if (!recording.List().begin_rendering(rendering, error))
 			{
 				static_cast<void>(recording.End());
 				DestroyPair(Dev(), pair);
-				static_cast<void>(Dev().Destroy(view, {}, error));
-				static_cast<void>(Dev().Destroy(target, {}, error));
+				static_cast<void>(Dev().destroy(view, {}, error));
+				static_cast<void>(Dev().destroy(target, {}, error));
 				GTEST_SKIP() << "this backend refused a rendering scope: " << test::Describe(error);
 			}
 
 			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = pair.before, .afterBuffer = pair.after } };
 
 			rhi::Error scopeError{};
-			EXPECT_FALSE(recording.List().AliasBarriers(barriers, scopeError)) << "an alias barrier was accepted inside a rendering scope";
+			EXPECT_FALSE(recording.List().alias_barriers(barriers, scopeError)) << "an alias barrier was accepted inside a rendering scope";
 			EXPECT_TRUE(test::ErrorIsPopulated(scopeError));
 
-			EXPECT_TRUE(test::Ok(recording.List().EndRendering(error), error)) << "the rendering scope did not survive the refusal";
+			EXPECT_TRUE(test::Ok(recording.List().end_rendering(error), error)) << "the rendering scope did not survive the refusal";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
 		DestroyPair(Dev(), pair);
-		static_cast<void>(Dev().Destroy(view, {}, error));
-		static_cast<void>(Dev().Destroy(target, {}, error));
+		static_cast<void>(Dev().destroy(view, {}, error));
+		static_cast<void>(Dev().destroy(target, {}, error));
 	}
 
 	TEST_P(AliasBarrierTest, AnEmptyBatchIsAcceptedAndRecordsNothing)
@@ -183,7 +183,7 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		EXPECT_TRUE(test::Ok(recording.List().AliasBarriers({}, error), error)) << "an empty alias batch was refused";
+		EXPECT_TRUE(test::Ok(recording.List().alias_barriers({}, error), error)) << "an empty alias batch was refused";
 		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 	}
 
@@ -204,7 +204,7 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = pair.before, .afterBuffer = pair.after } };
-			EXPECT_TRUE(test::Ok(recording.List().AliasBarriers(barriers, error), error)) << "a well-formed aliased pair was refused";
+			EXPECT_TRUE(test::Ok(recording.List().alias_barriers(barriers, error), error)) << "a well-formed aliased pair was refused";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
@@ -224,7 +224,7 @@ namespace
 		}
 
 		const rhi::BufferHandle upload = FilledUploadBuffer(Dev(), kBeforePattern, error);
-		if (!upload.IsValid())
+		if (!upload.is_valid())
 		{
 			DestroyPair(Dev(), pair);
 			GTEST_SKIP() << "this backend does not expose a mapped upload buffer to copy from";
@@ -235,15 +235,15 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array toCopyDst = ToCopyDst(pair.before);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = toCopyDst }, error), error));
-			ASSERT_TRUE(test::Ok(recording.List().CopyBuffer(pair.before, 0, upload, 0, test::samples::kBufferSize, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = toCopyDst }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer(pair.before, 0, upload, 0, test::samples::kBufferSize, error), error));
 
 			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = pair.before, .afterBuffer = pair.after } };
-			EXPECT_TRUE(test::Ok(recording.List().AliasBarriers(barriers, error), error)) << "an alias barrier was refused with a copy already recorded";
+			EXPECT_TRUE(test::Ok(recording.List().alias_barriers(barriers, error), error)) << "an alias barrier was refused with a copy already recorded";
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
-		static_cast<void>(Dev().Destroy(upload, {}, error));
+		static_cast<void>(Dev().destroy(upload, {}, error));
 		DestroyPair(Dev(), pair);
 	}
 
@@ -261,51 +261,51 @@ namespace
 
 		const rhi::BufferHandle beforeSource = FilledUploadBuffer(Dev(), kBeforePattern, error);
 		const rhi::BufferHandle afterSource	 = FilledUploadBuffer(Dev(), kAfterPattern, error);
-		const rhi::BufferHandle readback	 = Dev().CreateBuffer(test::samples::ReadbackBuffer(), error);
-		if (!beforeSource.IsValid() || !afterSource.IsValid() || !readback.IsValid())
+		const rhi::BufferHandle readback	 = Dev().create_buffer(test::samples::ReadbackBuffer(), error);
+		if (!beforeSource.is_valid() || !afterSource.is_valid() || !readback.is_valid())
 		{
 			for (const rhi::BufferHandle buffer : { readback, afterSource, beforeSource })
 			{
-				if (buffer.IsValid())
+				if (buffer.is_valid())
 				{
-					static_cast<void>(Dev().Destroy(buffer, {}, error));
+					static_cast<void>(Dev().destroy(buffer, {}, error));
 				}
 			}
 			DestroyPair(Dev(), pair);
 			GTEST_SKIP() << "this backend does not expose the mapped buffers the round trip copies through";
 		}
 
-		const rhi::TimelineHandle done = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(done.IsValid(), error));
+		const rhi::TimelineHandle done = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(done.is_valid(), error));
 
 		{
 			test::Recording recording(Dev());
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array beforeToCopyDst = ToCopyDst(pair.before);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = beforeToCopyDst }, error), error));
-			ASSERT_TRUE(test::Ok(recording.List().CopyBuffer(pair.before, 0, beforeSource, 0, test::samples::kBufferSize, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = beforeToCopyDst }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer(pair.before, 0, beforeSource, 0, test::samples::kBufferSize, error), error));
 
 			const std::array barriers{ rhi::AliasBarrier{ .beforeBuffer = pair.before, .afterBuffer = pair.after } };
-			ASSERT_TRUE(test::Ok(recording.List().AliasBarriers(barriers, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().alias_barriers(barriers, error), error));
 
 			const std::array afterToCopyDst = ToCopyDst(pair.after);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = afterToCopyDst }, error), error));
-			ASSERT_TRUE(test::Ok(recording.List().CopyBuffer(pair.after, 0, afterSource, 0, test::samples::kBufferSize, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = afterToCopyDst }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer(pair.after, 0, afterSource, 0, test::samples::kBufferSize, error), error));
 
 			const std::array afterToCopySrc{ rhi::BufferBarrier{
 				.buffer = pair.after,
 				.before = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 				.after	= { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 			} };
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = afterToCopySrc }, error), error));
-			ASSERT_TRUE(test::Ok(recording.List().CopyBuffer(readback, 0, pair.after, 0, test::samples::kBufferSize, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = afterToCopySrc }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer(readback, 0, pair.after, 0, test::samples::kBufferSize, error), error));
 			ASSERT_TRUE(test::Ok(recording.End(), recording.GetError()));
 
-			rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+			rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics);
 			std::array<const rhi::CommandList *, 1> lists{ &recording.List() };
 			const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
-			ASSERT_TRUE(test::Ok(queue.Submit({ .commandLists = lists, .signals = signals, .debugName = "alias.roundTrip" }, error), error));
+			ASSERT_TRUE(test::Ok(queue.submit({ .commandLists = lists, .signals = signals, .debugName = "alias.roundTrip" }, error), error));
 			ASSERT_TRUE(test::Ok(queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error), error)) << "the aliased round trip never completed";
 		}
 
@@ -313,7 +313,7 @@ namespace
 		ASSERT_NE(mapped.data, nullptr) << "the readback buffer could not be mapped, so nothing was checked";
 		if (!mapped.coherent)
 		{
-			ASSERT_TRUE(test::Ok(Dev().InvalidateMappedRange(readback, 0, test::samples::kBufferSize, error), error));
+			ASSERT_TRUE(test::Ok(Dev().invalidate_mapped_range(readback, 0, test::samples::kBufferSize, error), error));
 		}
 
 		std::vector<std::uint8_t> observed(test::samples::kBufferSize, 0);
@@ -326,10 +326,10 @@ namespace
 			EXPECT_EQ(observed, expected) << "the aliased buffer does not carry the write that followed the alias barrier";
 		}
 
-		static_cast<void>(Dev().Destroy(done, {}, error));
-		static_cast<void>(Dev().Destroy(readback, {}, error));
-		static_cast<void>(Dev().Destroy(afterSource, {}, error));
-		static_cast<void>(Dev().Destroy(beforeSource, {}, error));
+		static_cast<void>(Dev().destroy(done, {}, error));
+		static_cast<void>(Dev().destroy(readback, {}, error));
+		static_cast<void>(Dev().destroy(afterSource, {}, error));
+		static_cast<void>(Dev().destroy(beforeSource, {}, error));
 		DestroyPair(Dev(), pair);
 	}
 

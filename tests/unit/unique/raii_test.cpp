@@ -38,7 +38,7 @@ namespace
 		[[nodiscard]] raii::Device Adopt()
 		{
 			const std::array<rhi::GraphicsApiId, 1> only{ CurrentBackend().id };
-			rhi::Result<rhi::UniqueDevice> owner = rhi::CreateDevice(Harness().Registry(), only, MakeDeviceDesc());
+			rhi::Result<rhi::UniqueDevice> owner = rhi::create_device(Harness().Registry(), only, MakeDeviceDesc());
 			EXPECT_TRUE(test::Ok(owner));
 			return raii::Device{ std::move(owner.Value()) };
 		}
@@ -83,10 +83,10 @@ namespace
 	TEST(Raii, ANullDeviceIsHarmlessToDestroy)
 	{
 		raii::Device device;
-		EXPECT_FALSE(device.IsValid());
+		EXPECT_FALSE(device.is_valid());
 
 		raii::Device moved = std::move(device);
-		EXPECT_FALSE(moved.IsValid());
+		EXPECT_FALSE(moved.is_valid());
 
 		static_assert(!std::is_copy_constructible_v<raii::Device>);
 		static_assert(std::is_move_constructible_v<raii::Device>);
@@ -95,33 +95,33 @@ namespace
 	TEST_P(RaiiTest, gate_TierParity)
 	{
 		raii::Device device = Adopt();
-		ASSERT_TRUE(device.IsValid());
+		ASSERT_TRUE(device.is_valid());
 
 		const rhi::TextureHandle never{};
 
 		rhi::Error flat{};
 		const rhi::TextureViewHandle fromFlat = device.Get().CreateTextureView(never, rhi::TextureViewDesc{}, flat);
-		ASSERT_FALSE(fromFlat.IsValid()) << "the flat API accepted a texture it never handed out, so there is no failure to compare";
+		ASSERT_FALSE(fromFlat.is_valid()) << "the flat API accepted a texture it never handed out, so there is no failure to compare";
 
 		const rhi::Result<rhi::TextureViewHandle> fromTierOne = device.Get().CreateTextureViewWithResult(never, rhi::TextureViewDesc{});
-		ASSERT_FALSE(fromTierOne.HasValue());
+		ASSERT_FALSE(fromTierOne.has_value());
 
-		const rhi::Result<raii::TextureView> fromTierTwo = device.CreateTextureView(never, rhi::TextureViewDesc{});
-		ASSERT_FALSE(fromTierTwo.HasValue());
+		const rhi::Result<raii::TextureView> fromTierTwo = device.create_texture_view(never, rhi::TextureViewDesc{});
+		ASSERT_FALSE(fromTierTwo.has_value());
 
-		EXPECT_EQ(fromTierOne.GetError().code, flat.code) << "the Result form and the out-Error form disagree about why this failed";
-		EXPECT_EQ(fromTierTwo.GetError().code, flat.code) << "tier two reports a different code than the flat API it forwards to";
-		EXPECT_TRUE(test::ErrorIsPopulated(fromTierTwo.GetError())) << "tier two lost the diagnostic on its way out";
+		EXPECT_EQ(fromTierOne.get_error().code, flat.code) << "the Result form and the out-Error form disagree about why this failed";
+		EXPECT_EQ(fromTierTwo.get_error().code, flat.code) << "tier two reports a different code than the flat API it forwards to";
+		EXPECT_TRUE(test::ErrorIsPopulated(fromTierTwo.get_error())) << "tier two lost the diagnostic on its way out";
 	}
 
 	TEST_P(RaiiTest, VendsWhatItCreatesAndDestroysItAtScopeExit)
 	{
 		raii::Device device = Adopt();
-		ASSERT_TRUE(device.IsValid());
+		ASSERT_TRUE(device.is_valid());
 
 		rhi::BufferHandle raw{};
 		{
-			rhi::Result<raii::Buffer> buffer = device.CreateBuffer(test::samples::StorageBuffer());
+			rhi::Result<raii::Buffer> buffer = device.create_buffer(test::samples::StorageBuffer());
 			ASSERT_TRUE(test::Ok(buffer));
 			ASSERT_TRUE(buffer.Value().IsValid());
 			raw = buffer.Value().Get();
@@ -140,9 +140,9 @@ namespace
 
 		{
 			raii::Device device = Adopt();
-			ASSERT_TRUE(device.IsValid());
+			ASSERT_TRUE(device.is_valid());
 
-			rhi::Result<raii::Buffer> buffer = device.CreateBuffer(test::samples::StorageBuffer());
+			rhi::Result<raii::Buffer> buffer = device.create_buffer(test::samples::StorageBuffer());
 			ASSERT_TRUE(test::Ok(buffer));
 			raw = buffer.Value().Get();
 
@@ -151,7 +151,7 @@ namespace
 			EXPECT_FALSE(buffer.Value().IsValid());
 		}
 
-		EXPECT_TRUE(raw.IsValid()) << "the handle value itself is unaffected by any of this, which is why the hazard is silent";
+		EXPECT_TRUE(raw.is_valid()) << "the handle value itself is unaffected by any of this, which is why the hazard is silent";
 	}
 
 	TEST_P(RaiiTest, gate_ResetOutlivesItsBorrowings)
@@ -162,7 +162,7 @@ namespace
 		}
 
 		raii::Device device = Adopt();
-		ASSERT_TRUE(device.IsValid());
+		ASSERT_TRUE(device.is_valid());
 
 		const test::samples::UniformLayout layout;
 
@@ -170,7 +170,7 @@ namespace
 		const rhi::Result<rhi::DescriptorSetLayoutHandle> setLayout = device.Get().CreateDescriptorSetLayoutWithResult(layout.Desc());
 		ASSERT_TRUE(test::Ok(setLayout));
 
-		rhi::Result<raii::DescriptorArena> arena = device.CreateDescriptorArena(test::samples::DescriptorArena());
+		rhi::Result<raii::DescriptorArena> arena = device.create_descriptor_arena(test::samples::DescriptorArena());
 		ASSERT_TRUE(test::Ok(arena));
 
 		const raii::DescriptorSet borrowed = arena.Value().Allocate(
@@ -180,7 +180,7 @@ namespace
 				.debugName				 = "azoth.rhi.test.borrowed",
 			},
 			error);
-		ASSERT_TRUE(test::Ok(borrowed.IsValid(), error));
+		ASSERT_TRUE(test::Ok(borrowed.is_valid(), error));
 
 		ASSERT_TRUE(test::Ok(arena.Value().Reset(rhi::RetirePoint{}, error), error));
 

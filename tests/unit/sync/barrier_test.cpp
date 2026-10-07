@@ -60,7 +60,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		rhi::Error error{};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{}, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{}, error), error));
 		EXPECT_TRUE(recording.End());
 	}
 
@@ -73,15 +73,15 @@ namespace
 			.after											 = { .use = rhi::ResourceUse::eStorageRead, .stages = rhi::Stage::eFragmentShading } } };
 
 		rhi::Error error{};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .memory = memory }, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .memory = memory }, error), error));
 		EXPECT_TRUE(recording.End());
 	}
 
 	TEST_P(BarrierTest, TransitionsABufferThroughTheStatesACopyThenAReadWouldUse)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -89,15 +89,15 @@ namespace
 		const std::array toCopy{
 			rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() },
 		};
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 
 		const std::array toRead{
 			rhi::BufferBarrier{ .buffer = buffer, .before = CopyDestinationState(), .after = ShaderReadState() },
 		};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = toRead }, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = toRead }, error), error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BarrierTest, RejectsABufferBarrierWhoseBeforeStateDisagreesWithWhatWasTracked)
@@ -105,8 +105,8 @@ namespace
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -114,25 +114,25 @@ namespace
 		const std::array toCopy{
 			rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() },
 		};
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 
 		const std::array wrong{
 			rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = ShaderReadState() },
 		};
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a barrier claiming the wrong before-state was accepted";
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError)) << "a barrier claiming the wrong before-state was accepted";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 
 		static_cast<void>(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BarrierTest, TransitionsATextureAcrossItsWholeSubresourceRange)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -140,19 +140,19 @@ namespace
 		const std::array barriers{ rhi::TextureBarrier{
 			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
 
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = barriers }, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = barriers }, error), error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(BarrierTest, TakesBuffersAndTexturesInOneBatch)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer	 = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::BufferHandle buffer	 = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -163,7 +163,7 @@ namespace
 		const std::array textures{ rhi::TextureBarrier{
 			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
 
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(
+		EXPECT_TRUE(test::Ok(recording.List().barriers(
 								 rhi::BarrierBatch{
 									 .memory   = {},
 									 .buffers  = buffers,
@@ -173,8 +173,8 @@ namespace
 			error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BarrierTest, TracksTwoResourcesIndependently)
@@ -182,10 +182,10 @@ namespace
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::BufferHandle moved	 = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		const rhi::BufferHandle pristine = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(moved.IsValid(), error));
-		ASSERT_TRUE(test::Ok(pristine.IsValid(), error));
+		const rhi::BufferHandle moved	 = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		const rhi::BufferHandle pristine = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(moved.is_valid(), error));
+		ASSERT_TRUE(test::Ok(pristine.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -193,16 +193,16 @@ namespace
 		const std::array first{
 			rhi::BufferBarrier{ .buffer = moved, .before = UntouchedState(), .after = CopyDestinationState() },
 		};
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = first }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = first }, error), error));
 
 		const std::array second{
 			rhi::BufferBarrier{ .buffer = pristine, .before = UntouchedState(), .after = ShaderReadState() },
 		};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = second }, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = second }, error), error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pristine, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(moved, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pristine, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(moved, {}, error), error));
 	}
 
 	TEST_P(BarrierTest, StartsEachRecordingFromACleanSlate)
@@ -210,8 +210,8 @@ namespace
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		const std::array toCopy{
 			rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() },
@@ -220,26 +220,26 @@ namespace
 		{
 			test::Recording first(Dev());
 			ASSERT_TRUE(test::Ok(first.IsRecording(), first.GetError()));
-			ASSERT_TRUE(test::Ok(first.List().Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
+			ASSERT_TRUE(test::Ok(first.List().barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 			ASSERT_TRUE(first.End());
 		}
 
 		{
 			test::Recording second(Dev());
 			ASSERT_TRUE(test::Ok(second.IsRecording(), second.GetError()));
-			EXPECT_TRUE(test::Ok(second.List().Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error))
+			EXPECT_TRUE(test::Ok(second.List().barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error))
 				<< "a new recording inherited the state tracked by the previous one";
 			EXPECT_TRUE(second.End());
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BarrierTest, AcceptsAnOwnershipFieldThatTransfersNothing)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
@@ -249,10 +249,10 @@ namespace
 			.after											   = CopyDestinationState(),
 			.ownership										   = rhi::QueueOwnership{ .op = rhi::OwnershipOp::eNone } } };
 
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = barriers }, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = barriers }, error), error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 }

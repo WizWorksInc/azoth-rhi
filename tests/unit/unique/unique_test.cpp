@@ -35,8 +35,8 @@ namespace
 		[[nodiscard]] rhi::BufferHandle MakeBuffer()
 		{
 			rhi::Error error{};
-			const rhi::BufferHandle handle = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-			EXPECT_TRUE(test::Ok(handle.IsValid(), error));
+			const rhi::BufferHandle handle = Dev().create_buffer(test::samples::StorageBuffer(), error);
+			EXPECT_TRUE(test::Ok(handle.is_valid(), error));
 			return handle;
 		}
 	};
@@ -46,18 +46,18 @@ namespace
 	TEST_P(UniqueTest, DestroysTheHandleWhenTheScopeEnds)
 	{
 		const rhi::BufferHandle handle = MakeBuffer();
-		ASSERT_TRUE(handle.IsValid());
+		ASSERT_TRUE(handle.is_valid());
 
 		{
 			const rhi::UniqueBuffer owner(Dev(), handle);
-			EXPECT_TRUE(owner.IsValid());
+			EXPECT_TRUE(owner.is_valid());
 			EXPECT_EQ(owner.Get(), handle);
 		}
 
 		if (test::kValidatesHandles)
 		{
 			rhi::Error error{};
-			EXPECT_FALSE(Dev().Destroy(handle, {}, error)) << "the scope ended without destroying the buffer";
+			EXPECT_FALSE(Dev().destroy(handle, {}, error)) << "the scope ended without destroying the buffer";
 		}
 	}
 
@@ -73,9 +73,9 @@ namespace
 		rhi::UniqueBuffer source(Dev(), handle);
 		rhi::UniqueBuffer moved = std::move(source);
 
-		EXPECT_TRUE(moved.IsValid());
+		EXPECT_TRUE(moved.is_valid());
 		EXPECT_EQ(moved.Get(), handle);
-		EXPECT_FALSE(source.IsValid()) << "the moved-from owner still claims the handle"; // NOLINT(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
+		EXPECT_FALSE(source.is_valid()) << "the moved-from owner still claims the handle"; // NOLINT(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
 	}
 
 	TEST_P(UniqueTest, MoveAssignmentDestroysWhatTheTargetHeld)
@@ -94,7 +94,7 @@ namespace
 		if (test::kValidatesHandles)
 		{
 			rhi::Error error{};
-			EXPECT_FALSE(Dev().Destroy(first, {}, error)) << "move assignment leaked the handle the target already owned";
+			EXPECT_FALSE(Dev().destroy(first, {}, error)) << "move assignment leaked the handle the target already owned";
 		}
 	}
 
@@ -106,13 +106,13 @@ namespace
 		{
 			rhi::UniqueBuffer owner(Dev(), handle);
 			released = owner.Release();
-			EXPECT_FALSE(owner.IsValid()) << "the owner still holds a handle it gave up";
+			EXPECT_FALSE(owner.is_valid()) << "the owner still holds a handle it gave up";
 		}
 
 		EXPECT_EQ(released, handle);
 
 		rhi::Error error{};
-		EXPECT_TRUE(test::Ok(Dev().Destroy(released, {}, error), error)) << "Release destroyed the handle instead of handing it over";
+		EXPECT_TRUE(test::Ok(Dev().destroy(released, {}, error), error)) << "Release destroyed the handle instead of handing it over";
 	}
 
 	TEST_P(UniqueTest, ResetDestroysEarlyAndIsSafeToRepeat)
@@ -122,7 +122,7 @@ namespace
 
 		rhi::Error error{};
 		EXPECT_TRUE(test::Ok(owner.Reset(error), error));
-		EXPECT_FALSE(owner.IsValid());
+		EXPECT_FALSE(owner.is_valid());
 
 		rhi::Error again{};
 		EXPECT_TRUE(owner.Reset(again));
@@ -132,7 +132,7 @@ namespace
 	TEST_P(UniqueTest, ADefaultOwnerHoldsNothingAndDestroysNothing)
 	{
 		rhi::UniqueBuffer owner;
-		EXPECT_FALSE(owner.IsValid());
+		EXPECT_FALSE(owner.is_valid());
 		EXPECT_FALSE(static_cast<bool>(owner));
 
 		rhi::Error error{};
@@ -144,15 +144,15 @@ namespace
 		const rhi::BufferHandle handle = MakeBuffer();
 
 		rhi::UniqueBuffer owner(Dev(), handle);
-		EXPECT_EQ(owner.GetDestroyDesc().policy, rhi::DestroyPolicy::eDeferUntilSafe);
+		EXPECT_EQ(owner.get_destroy_desc().policy, rhi::DestroyPolicy::eDeferUntilSafe);
 
-		owner.SetDestroyDesc(rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle });
-		EXPECT_EQ(owner.GetDestroyDesc().policy, rhi::DestroyPolicy::eRequireAlreadyIdle);
+		owner.set_destroy_desc(rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle });
+		EXPECT_EQ(owner.get_destroy_desc().policy, rhi::DestroyPolicy::eRequireAlreadyIdle);
 
 		rhi::Error error{};
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
-		ASSERT_TRUE(test::Ok(queue.WaitIdle(error), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
+		ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 		EXPECT_TRUE(test::Ok(owner.Reset(error), error)) << "the policy the owner was given did not reach the destroy";
 	}

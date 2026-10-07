@@ -31,14 +31,14 @@ namespace builder_config_test
 	{
 		static constexpr std::string_view canonicalName = "test.rhi.builder-config";
 		static constexpr std::string_view displayName	= "Builder config fixture";
-		static constexpr rhi::GraphicsApiId id			= rhi::MakeGraphicsApiId(canonicalName);
+		static constexpr rhi::GraphicsApiId id			= rhi::make_graphics_api_id(canonicalName);
 	};
 
 	struct OtherApi final : rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view canonicalName = "test.rhi.other-builder-config";
 		static constexpr std::string_view displayName	= "Other builder config fixture";
-		static constexpr rhi::GraphicsApiId id			= rhi::MakeGraphicsApiId(canonicalName);
+		static constexpr rhi::GraphicsApiId id			= rhi::make_graphics_api_id(canonicalName);
 	};
 
 	struct DeviceConfig final
@@ -172,7 +172,7 @@ namespace azo::rhi
 	template <>
 	Result<UniqueDevice> CreateDevice<builder_config_test::Api>(const DeviceDesc & desc)
 	{
-		builder_config_test::RecordInstance(InstanceDescForDevice(desc));
+		builder_config_test::RecordInstance(instance_desc_for_device(desc));
 		Error refusal{};
 		builder_config_test::RecordDevice(desc, &refusal);
 		return refusal;
@@ -197,7 +197,7 @@ namespace
 		{
 			observed = {};
 			const std::array preferred{ Api::id };
-			EXPECT_TRUE(test::Failed(builder.Build(registry, preferred), rhi::ErrorCode::eUnsupportedFeature));
+			EXPECT_TRUE(test::Failed(builder.build(registry, preferred), rhi::ErrorCode::eUnsupportedFeature));
 			EXPECT_EQ(observed.deviceCalls, 1u);
 		}
 

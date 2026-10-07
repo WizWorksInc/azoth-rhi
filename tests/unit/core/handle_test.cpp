@@ -64,11 +64,11 @@ namespace
 	{
 		constexpr rhi::BufferHandle handle{};
 
-		static_assert(!handle.IsValid());
+		static_assert(!handle.is_valid());
 		static_assert(handle.index == rhi::kInvalidHandleIndex);
 		static_assert(handle.generation == 0);
 
-		EXPECT_FALSE(handle.IsValid());
+		EXPECT_FALSE(handle.is_valid());
 	}
 
 	TEST(HandleValue, IsValidOnlyReadsTheIndex)
@@ -77,16 +77,16 @@ namespace
 			.index		= 3,
 			.generation = 9,
 		};
-		static_assert(retired.IsValid());
+		static_assert(retired.is_valid());
 
 		constexpr rhi::BufferHandle sentinel{
 			.index		= rhi::kInvalidHandleIndex,
 			.generation = 9,
 		};
-		static_assert(!sentinel.IsValid());
+		static_assert(!sentinel.is_valid());
 
-		EXPECT_TRUE(retired.IsValid());
-		EXPECT_FALSE(sentinel.IsValid());
+		EXPECT_TRUE(retired.is_valid());
+		EXPECT_FALSE(sentinel.is_valid());
 	}
 
 	TEST(HandleValue, EqualityComparesBothFields)

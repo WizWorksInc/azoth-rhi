@@ -59,21 +59,21 @@ namespace
 	TEST_P(DeviceLocalMappingTest, RefusesToMapDeviceLocalMemoryUnlessAsked)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "the sample storage buffer is device local, and it did not create";
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "the sample storage buffer is device local, and it did not create";
 
 		rhi::Error mapError{};
 		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, mapError);
 		EXPECT_EQ(mapped.data, nullptr) << "device-local memory was mapped without DeviceDesc::allowDeviceLocalMapping";
 		EXPECT_TRUE(test::ErrorIsPopulated(mapError));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(DeviceLocalMappingTest, ReportsWhetherDeviceLocalMemoryCouldBeMappedAtAll)
 	{
 		const bool unified = Caps().deviceLocalMemoryIsHostVisible;
-		EXPECT_EQ(unified, Dev().GetCaps().deviceLocalMemoryIsHostVisible);
+		EXPECT_EQ(unified, Dev().get_caps().deviceLocalMemoryIsHostVisible);
 
 		if (!unified)
 		{
@@ -84,31 +84,31 @@ namespace
 	TEST_P(BufferTest, CreatesAndDestroysAStorageBuffer)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
 
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, TheThreeCreationOverloadsAllProduceAUsableBuffer)
 	{
-		const rhi::BufferHandle sentinel = Dev().CreateBuffer(test::samples::StorageBuffer());
-		EXPECT_TRUE(sentinel.IsValid());
+		const rhi::BufferHandle sentinel = Dev().create_buffer(test::samples::StorageBuffer());
+		EXPECT_TRUE(sentinel.is_valid());
 
 		rhi::Error error{};
-		const rhi::BufferHandle withError = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		EXPECT_TRUE(test::Ok(withError.IsValid(), error));
+		const rhi::BufferHandle withError = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		EXPECT_TRUE(test::Ok(withError.is_valid(), error));
 
-		const rhi::Result<rhi::BufferHandle> asResult = Dev().CreateBufferWithResult(test::samples::StorageBuffer());
+		const rhi::Result<rhi::BufferHandle> asResult = Dev().create_buffer_with_result(test::samples::StorageBuffer());
 		ASSERT_TRUE(test::Ok(asResult));
 		EXPECT_TRUE(asResult.Value().IsValid());
 
 		EXPECT_NE(sentinel, withError);
 		EXPECT_NE(withError, asResult.Value());
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(sentinel, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(withError, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(asResult.Value(), {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(sentinel, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(withError, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(asResult.Value(), {}, error), error));
 	}
 
 	TEST_P(BufferTest, AcceptsEveryMemoryUsageTheBaselineNeeds)
@@ -116,11 +116,11 @@ namespace
 		rhi::Error error{};
 		for (const rhi::BufferDesc & desc : { test::samples::StorageBuffer(), test::samples::UploadBuffer(), test::samples::ReadbackBuffer() })
 		{
-			const rhi::BufferHandle buffer = Dev().CreateBuffer(desc, error);
-			EXPECT_TRUE(test::Ok(buffer.IsValid(), error)) << "memory usage " << static_cast<int>(desc.memory) << " was refused";
-			if (buffer.IsValid())
+			const rhi::BufferHandle buffer = Dev().create_buffer(desc, error);
+			EXPECT_TRUE(test::Ok(buffer.is_valid(), error)) << "memory usage " << static_cast<int>(desc.memory) << " was refused";
+			if (buffer.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 			}
 		}
 	}
@@ -135,8 +135,8 @@ namespace
 
 		for (int index = 0; index < kCount; ++index)
 		{
-			const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-			ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "creation " << index << " failed";
+			const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+			ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "creation " << index << " failed";
 			buffers.push_back(buffer);
 		}
 
@@ -150,7 +150,7 @@ namespace
 
 		for (const rhi::BufferHandle buffer : buffers)
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 		}
 	}
 
@@ -158,16 +158,16 @@ namespace
 	{
 		rhi::Error error{};
 
-		const rhi::BufferHandle first = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(first.IsValid(), error));
-		ASSERT_TRUE(test::Ok(Dev().Destroy(first, {}, error), error));
+		const rhi::BufferHandle first = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(first.is_valid(), error));
+		ASSERT_TRUE(test::Ok(Dev().destroy(first, {}, error), error));
 
-		const rhi::BufferHandle second = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(second.IsValid(), error));
+		const rhi::BufferHandle second = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(second.is_valid(), error));
 
 		EXPECT_NE(first, second) << "a destroyed buffer's handle came back verbatim";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(second, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(second, {}, error), error));
 	}
 
 	TEST_P(BufferTest, RejectsDestroyingTheSameBufferTwice)
@@ -175,13 +175,13 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		ASSERT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		ASSERT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 
 		rhi::Error secondError{};
-		EXPECT_FALSE(Dev().Destroy(buffer, {}, secondError)) << "a double destroy was accepted, which would free the native object twice";
+		EXPECT_FALSE(Dev().destroy(buffer, {}, secondError)) << "a double destroy was accepted, which would free the native object twice";
 		EXPECT_TRUE(test::ErrorIsPopulated(secondError));
 	}
 
@@ -190,11 +190,11 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		EXPECT_FALSE(Dev().Destroy(rhi::BufferHandle{ .index = 4096, .generation = 7 }, {}, error));
+		EXPECT_FALSE(Dev().destroy(rhi::BufferHandle{ .index = 4096, .generation = 7 }, {}, error));
 		EXPECT_TRUE(test::ErrorIsPopulated(error));
 
 		rhi::Error invalidError{};
-		EXPECT_FALSE(Dev().Destroy(rhi::BufferHandle{}, {}, invalidError));
+		EXPECT_FALSE(Dev().destroy(rhi::BufferHandle{}, {}, invalidError));
 	}
 
 	TEST_P(BufferTest, RejectsAStaleHandleWhoseSlotWasAlreadyReissued)
@@ -202,30 +202,30 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::BufferHandle stale = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(stale.IsValid(), error));
-		ASSERT_TRUE(test::Ok(Dev().Destroy(stale, {}, error), error));
+		const rhi::BufferHandle stale = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(stale.is_valid(), error));
+		ASSERT_TRUE(test::Ok(Dev().destroy(stale, {}, error), error));
 
-		const rhi::BufferHandle successor = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(successor.IsValid(), error));
+		const rhi::BufferHandle successor = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(successor.is_valid(), error));
 
 		rhi::Error staleError{};
-		EXPECT_FALSE(Dev().Destroy(stale, {}, staleError)) << "a stale handle destroyed the resource that took over its slot";
+		EXPECT_FALSE(Dev().destroy(stale, {}, staleError)) << "a stale handle destroyed the resource that took over its slot";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(successor, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(successor, {}, error), error));
 	}
 
 	TEST_P(BufferTest, AcceptsBothDestroyPolicies)
 	{
 		rhi::Error error{};
 
-		const rhi::BufferHandle deferred = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(deferred.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(deferred, rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eDeferUntilSafe }, error), error));
+		const rhi::BufferHandle deferred = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(deferred.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(deferred, rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eDeferUntilSafe }, error), error));
 
-		const rhi::BufferHandle immediate = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(immediate.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(immediate, rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle }, error), error));
+		const rhi::BufferHandle immediate = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(immediate.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(immediate, rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle }, error), error));
 	}
 
 	TEST_P(BufferTest, ReportsAMemoryFootprintForADescBeforeAnythingIsCreated)
@@ -233,7 +233,7 @@ namespace
 		rhi::Error error{};
 		rhi::MemoryInfo info{};
 
-		if (!Dev().GetBufferMemoryInfo(test::samples::StorageBuffer(), info, error))
+		if (!Dev().get_buffer_memory_info(test::samples::StorageBuffer(), info, error))
 		{
 			GTEST_SKIP() << "this backend does not report buffer memory info: " << test::Describe(error);
 		}
@@ -252,7 +252,7 @@ namespace
 		rhi::BufferDesc absurd = test::samples::StorageBuffer();
 		absurd.size			   = 0;
 
-		if (Dev().GetBufferMemoryInfo(absurd, info, error))
+		if (Dev().get_buffer_memory_info(absurd, info, error))
 		{
 			GTEST_SKIP() << "this backend accepts a zero-sized buffer desc, so there is no failure to observe";
 		}
@@ -264,8 +264,8 @@ namespace
 	TEST_P(BufferTest, RefusesAnUnmapWithNoMapOutstanding)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::Error neverMapped{};
 		EXPECT_FALSE(Dev().Unmap(buffer, neverMapped)) << "a buffer that was never mapped was unmapped";
@@ -274,7 +274,7 @@ namespace
 		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, error);
 		if (mapped.data == nullptr)
 		{
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
@@ -284,19 +284,19 @@ namespace
 		EXPECT_FALSE(Dev().Unmap(buffer, twice)) << "the same mapping was unmapped twice";
 		EXPECT_EQ(twice.code, rhi::ErrorCode::eInvalidState);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, KeepsANestedMapOpenUntilItsLastUnmap)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		const rhi::MappedMemory outer = Dev().Map(buffer, {}, error);
 		if (outer.data == nullptr)
 		{
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
@@ -312,24 +312,24 @@ namespace
 		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
 		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, DestroysABufferThatIsStillMapped)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		const rhi::MappedMemory mapped = Dev().Map(buffer, {}, error);
 		if (mapped.data == nullptr)
 		{
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 		static_cast<void>(Dev().Map(buffer, {}, error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, DestroysADeviceThatStillHoldsAMappedBuffer)
@@ -338,8 +338,8 @@ namespace
 		ASSERT_TRUE(harness.IsValid()) << test::Describe(harness.GetError());
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = harness.Get().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = harness.Get().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		if (harness.Get().Map(buffer, {}, error).data == nullptr)
 		{
@@ -350,8 +350,8 @@ namespace
 	TEST_P(BufferTest, NestsAsManyMapsAsTheCallerAsksFor)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		constexpr std::uint32_t kDepth = 300;
 		std::uint32_t held			   = 0;
@@ -362,7 +362,7 @@ namespace
 		}
 		if (held == 0)
 		{
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(refused);
 		}
 
@@ -377,19 +377,19 @@ namespace
 		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "an unmap beyond the maps outstanding was accepted";
 		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState) << test::Describe(extra);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, CountsMapsAndUnmapsFromSeveralThreadsAtOnce)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::Error probe{};
 		if (Dev().Map(buffer, {}, probe).data == nullptr)
 		{
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(probe);
 		}
 		ASSERT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
@@ -444,15 +444,15 @@ namespace
 		EXPECT_FALSE(Dev().Unmap(buffer, extra)) << "the maps and unmaps did not balance back to none outstanding";
 		EXPECT_EQ(extra.code, rhi::ErrorCode::eInvalidState) << test::Describe(extra);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mapping one buffer from eight threads ");
 	}
 
 	TEST_P(BufferTest, RefusesAMapRangeWhoseEndWrapsPastTheBuffer)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::Error wrapped{};
 		const rhi::MappedMemory mapped = Dev().Map(buffer, rhi::MapDesc{ .offset = 16, .size = ~std::uint64_t{ 0 } - 8 }, wrapped);
@@ -463,7 +463,7 @@ namespace
 			static_cast<void>(Dev().Unmap(buffer, error));
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(BufferTest, KeepsBufferAndTextureHandleDomainsApartAtCompileTime)

@@ -111,14 +111,14 @@ namespace
 	{
 		rhi::Error error{};
 		std::uint32_t count = 0;
-		if (!instance.EnumerateAdapters({}, count, error))
+		if (!instance.enumerate_adapters({}, count, error))
 		{
 			fw::ReportError("      adapter count failed", error);
 			return {};
 		}
 
 		std::vector<rhi::AdapterInfo> adapters(count);
-		if (count != 0 && !instance.EnumerateAdapters(adapters, count, error))
+		if (count != 0 && !instance.enumerate_adapters(adapters, count, error))
 		{
 			fw::ReportError("      adapter enumeration failed", error);
 			return {};
@@ -135,13 +135,13 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (backends.IsEmpty())
+	if (backends.is_empty())
 	{
 		LOG_INFO(fw::Log(), "this build registered no backends");
 		return 1;
 	}
 
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
@@ -151,7 +151,7 @@ int main(int argc, char ** argv)
 	desc.validation		 = rhi::ValidationMode::eOff;
 
 	std::uint32_t found = 0;
-	for (const rhi::BackendInfo & backend : backends.Preferred())
+	for (const rhi::BackendInfo & backend : backends.preferred())
 	{
 		LOG_INFO(fw::Log(), "{}", backend.displayName);
 		LOG_INFO(fw::Log(),
@@ -160,10 +160,10 @@ int main(int argc, char ** argv)
 			Yes(backend.supportsDebugMarkers),
 			Yes(backend.supportsExternalNativeAccess));
 
-		const rhi::Result<rhi::UniqueInstance> instance = backends.CreateInstance(backend.id, desc);
+		const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance(backend.id, desc);
 		if (!instance)
 		{
-			fw::ReportError("  no instance", instance.GetError());
+			fw::ReportError("  no instance", instance.get_error());
 			continue;
 		}
 
@@ -182,6 +182,6 @@ int main(int argc, char ** argv)
 		found += static_cast<std::uint32_t>(adapters.size());
 	}
 
-	LOG_INFO(fw::Log(), "\n{} adapter(s) across {} backend(s)", found, backends.Preferred().size());
+	LOG_INFO(fw::Log(), "\n{} adapter(s) across {} backend(s)", found, backends.preferred().size());
 	return found != 0 ? 0 : 1;
 }

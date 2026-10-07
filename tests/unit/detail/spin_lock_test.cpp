@@ -94,7 +94,7 @@ namespace
 					ready.fetch_add(1, std::memory_order_release);
 					while (ready.load(std::memory_order_acquire) < kThreads)
 					{
-						rhi::CpuSpinHint();
+						rhi::cpu_spin_hint();
 					}
 
 					for (int index = 0; index < kPerThread; ++index)
@@ -125,7 +125,7 @@ namespace
 			{
 				while (!written.load(std::memory_order_acquire))
 				{
-					rhi::CpuSpinHint();
+					rhi::cpu_spin_hint();
 				}
 				const std::scoped_lock guard(lock);
 				EXPECT_EQ(guarded, 1234);
@@ -142,7 +142,7 @@ namespace
 	{
 		for (int index = 0; index < 16; ++index)
 		{
-			rhi::CpuSpinHint();
+			rhi::cpu_spin_hint();
 		}
 		SUCCEED();
 	}

@@ -86,22 +86,22 @@ namespace
 	{
 		rhi::Error error{};
 
-		const rhi::TimelineHandle frameTimeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(frameTimeline.IsValid(), error));
+		const rhi::TimelineHandle frameTimeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(frameTimeline.is_valid(), error));
 
-		const rhi::BufferHandle upload = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		const rhi::BufferHandle target = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(upload.IsValid(), error));
-		ASSERT_TRUE(test::Ok(target.IsValid(), error));
+		const rhi::BufferHandle upload = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		const rhi::BufferHandle target = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(upload.is_valid(), error));
+		ASSERT_TRUE(test::Ok(target.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		rhi::CommandList list = pool.Allocate("azoth.rhi.test.frame", error);
-		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		const std::array toCopy{
@@ -111,8 +111,8 @@ namespace
 				.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			},
 		};
-		ASSERT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
-		ASSERT_TRUE(test::Ok(list.CopyBuffer(target, 0, upload, 0, test::samples::kBufferSize, error), error));
+		ASSERT_TRUE(test::Ok(list.barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
+		ASSERT_TRUE(test::Ok(list.copy_buffer(target, 0, upload, 0, test::samples::kBufferSize, error), error));
 		ASSERT_TRUE(test::Ok(list.End(error), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
@@ -125,17 +125,17 @@ namespace
 			.signals	  = signals,
 			.debugName	  = "azoth.rhi.test.frameSubmit",
 		};
-		ASSERT_TRUE(test::Ok(queue.Submit(submit, error), error));
-		ASSERT_TRUE(test::Ok(queue.WaitIdle(error), error));
+		ASSERT_TRUE(test::Ok(queue.submit(submit, error), error));
+		ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 		const rhi::DestroyDesc retired{
 			.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 			.safeAfter = rhi::RetirePoint{ .timeline = frameTimeline, .value = 1 },
 		};
-		EXPECT_TRUE(test::Ok(Dev().Destroy(target, retired, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(upload, retired, error), error));
-		EXPECT_TRUE(test::Ok(Dev().CollectGarbage(frameTimeline, 1, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(frameTimeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(target, retired, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(upload, retired, error), error));
+		EXPECT_TRUE(test::Ok(Dev().collect_garbage(frameTimeline, 1, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(frameTimeline, {}, error), error));
 
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "the frame sequence produced native validation errors");
 	}
@@ -145,31 +145,31 @@ namespace
 		constexpr std::uint64_t kFrames = 8;
 
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		rhi::CommandPool pool = Dev().CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = Dev().create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		for (std::uint64_t frame = 1; frame <= kFrames; ++frame)
 		{
-			const rhi::BufferHandle transient = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-			ASSERT_TRUE(test::Ok(transient.IsValid(), error)) << "frame " << frame << " could not allocate";
+			const rhi::BufferHandle transient = Dev().create_buffer(test::samples::StorageBuffer(), error);
+			ASSERT_TRUE(test::Ok(transient.is_valid(), error)) << "frame " << frame << " could not allocate";
 
 			rhi::CommandList list = pool.Allocate("azoth.rhi.test.frameList", error);
-			ASSERT_TRUE(test::Ok(list.IsValid(), error)) << "frame " << frame << " could not allocate a list";
+			ASSERT_TRUE(test::Ok(list.is_valid(), error)) << "frame " << frame << " could not allocate a list";
 			ASSERT_TRUE(test::Ok(list.Begin(error), error)) << "frame " << frame << " could not begin";
-			ASSERT_TRUE(test::Ok(list.ClearBuffer(transient, 0, test::samples::kBufferSize, 0, error), error));
+			ASSERT_TRUE(test::Ok(list.clear_buffer(transient, 0, test::samples::kBufferSize, 0, error), error));
 			ASSERT_TRUE(test::Ok(list.End(error), error));
 
 			std::array<const rhi::CommandList *, 1> lists{ &list };
 			const std::array signals{
 				rhi::TimelinePoint{ .timeline = timeline, .value = frame, .waitStages = rhi::Stage::eAllCommands },
 			};
-			ASSERT_TRUE(test::Ok(queue.Submit(
+			ASSERT_TRUE(test::Ok(queue.submit(
 									 rhi::SubmitDesc{
 										 .commandLists = lists,
 										 .signals	   = signals,
@@ -177,14 +177,14 @@ namespace
 									 error),
 				error))
 				<< "frame " << frame;
-			ASSERT_TRUE(test::Ok(queue.WaitIdle(error), error));
+			ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 			const rhi::DestroyDesc retired{
 				.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 				.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = frame },
 			};
-			ASSERT_TRUE(test::Ok(Dev().Destroy(transient, retired, error), error));
-			ASSERT_TRUE(test::Ok(Dev().CollectGarbage(timeline, frame, error), error));
+			ASSERT_TRUE(test::Ok(Dev().destroy(transient, retired, error), error));
+			ASSERT_TRUE(test::Ok(Dev().collect_garbage(timeline, frame, error), error));
 			ASSERT_TRUE(test::Ok(pool.Reset(
 									 rhi::RetirePoint{
 										 .timeline = timeline,
@@ -196,7 +196,7 @@ namespace
 		}
 
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "running " << kFrames << " frames produced native validation errors");
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(BackendContractTest, KeepsTwoDevicesOnTheSameBackendIndependent)

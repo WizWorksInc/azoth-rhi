@@ -58,7 +58,7 @@ namespace fw::platform
 		{
 			flags |= SDL_WINDOW_VULKAN;
 		}
-		else if (azo::rhi::IsMetalFamily(api))
+		else if (azo::rhi::is_metal_family(api))
 		{
 			flags |= SDL_WINDOW_METAL;
 		}
@@ -70,7 +70,7 @@ namespace fw::platform
 			return false;
 		}
 
-		if (azo::rhi::IsMetalFamily(api))
+		if (azo::rhi::is_metal_family(api))
 		{
 			m_metalView = SDL_Metal_CreateView(m_window);
 		}

@@ -81,20 +81,20 @@ namespace
 		rhi::Error error{};
 		rhi::Device first = validating->Get();
 
-		const rhi::BufferHandle buffer = first.CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = first.create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		rhi::CommandPool pool = first.CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = first.create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		rhi::CommandList list = pool.Allocate("azoth.rhi.test.coexistence", error);
-		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
-		EXPECT_TRUE(test::Ok(list.ClearBuffer(buffer, 0, test::samples::kBufferSize, 0, error), error));
+		EXPECT_TRUE(test::Ok(list.clear_buffer(buffer, 0, test::samples::kBufferSize, 0, error), error));
 		EXPECT_TRUE(test::Ok(list.End(error), error));
 
-		EXPECT_TRUE(test::Ok(first.Destroy(buffer, {}, error), error));
-		EXPECT_TRUE(test::Ok(first.CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(first.destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(first.collect_garbage(error), error));
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(first, "a second device with a different validation mode was created alongside this one");
 	}
 

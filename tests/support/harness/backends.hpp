@@ -91,7 +91,7 @@ namespace azo::rhi::test
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return m_device.IsValid();
+			return m_device.is_valid();
 		}
 
 		[[nodiscard]] Error GetError() const noexcept
@@ -144,7 +144,7 @@ namespace azo::rhi::test
 
 		[[nodiscard]] const DeviceCaps & Caps() const noexcept
 		{
-			return m_harness->Get().GetCaps();
+			return m_harness->Get().get_caps();
 		}
 
 		[[nodiscard]] const Backend & CurrentBackend() const noexcept

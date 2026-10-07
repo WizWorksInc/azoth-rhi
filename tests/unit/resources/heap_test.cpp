@@ -43,10 +43,10 @@ namespace
 	TEST_P(HeapTest, CreatesAndDestroysAHeap)
 	{
 		rhi::Error error{};
-		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(), error);
+		const rhi::HeapHandle heap = Dev().create_heap(test::samples::GpuHeap(), error);
 
-		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		ASSERT_TRUE(test::Ok(heap.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 	TEST_P(HeapTest, CreatesAHeapOfEachClass)
@@ -58,11 +58,11 @@ namespace
 			rhi::HeapDesc desc = test::samples::GpuHeap();
 			desc.type		   = type;
 
-			const rhi::HeapHandle heap = Dev().CreateHeap(desc, error);
-			EXPECT_TRUE(test::Ok(heap.IsValid(), error)) << "heap class " << static_cast<int>(type) << " was refused";
-			if (heap.IsValid())
+			const rhi::HeapHandle heap = Dev().create_heap(desc, error);
+			EXPECT_TRUE(test::Ok(heap.is_valid(), error)) << "heap class " << static_cast<int>(type) << " was refused";
+			if (heap.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 			}
 		}
 	}
@@ -72,23 +72,23 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsPlacedResources || IsNullBackend(), "placed resources");
 
 		rhi::Error error{};
-		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(), error);
-		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
+		const rhi::HeapHandle heap = Dev().create_heap(test::samples::GpuHeap(), error);
+		ASSERT_TRUE(test::Ok(heap.is_valid(), error));
 
 		rhi::PlacedBufferDesc placed{};
 		placed.buffer = test::samples::StorageBuffer();
 		placed.heap	  = heap;
 		placed.offset = 0;
 
-		const rhi::BufferHandle buffer = Dev().CreatePlacedBuffer(placed, error);
-		if (!buffer.IsValid())
+		const rhi::BufferHandle buffer = Dev().create_placed_buffer(placed, error);
+		if (!buffer.is_valid())
 		{
-			static_cast<void>(Dev().Destroy(heap, {}, error));
+			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend refused a placed buffer: " << test::Describe(error);
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 	TEST_P(HeapTest, PlacesATextureIntoAHeapItCreated)
@@ -99,23 +99,23 @@ namespace
 		rhi::HeapDesc heapDesc = test::samples::GpuHeap();
 		heapDesc.allowTextures = true;
 
-		const rhi::HeapHandle heap = Dev().CreateHeap(heapDesc, error);
-		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
+		const rhi::HeapHandle heap = Dev().create_heap(heapDesc, error);
+		ASSERT_TRUE(test::Ok(heap.is_valid(), error));
 
 		rhi::PlacedTextureDesc placed{};
 		placed.texture = test::samples::SampledTexture2D();
 		placed.heap	   = heap;
 		placed.offset  = 0;
 
-		const rhi::TextureHandle texture = Dev().CreatePlacedTexture(placed, error);
-		if (!texture.IsValid())
+		const rhi::TextureHandle texture = Dev().create_placed_texture(placed, error);
+		if (!texture.is_valid())
 		{
-			static_cast<void>(Dev().Destroy(heap, {}, error));
+			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend refused a placed texture: " << test::Describe(error);
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 	TEST_P(HeapTest, RefusesToPlaceAResourceIntoAHeapThatDoesNotExist)
@@ -130,8 +130,8 @@ namespace
 			.generation = 5,
 		};
 
-		const rhi::BufferHandle buffer = Dev().CreatePlacedBuffer(placed, error);
-		EXPECT_FALSE(buffer.IsValid()) << "a buffer was placed into a heap the device never created";
+		const rhi::BufferHandle buffer = Dev().create_placed_buffer(placed, error);
+		EXPECT_FALSE(buffer.is_valid()) << "a buffer was placed into a heap the device never created";
 	}
 
 	TEST_P(HeapTest, ReportsAMemoryBudgetOrSaysItCannot)
@@ -139,7 +139,7 @@ namespace
 		rhi::Error error{};
 		rhi::MemoryBudgetInfo budget{};
 
-		const bool reported = Dev().QueryMemoryBudget(rhi::HeapType::eGpuLocal, budget, error);
+		const bool reported = Dev().query_memory_budget(rhi::HeapType::eGpuLocal, budget, error);
 		if (!reported)
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error));
@@ -152,8 +152,8 @@ namespace
 	TEST_P(HeapTest, MapsAHostVisibleBufferOrSaysItCannot)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::UploadBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		const rhi::MappedMemory mapped = Dev().Map(buffer,
 			rhi::MapDesc{
@@ -165,7 +165,7 @@ namespace
 		if (mapped.data == nullptr)
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error));
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not expose mapped memory: " << test::Describe(error);
 		}
 
@@ -175,11 +175,11 @@ namespace
 
 		if (!mapped.coherent)
 		{
-			EXPECT_TRUE(test::Ok(Dev().FlushMappedRange(buffer, 0, test::samples::kBufferSize, error), error));
+			EXPECT_TRUE(test::Ok(Dev().flush_mapped_range(buffer, 0, test::samples::kBufferSize, error), error));
 		}
 
 		EXPECT_TRUE(test::Ok(Dev().Unmap(buffer, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(HeapTest, MapsTwoPlacedBuffersFromOneHeapAtOnce)
@@ -188,8 +188,8 @@ namespace
 		rhi::HeapDesc heapDesc	   = test::samples::GpuHeap();
 		heapDesc.type			   = rhi::HeapType::eCpuUpload;
 		heapDesc.allowTextures	   = false;
-		const rhi::HeapHandle heap = Dev().CreateHeap(heapDesc, error);
-		if (!heap.IsValid())
+		const rhi::HeapHandle heap = Dev().create_heap(heapDesc, error);
+		if (!heap.is_valid())
 		{
 			GTEST_SKIP() << "this backend does not create an upload heap: " << test::Describe(error);
 		}
@@ -198,17 +198,17 @@ namespace
 		rhi::PlacedBufferDesc placed{};
 		placed.buffer				   = test::samples::UploadBuffer();
 		placed.heap					   = heap;
-		const rhi::BufferHandle first  = Dev().CreatePlacedBuffer(placed, error);
+		const rhi::BufferHandle first  = Dev().create_placed_buffer(placed, error);
 		placed.offset				   = kSecondOffset;
-		const rhi::BufferHandle second = Dev().CreatePlacedBuffer(placed, error);
-		ASSERT_TRUE(test::Ok(first.IsValid() && second.IsValid(), error));
+		const rhi::BufferHandle second = Dev().create_placed_buffer(placed, error);
+		ASSERT_TRUE(test::Ok(first.is_valid() && second.is_valid(), error));
 
 		const rhi::MappedMemory one = Dev().Map(first, {}, error);
 		if (one.data == nullptr)
 		{
-			static_cast<void>(Dev().Destroy(first, {}, error));
-			static_cast<void>(Dev().Destroy(second, {}, error));
-			static_cast<void>(Dev().Destroy(heap, {}, error));
+			static_cast<void>(Dev().destroy(first, {}, error));
+			static_cast<void>(Dev().destroy(second, {}, error));
+			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(error);
 		}
 		const rhi::MappedMemory two = Dev().Map(second, {}, error);
@@ -223,9 +223,9 @@ namespace
 		EXPECT_EQ(*static_cast<const std::uint8_t *>(two.data), 0x22) << "unmapping one placed buffer took the other's mapping with it";
 		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(first, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(second, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(first, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(second, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 	TEST_P(HeapTest, MapsTwoPlacedBuffersOfOneHeapFromTwoThreadsAtOnce)
@@ -234,8 +234,8 @@ namespace
 		rhi::HeapDesc heapDesc	   = test::samples::GpuHeap();
 		heapDesc.type			   = rhi::HeapType::eCpuUpload;
 		heapDesc.allowTextures	   = false;
-		const rhi::HeapHandle heap = Dev().CreateHeap(heapDesc, error);
-		if (!heap.IsValid())
+		const rhi::HeapHandle heap = Dev().create_heap(heapDesc, error);
+		if (!heap.is_valid())
 		{
 			GTEST_SKIP() << "this backend does not create an upload heap: " << test::Describe(error);
 		}
@@ -244,23 +244,23 @@ namespace
 		rhi::PlacedBufferDesc placed{};
 		placed.buffer				   = test::samples::UploadBuffer();
 		placed.heap					   = heap;
-		const rhi::BufferHandle first  = Dev().CreatePlacedBuffer(placed, error);
+		const rhi::BufferHandle first  = Dev().create_placed_buffer(placed, error);
 		placed.offset				   = kSecondOffset;
-		const rhi::BufferHandle second = Dev().CreatePlacedBuffer(placed, error);
-		if (!first.IsValid() || !second.IsValid())
+		const rhi::BufferHandle second = Dev().create_placed_buffer(placed, error);
+		if (!first.is_valid() || !second.is_valid())
 		{
-			static_cast<void>(Dev().Destroy(first, {}, error));
-			static_cast<void>(Dev().Destroy(second, {}, error));
-			static_cast<void>(Dev().Destroy(heap, {}, error));
+			static_cast<void>(Dev().destroy(first, {}, error));
+			static_cast<void>(Dev().destroy(second, {}, error));
+			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend refused a placed buffer: " << test::Describe(error);
 		}
 
 		rhi::Error probe{};
 		if (Dev().Map(first, {}, probe).data == nullptr)
 		{
-			static_cast<void>(Dev().Destroy(first, {}, error));
-			static_cast<void>(Dev().Destroy(second, {}, error));
-			static_cast<void>(Dev().Destroy(heap, {}, error));
+			static_cast<void>(Dev().destroy(first, {}, error));
+			static_cast<void>(Dev().destroy(second, {}, error));
+			static_cast<void>(Dev().destroy(heap, {}, error));
 			GTEST_SKIP() << "this backend does not map a placed buffer: " << test::Describe(probe);
 		}
 		ASSERT_TRUE(test::Ok(Dev().Unmap(first, error), error));
@@ -316,9 +316,9 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Unmap(first, error), error));
 		EXPECT_TRUE(test::Ok(Dev().Unmap(second, error), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(first, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(second, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(first, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(second, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "mapping two placed buffers of one heap from two threads ");
 	}
 
@@ -336,21 +336,21 @@ namespace
 	TEST_P(HeapTest, SetsResidencyPrioritiesOrSaysItCannot)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		const std::vector<rhi::ResidencyPriorityDesc> priorities{
 			rhi::ResidencyPriorityDesc{ .buffer = buffer, .texture = {}, .priority = rhi::ResidencyPriority::eHigh },
 		};
 
-		if (!Dev().SetResidencyPriority(priorities, error))
+		if (!Dev().set_residency_priority(priorities, error))
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error));
-			static_cast<void>(Dev().Destroy(buffer, {}, error));
+			static_cast<void>(Dev().destroy(buffer, {}, error));
 			GTEST_SKIP() << "this backend does not take residency priorities: " << test::Describe(error);
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 }

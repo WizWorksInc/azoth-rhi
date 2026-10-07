@@ -69,11 +69,11 @@ namespace
 		const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 		for (std::size_t batch = 0; batch < batches; ++batch)
 		{
-			taken += static_cast<std::uint64_t>(list.SetViewport(viewport));
-			taken += static_cast<std::uint64_t>(list.SetScissor(scissor));
-			taken += static_cast<std::uint64_t>(list.SetBlendConstants(0.0f, 0.0f, 0.0f, 1.0f));
-			taken += static_cast<std::uint64_t>(list.SetStencilReference(static_cast<std::uint32_t>(batch)));
-			taken += static_cast<std::uint64_t>(list.SetDepthBias(0.0f, 0.0f, 0.0f));
+			taken += static_cast<std::uint64_t>(list.set_viewport(viewport));
+			taken += static_cast<std::uint64_t>(list.set_scissor(scissor));
+			taken += static_cast<std::uint64_t>(list.set_blend_constants(0.0f, 0.0f, 0.0f, 1.0f));
+			taken += static_cast<std::uint64_t>(list.set_stencil_reference(static_cast<std::uint32_t>(batch)));
+			taken += static_cast<std::uint64_t>(list.set_depth_bias(0.0f, 0.0f, 0.0f));
 		}
 		const std::chrono::steady_clock::time_point finished = std::chrono::steady_clock::now();
 
@@ -106,7 +106,7 @@ int main(int argc, char ** argv)
 	}
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = options.backend } };
-	if (options.backend != nullptr && !backends.HonoredRequest())
+	if (options.backend != nullptr && !backends.honored_request())
 	{
 		std::println("this build has no {} backend", options.backend);
 		return 1;
@@ -117,10 +117,10 @@ int main(int argc, char ** argv)
 	deviceDesc.requireSwapchain = false;
 	deviceDesc.debugName		= "bench.recording";
 
-	const rhi::Result<rhi::UniqueDevice> device = backends.CreateDevice(deviceDesc);
+	const rhi::Result<rhi::UniqueDevice> device = backends.create_device(deviceDesc);
 	if (!device)
 	{
-		bench::ReportError("failed to create a device", device.GetError());
+		bench::ReportError("failed to create a device", device.get_error());
 		return 1;
 	}
 
@@ -136,12 +136,12 @@ int main(int argc, char ** argv)
 		.debugName = "bench.colorTarget",
 	};
 
-	const rhi::TextureHandle target	   = dev.CreateTexture(targetDesc, error);
-	const rhi::TextureViewHandle view  = dev.CreateTextureView(target, rhi::TextureViewDesc{ .debugName = "bench.colorTargetView" }, error);
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "bench.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "bench.pool" }, error);
-	if (!target.IsValid() || !view.IsValid() || !timeline.IsValid() || !queue.IsValid() || !pool.IsValid())
+	const rhi::TextureHandle target	   = dev.create_texture(targetDesc, error);
+	const rhi::TextureViewHandle view  = dev.create_texture_view(target, rhi::TextureViewDesc{ .debugName = "bench.colorTargetView" }, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "bench.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "bench.pool" }, error);
+	if (!target.is_valid() || !view.is_valid() || !timeline.is_valid() || !queue.is_valid() || !pool.is_valid())
 	{
 		bench::ReportError("failed to create the recording resources", error);
 		return 1;
@@ -180,13 +180,13 @@ int main(int argc, char ** argv)
 		}
 
 		rhi::CommandList list = pool.Allocate("bench.list", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			bench::ReportError("failed to begin recording", error);
 			return false;
 		}
 
-		if (!list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) || !list.BeginRendering(rendering, error))
+		if (!list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) || !list.begin_rendering(rendering, error))
 		{
 			bench::ReportError("failed to open the rendering scope", error);
 			return false;
@@ -200,7 +200,7 @@ int main(int argc, char ** argv)
 			return false;
 		}
 
-		if (!list.EndRendering(error) || !list.End(error))
+		if (!list.end_rendering(error) || !list.End(error))
 		{
 			bench::ReportError("failed to close the rendering scope", error);
 			return false;
@@ -215,7 +215,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "bench.pass",
 		};
 
-		if (!queue.Submit(submit, error) || !queue.Wait(timeline, submitted, kPassTimeoutNanoseconds, error))
+		if (!queue.submit(submit, error) || !queue.Wait(timeline, submitted, kPassTimeoutNanoseconds, error))
 		{
 			bench::ReportError("failed to drain the recorded pass, which a timeout here means the GPU did not finish it inside thirty seconds", error);
 			return false;
@@ -239,7 +239,7 @@ int main(int argc, char ** argv)
 
 	const std::size_t commandsAPass = std::max<std::size_t>(plan.commands / kCommandsPerBatch, 1) * kCommandsPerBatch;
 
-	benchmark::AddCustomContext("backend", std::string(dev.GetGraphicsApiName()));
+	benchmark::AddCustomContext("backend", std::string(dev.get_graphics_api_name()));
 	benchmark::AddCustomContext("validation", std::string(bench::ValidationName(options.validation)));
 	benchmark::AddCustomContext("commands a pass", std::to_string(commandsAPass));
 	benchmark::AddCustomContext("spread tolerance", std::to_string(static_cast<int>(options.maxSpreadPercent)) + " percent");
@@ -276,9 +276,9 @@ int main(int argc, char ** argv)
 	benchmark::Shutdown();
 
 	const rhi::DestroyDesc idle{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle };
-	dev.Destroy(view, idle, error);
-	dev.Destroy(target, idle, error);
-	dev.Destroy(timeline, idle, error);
+	dev.destroy(view, idle, error);
+	dev.destroy(target, idle, error);
+	dev.destroy(timeline, idle, error);
 
 	if (passFailed)
 	{

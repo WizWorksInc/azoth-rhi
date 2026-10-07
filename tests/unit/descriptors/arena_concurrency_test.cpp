@@ -45,17 +45,17 @@ namespace
 	{
 		rhi::Error error{};
 		const test::samples::UniformLayout layout;
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		constexpr int kPerThread = 200;
 
 		rhi::Error firstError{};
 		rhi::Error secondError{};
-		rhi::DescriptorArena first	= Dev().CreateDescriptorArena(test::samples::DescriptorArena(256, 1024), firstError);
-		rhi::DescriptorArena second = Dev().CreateDescriptorArena(test::samples::DescriptorArena(256, 1024), secondError);
-		ASSERT_TRUE(test::Ok(first.IsValid(), firstError));
-		ASSERT_TRUE(test::Ok(second.IsValid(), secondError));
+		rhi::DescriptorArena first	= Dev().create_descriptor_arena(test::samples::DescriptorArena(256, 1024), firstError);
+		rhi::DescriptorArena second = Dev().create_descriptor_arena(test::samples::DescriptorArena(256, 1024), secondError);
+		ASSERT_TRUE(test::Ok(first.is_valid(), firstError));
+		ASSERT_TRUE(test::Ok(second.is_valid(), secondError));
 
 		const auto hammer = [setLayout](rhi::DescriptorArena & arena, std::vector<rhi::DescriptorSetHandle> & out)
 		{
@@ -95,7 +95,7 @@ namespace
 		{
 			for (const rhi::DescriptorSetHandle handle : *batch)
 			{
-				ASSERT_TRUE(handle.IsValid()) << "an allocation inside the arena's declared capacity was refused";
+				ASSERT_TRUE(handle.is_valid()) << "an allocation inside the arena's declared capacity was refused";
 				const auto key = (static_cast<std::uint64_t>(handle.index) << 32U) | handle.generation;
 				EXPECT_TRUE(seen.insert(key).second) << "two sets came back naming index " << handle.index << " generation " << handle.generation;
 			}

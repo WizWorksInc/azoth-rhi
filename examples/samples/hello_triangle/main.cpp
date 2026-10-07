@@ -121,7 +121,7 @@ int main(int argc, char ** argv)
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .includeNull = false } };
 
 	Backend chosen{};
-	for (const rhi::BackendInfo & backend : backends.Preferred())
+	for (const rhi::BackendInfo & backend : backends.preferred())
 	{
 		if (const Backend * target = TargetFor(backend.id); target != nullptr)
 		{
@@ -144,31 +144,31 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::MakePresentationBackend(api);
-	if (presentation == nullptr || !presentation->InitInstanceLoader(window))
+	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::make_presentation_backend(api);
+	if (presentation == nullptr || !presentation->init_instance_loader(window))
 	{
 		LOG_ERROR(fw::Log(), "this build cannot present through the backend it picked");
 		return 1;
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
-													  .DebugName("hello_triangle")
-													  .GraphicsQueue()
-													  .RequireFeature(rhi::DeviceFeature::eShaderDrawParameters)
-													  .Build(backends.Registry(), backends.PreferredApis().first(1));
+													  .debug_name("hello_triangle")
+													  .graphics_queue()
+													  .require_feature(rhi::DeviceFeature::eShaderDrawParameters)
+													  .build(backends.registry(), backends.preferred_apis().first(1));
 	if (!device)
 	{
-		LOG_ERROR(fw::Log(), "failed to create a device: {}", device.GetError().message != nullptr ? device.GetError().message : "no diagnostic");
+		LOG_ERROR(fw::Log(), "failed to create a device: {}", device.get_error().message != nullptr ? device.get_error().message : "no diagnostic");
 		return 1;
 	}
 
 	rhi::Device dev = device.Value().Get();
 	rhi::Error error{};
 
-	const rhi::SurfaceHandle surface = presentation->CreateSurface(window, dev);
+	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
 	const rhi::Extent2D initial		 = window.GetDrawableSize();
 
-	rhi::Swapchain swapchain = dev.CreateSwapchain(
+	rhi::Swapchain swapchain = dev.create_swapchain(
 		rhi::SwapchainDesc{
 			.surface   = surface,
 			.width	   = initial.width,
@@ -176,16 +176,16 @@ int main(int argc, char ** argv)
 			.debugName = "triangle.swapchain",
 		},
 		error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "triangle.timeline" }, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "triangle.pool" }, error);
-	if (surface.value == 0 || !swapchain.IsValid() || !queue.IsValid() || !timeline.IsValid() || !pool.IsValid())
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "triangle.timeline" }, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "triangle.pool" }, error);
+	if (surface.value == 0 || !swapchain.is_valid() || !queue.is_valid() || !timeline.is_valid() || !pool.is_valid())
 	{
 		LOG_ERROR(fw::Log(), "failed to set up presentation: {}", error.message != nullptr ? error.message : "no diagnostic");
 		return 1;
 	}
 
-	LOG_INFO(fw::Log(), "{} at {}x{}", dev.GetGraphicsApiName(), swapchain.GetWidth(), swapchain.GetHeight());
+	LOG_INFO(fw::Log(), "{} at {}x{}", dev.get_graphics_api_name(), swapchain.get_width(), swapchain.get_height());
 
 	Slang::ComPtr<slang::IGlobalSession> globalSession;
 	Slang::ComPtr<slang::ISession> session;
@@ -253,14 +253,14 @@ int main(int argc, char ** argv)
 	};
 
 	rhi::GraphicsPipelineDesc pipelineDesc{};
-	pipelineDesc.layout			 = dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "triangle.layout" }, error);
+	pipelineDesc.layout			 = dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "triangle.layout" }, error);
 	pipelineDesc.shaders		 = shaders;
 	pipelineDesc.raster.cullMode = rhi::CullMode::eNone;
 
 	rhi::VertexInputDesc vertexInput{};
 	pipelineDesc.vertexInput = &vertexInput;
 
-	pipelineDesc.renderTarget.colorFormats.at(0) = swapchain.GetFormat();
+	pipelineDesc.renderTarget.colorFormats.at(0) = swapchain.get_format();
 	pipelineDesc.renderTarget.colorFormatCount	 = 1;
 
 	pipelineDesc.blend.attachmentCount = 1;
@@ -268,8 +268,8 @@ int main(int argc, char ** argv)
 	pipelineDesc.dynamicStates = rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
 	pipelineDesc.debugName	   = "triangle.pipeline";
 
-	const rhi::GraphicsPipelineHandle pipeline = dev.CreateGraphicsPipeline(pipelineDesc, error);
-	if (!pipeline.IsValid())
+	const rhi::GraphicsPipelineHandle pipeline = dev.create_graphics_pipeline(pipelineDesc, error);
+	if (!pipeline.is_valid())
 	{
 		LOG_ERROR(fw::Log(), "failed to create the pipeline: {}", error.message != nullptr ? error.message : "no diagnostic");
 		return 1;
@@ -283,12 +283,12 @@ int main(int argc, char ** argv)
 			break;
 		}
 
-		const rhi::AcquireResult acquired = swapchain.AcquireNextImage(kNoTimeout, error);
+		const rhi::AcquireResult acquired = swapchain.acquire_next_image(kNoTimeout, error);
 		if (acquired.status == rhi::SwapchainStatus::eOutOfDate)
 		{
 			const rhi::Extent2D size = window.GetDrawableSize();
-			static_cast<void>(queue.WaitIdle(error));
-			static_cast<void>(swapchain.Resize(size.width, size.height, error));
+			static_cast<void>(queue.wait_idle(error));
+			static_cast<void>(swapchain.resize(size.width, size.height, error));
 			continue;
 		}
 		if (acquired.status != rhi::SwapchainStatus::eOk && acquired.status != rhi::SwapchainStatus::eSuboptimal)
@@ -306,7 +306,7 @@ int main(int argc, char ** argv)
 		}
 
 		rhi::CommandList list = pool.Allocate("triangle.frame", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			LOG_ERROR(fw::Log(), "failed to start recording");
 			return 1;
@@ -339,14 +339,14 @@ int main(int argc, char ** argv)
 			},
 		};
 
-		const rhi::Viewport viewport{ .width = static_cast<float>(swapchain.GetWidth()), .height = static_cast<float>(swapchain.GetHeight()) };
-		const rhi::Rect2D scissor{ .width = swapchain.GetWidth(), .height = swapchain.GetHeight() };
+		const rhi::Viewport viewport{ .width = static_cast<float>(swapchain.get_width()), .height = static_cast<float>(swapchain.get_height()) };
+		const rhi::Rect2D scissor{ .width = swapchain.get_width(), .height = swapchain.get_height() };
 
 		const bool recorded =
-			list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
-			list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.GetWidth(), .height = swapchain.GetHeight() }, error) &&
-			list.SetGraphicsPipeline(pipeline, error) && list.SetViewport(viewport, error) && list.SetScissor(scissor, error) && list.Draw(3, 1, 0, 0, error) &&
-			list.EndRendering(error) && list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
+			list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
+			list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.get_width(), .height = swapchain.get_height() }, error) &&
+			list.set_graphics_pipeline(pipeline, error) && list.set_viewport(viewport, error) && list.set_scissor(scissor, error) && list.draw(3, 1, 0, 0, error) &&
+			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
 
 		if (!recorded)
 		{
@@ -365,7 +365,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "triangle.submit",
 		};
 
-		if (!queue.Submit(submit, error))
+		if (!queue.submit(submit, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to submit the frame");
 			return 1;
@@ -380,8 +380,8 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	static_cast<void>(queue.WaitIdle(error));
-	dev.CollectGarbage(timeline, frame, error);
+	static_cast<void>(queue.wait_idle(error));
+	dev.collect_garbage(timeline, frame, error);
 
 	LOG_INFO(fw::Log(), "{} frames presented", frame);
 	return 0;

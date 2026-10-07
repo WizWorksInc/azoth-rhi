@@ -50,26 +50,26 @@ namespace fw::scene
 		  m_pool(sceneConfig.imageTransferCmdPool),
 		  m_queue(sceneConfig.imageTransferQueue)
 	{
-		if (!m_config.device.IsValid() || !m_pool.IsValid() || !m_queue.IsValid())
+		if (!m_config.device.is_valid() || !m_pool.is_valid() || !m_queue.is_valid())
 		{
 			return;
 		}
 
-		const std::uint64_t reported = m_config.device.GetCaps().optimalBufferCopyOffsetAlignment;
+		const std::uint64_t reported = m_config.device.get_caps().optimalBufferCopyOffsetAlignment;
 		m_copyAlignment				 = reported != 0 ? reported : kFallbackCopyAlignment;
 
 		azo::rhi::Error error{};
 
-		m_timeline = m_config.device.CreateTimeline(azo::rhi::TimelineDesc{ .debugName = "fw.scene.imageUpload" }, error);
-		if (!m_timeline.IsValid())
+		m_timeline = m_config.device.create_timeline(azo::rhi::TimelineDesc{ .debugName = "fw.scene.imageUpload" }, error);
+		if (!m_timeline.is_valid())
 		{
 			ReportError("failed to create the upload timeline", error);
 			return;
 		}
 
-		const bool anisotropy = m_config.device.GetCaps().supportsAnisotropy;
+		const bool anisotropy = m_config.device.get_caps().supportsAnisotropy;
 
-		m_sampler = m_config.device.CreateSampler(
+		m_sampler = m_config.device.create_sampler(
 			azo::rhi::SamplerDesc{
 				.anisotropyEnable = anisotropy,
 				.maxAnisotropy	  = anisotropy ? 16.0f : 1.0f,
@@ -77,7 +77,7 @@ namespace fw::scene
 			},
 			error);
 
-		if (!m_sampler.IsValid())
+		if (!m_sampler.is_valid())
 		{
 			ReportError("failed to create the scene sampler", error);
 			return;
@@ -92,12 +92,12 @@ namespace fw::scene
 
 		for (Entry & entry : m_textures)
 		{
-			static_cast<void>(m_config.device.Destroy(entry.view));
-			static_cast<void>(m_config.device.Destroy(entry.texture));
+			static_cast<void>(m_config.device.destroy(entry.view));
+			static_cast<void>(m_config.device.destroy(entry.texture));
 		}
 
-		static_cast<void>(m_config.device.Destroy(m_sampler));
-		static_cast<void>(m_config.device.Destroy(m_timeline));
+		static_cast<void>(m_config.device.destroy(m_sampler));
+		static_cast<void>(m_config.device.destroy(m_timeline));
 	}
 
 	TextureId SceneGpuImageStorage::StoreTexture(std::string name, const assets::ImageAsset & image, const bool srgb, const bool mipmapped)
@@ -196,7 +196,7 @@ namespace fw::scene
 			usage = usage | azo::rhi::TextureUsage::eCopySrc | azo::rhi::TextureUsage::eStorage;
 		}
 
-		const azo::rhi::TextureHandle texture = m_config.device.CreateTexture(
+		const azo::rhi::TextureHandle texture = m_config.device.create_texture(
 			azo::rhi::TextureDesc{
 				.type			  = type,
 				.format			  = format,
@@ -210,7 +210,7 @@ namespace fw::scene
 			},
 			error);
 
-		const azo::rhi::TextureViewHandle view = m_config.device.CreateTextureView(texture,
+		const azo::rhi::TextureViewHandle view = m_config.device.create_texture_view(texture,
 			azo::rhi::TextureViewDesc{
 				.type	   = type == azo::rhi::TextureType::eTexCube ? azo::rhi::TextureViewType::eTexCube : azo::rhi::TextureViewType::eTex2D,
 				.range	   = { .mipCount = mips, .layerCount = layerCount },
@@ -218,11 +218,11 @@ namespace fw::scene
 			},
 			error);
 
-		if (!texture.IsValid() || !view.IsValid())
+		if (!texture.is_valid() || !view.is_valid())
 		{
 			ReportError("failed to create a scene texture", error);
-			static_cast<void>(m_config.device.Destroy(view));
-			static_cast<void>(m_config.device.Destroy(texture));
+			static_cast<void>(m_config.device.destroy(view));
+			static_cast<void>(m_config.device.destroy(texture));
 			return kNoTexture;
 		}
 
@@ -234,7 +234,7 @@ namespace fw::scene
 			stagingBytes += AlignUp(layers[index].pixels.size(), m_copyAlignment);
 		}
 
-		const azo::rhi::BufferHandle staging = m_config.device.CreateBuffer(
+		const azo::rhi::BufferHandle staging = m_config.device.create_buffer(
 			azo::rhi::BufferDesc{
 				.size	   = stagingBytes,
 				.usage	   = azo::rhi::BufferUsage::eCopySrc,
@@ -244,14 +244,14 @@ namespace fw::scene
 			error);
 
 		const azo::rhi::MappedMemory mapped =
-			staging.IsValid() ? m_config.device.Map(staging, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error) : azo::rhi::MappedMemory{};
+			staging.is_valid() ? m_config.device.Map(staging, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error) : azo::rhi::MappedMemory{};
 
 		if (mapped.data == nullptr)
 		{
 			ReportError("failed to stage a scene texture", error);
-			static_cast<void>(m_config.device.Destroy(staging));
-			static_cast<void>(m_config.device.Destroy(view));
-			static_cast<void>(m_config.device.Destroy(texture));
+			static_cast<void>(m_config.device.destroy(staging));
+			static_cast<void>(m_config.device.destroy(view));
+			static_cast<void>(m_config.device.destroy(texture));
 			return kNoTexture;
 		}
 
@@ -262,7 +262,7 @@ namespace fw::scene
 			std::memcpy(bytes + layerOffsets[index], layers[index].pixels.data(), layers[index].pixels.size());
 		}
 
-		const bool staged = (mapped.coherent || m_config.device.FlushMappedRange(staging, 0, stagingBytes, error)) && m_config.device.Unmap(staging, error);
+		const bool staged = (mapped.coherent || m_config.device.flush_mapped_range(staging, 0, stagingBytes, error)) && m_config.device.Unmap(staging, error);
 		const bool ok	  = staged && RecordAndSubmit(texture,
 										  staging,
 										  CopyPlan{
@@ -274,13 +274,13 @@ namespace fw::scene
 										  },
 										  error);
 
-		static_cast<void>(m_config.device.Destroy(staging));
+		static_cast<void>(m_config.device.destroy(staging));
 
 		if (!ok)
 		{
 			ReportError("failed to upload a scene texture", error);
-			static_cast<void>(m_config.device.Destroy(view));
-			static_cast<void>(m_config.device.Destroy(texture));
+			static_cast<void>(m_config.device.destroy(view));
+			static_cast<void>(m_config.device.destroy(texture));
 			return kNoTexture;
 		}
 
@@ -295,7 +295,7 @@ namespace fw::scene
 		const azo::rhi::TextureHandle texture, const azo::rhi::BufferHandle staging, const CopyPlan & plan, azo::rhi::Error & error)
 	{
 		azo::rhi::CommandList list = m_pool.Allocate("fw.scene.imageUpload", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			return false;
 		}
@@ -332,8 +332,8 @@ namespace fw::scene
 		};
 
 		const bool recorded =
-			list.Barriers(azo::rhi::BarrierBatch{ .textures = toCopyDst }, error) && list.CopyBufferToTexture(texture, staging, regions, error) &&
-			(plan.mips == 1 ? list.Barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) : GenerateMips(list, texture, error)) && list.End(error);
+			list.barriers(azo::rhi::BarrierBatch{ .textures = toCopyDst }, error) && list.copy_buffer_to_texture(texture, staging, regions, error) &&
+			(plan.mips == 1 ? list.barriers(azo::rhi::BarrierBatch{ .textures = toRead }, error) : GenerateMips(list, texture, error)) && list.End(error);
 
 		if (!recorded)
 		{
@@ -344,7 +344,7 @@ namespace fw::scene
 		std::array<const azo::rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{ azo::rhi::TimelinePoint{ .timeline = m_timeline, .value = signalValue } };
 
-		if (!m_queue.Submit(azo::rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "fw.scene.imageUploadSubmit" }, error) ||
+		if (!m_queue.submit(azo::rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "fw.scene.imageUploadSubmit" }, error) ||
 			!m_queue.Wait(m_timeline, signalValue, kNoTimeout, error))
 		{
 			return false;
@@ -366,7 +366,7 @@ namespace fw::scene
 	{
 		if (!m_resampler.IsValid())
 		{
-			m_resampleArena = m_config.device.CreateDescriptorArena(
+			m_resampleArena = m_config.device.create_descriptor_arena(
 				azo::rhi::DescriptorArenaDesc{
 					.type			= azo::rhi::DescriptorArenaType::ePersistent,
 					.maxSets		= kResampleSets,
@@ -375,7 +375,7 @@ namespace fw::scene
 				},
 				error);
 
-			if (!m_resampleArena.IsValid())
+			if (!m_resampleArena.is_valid())
 			{
 				return false;
 			}
@@ -386,7 +386,7 @@ namespace fw::scene
 
 			if (!made)
 			{
-				error = made.GetError();
+				error = made.get_error();
 				return false;
 			}
 

@@ -49,8 +49,8 @@ namespace azo::rhi::test::oracle
 			report.erroredCode		= error.code;
 
 			const auto asResult	   = resulted();
-			report.resultSucceeded = asResult.HasValue();
-			report.resultCode	   = asResult.HasValue() ? ErrorCode::eOk : asResult.GetError().code;
+			report.resultSucceeded = asResult.has_value();
+			report.resultCode	   = asResult.has_value() ? ErrorCode::eOk : asResult.get_error().code;
 
 			return report;
 		}
@@ -58,13 +58,13 @@ namespace azo::rhi::test::oracle
 		template <typename Handle>
 		[[nodiscard]] bool CreatedAndReleased(Device device, Handle handle)
 		{
-			if (!handle.IsValid())
+			if (!handle.is_valid())
 			{
 				return false;
 			}
 
 			Error ignored{};
-			static_cast<void>(device.Destroy(handle, {}, ignored));
+			static_cast<void>(device.destroy(handle, {}, ignored));
 			return true;
 		}
 
@@ -75,21 +75,21 @@ namespace azo::rhi::test::oracle
 		std::vector<OverloadReport> reports;
 		reports.reserve(32);
 
-		const DeviceCaps & caps = device.GetCaps();
+		const DeviceCaps & caps = device.get_caps();
 
 		reports.push_back(Probe(
 			"Device::CreateTextureView",
 			[&]
 			{
-				return device.CreateTextureView(TextureHandle{}, samples::FullTextureView()).IsValid();
+				return device.create_texture_view(TextureHandle{}, samples::FullTextureView()).is_valid();
 			},
 			[&](Error & error)
 			{
-				return device.CreateTextureView(TextureHandle{}, samples::FullTextureView(), error).IsValid();
+				return device.create_texture_view(TextureHandle{}, samples::FullTextureView(), error).is_valid();
 			},
 			[&]
 			{
-				return device.CreateTextureViewWithResult(TextureHandle{}, samples::FullTextureView());
+				return device.create_texture_view_with_result(TextureHandle{}, samples::FullTextureView());
 			}));
 
 		reports.push_back(Probe(
@@ -104,22 +104,22 @@ namespace azo::rhi::test::oracle
 			},
 			[&]
 			{
-				return device.MapWithResult(BufferHandle{}, MapDesc{});
+				return device.map_with_result(BufferHandle{}, MapDesc{});
 			}));
 
 		reports.push_back(Probe(
 			"Device::GetQueue",
 			[&]
 			{
-				return device.GetQueue(QueueType::eGraphics, device.GetQueueCount(QueueType::eGraphics)).IsValid();
+				return device.get_queue(QueueType::eGraphics, device.get_queue_count(QueueType::eGraphics)).is_valid();
 			},
 			[&](Error & error)
 			{
-				return device.GetQueue(QueueType::eGraphics, device.GetQueueCount(QueueType::eGraphics), error).IsValid();
+				return device.get_queue(QueueType::eGraphics, device.get_queue_count(QueueType::eGraphics), error).is_valid();
 			},
 			[&]
 			{
-				return device.GetQueueWithResult(QueueType::eGraphics, device.GetQueueCount(QueueType::eGraphics));
+				return device.get_queue_with_result(QueueType::eGraphics, device.get_queue_count(QueueType::eGraphics));
 			}));
 
 		{
@@ -129,15 +129,15 @@ namespace azo::rhi::test::oracle
 				"Device::CreatePlacedBuffer",
 				[&]
 				{
-					return device.CreatePlacedBuffer(placed).IsValid();
+					return device.create_placed_buffer(placed).is_valid();
 				},
 				[&](Error & error)
 				{
-					return device.CreatePlacedBuffer(placed, error).IsValid();
+					return device.create_placed_buffer(placed, error).is_valid();
 				},
 				[&]
 				{
-					return device.CreatePlacedBufferWithResult(placed);
+					return device.create_placed_buffer_with_result(placed);
 				}));
 
 			PlacedTextureDesc placedTexture{};
@@ -146,15 +146,15 @@ namespace azo::rhi::test::oracle
 				"Device::CreatePlacedTexture",
 				[&]
 				{
-					return device.CreatePlacedTexture(placedTexture).IsValid();
+					return device.create_placed_texture(placedTexture).is_valid();
 				},
 				[&](Error & error)
 				{
-					return device.CreatePlacedTexture(placedTexture, error).IsValid();
+					return device.create_placed_texture(placedTexture, error).is_valid();
 				},
 				[&]
 				{
-					return device.CreatePlacedTextureWithResult(placedTexture);
+					return device.create_placed_texture_with_result(placedTexture);
 				}));
 		}
 
@@ -162,16 +162,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateBuffer",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateBuffer(samples::StorageBuffer()));
+				return CreatedAndReleased(device, device.create_buffer(samples::StorageBuffer()));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateBuffer(samples::StorageBuffer(), error));
+				return CreatedAndReleased(device, device.create_buffer(samples::StorageBuffer(), error));
 			},
 			[&]
 			{
-				Result<BufferHandle> result = device.CreateBufferWithResult(samples::StorageBuffer());
-				if (result.HasValue())
+				Result<BufferHandle> result = device.create_buffer_with_result(samples::StorageBuffer());
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -182,16 +182,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateTexture",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateTexture(samples::SampledTexture2D()));
+				return CreatedAndReleased(device, device.create_texture(samples::SampledTexture2D()));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateTexture(samples::SampledTexture2D(), error));
+				return CreatedAndReleased(device, device.create_texture(samples::SampledTexture2D(), error));
 			},
 			[&]
 			{
-				Result<TextureHandle> result = device.CreateTextureWithResult(samples::SampledTexture2D());
-				if (result.HasValue())
+				Result<TextureHandle> result = device.create_texture_with_result(samples::SampledTexture2D());
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -202,16 +202,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateSampler",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateSampler(samples::LinearSampler()));
+				return CreatedAndReleased(device, device.create_sampler(samples::LinearSampler()));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateSampler(samples::LinearSampler(), error));
+				return CreatedAndReleased(device, device.create_sampler(samples::LinearSampler(), error));
 			},
 			[&]
 			{
-				Result<SamplerHandle> result = device.CreateSamplerWithResult(samples::LinearSampler());
-				if (result.HasValue())
+				Result<SamplerHandle> result = device.create_sampler_with_result(samples::LinearSampler());
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -222,16 +222,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateHeap",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateHeap(samples::GpuHeap()));
+				return CreatedAndReleased(device, device.create_heap(samples::GpuHeap()));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateHeap(samples::GpuHeap(), error));
+				return CreatedAndReleased(device, device.create_heap(samples::GpuHeap(), error));
 			},
 			[&]
 			{
-				Result<HeapHandle> result = device.CreateHeapWithResult(samples::GpuHeap());
-				if (result.HasValue())
+				Result<HeapHandle> result = device.create_heap_with_result(samples::GpuHeap());
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -244,16 +244,16 @@ namespace azo::rhi::test::oracle
 				"Device::CreateDescriptorSetLayout",
 				[&]
 				{
-					return CreatedAndReleased(device, device.CreateDescriptorSetLayout(layout.Desc()));
+					return CreatedAndReleased(device, device.create_descriptor_set_layout(layout.Desc()));
 				},
 				[&](Error & error)
 				{
-					return CreatedAndReleased(device, device.CreateDescriptorSetLayout(layout.Desc(), error));
+					return CreatedAndReleased(device, device.create_descriptor_set_layout(layout.Desc(), error));
 				},
 				[&]
 				{
-					Result<DescriptorSetLayoutHandle> result = device.CreateDescriptorSetLayoutWithResult(layout.Desc());
-					if (result.HasValue())
+					Result<DescriptorSetLayoutHandle> result = device.create_descriptor_set_layout_with_result(layout.Desc());
+					if (result.has_value())
 					{
 						static_cast<void>(CreatedAndReleased(device, result.Value()));
 					}
@@ -261,22 +261,22 @@ namespace azo::rhi::test::oracle
 				}));
 
 			Error setupError{};
-			const DescriptorSetLayoutHandle setLayout = device.CreateDescriptorSetLayout(layout.Desc(), setupError);
+			const DescriptorSetLayoutHandle setLayout = device.create_descriptor_set_layout(layout.Desc(), setupError);
 			const samples::SimplePipelineLayout pipelineLayout{ setLayout };
 			reports.push_back(Probe(
 				"Device::CreatePipelineLayout",
 				[&]
 				{
-					return CreatedAndReleased(device, device.CreatePipelineLayout(pipelineLayout.Desc()));
+					return CreatedAndReleased(device, device.create_pipeline_layout(pipelineLayout.Desc()));
 				},
 				[&](Error & error)
 				{
-					return CreatedAndReleased(device, device.CreatePipelineLayout(pipelineLayout.Desc(), error));
+					return CreatedAndReleased(device, device.create_pipeline_layout(pipelineLayout.Desc(), error));
 				},
 				[&]
 				{
-					Result<PipelineLayoutHandle> result = device.CreatePipelineLayoutWithResult(pipelineLayout.Desc());
-					if (result.HasValue())
+					Result<PipelineLayoutHandle> result = device.create_pipeline_layout_with_result(pipelineLayout.Desc());
+					if (result.has_value())
 					{
 						static_cast<void>(CreatedAndReleased(device, result.Value()));
 					}
@@ -290,16 +290,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateTimeline",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateTimeline(samples::Timeline()));
+				return CreatedAndReleased(device, device.create_timeline(samples::Timeline()));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateTimeline(samples::Timeline(), error));
+				return CreatedAndReleased(device, device.create_timeline(samples::Timeline(), error));
 			},
 			[&]
 			{
-				Result<TimelineHandle> result = device.CreateTimelineWithResult(samples::Timeline());
-				if (result.HasValue())
+				Result<TimelineHandle> result = device.create_timeline_with_result(samples::Timeline());
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -310,16 +310,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateBinarySemaphore",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateBinarySemaphore(BinarySemaphoreDesc{}));
+				return CreatedAndReleased(device, device.create_binary_semaphore(BinarySemaphoreDesc{}));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateBinarySemaphore(BinarySemaphoreDesc{}, error));
+				return CreatedAndReleased(device, device.create_binary_semaphore(BinarySemaphoreDesc{}, error));
 			},
 			[&]
 			{
-				Result<BinarySemaphoreHandle> result = device.CreateBinarySemaphoreWithResult(BinarySemaphoreDesc{});
-				if (result.HasValue())
+				Result<BinarySemaphoreHandle> result = device.create_binary_semaphore_with_result(BinarySemaphoreDesc{});
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -330,16 +330,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateQueryPool",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateQueryPool(samples::TimestampPool()));
+				return CreatedAndReleased(device, device.create_query_pool(samples::TimestampPool()));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateQueryPool(samples::TimestampPool(), error));
+				return CreatedAndReleased(device, device.create_query_pool(samples::TimestampPool(), error));
 			},
 			[&]
 			{
-				Result<QueryPoolHandle> result = device.CreateQueryPoolWithResult(samples::TimestampPool());
-				if (result.HasValue())
+				Result<QueryPoolHandle> result = device.create_query_pool_with_result(samples::TimestampPool());
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -350,30 +350,30 @@ namespace azo::rhi::test::oracle
 			"Device::CreateCommandPool",
 			[&]
 			{
-				return device.CreateCommandPool(samples::CommandPool()).IsValid();
+				return device.create_command_pool(samples::CommandPool()).is_valid();
 			},
 			[&](Error & error)
 			{
-				return device.CreateCommandPool(samples::CommandPool(), error).IsValid();
+				return device.create_command_pool(samples::CommandPool(), error).is_valid();
 			},
 			[&]
 			{
-				return device.CreateCommandPoolWithResult(samples::CommandPool());
+				return device.create_command_pool_with_result(samples::CommandPool());
 			}));
 
 		reports.push_back(Probe(
 			"Device::CreateDescriptorArena",
 			[&]
 			{
-				return device.CreateDescriptorArena(samples::DescriptorArena()).IsValid();
+				return device.create_descriptor_arena(samples::DescriptorArena()).is_valid();
 			},
 			[&](Error & error)
 			{
-				return device.CreateDescriptorArena(samples::DescriptorArena(), error).IsValid();
+				return device.create_descriptor_arena(samples::DescriptorArena(), error).is_valid();
 			},
 			[&]
 			{
-				return device.CreateDescriptorArenaWithResult(samples::DescriptorArena());
+				return device.create_descriptor_arena_with_result(samples::DescriptorArena());
 			}));
 
 		reports.push_back(Probe(
@@ -381,16 +381,16 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				MemoryInfo out{};
-				return device.GetBufferMemoryInfo(samples::StorageBuffer(), out);
+				return device.get_buffer_memory_info(samples::StorageBuffer(), out);
 			},
 			[&](Error & error)
 			{
 				MemoryInfo out{};
-				return device.GetBufferMemoryInfo(samples::StorageBuffer(), out, error);
+				return device.get_buffer_memory_info(samples::StorageBuffer(), out, error);
 			},
 			[&]
 			{
-				return device.GetBufferMemoryInfoWithResult(samples::StorageBuffer());
+				return device.get_buffer_memory_info_with_result(samples::StorageBuffer());
 			}));
 
 		reports.push_back(Probe(
@@ -398,16 +398,16 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				MemoryInfo out{};
-				return device.GetTextureMemoryInfo(samples::SampledTexture2D(), out);
+				return device.get_texture_memory_info(samples::SampledTexture2D(), out);
 			},
 			[&](Error & error)
 			{
 				MemoryInfo out{};
-				return device.GetTextureMemoryInfo(samples::SampledTexture2D(), out, error);
+				return device.get_texture_memory_info(samples::SampledTexture2D(), out, error);
 			},
 			[&]
 			{
-				return device.GetTextureMemoryInfoWithResult(samples::SampledTexture2D());
+				return device.get_texture_memory_info_with_result(samples::SampledTexture2D());
 			}));
 
 		reports.push_back(Probe(
@@ -415,16 +415,16 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				MemoryBudgetInfo out{};
-				return device.QueryMemoryBudget(HeapType::eGpuLocal, out);
+				return device.query_memory_budget(HeapType::eGpuLocal, out);
 			},
 			[&](Error & error)
 			{
 				MemoryBudgetInfo out{};
-				return device.QueryMemoryBudget(HeapType::eGpuLocal, out, error);
+				return device.query_memory_budget(HeapType::eGpuLocal, out, error);
 			},
 			[&]
 			{
-				return device.QueryMemoryBudgetWithResult(HeapType::eGpuLocal);
+				return device.query_memory_budget_with_result(HeapType::eGpuLocal);
 			}));
 
 		reports.push_back(Probe(
@@ -432,16 +432,16 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				TimestampCalibration out{};
-				return device.CalibrateTimestamp(QueueType::eGraphics, out);
+				return device.calibrate_timestamp(QueueType::eGraphics, out);
 			},
 			[&](Error & error)
 			{
 				TimestampCalibration out{};
-				return device.CalibrateTimestamp(QueueType::eGraphics, out, error);
+				return device.calibrate_timestamp(QueueType::eGraphics, out, error);
 			},
 			[&]
 			{
-				return device.CalibrateTimestampWithResult(QueueType::eGraphics);
+				return device.calibrate_timestamp_with_result(QueueType::eGraphics);
 			}));
 
 		reports.push_back(Probe(
@@ -449,16 +449,16 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				PipelineCacheData out{};
-				return device.GetPipelineCacheData(PipelineCacheHandle{}, out);
+				return device.get_pipeline_cache_data(PipelineCacheHandle{}, out);
 			},
 			[&](Error & error)
 			{
 				PipelineCacheData out{};
-				return device.GetPipelineCacheData(PipelineCacheHandle{}, out, error);
+				return device.get_pipeline_cache_data(PipelineCacheHandle{}, out, error);
 			},
 			[&]
 			{
-				return device.GetPipelineCacheDataWithResult(PipelineCacheHandle{});
+				return device.get_pipeline_cache_data_with_result(PipelineCacheHandle{});
 			}));
 
 		if (caps.supportsPipelineCache)
@@ -467,16 +467,16 @@ namespace azo::rhi::test::oracle
 				"Device::CreatePipelineCache",
 				[&]
 				{
-					return CreatedAndReleased(device, device.CreatePipelineCache(PipelineCacheDesc{}));
+					return CreatedAndReleased(device, device.create_pipeline_cache(PipelineCacheDesc{}));
 				},
 				[&](Error & error)
 				{
-					return CreatedAndReleased(device, device.CreatePipelineCache(PipelineCacheDesc{}, error));
+					return CreatedAndReleased(device, device.create_pipeline_cache(PipelineCacheDesc{}, error));
 				},
 				[&]
 				{
-					Result<PipelineCacheHandle> result = device.CreatePipelineCacheWithResult(PipelineCacheDesc{});
-					if (result.HasValue())
+					Result<PipelineCacheHandle> result = device.create_pipeline_cache_with_result(PipelineCacheDesc{});
+					if (result.has_value())
 					{
 						static_cast<void>(CreatedAndReleased(device, result.Value()));
 					}
@@ -488,16 +488,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateGraphicsPipeline",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateGraphicsPipeline(GraphicsPipelineDesc{}));
+				return CreatedAndReleased(device, device.create_graphics_pipeline(GraphicsPipelineDesc{}));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateGraphicsPipeline(GraphicsPipelineDesc{}, error));
+				return CreatedAndReleased(device, device.create_graphics_pipeline(GraphicsPipelineDesc{}, error));
 			},
 			[&]
 			{
-				Result<GraphicsPipelineHandle> result = device.CreateGraphicsPipelineWithResult(GraphicsPipelineDesc{});
-				if (result.HasValue())
+				Result<GraphicsPipelineHandle> result = device.create_graphics_pipeline_with_result(GraphicsPipelineDesc{});
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -508,16 +508,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateComputePipeline",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateComputePipeline(ComputePipelineDesc{}));
+				return CreatedAndReleased(device, device.create_compute_pipeline(ComputePipelineDesc{}));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateComputePipeline(ComputePipelineDesc{}, error));
+				return CreatedAndReleased(device, device.create_compute_pipeline(ComputePipelineDesc{}, error));
 			},
 			[&]
 			{
-				Result<ComputePipelineHandle> result = device.CreateComputePipelineWithResult(ComputePipelineDesc{});
-				if (result.HasValue())
+				Result<ComputePipelineHandle> result = device.create_compute_pipeline_with_result(ComputePipelineDesc{});
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -528,16 +528,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateRayTracingPipeline",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateRayTracingPipeline(RayTracingPipelineDesc{}));
+				return CreatedAndReleased(device, device.create_ray_tracing_pipeline(RayTracingPipelineDesc{}));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateRayTracingPipeline(RayTracingPipelineDesc{}, error));
+				return CreatedAndReleased(device, device.create_ray_tracing_pipeline(RayTracingPipelineDesc{}, error));
 			},
 			[&]
 			{
-				Result<RayTracingPipelineHandle> result = device.CreateRayTracingPipelineWithResult(RayTracingPipelineDesc{});
-				if (result.HasValue())
+				Result<RayTracingPipelineHandle> result = device.create_ray_tracing_pipeline_with_result(RayTracingPipelineDesc{});
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -548,16 +548,16 @@ namespace azo::rhi::test::oracle
 			"Device::CreateAccelerationStructure",
 			[&]
 			{
-				return CreatedAndReleased(device, device.CreateAccelerationStructure(AccelerationStructureDesc{}));
+				return CreatedAndReleased(device, device.create_acceleration_structure(AccelerationStructureDesc{}));
 			},
 			[&](Error & error)
 			{
-				return CreatedAndReleased(device, device.CreateAccelerationStructure(AccelerationStructureDesc{}, error));
+				return CreatedAndReleased(device, device.create_acceleration_structure(AccelerationStructureDesc{}, error));
 			},
 			[&]
 			{
-				Result<AccelerationStructureHandle> result = device.CreateAccelerationStructureWithResult(AccelerationStructureDesc{});
-				if (result.HasValue())
+				Result<AccelerationStructureHandle> result = device.create_acceleration_structure_with_result(AccelerationStructureDesc{});
+				if (result.has_value())
 				{
 					static_cast<void>(CreatedAndReleased(device, result.Value()));
 				}
@@ -568,21 +568,21 @@ namespace azo::rhi::test::oracle
 			"Device::CreateSwapchain",
 			[&]
 			{
-				return device.CreateSwapchain(SwapchainDesc{}).IsValid();
+				return device.create_swapchain(SwapchainDesc{}).is_valid();
 			},
 			[&](Error & error)
 			{
-				return device.CreateSwapchain(SwapchainDesc{}, error).IsValid();
+				return device.create_swapchain(SwapchainDesc{}, error).is_valid();
 			},
 			[&]
 			{
-				return device.CreateSwapchainWithResult(SwapchainDesc{});
+				return device.create_swapchain_with_result(SwapchainDesc{});
 			}));
 
 		{
 			Error error{};
-			CommandPool pool = device.CreateCommandPool(samples::CommandPool(), error);
-			if (pool.IsValid())
+			CommandPool pool = device.create_command_pool(samples::CommandPool(), error);
+			if (pool.is_valid())
 			{
 				reports.push_back(Probe(
 					"CommandPool::Allocate",
@@ -596,12 +596,12 @@ namespace azo::rhi::test::oracle
 					},
 					[&]
 					{
-						return pool.AllocateWithResult("azoth.rhi.conformance.overloadResult");
+						return pool.allocate_with_result("azoth.rhi.conformance.overloadResult");
 					}));
 			}
 
-			DescriptorArena arena = device.CreateDescriptorArena(samples::DescriptorArena(), error);
-			if (arena.IsValid())
+			DescriptorArena arena = device.create_descriptor_arena(samples::DescriptorArena(), error);
+			if (arena.is_valid())
 			{
 				DescriptorSetAllocDesc alloc{};
 				reports.push_back(Probe(
@@ -616,28 +616,28 @@ namespace azo::rhi::test::oracle
 					},
 					[&]
 					{
-						return arena.AllocateWithResult(alloc);
+						return arena.allocate_with_result(alloc);
 					}));
 			}
 
-			Queue queue = device.GetQueue(QueueType::eGraphics, 0, error);
-			if (queue.IsValid())
+			Queue queue = device.get_queue(QueueType::eGraphics, 0, error);
+			if (queue.is_valid())
 			{
 				reports.push_back(Probe(
 					"Queue::GetCompletedValue",
 					[&]
 					{
 						std::uint64_t out = 0;
-						return queue.GetCompletedValue(TimelineHandle{}, out);
+						return queue.get_completed_value(TimelineHandle{}, out);
 					},
 					[&](Error & queueError)
 					{
 						std::uint64_t out = 0;
-						return queue.GetCompletedValue(TimelineHandle{}, out, queueError);
+						return queue.get_completed_value(TimelineHandle{}, out, queueError);
 					},
 					[&]
 					{
-						return queue.GetCompletedValueWithResult(TimelineHandle{});
+						return queue.get_completed_value_with_result(TimelineHandle{});
 					}));
 			}
 		}

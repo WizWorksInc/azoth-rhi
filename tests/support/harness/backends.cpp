@@ -53,15 +53,15 @@ namespace azo::rhi::test
 
 		if (const Result<void> registered = backend.RegisterInto(m_registry); !registered)
 		{
-			m_error = registered.GetError();
+			m_error = registered.get_error();
 			return;
 		}
 
 		const std::array preferred{ backend.id };
-		Result<UniqueDevice> device = CreateDevice(m_registry, preferred, desc);
+		Result<UniqueDevice> device = create_device(m_registry, preferred, desc);
 		if (!device)
 		{
-			m_error = device.GetError();
+			m_error = device.get_error();
 			return;
 		}
 

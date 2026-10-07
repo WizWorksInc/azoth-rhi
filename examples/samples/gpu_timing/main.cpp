@@ -112,20 +112,20 @@ int main(int argc, char ** argv)
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
 
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
-													  .DebugName("gpu_timing")
-													  .Headless()
-													  .GraphicsQueue()
-													  .PreferFeature(rhi::DeviceFeature::eTimestampQueries)
-													  .PreferFeature(rhi::DeviceFeature::ePipelineStatisticsQueries)
-													  .Build(backends.Registry(), backends.PreferredApis());
+													  .debug_name("gpu_timing")
+													  .headless()
+													  .graphics_queue()
+													  .prefer_feature(rhi::DeviceFeature::eTimestampQueries)
+													  .prefer_feature(rhi::DeviceFeature::ePipelineStatisticsQueries)
+													  .build(backends.registry(), backends.preferred_apis());
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	rhi::Device dev				 = device.Value().Get();
-	const rhi::DeviceCaps & caps = dev.GetCaps();
-	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+	const rhi::DeviceCaps & caps = dev.get_caps();
+	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	if (!caps.supportsTimestampQueries)
 	{
@@ -141,7 +141,7 @@ int main(int argc, char ** argv)
 
 	fw::shader::SlangCompiler compiler;
 	std::string why;
-	if (!compiler.Open(dev.GetGraphicsApiId(), why))
+	if (!compiler.Open(dev.get_graphics_api_id(), why))
 	{
 		LOG_ERROR(fw::Log(), "{}", why);
 		return fw::kSkipExitCode;
@@ -162,19 +162,19 @@ int main(int argc, char ** argv)
 		rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eStorageBuffer, .stages = rhi::ShaderStage::eCompute },
 	};
 	const rhi::DescriptorSetLayoutHandle workSetLayout =
-		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = workBindings, .debugName = "timing.workSet" }, error);
+		dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = workBindings, .debugName = "timing.workSet" }, error);
 
 	const std::array workSetLayouts{ workSetLayout };
 	const std::array workPushConstants{
 		rhi::PushConstantRange{ .stages = rhi::ShaderStage::eCompute, .offset = 0, .size = sizeof(Params) },
 	};
-	const rhi::PipelineLayoutHandle computeLayout = dev.CreatePipelineLayout(
+	const rhi::PipelineLayoutHandle computeLayout = dev.create_pipeline_layout(
 		rhi::PipelineLayoutDesc{ .sets = workSetLayouts, .pushConstants = workPushConstants, .debugName = "timing.computeLayout" }, error);
 
 	const rhi::ComputePipelineHandle computePipeline =
-		dev.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = computeLayout, .shader = computeShader, .debugName = "timing.computePipeline" }, error);
+		dev.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = computeLayout, .shader = computeShader, .debugName = "timing.computePipeline" }, error);
 
-	const rhi::BufferHandle accumulator = dev.CreateBuffer(
+	const rhi::BufferHandle accumulator = dev.create_buffer(
 		rhi::BufferDesc{
 			.size	   = static_cast<std::uint64_t>(kThreads) * sizeof(float),
 			.usage	   = rhi::BufferUsage::eStorage,
@@ -183,7 +183,7 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	const rhi::TextureHandle target = dev.CreateTexture(
+	const rhi::TextureHandle target = dev.create_texture(
 		rhi::TextureDesc{
 			.type	   = rhi::TextureType::eTex2D,
 			.format	   = rhi::Format::eRGBA8UNorm,
@@ -193,9 +193,9 @@ int main(int argc, char ** argv)
 			.debugName = "timing.target",
 		},
 		error);
-	const rhi::TextureViewHandle targetView = dev.CreateTextureView(target, rhi::TextureViewDesc{ .debugName = "timing.targetView" }, error);
+	const rhi::TextureViewHandle targetView = dev.create_texture_view(target, rhi::TextureViewDesc{ .debugName = "timing.targetView" }, error);
 
-	const rhi::PipelineLayoutHandle graphicsLayout = dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "timing.graphicsLayout" }, error);
+	const rhi::PipelineLayoutHandle graphicsLayout = dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "timing.graphicsLayout" }, error);
 
 	const std::array graphicsShaders{ vertexShader, pixelShader };
 	rhi::VertexInputDesc vertexInput{};
@@ -210,16 +210,16 @@ int main(int argc, char ** argv)
 	graphicsDesc.dynamicStates					 = rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
 	graphicsDesc.debugName						 = "timing.graphicsPipeline";
 
-	const rhi::GraphicsPipelineHandle graphicsPipeline = dev.CreateGraphicsPipeline(graphicsDesc, error);
+	const rhi::GraphicsPipelineHandle graphicsPipeline = dev.create_graphics_pipeline(graphicsDesc, error);
 
-	if (!workSetLayout.IsValid() || !computeLayout.IsValid() || !computePipeline.IsValid() || !accumulator.IsValid() || !target.IsValid() ||
-		!targetView.IsValid() || !graphicsLayout.IsValid() || !graphicsPipeline.IsValid())
+	if (!workSetLayout.is_valid() || !computeLayout.is_valid() || !computePipeline.is_valid() || !accumulator.is_valid() || !target.is_valid() ||
+		!targetView.is_valid() || !graphicsLayout.is_valid() || !graphicsPipeline.is_valid())
 	{
 		fw::ReportError("the pipelines and their resources were refused", error);
 		return 1;
 	}
 
-	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
+	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 1, .debugName = "timing.arena" }, error);
 	const rhi::DescriptorSetHandle workSet = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = workSetLayout, .debugName = "timing.work" }, error);
 
@@ -232,15 +232,15 @@ int main(int argc, char ** argv)
 			.range	 = static_cast<std::uint64_t>(kThreads) * sizeof(float),
 		},
 	};
-	if (!workSet.IsValid() || !dev.UpdateDescriptors(std::span(workWrites), error))
+	if (!workSet.is_valid() || !dev.update_descriptors(std::span(workWrites), error))
 	{
 		fw::ReportError("the compute descriptors were refused", error);
 		return 1;
 	}
 
 	const rhi::QueryPoolHandle timestamps =
-		dev.CreateQueryPool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kTimestampCount, .debugName = "timing.timestamps" }, error);
-	if (!timestamps.IsValid())
+		dev.create_query_pool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eTimestamp, .queryCount = kTimestampCount, .debugName = "timing.timestamps" }, error);
+	if (!timestamps.is_valid())
 	{
 		fw::ReportError("this device reports timestamp queries and then refused the pool", error);
 		return 1;
@@ -248,8 +248,8 @@ int main(int argc, char ** argv)
 
 	rhi::Error occlusionError{};
 	const rhi::QueryPoolHandle occlusion =
-		dev.CreateQueryPool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eOcclusion, .queryCount = 1, .debugName = "timing.occlusion" }, occlusionError);
-	if (!occlusion.IsValid())
+		dev.create_query_pool(rhi::QueryPoolDesc{ .type = rhi::QueryType::eOcclusion, .queryCount = 1, .debugName = "timing.occlusion" }, occlusionError);
+	if (!occlusion.is_valid())
 	{
 		LOG_INFO(fw::Log(), "no occlusion pool: {}", occlusionError.message != nullptr ? occlusionError.message : "no diagnostic");
 	}
@@ -258,7 +258,7 @@ int main(int argc, char ** argv)
 	rhi::QueryPoolHandle statistics{};
 	if (caps.supportsPipelineStatisticsQueries)
 	{
-		statistics = dev.CreateQueryPool(
+		statistics = dev.create_query_pool(
 			rhi::QueryPoolDesc{
 				.type		= rhi::QueryType::ePipelineStatistics,
 				.queryCount = 1,
@@ -266,13 +266,13 @@ int main(int argc, char ** argv)
 				.debugName	= "timing.statistics",
 			},
 			statisticsError);
-		if (!statistics.IsValid())
+		if (!statistics.is_valid())
 		{
 			LOG_INFO(fw::Log(), "no statistics pool: {}", statisticsError.message != nullptr ? statisticsError.message : "no diagnostic");
 		}
 	}
 
-	const rhi::BufferHandle results = dev.CreateBuffer(
+	const rhi::BufferHandle results = dev.create_buffer(
 		rhi::BufferDesc{
 			.size	   = kResultBytes,
 			.usage	   = rhi::BufferUsage::eCopyDst,
@@ -281,11 +281,11 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "timing.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "timing.pool" }, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "timing.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "timing.pool" }, error);
 	rhi::CommandList list			   = pool.Allocate("timing.frame", error);
-	if (!results.IsValid() || !timeline.IsValid() || !queue.IsValid() || !list.IsValid() || !list.Begin(error))
+	if (!results.is_valid() || !timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
 	{
 		fw::ReportError("the submission objects were refused", error);
 		return 1;
@@ -308,36 +308,36 @@ int main(int argc, char ** argv)
 		},
 	};
 
-	bool recorded = list.ResetQueryPool(timestamps, 0, kTimestampCount, error);
-	if (occlusion.IsValid())
+	bool recorded = list.reset_query_pool(timestamps, 0, kTimestampCount, error);
+	if (occlusion.is_valid())
 	{
-		recorded = recorded && list.ResetQueryPool(occlusion, 0, 1, error);
+		recorded = recorded && list.reset_query_pool(occlusion, 0, 1, error);
 	}
-	if (statistics.IsValid())
+	if (statistics.is_valid())
 	{
-		recorded = recorded && list.ResetQueryPool(statistics, 0, 1, error);
+		recorded = recorded && list.reset_query_pool(statistics, 0, 1, error);
 	}
 
 	const bool timeTheDispatch = caps.supportsTimestampWritesInScope;
 
-	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitBegin), rhi::Stage::eAllCommands, error) &&
-			   list.Barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error);
+	recorded = recorded && list.write_timestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitBegin), rhi::Stage::eAllCommands, error) &&
+			   list.barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error);
 
 	if (timeTheDispatch)
 	{
-		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeBegin), rhi::Stage::eAllCommands, error);
+		recorded = recorded && list.write_timestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeBegin), rhi::Stage::eAllCommands, error);
 	}
 
-	recorded = recorded && list.SetComputePipeline(computePipeline, error) && list.BindDescriptorSet(computeLayout, 0, workSet, {}, error) &&
-			   list.PushConstants(computeLayout, rhi::ShaderStage::eCompute, 0, sizeof(params), &params, error) &&
+	recorded = recorded && list.set_compute_pipeline(computePipeline, error) && list.bind_descriptor_set(computeLayout, 0, workSet, {}, error) &&
+			   list.push_constants(computeLayout, rhi::ShaderStage::eCompute, 0, sizeof(params), &params, error) &&
 			   list.Dispatch(kThreads / computeShader.threadgroupSize.x, 1, 1, error);
 
 	if (timeTheDispatch)
 	{
-		recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeEnd), rhi::Stage::eCompute, error);
+		recorded = recorded && list.write_timestamp(timestamps, static_cast<std::uint32_t>(Slot::eComputeEnd), rhi::Stage::eCompute, error);
 	}
 
-	recorded = recorded && list.Barriers(rhi::BarrierBatch{ .textures = intoAttachment }, error);
+	recorded = recorded && list.barriers(rhi::BarrierBatch{ .textures = intoAttachment }, error);
 
 	if (!recorded)
 	{
@@ -366,48 +366,48 @@ int main(int argc, char ** argv)
 		.timestamps = &scopeTimestamps,
 	};
 
-	if (!list.BeginRendering(rendering, error))
+	if (!list.begin_rendering(rendering, error))
 	{
 		fw::ReportError("the rendering scope was refused", error);
 		return 1;
 	}
 
-	if (occlusion.IsValid())
+	if (occlusion.is_valid())
 	{
-		recorded = recorded && list.BeginQuery(occlusion, 0, error);
+		recorded = recorded && list.begin_query(occlusion, 0, error);
 	}
-	if (statistics.IsValid())
+	if (statistics.is_valid())
 	{
-		recorded = recorded && list.BeginQuery(statistics, 0, error);
+		recorded = recorded && list.begin_query(statistics, 0, error);
 	}
 
 	const rhi::Viewport viewport{ .width = static_cast<float>(kExtent), .height = static_cast<float>(kExtent) };
 	const rhi::Rect2D scissor{ .width = kExtent, .height = kExtent };
 
-	recorded = recorded && list.SetGraphicsPipeline(graphicsPipeline, error) && list.SetViewport(viewport, error) && list.SetScissor(scissor, error) &&
-			   list.Draw(3, 1, 0, 0, error);
+	recorded = recorded && list.set_graphics_pipeline(graphicsPipeline, error) && list.set_viewport(viewport, error) && list.set_scissor(scissor, error) &&
+			   list.draw(3, 1, 0, 0, error);
 
-	if (statistics.IsValid())
+	if (statistics.is_valid())
 	{
-		recorded = recorded && list.EndQuery(statistics, 0, error);
+		recorded = recorded && list.end_query(statistics, 0, error);
 	}
-	if (occlusion.IsValid())
+	if (occlusion.is_valid())
 	{
-		recorded = recorded && list.EndQuery(occlusion, 0, error);
+		recorded = recorded && list.end_query(occlusion, 0, error);
 	}
 
-	list.EndRendering(error);
+	list.end_rendering(error);
 
-	recorded = recorded && list.WriteTimestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitEnd), rhi::Stage::eAllCommands, error) &&
-			   list.ResolveQueryData(timestamps, 0, kTimestampCount, results, 0, error);
+	recorded = recorded && list.write_timestamp(timestamps, static_cast<std::uint32_t>(Slot::eSubmitEnd), rhi::Stage::eAllCommands, error) &&
+			   list.resolve_query_data(timestamps, 0, kTimestampCount, results, 0, error);
 
-	if (occlusion.IsValid())
+	if (occlusion.is_valid())
 	{
-		recorded = recorded && list.ResolveQueryData(occlusion, 0, 1, results, kOcclusionByte, error);
+		recorded = recorded && list.resolve_query_data(occlusion, 0, 1, results, kOcclusionByte, error);
 	}
-	if (statistics.IsValid())
+	if (statistics.is_valid())
 	{
-		recorded = recorded && list.ResolveQueryData(statistics, 0, 1, results, kStatisticByte, error);
+		recorded = recorded && list.resolve_query_data(statistics, 0, 1, results, kStatisticByte, error);
 	}
 
 	recorded = recorded && list.End(error);
@@ -422,7 +422,7 @@ int main(int argc, char ** argv)
 
 	std::array<const rhi::CommandList *, 1> lists{ &list };
 	const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
-	if (!queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "timing.submit" }, error) ||
+	if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "timing.submit" }, error) ||
 		!queue.Wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("the frame did not complete", error);
@@ -438,7 +438,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	if (!mapped.coherent && !dev.InvalidateMappedRange(results, 0, kResultBytes, error))
+	if (!mapped.coherent && !dev.invalidate_mapped_range(results, 0, kResultBytes, error))
 	{
 		fw::ReportError("the results could not be invalidated", error);
 		return 1;
@@ -449,7 +449,7 @@ int main(int argc, char ** argv)
 	static_cast<void>(dev.Unmap(results, error));
 
 	rhi::TimestampCalibration calibration{};
-	if (!dev.CalibrateTimestamp(rhi::QueueType::eGraphics, calibration, error))
+	if (!dev.calibrate_timestamp(rhi::QueueType::eGraphics, calibration, error))
 	{
 		LOG_INFO(fw::Log(), "no calibration on this device, so ticks are converted through the default period of 1 ns");
 	}
@@ -473,7 +473,7 @@ int main(int argc, char ** argv)
 
 	int status = 0;
 
-	if (occlusion.IsValid())
+	if (occlusion.is_valid())
 	{
 		const std::uint64_t visible = raw.at(kOcclusionByte / sizeof(std::uint64_t));
 		const std::uint64_t covered = static_cast<std::uint64_t>(kExtent) * kExtent;
@@ -485,7 +485,7 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	if (statistics.IsValid())
+	if (statistics.is_valid())
 	{
 		LOG_INFO(fw::Log(), "  {:<22} {} invocations", "fragment shader", raw.at(kStatisticByte / sizeof(std::uint64_t)));
 	}
@@ -505,21 +505,21 @@ int main(int argc, char ** argv)
 		.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 		.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 1 },
 	};
-	dev.Destroy(results, retired, error);
-	dev.Destroy(timestamps, retired, error);
-	if (occlusion.IsValid())
+	dev.destroy(results, retired, error);
+	dev.destroy(timestamps, retired, error);
+	if (occlusion.is_valid())
 	{
-		dev.Destroy(occlusion, retired, error);
+		dev.destroy(occlusion, retired, error);
 	}
-	if (statistics.IsValid())
+	if (statistics.is_valid())
 	{
-		dev.Destroy(statistics, retired, error);
+		dev.destroy(statistics, retired, error);
 	}
-	dev.Destroy(targetView, retired, error);
-	dev.Destroy(target, retired, error);
-	dev.Destroy(accumulator, retired, error);
-	dev.CollectGarbage(timeline, 1, error);
-	dev.Destroy(timeline, {}, error);
+	dev.destroy(targetView, retired, error);
+	dev.destroy(target, retired, error);
+	dev.destroy(accumulator, retired, error);
+	dev.collect_garbage(timeline, 1, error);
+	dev.destroy(timeline, {}, error);
 
 	return status;
 }

@@ -38,7 +38,7 @@ namespace
 
 	[[nodiscard]] bool OrderContains(const rhi::BackendSelection & backends, const std::string_view canonicalName)
 	{
-		const std::span<const rhi::BackendInfo> order = backends.Preferred();
+		const std::span<const rhi::BackendInfo> order = backends.preferred();
 		return std::ranges::any_of(order,
 			[canonicalName](const rhi::BackendInfo & info)
 			{
@@ -48,9 +48,9 @@ namespace
 
 	[[nodiscard]] bool SelfRegisteredContains(const std::string_view canonicalName)
 	{
-		for (const rhi::StaticBackendRegistration * node = rhi::SelfRegisteredBackends(); node != nullptr; node = node->Next())
+		for (const rhi::StaticBackendRegistration * node = rhi::self_registered_backends(); node != nullptr; node = node->next())
 		{
-			if (node->Entry().canonicalName == canonicalName)
+			if (node->entry().canonicalName == canonicalName)
 			{
 				return true;
 			}
@@ -61,16 +61,16 @@ namespace
 
 	[[nodiscard]] rhi::BackendRank RankOf(const rhi::GraphicsApiId id)
 	{
-		if (const rhi::BackendEntry * bundled = rhi::FindAvailableBackend(id); bundled != nullptr)
+		if (const rhi::BackendEntry * bundled = rhi::find_available_backend(id); bundled != nullptr)
 		{
 			return bundled->rank;
 		}
 
-		for (const rhi::StaticBackendRegistration * node = rhi::SelfRegisteredBackends(); node != nullptr; node = node->Next())
+		for (const rhi::StaticBackendRegistration * node = rhi::self_registered_backends(); node != nullptr; node = node->next())
 		{
-			if (node->Entry().id == id)
+			if (node->entry().id == id)
 			{
-				return node->Entry().rank;
+				return node->entry().rank;
 			}
 		}
 
@@ -84,7 +84,7 @@ namespace
 			<< "the registrar in the object library never ran, so its translation unit did not reach the link";
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.AddCatalog()));
+		ASSERT_TRUE(test::Ok(backends.add_catalog()));
 
 		EXPECT_TRUE(OrderContains(backends, kObjectLibraryBackend)) << "the backend registered itself and AddCatalog did not pick it up";
 
@@ -98,7 +98,7 @@ namespace
 			   "whole-archive to be relied on, so this is worth understanding and not celebrating.";
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.AddCatalog()));
+		ASSERT_TRUE(test::Ok(backends.add_catalog()));
 
 		EXPECT_FALSE(OrderContains(backends, kStaticLibraryBackend)) << "a backend in a static library reached the order";
 	}
@@ -112,20 +112,20 @@ namespace
 		};
 
 		rhi::BackendSelection first{ sortOnly };
-		ASSERT_TRUE(test::Ok(first.AddCatalog()));
+		ASSERT_TRUE(test::Ok(first.add_catalog()));
 
 		rhi::BackendSelection second{ sortOnly };
-		ASSERT_TRUE(test::Ok(second.AddCatalog()));
+		ASSERT_TRUE(test::Ok(second.add_catalog()));
 
-		ASSERT_GT(first.Preferred().size(), 1u) << "one backend cannot disagree about its own order";
-		ASSERT_EQ(first.Preferred().size(), second.Preferred().size());
+		ASSERT_GT(first.preferred().size(), 1u) << "one backend cannot disagree about its own order";
+		ASSERT_EQ(first.preferred().size(), second.preferred().size());
 
-		for (std::size_t index = 0; index < first.Preferred().size(); ++index)
+		for (std::size_t index = 0; index < first.preferred().size(); ++index)
 		{
-			EXPECT_EQ(first.Preferred()[index].canonicalName, second.Preferred()[index].canonicalName) << "two catalogs disagreed at position " << index;
+			EXPECT_EQ(first.preferred()[index].canonicalName, second.preferred()[index].canonicalName) << "two catalogs disagreed at position " << index;
 		}
 
-		const std::span<const rhi::BackendInfo> order = first.Preferred();
+		const std::span<const rhi::BackendInfo> order = first.preferred();
 		EXPECT_TRUE(std::ranges::is_sorted(order,
 			[](const rhi::BackendInfo & lhs, const rhi::BackendInfo & rhs)
 			{

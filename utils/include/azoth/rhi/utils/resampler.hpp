@@ -58,7 +58,7 @@ namespace azo::rhi::utils
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return m_device.IsValid() && m_pipeline.IsValid();
+			return m_device.is_valid() && m_pipeline.is_valid();
 		}
 
 		Resampler() = default;

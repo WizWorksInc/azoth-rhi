@@ -47,7 +47,7 @@ namespace
 			desc.validation		 = rhi::ValidationMode::eOff;
 
 			const std::array<rhi::GraphicsApiId, 1> only{ CurrentBackend().id };
-			rhi::Result<rhi::UniqueInstance> created = rhi::CreateInstance(Harness().Registry(), only, desc);
+			rhi::Result<rhi::UniqueInstance> created = rhi::create_instance(Harness().Registry(), only, desc);
 			ASSERT_TRUE(test::Ok(created)) << "the backend under test could not make an instance to ask";
 			m_instance = std::move(created).Value();
 		}
@@ -89,7 +89,7 @@ namespace
 				rhi::Error error{};
 				rhi::ExternalHandleSupport support{};
 
-				EXPECT_TRUE(test::Ok(Inst().QueryExternalHandleSupport(desc, support, error), error))
+				EXPECT_TRUE(test::Ok(Inst().query_external_handle_support(desc, support, error), error))
 					<< "the query failed without answering no for kind " << static_cast<int>(kind) << " and handle type "
 					<< static_cast<std::uint32_t>(handleType);
 			}
@@ -109,7 +109,7 @@ namespace
 		rhi::Error error{};
 		rhi::ExternalHandleSupport support{};
 
-		EXPECT_FALSE(Inst().QueryExternalHandleSupport(desc, support, error)) << "the query answered about an adapter that does not exist";
+		EXPECT_FALSE(Inst().query_external_handle_support(desc, support, error)) << "the query answered about an adapter that does not exist";
 		EXPECT_TRUE(test::ErrorIsPopulated(error));
 		EXPECT_FALSE(support.exportable) << "a refused query left a result behind";
 		EXPECT_FALSE(support.importable);
@@ -127,7 +127,7 @@ namespace
 
 			rhi::Error error{};
 			rhi::ExternalHandleSupport support{};
-			ASSERT_TRUE(test::Ok(Inst().QueryExternalHandleSupport(desc, support, error), error));
+			ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(desc, support, error), error));
 
 			EXPECT_FALSE(support.exportable) << "a buffer was reported exportable through a synchronization-only handle type";
 			EXPECT_FALSE(support.importable) << "a buffer was reported importable through a synchronization-only handle type";
@@ -149,7 +149,7 @@ namespace
 
 				rhi::Error error{};
 				rhi::ExternalHandleSupport support{};
-				ASSERT_TRUE(test::Ok(Inst().QueryExternalHandleSupport(desc, support, error), error));
+				ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(desc, support, error), error));
 
 				EXPECT_FALSE(support.exportable) << "a semaphore was reported exportable through a memory-only handle type";
 				EXPECT_FALSE(support.importable) << "a semaphore was reported importable through a memory-only handle type";
@@ -174,7 +174,7 @@ namespace
 
 				rhi::Error error{};
 				rhi::ExternalHandleSupport support{};
-				ASSERT_TRUE(test::Ok(Inst().QueryExternalHandleSupport(desc, support, error), error));
+				ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(desc, support, error), error));
 
 				if (!support.exportable && !support.importable)
 				{
@@ -182,7 +182,7 @@ namespace
 				}
 
 				anySupported = true;
-				EXPECT_TRUE(support.compatibleTypes.Contains(handleType))
+				EXPECT_TRUE(support.compatibleTypes.contains(handleType))
 					<< "a supported handle type is absent from its own compatible mask, so nothing could be paired with it";
 			}
 		}
@@ -204,9 +204,9 @@ namespace
 			rhi::ExternalHandleSupport binary{};
 
 			ASSERT_TRUE(test::Ok(
-				Inst().QueryExternalHandleSupport({ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eTimeline, .handleType = handleType }, timeline, error),
+				Inst().query_external_handle_support({ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eTimeline, .handleType = handleType }, timeline, error),
 				error));
-			ASSERT_TRUE(test::Ok(Inst().QueryExternalHandleSupport(
+			ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(
 									 { .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eBinarySemaphore, .handleType = handleType }, binary, error),
 				error));
 
@@ -232,7 +232,7 @@ namespace
 		{
 			rhi::Error queryError{};
 			rhi::ExternalHandleSupport support{};
-			ASSERT_TRUE(test::Ok(Inst().QueryExternalHandleSupport(
+			ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(
 									 { .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eBuffer, .handleType = handleType }, support, queryError),
 				queryError));
 
@@ -240,23 +240,23 @@ namespace
 			desc.exportableHandleTypes = handleType;
 
 			rhi::Error createError{};
-			const rhi::BufferHandle buffer = Dev().CreateBuffer(desc, createError);
+			const rhi::BufferHandle buffer = Dev().create_buffer(desc, createError);
 
 			if (support.exportable)
 			{
 				sawAccepted = true;
-				EXPECT_TRUE(test::Ok(buffer.IsValid(), createError))
+				EXPECT_TRUE(test::Ok(buffer.is_valid(), createError))
 					<< "a device reporting this handle type exportable refused to create a buffer declaring it";
-				if (buffer.IsValid())
+				if (buffer.is_valid())
 				{
 					rhi::Error destroyError{};
-					EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, destroyError), destroyError));
+					EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, destroyError), destroyError));
 				}
 			}
 			else
 			{
 				sawRefused = true;
-				EXPECT_FALSE(buffer.IsValid()) << "a device reporting this handle type not exportable created a buffer declaring it anyway";
+				EXPECT_FALSE(buffer.is_valid()) << "a device reporting this handle type not exportable created a buffer declaring it anyway";
 				EXPECT_TRUE(test::ErrorIsPopulated(createError));
 			}
 		}
@@ -271,9 +271,9 @@ namespace
 	TEST_P(ExternalTest, CreatesAnOrdinaryResourceWhenNothingIsDeclared)
 	{
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "declaring no external handle types changed ordinary buffer creation";
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "declaring no external handle types changed ordinary buffer creation";
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(ExternalTest, CreatesExactlyTheExportableHeapsTheQueryReports)
@@ -285,28 +285,28 @@ namespace
 			rhi::Error queryError{};
 			rhi::ExternalHandleSupport support{};
 			ASSERT_TRUE(test::Ok(
-				Inst().QueryExternalHandleSupport({ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eHeap, .handleType = handleType }, support, queryError),
+				Inst().query_external_handle_support({ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eHeap, .handleType = handleType }, support, queryError),
 				queryError));
 
 			rhi::HeapDesc desc		   = test::samples::GpuHeap(std::uint64_t{ 64 } * 1024);
 			desc.exportableHandleTypes = handleType;
 
 			rhi::Error createError{};
-			const rhi::HeapHandle heap = Dev().CreateHeap(desc, createError);
+			const rhi::HeapHandle heap = Dev().create_heap(desc, createError);
 
 			if (support.exportable)
 			{
-				EXPECT_TRUE(test::Ok(heap.IsValid(), createError)) << "a device reporting this heap handle type exportable refused to create one";
-				if (heap.IsValid())
+				EXPECT_TRUE(test::Ok(heap.is_valid(), createError)) << "a device reporting this heap handle type exportable refused to create one";
+				if (heap.is_valid())
 				{
 					rhi::Error destroyError{};
-					EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, destroyError), destroyError));
+					EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, destroyError), destroyError));
 				}
 			}
 			else
 			{
 				sawRefused = true;
-				EXPECT_FALSE(heap.IsValid()) << "a device reporting this heap handle type not exportable created one declaring it anyway";
+				EXPECT_FALSE(heap.is_valid()) << "a device reporting this heap handle type not exportable created one declaring it anyway";
 				EXPECT_TRUE(test::ErrorIsPopulated(createError));
 			}
 		}
@@ -321,7 +321,7 @@ namespace
 			rhi::Error error{};
 			rhi::ExternalHandleSupport support{};
 			ASSERT_TRUE(test::Ok(
-				Inst().QueryExternalHandleSupport({ .adapterIndex = 0, .kind = kind, .handleType = rhi::ExternalHandleType::eD3D12Heap }, support, error),
+				Inst().query_external_handle_support({ .adapterIndex = 0, .kind = kind, .handleType = rhi::ExternalHandleType::eD3D12Heap }, support, error),
 				error));
 
 			EXPECT_FALSE(support.exportable) << "a semaphore was reported exportable through a heap handle type";

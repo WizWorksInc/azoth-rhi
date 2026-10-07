@@ -37,13 +37,13 @@ namespace
 	TEST_P(QueryPoolCountTest, RefusesAPoolThatAskedForNoQueries)
 	{
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(0), error);
-		EXPECT_FALSE(pool.IsValid()) << "a query pool that asked for no queries was created";
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(0), error);
+		EXPECT_FALSE(pool.is_valid()) << "a query pool that asked for no queries was created";
 		EXPECT_TRUE(test::ErrorIsPopulated(error));
 
-		if (pool.IsValid())
+		if (pool.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 		}
 	}
 
@@ -52,9 +52,9 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries || IsNullBackend(), "timestamp queries");
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(1), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(1), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 }

@@ -29,14 +29,14 @@ namespace azo::rhi::test
 	public:
 		explicit Recording(Device device, const QueueType queueType = QueueType::eGraphics)
 		{
-			m_pool = device.CreateCommandPool(samples::CommandPool(queueType), m_error);
-			if (!m_pool.IsValid())
+			m_pool = device.create_command_pool(samples::CommandPool(queueType), m_error);
+			if (!m_pool.is_valid())
 			{
 				return;
 			}
 
 			m_list = m_pool.Allocate("azoth.rhi.test.commandList", m_error);
-			if (!m_list.IsValid())
+			if (!m_list.is_valid())
 			{
 				return;
 			}

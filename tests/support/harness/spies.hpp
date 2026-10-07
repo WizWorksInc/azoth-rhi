@@ -49,7 +49,7 @@ namespace azo::rhi::test
 			return memory;
 		}
 
-		void Free(void * memory, const std::size_t size, const std::size_t alignment) override
+		void free(void * memory, const std::size_t size, const std::size_t alignment) override
 		{
 			freeCalls.fetch_add(1, std::memory_order_relaxed);
 			liveBytes.fetch_sub(static_cast<std::int64_t>(size), std::memory_order_relaxed);
@@ -101,9 +101,9 @@ namespace azo::rhi::test
 	class ScopedHostAllocator final
 	{
 	public:
-		explicit ScopedHostAllocator(HostAllocator * allocator) noexcept : m_previous(GetHostAllocator())
+		explicit ScopedHostAllocator(HostAllocator * allocator) noexcept : m_previous(get_host_allocator())
 		{
-			SetHostAllocator(allocator);
+			set_host_allocator(allocator);
 		}
 
 		ScopedHostAllocator(const ScopedHostAllocator &)			 = delete;
@@ -113,7 +113,7 @@ namespace azo::rhi::test
 
 		~ScopedHostAllocator()
 		{
-			SetHostAllocator(m_previous);
+			set_host_allocator(m_previous);
 		}
 
 	private:
@@ -205,8 +205,8 @@ namespace azo::rhi::test
 			heap.debugName	   = "azoth.rhi.test.allocatorHeap";
 
 			Error error{};
-			const HeapHandle handle = device.CreateHeap(heap, error);
-			if (!handle.IsValid())
+			const HeapHandle handle = device.create_heap(heap, error);
+			if (!handle.is_valid())
 			{
 				++failedHeapCreations;
 				return false;
@@ -223,15 +223,15 @@ namespace azo::rhi::test
 			return true;
 		}
 
-		void Free(Device device, const MemorySpan & span) override
+		void free(Device device, const MemorySpan & span) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++returnedSpans;
-			device.Destroy(span.heap);
+			device.destroy(span.heap);
 			std::erase(m_heaps, span.heap);
 		}
 
-		[[nodiscard]] MemoryStats Stats() const override
+		[[nodiscard]] MemoryStats stats() const override
 		{
 			const std::scoped_lock lock(m_mutex);
 			return MemoryStats{
@@ -270,9 +270,9 @@ namespace azo::rhi::test
 	class ScopedDeviceAllocator final
 	{
 	public:
-		explicit ScopedDeviceAllocator(DeviceMemoryAllocator * allocator) noexcept : m_previous(GetDeviceMemoryAllocator())
+		explicit ScopedDeviceAllocator(DeviceMemoryAllocator * allocator) noexcept : m_previous(get_device_memory_allocator())
 		{
-			SetDeviceMemoryAllocator(allocator);
+			set_device_memory_allocator(allocator);
 		}
 
 		ScopedDeviceAllocator(const ScopedDeviceAllocator &)			 = delete;
@@ -282,7 +282,7 @@ namespace azo::rhi::test
 
 		~ScopedDeviceAllocator()
 		{
-			SetDeviceMemoryAllocator(m_previous);
+			set_device_memory_allocator(m_previous);
 		}
 
 	private:
@@ -292,7 +292,7 @@ namespace azo::rhi::test
 	class RecordingProfiler final : public Profiler
 	{
 	public:
-		void BeginZone(const ZoneLocation & location) override
+		void begin_zone(const ZoneLocation & location) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++beginZoneCalls;
@@ -306,20 +306,20 @@ namespace azo::rhi::test
 			everySiteHadFileAndLine = everySiteHadFileAndLine && location.file != nullptr && location.line != 0;
 		}
 
-		void EndZone() override
+		void end_zone() override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++endZoneCalls;
 			--depth;
 		}
 
-		void Plot(const CString name, const std::int64_t value) override
+		void plot(const CString name, const std::int64_t value) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			plots.emplace_back(name != nullptr ? name : "", value);
 		}
 
-		void GpuAllocate(const void * address, const std::uint64_t size, const CString pool) override
+		void gpu_allocate(const void * address, const std::uint64_t size, const CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			gpuAllocations.push_back(GpuEvent{
@@ -329,7 +329,7 @@ namespace azo::rhi::test
 			});
 		}
 
-		void GpuFree(const void * address, const CString pool) override
+		void gpu_free(const void * address, const CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			gpuFrees.push_back(GpuEvent{
@@ -339,7 +339,7 @@ namespace azo::rhi::test
 			});
 		}
 
-		void EnterFiber(const FiberId fiber, const CString name) override
+		void enter_fiber(const FiberId fiber, const CString name) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			fiberEvents.push_back(FiberEvent{
@@ -350,7 +350,7 @@ namespace azo::rhi::test
 			});
 		}
 
-		void LeaveFiber(const FiberId fiber) override
+		void leave_fiber(const FiberId fiber) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			fiberEvents.push_back(FiberEvent{

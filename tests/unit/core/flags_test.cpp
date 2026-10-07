@@ -65,11 +65,11 @@ namespace
 	{
 		constexpr SampleFlags flags;
 
-		static_assert(flags.Empty());
-		static_assert(flags.Bits() == 0);
-		static_assert(!flags.Contains(Sample::eFirst));
+		static_assert(flags.empty());
+		static_assert(flags.bits() == 0);
+		static_assert(!flags.contains(Sample::eFirst));
 
-		EXPECT_TRUE(flags.Empty());
+		EXPECT_TRUE(flags.empty());
 	}
 
 	TEST(FlagsValue, ConvertsImplicitlyFromOneEnumerator)
@@ -77,10 +77,10 @@ namespace
 		static_assert(std::convertible_to<Sample, SampleFlags>);
 
 		constexpr SampleFlags flags = Sample::eSecond;
-		static_assert(flags.Contains(Sample::eSecond));
-		static_assert(!flags.Contains(Sample::eFirst));
+		static_assert(flags.contains(Sample::eSecond));
+		static_assert(!flags.contains(Sample::eFirst));
 
-		EXPECT_FALSE(flags.Empty());
+		EXPECT_FALSE(flags.empty());
 	}
 
 	TEST(FlagsValue, ConstructsExplicitlyFromARawBitPattern)
@@ -88,11 +88,11 @@ namespace
 		static_assert(!std::convertible_to<std::uint32_t, SampleFlags>);
 
 		constexpr SampleFlags flags{ 0b101u };
-		static_assert(flags.Contains(Sample::eFirst));
-		static_assert(flags.Contains(Sample::eThird));
-		static_assert(!flags.Contains(Sample::eSecond));
+		static_assert(flags.contains(Sample::eFirst));
+		static_assert(flags.contains(Sample::eThird));
+		static_assert(!flags.contains(Sample::eSecond));
 
-		EXPECT_EQ(flags.Bits(), 0b101u);
+		EXPECT_EQ(flags.bits(), 0b101u);
 	}
 
 	TEST(FlagsContains, IsASubsetTestAndNotAnIntersectionTest)
@@ -100,11 +100,11 @@ namespace
 		constexpr SampleFlags one  = Sample::eFirst;
 		constexpr SampleFlags both = SampleFlags(Sample::eFirst) | Sample::eSecond;
 
-		static_assert(both.Contains(one));
-		static_assert(!one.Contains(both), "a mask holding one bit must not claim to contain two");
+		static_assert(both.contains(one));
+		static_assert(!one.contains(both), "a mask holding one bit must not claim to contain two");
 
-		EXPECT_TRUE(both.Contains(one));
-		EXPECT_FALSE(one.Contains(both));
+		EXPECT_TRUE(both.contains(one));
+		EXPECT_FALSE(one.contains(both));
 	}
 
 	TEST(FlagsContains, TreatsTheEmptyMaskAsContainedByEverything)
@@ -112,9 +112,9 @@ namespace
 		constexpr SampleFlags empty;
 		constexpr SampleFlags populated = Sample::eFirst;
 
-		static_assert(populated.Contains(empty));
-		static_assert(empty.Contains(empty));
-		static_assert(!empty.Contains(populated));
+		static_assert(populated.contains(empty));
+		static_assert(empty.contains(empty));
+		static_assert(!empty.contains(populated));
 
 		SUCCEED();
 	}
@@ -124,11 +124,11 @@ namespace
 		constexpr SampleFlags first	 = Sample::eFirst;
 		constexpr SampleFlags second = Sample::eSecond;
 
-		static_assert((first | second).Bits() == 0b011u);
-		static_assert((first & second).Empty());
+		static_assert((first | second).bits() == 0b011u);
+		static_assert((first & second).empty());
 		static_assert(((first | second) & first) == first);
-		static_assert((first ^ first).Empty());
-		static_assert((first ^ second).Bits() == 0b011u);
+		static_assert((first ^ first).empty());
+		static_assert((first ^ second).bits() == 0b011u);
 
 		SUCCEED();
 	}
@@ -138,15 +138,15 @@ namespace
 		SampleFlags flags = Sample::eFirst;
 
 		flags |= Sample::eSecond;
-		EXPECT_TRUE(flags.Contains(Sample::eFirst));
-		EXPECT_TRUE(flags.Contains(Sample::eSecond));
+		EXPECT_TRUE(flags.contains(Sample::eFirst));
+		EXPECT_TRUE(flags.contains(Sample::eSecond));
 
 		flags &= Sample::eSecond;
-		EXPECT_FALSE(flags.Contains(Sample::eFirst));
-		EXPECT_TRUE(flags.Contains(Sample::eSecond));
+		EXPECT_FALSE(flags.contains(Sample::eFirst));
+		EXPECT_TRUE(flags.contains(Sample::eSecond));
 
 		flags ^= Sample::eSecond;
-		EXPECT_TRUE(flags.Empty());
+		EXPECT_TRUE(flags.empty());
 	}
 
 	TEST(FlagsValue, ComparesByBitsRatherThanByConstructionPath)
@@ -163,25 +163,25 @@ namespace
 	TEST(FlagsInPublicDescs, HoldTheDefaultsTheHeadersDocument)
 	{
 		constexpr rhi::BufferDesc buffer{};
-		EXPECT_TRUE(buffer.usage.Empty());
+		EXPECT_TRUE(buffer.usage.empty());
 
 		constexpr rhi::TextureDesc texture{};
-		EXPECT_TRUE(texture.usage.Empty());
+		EXPECT_TRUE(texture.usage.empty());
 
 		constexpr rhi::TextureSubresourceRange range{};
-		EXPECT_TRUE(range.aspects.Contains(rhi::TextureAspect::eColor));
-		EXPECT_FALSE(range.aspects.Contains(rhi::TextureAspect::eDepth));
+		EXPECT_TRUE(range.aspects.contains(rhi::TextureAspect::eColor));
+		EXPECT_FALSE(range.aspects.contains(rhi::TextureAspect::eDepth));
 
 		constexpr rhi::DescriptorBinding binding{};
-		EXPECT_TRUE(binding.stages.Contains(rhi::ShaderStage::eVertex));
-		EXPECT_TRUE(binding.stages.Contains(rhi::ShaderStage::eCompute));
+		EXPECT_TRUE(binding.stages.contains(rhi::ShaderStage::eVertex));
+		EXPECT_TRUE(binding.stages.contains(rhi::ShaderStage::eCompute));
 	}
 
 	TEST(FlagsInPublicDescs, KeepTheWideAliasesDistinctFromTheStagesTheyCover)
 	{
 		constexpr rhi::Flags<rhi::Stage> alias = rhi::Stage::eAllGraphics;
-		EXPECT_FALSE(alias.Contains(rhi::Stage::eVertexWork));
-		EXPECT_FALSE(alias.Contains(rhi::Stage::eFragmentShading));
+		EXPECT_FALSE(alias.contains(rhi::Stage::eVertexWork));
+		EXPECT_FALSE(alias.contains(rhi::Stage::eFragmentShading));
 	}
 
 	TEST(FlagsInPublicDescs, SurviveTheFullSixtyFourBitStageDomain)
@@ -189,8 +189,8 @@ namespace
 		static_assert(std::same_as<rhi::Flags<rhi::Stage>::Underlying, std::uint64_t>);
 
 		constexpr rhi::Flags<rhi::Stage> wide = rhi::Flags<rhi::Stage>(rhi::Stage::eAllCommands) | rhi::Stage::eAccelBuild;
-		EXPECT_TRUE(wide.Contains(rhi::Stage::eAllCommands));
-		EXPECT_TRUE(wide.Contains(rhi::Stage::eAccelBuild));
+		EXPECT_TRUE(wide.contains(rhi::Stage::eAllCommands));
+		EXPECT_TRUE(wide.contains(rhi::Stage::eAccelBuild));
 	}
 
 }

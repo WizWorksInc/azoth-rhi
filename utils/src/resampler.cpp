@@ -108,7 +108,7 @@ namespace azo::rhi::utils
 			}
 #endif
 #ifdef AZOTH_RHI_UTILS_HAVE_METALLIB
-			if (IsMetalFamily(api))
+			if (is_metal_family(api))
 			{
 				binary.format	  = ShaderBinaryFormat::eBackendNative;
 				binary.data		  = shaders::kResample_metallib;
@@ -129,12 +129,12 @@ namespace azo::rhi::utils
 
 	Result<Resampler> Resampler::Create(Device & device, const ResamplerDesc & desc) noexcept
 	{
-		if (desc.arena == nullptr || !desc.arena->IsValid())
+		if (desc.arena == nullptr || !desc.arena->is_valid())
 		{
 			return Error{ .code = ErrorCode::eInvalidArgument, .message = "a Resampler needs a descriptor arena to allocate its sets from" };
 		}
 
-		const ShaderBinary shader = ShaderFor(device.GetGraphicsApiId());
+		const ShaderBinary shader = ShaderFor(device.get_graphics_api_id());
 		if (shader.data == nullptr)
 		{
 			return Error{ .code = ErrorCode::eUnsupportedFeature,
@@ -154,8 +154,8 @@ namespace azo::rhi::utils
 		};
 
 		resampler.m_setLayout =
-			device.CreateDescriptorSetLayout(DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.utils.resample.set" }, error);
-		if (!resampler.m_setLayout.IsValid())
+			device.create_descriptor_set_layout(DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.utils.resample.set" }, error);
+		if (!resampler.m_setLayout.is_valid())
 		{
 			return error;
 		}
@@ -163,14 +163,14 @@ namespace azo::rhi::utils
 		constexpr std::array pushConstants{ PushConstantRange{ .stages = ShaderStage::eCompute, .size = sizeof(Constants) } };
 		const std::array setLayouts{ resampler.m_setLayout };
 
-		resampler.m_layout = device.CreatePipelineLayout(
+		resampler.m_layout = device.create_pipeline_layout(
 			PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "azoth.rhi.utils.resample.layout" }, error);
-		if (!resampler.m_layout.IsValid())
+		if (!resampler.m_layout.is_valid())
 		{
 			return error;
 		}
 
-		resampler.m_sampler = device.CreateSampler(
+		resampler.m_sampler = device.create_sampler(
 			SamplerDesc{
 				.magFilter = Filter::eLinear,
 				.minFilter = Filter::eLinear,
@@ -180,12 +180,12 @@ namespace azo::rhi::utils
 				.debugName = "azoth.rhi.utils.resample.sampler",
 			},
 			error);
-		if (!resampler.m_sampler.IsValid())
+		if (!resampler.m_sampler.is_valid())
 		{
 			return error;
 		}
 
-		resampler.m_pipeline = device.CreateComputePipeline(
+		resampler.m_pipeline = device.create_compute_pipeline(
 			ComputePipelineDesc{
 				.layout		   = resampler.m_layout,
 				.shader		   = shader,
@@ -193,7 +193,7 @@ namespace azo::rhi::utils
 				.debugName	   = desc.debugName != nullptr ? desc.debugName : "azoth.rhi.utils.resample.pipeline",
 			},
 			error);
-		if (!resampler.m_pipeline.IsValid())
+		if (!resampler.m_pipeline.is_valid())
 		{
 			return error;
 		}
@@ -231,7 +231,7 @@ namespace azo::rhi::utils
 
 	Resampler::~Resampler()
 	{
-		if (!m_device.IsValid())
+		if (!m_device.is_valid())
 		{
 			return;
 		}
@@ -239,22 +239,22 @@ namespace azo::rhi::utils
 		Error error{};
 		static_cast<void>(Retire(RetirePoint{}, error));
 
-		static_cast<void>(m_device.Destroy(m_pipeline, {}, error));
-		static_cast<void>(m_device.Destroy(m_layout, {}, error));
-		static_cast<void>(m_device.Destroy(m_setLayout, {}, error));
-		static_cast<void>(m_device.Destroy(m_sampler, {}, error));
+		static_cast<void>(m_device.destroy(m_pipeline, {}, error));
+		static_cast<void>(m_device.destroy(m_layout, {}, error));
+		static_cast<void>(m_device.destroy(m_setLayout, {}, error));
+		static_cast<void>(m_device.destroy(m_sampler, {}, error));
 	}
 
 	bool Resampler::Retire(const RetirePoint safeAfter, Error & error) noexcept
 	{
 		const DestroyDesc destroyDesc =
-			safeAfter.timeline.IsValid() ? DestroyDesc{ .policy = DestroyPolicy::eDeferUntilSafe, .safeAfter = safeAfter } : DestroyDesc{};
+			safeAfter.timeline.is_valid() ? DestroyDesc{ .policy = DestroyPolicy::eDeferUntilSafe, .safeAfter = safeAfter } : DestroyDesc{};
 
 		bool ok = true;
 		for (const Transient & transient : m_transients)
 		{
-			ok = m_device.Destroy(transient.destination, destroyDesc, error) && ok;
-			ok = m_device.Destroy(transient.source, destroyDesc, error) && ok;
+			ok = m_device.destroy(transient.destination, destroyDesc, error) && ok;
+			ok = m_device.destroy(transient.source, destroyDesc, error) && ok;
 		}
 
 		m_transients.clear();
@@ -269,7 +269,7 @@ namespace azo::rhi::utils
 		}
 
 		TextureInfo info{};
-		if (!m_device.GetTextureInfo(texture, info, error))
+		if (!m_device.get_texture_info(texture, info, error))
 		{
 			return false;
 		}
@@ -283,11 +283,11 @@ namespace azo::rhi::utils
 					.range				 = { .baseMip = 0, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
 			};
 
-			return list.Barriers(BarrierBatch{ .textures = only }, error);
+			return list.barriers(BarrierBatch{ .textures = only }, error);
 		}
 
-		const FormatSupport support = m_device.GetFormatSupport(info.desc.format);
-		const bool hardware			= m_device.GetCaps().supportsScaledBlit && support.blitSrc && support.blitDst;
+		const FormatSupport support = m_device.get_format_support(info.desc.format);
+		const bool hardware			= m_device.get_caps().supportsScaledBlit && support.blitSrc && support.blitDst;
 
 		const std::array entry{
 			TextureBarrier{ .texture = texture,
@@ -296,14 +296,14 @@ namespace azo::rhi::utils
 				.range				 = { .baseMip = 0, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
 		};
 
-		if (!list.Barriers(BarrierBatch{ .textures = entry }, error))
+		if (!list.barriers(BarrierBatch{ .textures = entry }, error))
 		{
 			return false;
 		}
 
 		if (hardware)
 		{
-			if (!list.GenerateMips(texture, error))
+			if (!list.generate_mips(texture, error))
 			{
 				return false;
 			}
@@ -330,7 +330,7 @@ namespace azo::rhi::utils
 				.texture = texture, .before = lastState, .after = kReadable, .range = { .baseMip = last, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
 		};
 
-		return list.Barriers(BarrierBatch{ .textures = exit }, error);
+		return list.barriers(BarrierBatch{ .textures = exit }, error);
 	}
 
 	bool Resampler::ResampleLevel(CommandList & list, const TextureHandle texture, const TextureInfo & info, const std::uint32_t dstMip, Error & error) noexcept
@@ -345,16 +345,16 @@ namespace azo::rhi::utils
 				ErrorCode::eInvalidArgument,
 				"resampling an sRGB texture through compute needs TextureDesc::allowFormatViews, no API permitting an sRGB storage image");
 		}
-		if (!info.desc.usage.Contains(TextureUsage::eStorage))
+		if (!info.desc.usage.contains(TextureUsage::eStorage))
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "the compute resample path needs TextureUsage::eStorage on the texture it writes");
 		}
-		if (!info.desc.usage.Contains(TextureUsage::eSampled))
+		if (!info.desc.usage.contains(TextureUsage::eSampled))
 		{
 			return Fail(error, ErrorCode::eInvalidArgument, "the compute resample path needs TextureUsage::eSampled on the texture it reads");
 		}
 
-		const TextureViewHandle source = m_device.CreateTextureView(texture,
+		const TextureViewHandle source = m_device.create_texture_view(texture,
 			TextureViewDesc{
 				.type	   = TextureViewType::eTex2DArray,
 				.range	   = { .baseMip = dstMip - 1, .mipCount = 1, .layerCount = layers },
@@ -363,7 +363,7 @@ namespace azo::rhi::utils
 			},
 			error);
 
-		const TextureViewHandle destination = m_device.CreateTextureView(texture,
+		const TextureViewHandle destination = m_device.create_texture_view(texture,
 			TextureViewDesc{
 				.type	   = TextureViewType::eTex2DArray,
 				.format	   = storageForm,
@@ -373,7 +373,7 @@ namespace azo::rhi::utils
 			},
 			error);
 
-		if (!source.IsValid() || !destination.IsValid())
+		if (!source.is_valid() || !destination.is_valid())
 		{
 			return false;
 		}
@@ -381,7 +381,7 @@ namespace azo::rhi::utils
 		m_transients.push_back(Transient{ .source = source, .destination = destination });
 
 		const DescriptorSetHandle set = m_arena->Allocate(DescriptorSetAllocDesc{ .layout = m_setLayout, .debugName = "azoth.rhi.utils.resample" }, error);
-		if (!set.IsValid())
+		if (!set.is_valid())
 		{
 			return false;
 		}
@@ -399,8 +399,8 @@ namespace azo::rhi::utils
 		};
 		const std::array samplers{ DescriptorWriteSampler{ .set = set, .binding = kSamplerBinding, .sampler = m_sampler } };
 
-		if (!m_device.UpdateDescriptors(std::span(sources), error) || !m_device.UpdateDescriptors(std::span(destinations), error) ||
-			!m_device.UpdateDescriptors(std::span(samplers), error))
+		if (!m_device.update_descriptors(std::span(sources), error) || !m_device.update_descriptors(std::span(destinations), error) ||
+			!m_device.update_descriptors(std::span(samplers), error))
 		{
 			return false;
 		}
@@ -425,9 +425,9 @@ namespace azo::rhi::utils
 			.encodeSrgb = srgb ? 1u : 0u,
 		};
 
-		return list.Barriers(BarrierBatch{ .textures = toSampled }, error) && list.Barriers(BarrierBatch{ .textures = toWritten }, error) &&
-			   list.SetComputePipeline(m_pipeline, error) && list.BindDescriptorSet(m_layout, 0, set, {}, error) &&
-			   list.PushConstants(m_layout, ShaderStage::eCompute, 0, sizeof(constants), &constants, error) &&
+		return list.barriers(BarrierBatch{ .textures = toSampled }, error) && list.barriers(BarrierBatch{ .textures = toWritten }, error) &&
+			   list.set_compute_pipeline(m_pipeline, error) && list.bind_descriptor_set(m_layout, 0, set, {}, error) &&
+			   list.push_constants(m_layout, ShaderStage::eCompute, 0, sizeof(constants), &constants, error) &&
 			   list.Dispatch(GroupCount(constants.dstWidth), GroupCount(constants.dstHeight), layers, error);
 	}
 
@@ -441,16 +441,16 @@ namespace azo::rhi::utils
 
 		TextureInfo dstInfo{};
 		TextureInfo srcInfo{};
-		if (!m_device.GetTextureInfo(dst, dstInfo, error) || !m_device.GetTextureInfo(src, srcInfo, error))
+		if (!m_device.get_texture_info(dst, dstInfo, error) || !m_device.get_texture_info(src, srcInfo, error))
 		{
 			return false;
 		}
 
-		const FormatSupport dstSupport = m_device.GetFormatSupport(dstInfo.desc.format);
-		const FormatSupport srcSupport = m_device.GetFormatSupport(srcInfo.desc.format);
-		if (m_device.GetCaps().supportsScaledBlit && srcSupport.blitSrc && dstSupport.blitDst)
+		const FormatSupport dstSupport = m_device.get_format_support(dstInfo.desc.format);
+		const FormatSupport srcSupport = m_device.get_format_support(srcInfo.desc.format);
+		if (m_device.get_caps().supportsScaledBlit && srcSupport.blitSrc && dstSupport.blitDst)
 		{
-			return list.Blit(dst, src, regions, filter, error);
+			return list.blit(dst, src, regions, filter, error);
 		}
 
 		return Fail(error,

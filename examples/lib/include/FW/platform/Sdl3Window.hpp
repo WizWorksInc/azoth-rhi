@@ -71,7 +71,7 @@ namespace fw::platform
 			return m_window;
 		}
 
-		[[nodiscard]] bool Provide(const azo::rhi::SurfaceRequest & request) override;
+		[[nodiscard]] bool provide(const azo::rhi::SurfaceRequest & request) override;
 
 	private:
 		SDL_Window * m_window	  = nullptr;

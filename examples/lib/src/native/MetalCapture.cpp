@@ -46,13 +46,13 @@ namespace fw
 		[[nodiscard]] MTL::Device * MetalDeviceOf([[maybe_unused]] rhi::Device device) noexcept
 		{
 	#ifdef AZOTH_RHI_EXAMPLES_HAVE_METAL3
-			if (const rhi::Result<rhi::MetalNativeDevice> three = rhi::GetMetalNativeDevice(device); three)
+			if (const rhi::Result<rhi::MetalNativeDevice> three = rhi::get_metal_native_device(device); three)
 			{
 				return three.Value().device;
 			}
 	#endif
 	#ifdef AZOTH_RHI_EXAMPLES_HAVE_METAL4
-			if (const rhi::Result<rhi::Metal4NativeDevice> four = rhi::GetMetal4NativeDevice(device); four)
+			if (const rhi::Result<rhi::Metal4NativeDevice> four = rhi::get_metal4_native_device(device); four)
 			{
 				return four.Value().device;
 			}

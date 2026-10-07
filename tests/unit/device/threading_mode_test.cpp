@@ -106,23 +106,23 @@ namespace
 	TEST(ThreadingMode, ADeviceIsDrivenByThreadsUnlessItSaysOtherwise)
 	{
 		EXPECT_EQ(rhi::DeviceDesc{}.threading, rhi::ThreadingMode::eThreads);
-		EXPECT_FALSE(rhi::DeviceDesc{}.sync.IsComplete()) << "a device that asked for nothing should carry no operations";
+		EXPECT_FALSE(rhi::DeviceDesc{}.sync.is_complete()) << "a device that asked for nothing should carry no operations";
 	}
 
 	TEST(ThreadingMode, TheBuilderSetsTheModeAndTheOperationsTogether)
 	{
 		Scheduler scheduler;
 
-		const rhi::Result<rhi::UniqueDevice> cooperative = rhi::DeviceBuilder{}.RequireSwapchain(false).Cooperative(scheduler.Ops()).Build<rhi::NullApi>();
+		const rhi::Result<rhi::UniqueDevice> cooperative = rhi::DeviceBuilder{}.require_swapchain(false).cooperative(scheduler.Ops()).Build<rhi::NullApi>();
 		EXPECT_TRUE(test::Ok(cooperative)) << "Cooperative did not set the mode alongside the operations";
 
 		const rhi::Result<rhi::UniqueDevice> halfSet =
-			rhi::DeviceBuilder{}.RequireSwapchain(false).Threading(rhi::ThreadingMode::eCooperative).Build<rhi::NullApi>();
-		EXPECT_FALSE(halfSet.HasValue()) << "the mode alone was taken for a cooperative device";
-		EXPECT_EQ(halfSet.GetError().code, rhi::ErrorCode::eInvalidArgument);
+			rhi::DeviceBuilder{}.require_swapchain(false).threading(rhi::ThreadingMode::eCooperative).Build<rhi::NullApi>();
+		EXPECT_FALSE(halfSet.has_value()) << "the mode alone was taken for a cooperative device";
+		EXPECT_EQ(halfSet.get_error().code, rhi::ErrorCode::eInvalidArgument);
 
 		const rhi::Result<rhi::UniqueDevice> single =
-			rhi::DeviceBuilder{}.RequireSwapchain(false).Threading(rhi::ThreadingMode::eSingleThreaded).Build<rhi::NullApi>();
+			rhi::DeviceBuilder{}.require_swapchain(false).threading(rhi::ThreadingMode::eSingleThreaded).Build<rhi::NullApi>();
 		EXPECT_TRUE(test::Ok(single));
 	}
 
@@ -131,16 +131,16 @@ namespace
 		Scheduler scheduler;
 
 		rhi::SyncOps ops = scheduler.Ops();
-		EXPECT_TRUE(ops.IsComplete());
+		EXPECT_TRUE(ops.is_complete());
 
 		ops.release = nullptr;
-		EXPECT_FALSE(ops.IsComplete()) << "a set with no release passed as complete, and release is the one that has to cross a fiber migration";
+		EXPECT_FALSE(ops.is_complete()) << "a set with no release passed as complete, and release is the one that has to cross a fiber migration";
 
-		EXPECT_FALSE(rhi::SyncOps{}.IsComplete());
+		EXPECT_FALSE(rhi::SyncOps{}.is_complete());
 
 		rhi::SyncOps withoutProfiling = scheduler.Ops();
 		withoutProfiling.currentFiber = nullptr;
-		EXPECT_TRUE(withoutProfiling.IsComplete());
+		EXPECT_TRUE(withoutProfiling.is_complete());
 	}
 
 	TEST_P(ThreadingModeTest, ACooperativeDeviceWithoutOperationsIsRefusedByName)
@@ -213,11 +213,11 @@ namespace
 			const std::size_t before = scheduler.acquired.load(std::memory_order_relaxed);
 
 			rhi::Error error{};
-			const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-			ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+			const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+			ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 			EXPECT_GT(scheduler.acquired.load(std::memory_order_relaxed), before) << "a create went through without taking the host's lock";
 
-			EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+			EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 		}
 
 		EXPECT_EQ(scheduler.destroyed.load(std::memory_order_relaxed), scheduler.created.load(std::memory_order_relaxed))
@@ -236,13 +236,13 @@ namespace
 		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
 
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = device.Get().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = device.Get().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer,
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer,
 								 rhi::DestroyDesc{
 									 .policy	= rhi::DestroyPolicy::eDeferUntilSafe,
 									 .safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 0 },
@@ -251,13 +251,13 @@ namespace
 			error));
 
 		const std::size_t before = scheduler.acquired.load(std::memory_order_relaxed);
-		EXPECT_TRUE(test::Ok(device.Get().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(device.Get().collect_garbage(error), error));
 
 		EXPECT_GT(scheduler.acquired.load(std::memory_order_relaxed), before) << "a collect drained a queue without taking the guard that queue is under";
 		EXPECT_EQ(scheduler.held.load(std::memory_order_relaxed), 0u) << "the collect gave a lock back fewer times than it took one";
 		EXPECT_EQ(scheduler.peakHeld.load(std::memory_order_relaxed), 1u) << "a guard was taken while another was still held";
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(timeline, {}, error), error));
 	}
 
 #ifdef AZOTH_RHI_ENABLE_PROFILING
@@ -280,8 +280,8 @@ namespace
 		const test::ScopedProfiler scope(&sink);
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		ASSERT_FALSE(sink.fiberEvents.empty()) << "a cooperative wait told the profiler nothing, so a zone across it lands on whichever worker resumed";
 		ASSERT_EQ(sink.fiberEvents.size() % 2, 0u) << "a fiber was left without being entered again, or entered without being left";
@@ -296,7 +296,7 @@ namespace
 			EXPECT_FALSE(sink.fiberEvents[i + 1].named) << "the RHI invented a name for a fiber it only knows the identity of";
 		}
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(ThreadingModeTest, ADeviceReportsToItsOwnProfilerRatherThanTheProcessOne)
@@ -319,13 +319,13 @@ namespace
 		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		EXPECT_FALSE(mine.fiberEvents.empty()) << "a suspension went somewhere other than the sink this device was given";
 		EXPECT_TRUE(processWide.fiberEvents.empty()) << "a device with its own sink still reported to the process one";
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(ThreadingModeTest, AHostThatNamesNoFiberIsAskedForNone)
@@ -344,14 +344,14 @@ namespace
 		const test::ScopedProfiler scope(&sink);
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		EXPECT_TRUE(sink.fiberEvents.empty()) << "a host that reports no fiber was told about one anyway";
 
 		EXPECT_GT(sink.beginZoneCalls, 0);
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 	}
 
 #else
@@ -396,13 +396,13 @@ namespace
 		ASSERT_TRUE(test::Ok(device.IsValid(), device.GetError()));
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		EXPECT_EQ(scheduler.created.load(std::memory_order_relaxed), 0u) << "a single threaded device built locks it will never take";
 		EXPECT_EQ(scheduler.acquired.load(std::memory_order_relaxed), 0u) << "a single threaded device took a lock";
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
 	}
 
 	TEST(ThreadingMode, gate_FiberMigrationSafety)
@@ -413,7 +413,7 @@ namespace
 			rhi::Profiler * profiler = nullptr;
 
 			rhi::DeviceLock guard;
-			ASSERT_TRUE(guard.Bind(rhi::ThreadingMode::eCooperative, &ops, &profiler));
+			ASSERT_TRUE(guard.bind(rhi::ThreadingMode::eCooperative, &ops, &profiler));
 
 			guard.lock();
 			const std::thread::id acquiredOn = std::this_thread::get_id();
@@ -425,12 +425,12 @@ namespace
 				{
 					releasedOn = std::this_thread::get_id();
 					guard.unlock();
-					heldWhereReleased = rhi::detail::GuardsHeld();
+					heldWhereReleased = rhi::detail::guards_held();
 				});
 			mover.join();
 
 			EXPECT_NE(releasedOn, acquiredOn) << "the release did not actually happen on another thread, so nothing migrated";
-			EXPECT_EQ(rhi::detail::GuardsHeld(), 0)
+			EXPECT_EQ(rhi::detail::guards_held(), 0)
 				<< "the acquiring thread still counts a guard that was released elsewhere, so its next allocator call traps";
 			EXPECT_EQ(heldWhereReleased, 0) << "the releasing thread counts a guard it never took";
 			EXPECT_EQ(migrating.held.load(std::memory_order_relaxed), 0u) << "the guard did not come back after a cross-thread release";
@@ -461,7 +461,7 @@ namespace
 			rhi::Profiler * profiler = nullptr;
 
 			rhi::DeviceLock guard;
-			ASSERT_TRUE(guard.Bind(rhi::ThreadingMode::eCooperative, &ops, &profiler));
+			ASSERT_TRUE(guard.bind(rhi::ThreadingMode::eCooperative, &ops, &profiler));
 
 			guard.lock();
 			std::thread mover(
@@ -471,7 +471,7 @@ namespace
 				});
 			mover.join();
 
-			EXPECT_EQ(rhi::detail::GuardsHeld(), 0) << "the acquiring thread still counts a guard that was released elsewhere";
+			EXPECT_EQ(rhi::detail::guards_held(), 0) << "the acquiring thread still counts a guard that was released elsewhere";
 
 			EXPECT_EQ(affine.affinityViolations.load(std::memory_order_relaxed), 1u)
 				<< "a host whose release only works on the acquiring thread went unnoticed, which is the mistake this rules out";
@@ -545,21 +545,21 @@ namespace
 					[&]
 					{
 						rhi::Error error{};
-						rhi::CommandPool pool = device.Get().CreateCommandPool(test::samples::CommandPool(), error);
-						if (!pool.IsValid())
+						rhi::CommandPool pool = device.Get().create_command_pool(test::samples::CommandPool(), error);
+						if (!pool.is_valid())
 						{
 							return;
 						}
 
 						rhi::CommandList list = pool.Allocate("azoth.rhi.test.threadingModel", error);
-						if (!list.IsValid() || !list.Begin(error))
+						if (!list.is_valid() || !list.Begin(error))
 						{
 							return;
 						}
 
 						for (int command = 0; command < 64; ++command)
 						{
-							static_cast<void>(list.SetViewport(rhi::Viewport{ .width = 64.0f, .height = 64.0f }, error));
+							static_cast<void>(list.set_viewport(rhi::Viewport{ .width = 64.0f, .height = 64.0f }, error));
 						}
 
 						if (list.End(error))
@@ -597,11 +597,11 @@ namespace
 						[&]
 						{
 							rhi::Error error{};
-							const rhi::BufferHandle buffer = placing.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-							if (buffer.IsValid())
+							const rhi::BufferHandle buffer = placing.Get().create_buffer(test::samples::StorageBuffer(), error);
+							if (buffer.is_valid())
 							{
 								created.fetch_add(1, std::memory_order_relaxed);
-								static_cast<void>(placing.Get().Destroy(buffer, {}, error));
+								static_cast<void>(placing.Get().destroy(buffer, {}, error));
 							}
 						});
 				}
@@ -614,7 +614,7 @@ namespace
 				EXPECT_EQ(created.load(), kThreads) << "concurrent creates through one allocator lost one";
 
 				rhi::Error error{};
-				EXPECT_TRUE(test::Ok(placing.Get().CollectGarbage(error), error));
+				EXPECT_TRUE(test::Ok(placing.Get().collect_garbage(error), error));
 				EXPECT_EQ(allocator.OutstandingSpans(), 0u) << "a span went back to the allocator twice or not at all";
 			}
 		}
@@ -634,10 +634,10 @@ namespace
 						rhi::Error error{};
 						for (int index = 0; index < 32; ++index)
 						{
-							const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-							if (buffer.IsValid())
+							const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+							if (buffer.is_valid())
 							{
-								static_cast<void>(device.Get().Destroy(buffer, {}, error));
+								static_cast<void>(device.Get().destroy(buffer, {}, error));
 							}
 						}
 					});
@@ -687,14 +687,14 @@ namespace
 				rhi::Error error{};
 				while (keepBufferBusy.load(std::memory_order_relaxed))
 				{
-					const rhi::BufferHandle handle = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-					if (!handle.IsValid())
+					const rhi::BufferHandle handle = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+					if (!handle.is_valid())
 					{
 						break;
 					}
 
 					buffers.fetch_add(1, std::memory_order_relaxed);
-					static_cast<void>(device.Get().Destroy(handle, {}, error));
+					static_cast<void>(device.Get().destroy(handle, {}, error));
 				}
 
 				creatorStopped.store(true, std::memory_order_relaxed);
@@ -722,13 +722,13 @@ namespace
 
 		for (int attempt = 0; attempt < kAtLeastTextures || afterTextures == beforeTextures; ++attempt)
 		{
-			const rhi::TextureHandle texture = device.Get().CreateTexture(test::samples::SampledTexture2D(), error);
-			if (!texture.IsValid())
+			const rhi::TextureHandle texture = device.Get().create_texture(test::samples::SampledTexture2D(), error);
+			if (!texture.is_valid())
 			{
 				break;
 			}
 
-			static_cast<void>(device.Get().Destroy(texture, {}, error));
+			static_cast<void>(device.Get().destroy(texture, {}, error));
 			textureDone.store(true, std::memory_order_relaxed);
 
 			afterTextures = buffers.load(std::memory_order_relaxed);

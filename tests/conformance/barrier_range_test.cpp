@@ -58,7 +58,7 @@ namespace
 	public:
 		explicit MippedTexture(const rhi::Device device) : m_device(device)
 		{
-			m_texture = m_device.CreateTexture(test::samples::MippedTexture2D(test::samples::kTextureDim, kLevels), m_error);
+			m_texture = m_device.create_texture(test::samples::MippedTexture2D(test::samples::kTextureDim, kLevels), m_error);
 		}
 
 		MippedTexture(const MippedTexture &)			 = delete;
@@ -68,10 +68,10 @@ namespace
 
 		~MippedTexture()
 		{
-			if (m_texture.IsValid())
+			if (m_texture.is_valid())
 			{
 				rhi::Error ignored{};
-				static_cast<void>(m_device.Destroy(m_texture, {}, ignored));
+				static_cast<void>(m_device.destroy(m_texture, {}, ignored));
 			}
 		}
 
@@ -82,7 +82,7 @@ namespace
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return m_texture.IsValid();
+			return m_texture.is_valid();
 		}
 
 		[[nodiscard]] rhi::Error GetError() const noexcept
@@ -111,7 +111,7 @@ namespace
 			Over(texture.Get(), 0, 1, kDiscard, kCopySrc),
 			Over(texture.Get(), 1, kLevels - 1, kDiscard, kCopyDst),
 		};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = split }, error), error))
 			<< "two ranges of one texture in one batch were refused, which is the state the tracker cannot express";
 
 		static_cast<void>(recording.End());
@@ -129,12 +129,12 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array whole{ Over(texture.Get(), 0, kLevels, kDiscard, kCopyDst) };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = whole }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = whole }, error), error));
 
 		const std::array wrong{ Over(texture.Get(), 1, 1, kCopySrc, kSampled) };
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .textures = wrong }, wrongError))
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .textures = wrong }, wrongError))
 			<< "a range claiming a before-state the whole-texture barrier did not leave it in was accepted";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 
@@ -153,10 +153,10 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array lower{ Over(texture.Get(), 0, 2, kDiscard, kCopyDst) };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = lower }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = lower }, error), error));
 
 		const std::array overlapping{ Over(texture.Get(), 1, 2, kCopyDst, kCopySrc) };
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = overlapping }, error), error))
 			<< "an overlapping range whose tracked half agrees was refused";
 
 		static_cast<void>(recording.End());
@@ -174,12 +174,12 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array lower{ Over(texture.Get(), 0, 2, kDiscard, kCopyDst) };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = lower }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = lower }, error), error));
 
 		const std::array overlapping{ Over(texture.Get(), 1, 2, kCopySrc, kSampled) };
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .textures = overlapping }, wrongError))
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .textures = overlapping }, wrongError))
 			<< "an overlapping range whose tracked half disagrees was accepted, so the untracked half is deciding for both";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 
@@ -197,7 +197,7 @@ namespace
 	public:
 		explicit TrackedBuffer(const rhi::Device device) : m_device(device)
 		{
-			m_buffer = m_device.CreateBuffer(test::samples::StorageBuffer(), m_error);
+			m_buffer = m_device.create_buffer(test::samples::StorageBuffer(), m_error);
 		}
 
 		TrackedBuffer(const TrackedBuffer &)			 = delete;
@@ -207,10 +207,10 @@ namespace
 
 		~TrackedBuffer()
 		{
-			if (m_buffer.IsValid())
+			if (m_buffer.is_valid())
 			{
 				rhi::Error ignored{};
-				static_cast<void>(m_device.Destroy(m_buffer, {}, ignored));
+				static_cast<void>(m_device.destroy(m_buffer, {}, ignored));
 			}
 		}
 
@@ -221,7 +221,7 @@ namespace
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return m_buffer.IsValid();
+			return m_buffer.is_valid();
 		}
 
 		[[nodiscard]] rhi::Error GetError() const noexcept
@@ -250,7 +250,7 @@ namespace
 			Bytes(buffer.Get(), 0, test::samples::kBufferSize / 2, kDiscard, kCopySrc),
 			Bytes(buffer.Get(), test::samples::kBufferSize / 2, test::samples::kBufferSize / 2, kDiscard, kCopyDst),
 		};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = split }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = split }, error), error))
 			<< "two disjoint byte ranges of one buffer in one batch were refused";
 
 		static_cast<void>(recording.End());
@@ -268,12 +268,12 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array whole{ Bytes(buffer.Get(), 0, test::samples::kBufferSize, kDiscard, kCopyDst) };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = whole }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = whole }, error), error));
 
 		const std::array wrong{ Bytes(buffer.Get(), 0, test::samples::kBufferSize / 2, kCopySrc, kSampled) };
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError))
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = wrong }, wrongError))
 			<< "a byte range claiming a before-state the whole-buffer barrier did not leave it in was accepted";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 
@@ -292,12 +292,12 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array lower{ Bytes(buffer.Get(), 0, 128, kDiscard, kCopyDst) };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = lower }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = lower }, error), error));
 
 		const std::array overlapping{ Bytes(buffer.Get(), 64, 128, kCopySrc, kSampled) };
 
 		rhi::Error wrongError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = overlapping }, wrongError))
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = overlapping }, wrongError))
 			<< "an overlapping byte range whose tracked half disagrees was accepted, so the untracked half is deciding for both";
 		EXPECT_TRUE(test::ErrorIsPopulated(wrongError));
 
@@ -317,7 +317,7 @@ namespace
 		const std::array outside{ Bytes(buffer.Get(), test::samples::kBufferSize, 16, kDiscard, kCopyDst) };
 
 		rhi::Error outsideError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = outside }, outsideError))
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = outside }, outsideError))
 			<< "a byte range beginning past the end of the buffer was taken";
 		EXPECT_TRUE(test::ErrorIsPopulated(outsideError));
 
@@ -337,7 +337,7 @@ namespace
 		const std::array overrunning{ Bytes(buffer.Get(), test::samples::kBufferSize - 16, 32, kDiscard, kCopyDst) };
 
 		rhi::Error overrunError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = overrunning }, overrunError))
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = overrunning }, overrunError))
 			<< "a byte range running off the end of the buffer was taken";
 		EXPECT_TRUE(test::ErrorIsPopulated(overrunError));
 
@@ -356,7 +356,7 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array flush{ Bytes(buffer.Get(), test::samples::kBufferSize / 2, test::samples::kBufferSize / 2, kDiscard, kCopyDst) };
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = flush }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = flush }, error), error))
 			<< "a byte range ending exactly at the end of the buffer was refused";
 
 		static_cast<void>(recording.End());
@@ -376,7 +376,7 @@ namespace
 		const std::array remainder{
 			rhi::BufferBarrier{ .buffer = buffer.Get(), .before = kDiscard, .after = kCopyDst, .offset = test::samples::kBufferSize / 2 },
 		};
-		EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = remainder }, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = remainder }, error), error))
 			<< "the whole-buffer sentinel was refused at an offset inside the buffer";
 
 		static_cast<void>(recording.End());
@@ -395,7 +395,7 @@ namespace
 		const std::array empty{ Bytes(buffer.Get(), 0, 0, kDiscard, kCopyDst) };
 
 		rhi::Error emptyError{};
-		EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = empty }, emptyError)) << "a buffer barrier over no bytes was taken";
+		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .buffers = empty }, emptyError)) << "a buffer barrier over no bytes was taken";
 		EXPECT_TRUE(test::ErrorIsPopulated(emptyError));
 
 		static_cast<void>(recording.End());

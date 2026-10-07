@@ -97,7 +97,7 @@ namespace deccer
 
 		[[nodiscard]] rhi::TextureHandle CreateCube(rhi::Device dev, const std::uint32_t size, const std::uint32_t mips, const char * name, rhi::Error & error)
 		{
-			return dev.CreateTexture(
+			return dev.create_texture(
 				rhi::TextureDesc{
 					.type		 = rhi::TextureType::eTexCube,
 					.format		 = kFormat,
@@ -114,7 +114,7 @@ namespace deccer
 		[[nodiscard]] rhi::TextureViewHandle CreateCubeView(
 			rhi::Device dev, const rhi::TextureHandle texture, const std::uint32_t mips, const char * name, rhi::Error & error)
 		{
-			return dev.CreateTextureView(texture,
+			return dev.create_texture_view(texture,
 				rhi::TextureViewDesc{
 					.type	   = rhi::TextureViewType::eTexCube,
 					.range	   = { .mipCount = mips, .layerCount = kCubeFaces },
@@ -126,7 +126,7 @@ namespace deccer
 		[[nodiscard]] rhi::TextureViewHandle CreateStorageView(
 			rhi::Device dev, const rhi::TextureHandle texture, const std::uint32_t mip, const char * name, rhi::Error & error)
 		{
-			return dev.CreateTextureView(texture,
+			return dev.create_texture_view(texture,
 				rhi::TextureViewDesc{
 					.type	   = rhi::TextureViewType::eTex2DArray,
 					.range	   = { .baseMip = mip, .mipCount = 1, .layerCount = kCubeFaces },
@@ -193,7 +193,7 @@ namespace deccer
 
 		[[nodiscard]] Equirect LoadEquirect(rhi::Device dev, std::string & error)
 		{
-			const rhi::FormatSupport support = dev.GetFormatSupport(kSourceFormat);
+			const rhi::FormatSupport support = dev.get_format_support(kSourceFormat);
 			if (!support.sampled || !support.copyDst || !support.linearFiltering)
 			{
 				error = "this device cannot sample a filtered RGBA32Float texture, which the environment is projected from";
@@ -230,7 +230,7 @@ namespace deccer
 
 		[[nodiscard]] bool StageEquirect(rhi::Device dev, const Equirect & photo, Source & out, rhi::Error & error)
 		{
-			out.texture = dev.CreateTexture(
+			out.texture = dev.create_texture(
 				rhi::TextureDesc{
 					.format	   = kSourceFormat,
 					.width	   = photo.width,
@@ -240,9 +240,9 @@ namespace deccer
 				},
 				error);
 
-			out.view = dev.CreateTextureView(out.texture, rhi::TextureViewDesc{ .debugName = "deccer.environment.sourceView" }, error);
+			out.view = dev.create_texture_view(out.texture, rhi::TextureViewDesc{ .debugName = "deccer.environment.sourceView" }, error);
 
-			out.staging = dev.CreateBuffer(
+			out.staging = dev.create_buffer(
 				rhi::BufferDesc{
 					.size	   = photo.Bytes(),
 					.usage	   = rhi::BufferUsage::eCopySrc,
@@ -252,16 +252,16 @@ namespace deccer
 				error);
 
 			const rhi::MappedMemory mapped =
-				out.staging.IsValid() ? dev.Map(out.staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error) : rhi::MappedMemory{};
+				out.staging.is_valid() ? dev.Map(out.staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error) : rhi::MappedMemory{};
 
-			if (!out.texture.IsValid() || !out.view.IsValid() || mapped.data == nullptr)
+			if (!out.texture.is_valid() || !out.view.is_valid() || mapped.data == nullptr)
 			{
 				return false;
 			}
 
 			std::memcpy(mapped.data, photo.pixels.get(), photo.Bytes());
 
-			return (mapped.coherent || dev.FlushMappedRange(out.staging, 0, photo.Bytes(), error)) && dev.Unmap(out.staging, error);
+			return (mapped.coherent || dev.flush_mapped_range(out.staging, 0, photo.Bytes(), error)) && dev.Unmap(out.staging, error);
 		}
 
 	}
@@ -305,13 +305,13 @@ namespace deccer
 			specularStorage[mip] = CreateStorageView(dev, out.specular, mip, "deccer.specular.storage", rhiError);
 
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			if (!specularStorage[mip].IsValid())
+			if (!specularStorage[mip].is_valid())
 			{
 				return fail("failed to create an environment texture view");
 			}
 		}
 
-		const rhi::SamplerHandle sampler = dev.CreateSampler(
+		const rhi::SamplerHandle sampler = dev.create_sampler(
 			rhi::SamplerDesc{
 				.addressU  = rhi::AddressMode::eClampToEdge,
 				.addressV  = rhi::AddressMode::eClampToEdge,
@@ -320,7 +320,7 @@ namespace deccer
 			},
 			rhiError);
 
-		const rhi::SamplerHandle equirectSampler = dev.CreateSampler(
+		const rhi::SamplerHandle equirectSampler = dev.create_sampler(
 			rhi::SamplerDesc{
 				.addressU  = rhi::AddressMode::eRepeat,
 				.addressV  = rhi::AddressMode::eClampToEdge,
@@ -329,9 +329,9 @@ namespace deccer
 			},
 			rhiError);
 
-		if (!environment.IsValid() || !environmentCube.IsValid() || !environmentStorage.IsValid() || !out.irradiance.IsValid() ||
-			!out.irradianceView.IsValid() || !irradianceStorage.IsValid() || !out.specular.IsValid() || !out.specularView.IsValid() || !sampler.IsValid() ||
-			!equirectSampler.IsValid())
+		if (!environment.is_valid() || !environmentCube.is_valid() || !environmentStorage.is_valid() || !out.irradiance.is_valid() ||
+			!out.irradianceView.is_valid() || !irradianceStorage.is_valid() || !out.specular.is_valid() || !out.specularView.is_valid() || !sampler.is_valid() ||
+			!equirectSampler.is_valid())
 		{
 			return fail("failed to create the environment textures");
 		}
@@ -351,7 +351,7 @@ namespace deccer
 		};
 
 		const rhi::DescriptorSetLayoutHandle convolveSet =
-			dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = convolveBindings, .debugName = "deccer.convolve.set" }, rhiError);
+			dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = convolveBindings, .debugName = "deccer.convolve.set" }, rhiError);
 
 		constexpr std::array pushConstants{
 			rhi::PushConstantRange{ .stages = rhi::ShaderStage::eCompute, .size = sizeof(Constants) },
@@ -359,10 +359,10 @@ namespace deccer
 
 		const std::array convolveLayouts{ convolveSet };
 
-		const rhi::PipelineLayoutHandle convolveLayout = dev.CreatePipelineLayout(
+		const rhi::PipelineLayoutHandle convolveLayout = dev.create_pipeline_layout(
 			rhi::PipelineLayoutDesc{ .sets = convolveLayouts, .pushConstants = pushConstants, .debugName = "deccer.convolve.layout" }, rhiError);
 
-		if (!convolveLayout.IsValid())
+		if (!convolveLayout.is_valid())
 		{
 			return fail("failed to create the environment pipeline layout");
 		}
@@ -390,22 +390,22 @@ namespace deccer
 			return false;
 		}
 
-		const rhi::ComputePipelineHandle equirectPipeline = dev.CreateComputePipeline(
+		const rhi::ComputePipelineHandle equirectPipeline = dev.create_compute_pipeline(
 			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = equirect, .debugName = "deccer.equirect.pipeline" }, rhiError);
 
-		const rhi::ComputePipelineHandle irradiancePipeline = dev.CreateComputePipeline(
+		const rhi::ComputePipelineHandle irradiancePipeline = dev.create_compute_pipeline(
 			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = irradiance, .debugName = "deccer.irradiance.pipeline" }, rhiError);
 
-		const rhi::ComputePipelineHandle prefilterPipeline = dev.CreateComputePipeline(
+		const rhi::ComputePipelineHandle prefilterPipeline = dev.create_compute_pipeline(
 			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = prefilter, .debugName = "deccer.prefilter.pipeline" }, rhiError);
 
-		if (!equirectPipeline.IsValid() || !irradiancePipeline.IsValid() || !prefilterPipeline.IsValid())
+		if (!equirectPipeline.is_valid() || !irradiancePipeline.is_valid() || !prefilterPipeline.is_valid())
 		{
 			return fail("failed to create the environment pipelines");
 		}
 
 		constexpr std::uint32_t setCount = 2 + kSpecularMips;
-		rhi::DescriptorArena arena		 = dev.CreateDescriptorArena(
+		rhi::DescriptorArena arena		 = dev.create_descriptor_arena(
 			rhi::DescriptorArenaDesc{
 				.type			= rhi::DescriptorArenaType::ePersistent,
 				.maxSets		= setCount,
@@ -414,7 +414,7 @@ namespace deccer
 			},
 			rhiError);
 
-		if (!arena.IsValid())
+		if (!arena.is_valid())
 		{
 			return fail("failed to create the environment descriptor arena");
 		}
@@ -441,8 +441,8 @@ namespace deccer
 
 			const std::array samplers{ rhi::DescriptorWriteSampler{ .set = set, .binding = kSamplerBinding, .sampler = setSampler } };
 
-			return dev.UpdateDescriptors(std::span(outputs), rhiError) && dev.UpdateDescriptors(std::span(sources), rhiError) &&
-				   dev.UpdateDescriptors(std::span(samplers), rhiError);
+			return dev.update_descriptors(std::span(outputs), rhiError) && dev.update_descriptors(std::span(sources), rhiError) &&
+				   dev.update_descriptors(std::span(samplers), rhiError);
 		};
 
 		const rhi::DescriptorSetHandle equirectDescriptors =
@@ -451,7 +451,7 @@ namespace deccer
 		const rhi::DescriptorSetHandle irradianceDescriptors =
 			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.irradiance" }, rhiError);
 
-		if (!equirectDescriptors.IsValid() || !irradianceDescriptors.IsValid() ||
+		if (!equirectDescriptors.is_valid() || !irradianceDescriptors.is_valid() ||
 			!writeSet(equirectDescriptors, environmentStorage, source.view, equirectSampler) ||
 			!writeSet(irradianceDescriptors, irradianceStorage, environmentCube, sampler))
 		{
@@ -465,16 +465,16 @@ namespace deccer
 			specularDescriptors[mip] = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = convolveSet, .debugName = "deccer.specular" }, rhiError);
 
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			if (!specularDescriptors[mip].IsValid() || !writeSet(specularDescriptors[mip], specularStorage[mip], environmentCube, sampler))
+			if (!specularDescriptors[mip].is_valid() || !writeSet(specularDescriptors[mip], specularStorage[mip], environmentCube, sampler))
 			{
 				return fail("failed to write the environment descriptors");
 			}
 		}
 
-		rhi::CommandPool pool = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "deccer.environment.pool" }, rhiError);
+		rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "deccer.environment.pool" }, rhiError);
 		rhi::CommandList list = pool.Allocate("deccer.environment", rhiError);
 
-		if (!pool.IsValid() || !list.IsValid() || !list.Begin(rhiError))
+		if (!pool.is_valid() || !list.is_valid() || !list.Begin(rhiError))
 		{
 			return fail("failed to start the environment build");
 		}
@@ -515,20 +515,20 @@ namespace deccer
 		};
 
 		bool recorded =
-			list.Barriers(rhi::BarrierBatch{ .textures = sourceToCopyDst }, rhiError) &&
-			list.CopyBufferToTexture(source.texture, source.staging, regions, rhiError) &&
-			list.Barriers(rhi::BarrierBatch{ .textures = sourceToSampled }, rhiError) && list.Barriers(rhi::BarrierBatch{ .textures = toWritten }, rhiError) &&
-			list.SetComputePipeline(equirectPipeline, rhiError) && list.BindDescriptorSet(convolveLayout, 0, equirectDescriptors, {}, rhiError) &&
-			list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(equirectConstants), &equirectConstants, rhiError) &&
+			list.barriers(rhi::BarrierBatch{ .textures = sourceToCopyDst }, rhiError) &&
+			list.copy_buffer_to_texture(source.texture, source.staging, regions, rhiError) &&
+			list.barriers(rhi::BarrierBatch{ .textures = sourceToSampled }, rhiError) && list.barriers(rhi::BarrierBatch{ .textures = toWritten }, rhiError) &&
+			list.set_compute_pipeline(equirectPipeline, rhiError) && list.bind_descriptor_set(convolveLayout, 0, equirectDescriptors, {}, rhiError) &&
+			list.push_constants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(equirectConstants), &equirectConstants, rhiError) &&
 			list.Dispatch(GroupCount(environmentSize), GroupCount(environmentSize), kCubeFaces, rhiError) &&
-			list.Barriers(rhi::BarrierBatch{ .textures = toMipSource }, rhiError) &&
+			list.barriers(rhi::BarrierBatch{ .textures = toMipSource }, rhiError) &&
 
-			list.GenerateMips(environment, rhiError) && list.Barriers(rhi::BarrierBatch{ .textures = toSampled }, rhiError) &&
+			list.generate_mips(environment, rhiError) && list.barriers(rhi::BarrierBatch{ .textures = toSampled }, rhiError) &&
 
-			list.SetComputePipeline(irradiancePipeline, rhiError) && list.BindDescriptorSet(convolveLayout, 0, irradianceDescriptors, {}, rhiError) &&
-			list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(irradianceConstants), &irradianceConstants, rhiError) &&
+			list.set_compute_pipeline(irradiancePipeline, rhiError) && list.bind_descriptor_set(convolveLayout, 0, irradianceDescriptors, {}, rhiError) &&
+			list.push_constants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(irradianceConstants), &irradianceConstants, rhiError) &&
 			list.Dispatch(GroupCount(kIrradianceSize), GroupCount(kIrradianceSize), kCubeFaces, rhiError) &&
-			list.SetComputePipeline(prefilterPipeline, rhiError);
+			list.set_compute_pipeline(prefilterPipeline, rhiError);
 
 		for (std::uint32_t mip = 0; recorded && mip < kSpecularMips; ++mip)
 		{
@@ -540,12 +540,12 @@ namespace deccer
 			};
 
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): the loop bound is the vector's size.
-			recorded = list.BindDescriptorSet(convolveLayout, 0, specularDescriptors[mip], {}, rhiError) &&
-					   list.PushConstants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(constants), &constants, rhiError) &&
+			recorded = list.bind_descriptor_set(convolveLayout, 0, specularDescriptors[mip], {}, rhiError) &&
+					   list.push_constants(convolveLayout, rhi::ShaderStage::eCompute, 0, sizeof(constants), &constants, rhiError) &&
 					   list.Dispatch(GroupCount(size), GroupCount(size), kCubeFaces, rhiError);
 		}
 
-		recorded = recorded && list.Barriers(rhi::BarrierBatch{ .textures = toRead }, rhiError) && list.End(rhiError);
+		recorded = recorded && list.barriers(rhi::BarrierBatch{ .textures = toRead }, rhiError) && list.End(rhiError);
 		if (!recorded)
 		{
 			return fail("failed to record the environment build");
@@ -555,7 +555,7 @@ namespace deccer
 		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = signalValue } };
 		const rhi::SubmitDesc submit{ .commandLists = lists, .signals = signals, .debugName = "deccer.environmentSubmit" };
 		constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
-		if (!queue.Submit(submit, rhiError) || !queue.Wait(timeline, signalValue, kNoTimeout, rhiError))
+		if (!queue.submit(submit, rhiError) || !queue.Wait(timeline, signalValue, kNoTimeout, rhiError))
 		{
 			return fail("failed to submit the environment build");
 		}
@@ -564,13 +564,13 @@ namespace deccer
 			.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 			.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = signalValue },
 		};
-		dev.Destroy(environmentStorage, retired, rhiError);
-		dev.Destroy(environmentCube, retired, rhiError);
-		dev.Destroy(environment, retired, rhiError);
+		dev.destroy(environmentStorage, retired, rhiError);
+		dev.destroy(environmentCube, retired, rhiError);
+		dev.destroy(environment, retired, rhiError);
 
-		dev.Destroy(source.staging, retired, rhiError);
-		dev.Destroy(source.view, retired, rhiError);
-		dev.Destroy(source.texture, retired, rhiError);
+		dev.destroy(source.staging, retired, rhiError);
+		dev.destroy(source.view, retired, rhiError);
+		dev.destroy(source.texture, retired, rhiError);
 
 		return true;
 	}

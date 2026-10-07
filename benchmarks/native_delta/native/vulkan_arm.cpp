@@ -55,10 +55,10 @@ namespace bench::native
 
 		[[nodiscard]] bool PrepareArm(rhi::Device device, const Workload & work)
 		{
-			const rhi::Result<rhi::VulkanNativeDevice> native = rhi::GetVulkanNativeDevice(device);
+			const rhi::Result<rhi::VulkanNativeDevice> native = rhi::get_vulkan_native_device(device);
 			if (!native)
 			{
-				ReportError("failed to reach the Vulkan device", native.GetError());
+				ReportError("failed to reach the Vulkan device", native.get_error());
 				return false;
 			}
 
@@ -67,7 +67,7 @@ namespace bench::native
 
 			rhi::NativeTexture<rhi::VulkanApi> image{};
 			rhi::Error error{};
-			if (!device.GetNativeTexture<rhi::VulkanApi>(work.target, image, error))
+			if (!device.get_native_texture<rhi::VulkanApi>(work.target, image, error))
 			{
 				ReportError("failed to reach the VkImage behind the target", error);
 				return false;

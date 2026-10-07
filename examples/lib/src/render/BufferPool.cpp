@@ -30,15 +30,15 @@ namespace fw::render
 
 		[[nodiscard]] std::uint64_t AlignmentFor(const azo::rhi::Device & device, const azo::rhi::Flags<azo::rhi::BufferUsage> usage) noexcept
 		{
-			const azo::rhi::DeviceCaps & caps = device.GetCaps();
+			const azo::rhi::DeviceCaps & caps = device.get_caps();
 
 			std::uint64_t alignment = 4;
-			if (usage.Contains(azo::rhi::BufferUsage::eUniform))
+			if (usage.contains(azo::rhi::BufferUsage::eUniform))
 			{
 				alignment = std::max(alignment, caps.minUniformBufferOffsetAlignment);
 			}
 
-			if (usage.Contains(azo::rhi::BufferUsage::eStorage))
+			if (usage.contains(azo::rhi::BufferUsage::eStorage))
 			{
 				alignment = std::max(alignment, caps.minStorageBufferOffsetAlignment);
 			}
@@ -66,7 +66,7 @@ namespace fw::render
 		: m_device(device),
 		  m_blockBytes(std::max<std::uint64_t>(blockBytes, 1)),
 		  m_usage(usage),
-		  m_alignment(device.IsValid() ? AlignmentFor(device, usage) : 1)
+		  m_alignment(device.is_valid() ? AlignmentFor(device, usage) : 1)
 	{
 	}
 
@@ -79,13 +79,13 @@ namespace fw::render
 				static_cast<void>(m_device.Unmap(block->buffer));
 			}
 
-			static_cast<void>(m_device.Destroy(block->buffer));
+			static_cast<void>(m_device.destroy(block->buffer));
 		}
 	}
 
 	BufferAllocation BufferPool::Allocate(const std::uint64_t bytes)
 	{
-		if (!m_device.IsValid() || bytes == 0)
+		if (!m_device.is_valid() || bytes == 0)
 		{
 			return {};
 		}
@@ -147,7 +147,7 @@ namespace fw::render
 
 		auto block		 = std::make_unique<Block>();
 		block->sizeBytes = bytes;
-		block->buffer	 = m_device.CreateBuffer(
+		block->buffer	 = m_device.create_buffer(
 			azo::rhi::BufferDesc{
 				.size	   = bytes,
 				.usage	   = m_usage,
@@ -156,7 +156,7 @@ namespace fw::render
 			},
 			error);
 
-		if (!block->buffer.IsValid())
+		if (!block->buffer.is_valid())
 		{
 			LOG_ERROR(
 				fw::Log(), "buffer pool: a block of {} bytes could not be created: {}", bytes, error.message != nullptr ? error.message : "no diagnostic");
@@ -167,7 +167,7 @@ namespace fw::render
 		if (mapped.data == nullptr)
 		{
 			LOG_ERROR(fw::Log(), "buffer pool: a block could not be mapped: {}", error.message != nullptr ? error.message : "no diagnostic");
-			static_cast<void>(m_device.Destroy(block->buffer));
+			static_cast<void>(m_device.destroy(block->buffer));
 			return nullptr;
 		}
 

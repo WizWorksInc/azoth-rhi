@@ -48,7 +48,7 @@ namespace
 	class TallyProfiler final : public rhi::Profiler
 	{
 	public:
-		void BeginZone(const rhi::ZoneLocation & location) override
+		void begin_zone(const rhi::ZoneLocation & location) override
 		{
 			const std::scoped_lock lock(m_mutex);
 
@@ -57,7 +57,7 @@ namespace
 			Accumulate(m_zones, location.name, 1);
 		}
 
-		void EndZone() override
+		void end_zone() override
 		{
 			const std::scoped_lock lock(m_mutex);
 			if (m_open != 0)
@@ -66,13 +66,13 @@ namespace
 			}
 		}
 
-		void Plot(const rhi::CString name, const std::int64_t value) override
+		void plot(const rhi::CString name, const std::int64_t value) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			Latest(m_counters, name, value);
 		}
 
-		void GpuAllocate(const void *, const std::uint64_t size, const rhi::CString pool) override
+		void gpu_allocate(const void *, const std::uint64_t size, const rhi::CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++m_allocations;
@@ -80,7 +80,7 @@ namespace
 			m_pool = pool;
 		}
 
-		void GpuFree(const void *, const rhi::CString) override
+		void gpu_free(const void *, const rhi::CString) override
 		{
 			const std::scoped_lock lock(m_mutex);
 			++m_frees;
@@ -174,15 +174,15 @@ namespace
 		deviceDesc.requireSwapchain = false;
 		deviceDesc.debugName		= "profiler_sink";
 
-		const rhi::Result<rhi::UniqueDevice> device = backends.CreateDevice(deviceDesc);
+		const rhi::Result<rhi::UniqueDevice> device = backends.create_device(deviceDesc);
 		if (!device)
 		{
-			fw::ReportError("failed to create a device", device.GetError());
+			fw::ReportError("failed to create a device", device.get_error());
 			return false;
 		}
 
 		rhi::Device dev = device.Value().Get();
-		LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+		LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 		rhi::Error error{};
 
@@ -202,39 +202,39 @@ namespace
 			.debugName = "example.profiledTexture",
 		};
 
-		const rhi::BufferHandle buffer	 = dev.CreateBuffer(bufferDesc, error);
-		const rhi::TextureHandle texture = dev.CreateTexture(textureDesc, error);
-		rhi::Queue queue				 = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-		rhi::CommandPool pool			 = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "example.pool" }, error);
-		if (!buffer.IsValid() || !texture.IsValid() || !queue.IsValid() || !pool.IsValid())
+		const rhi::BufferHandle buffer	 = dev.create_buffer(bufferDesc, error);
+		const rhi::TextureHandle texture = dev.create_texture(textureDesc, error);
+		rhi::Queue queue				 = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+		rhi::CommandPool pool			 = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "example.pool" }, error);
+		if (!buffer.is_valid() || !texture.is_valid() || !queue.is_valid() || !pool.is_valid())
 		{
 			fw::ReportError("failed to create the profiled resources", error);
 			return false;
 		}
 
 		rhi::CommandList list = pool.Allocate("example.profiledList", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			fw::ReportError("failed to begin recording", error);
 			return false;
 		}
 
-		if (!list.ClearBuffer(buffer, 0, bufferDesc.size, 0, error) || !list.End(error))
+		if (!list.clear_buffer(buffer, 0, bufferDesc.size, 0, error) || !list.End(error))
 		{
 			fw::ReportError("failed to record", error);
 			return false;
 		}
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
-		if (!queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .debugName = "example.profiledSubmit" }, error) || !queue.WaitIdle(error))
+		if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .debugName = "example.profiledSubmit" }, error) || !queue.wait_idle(error))
 		{
 			fw::ReportError("failed to submit", error);
 			return false;
 		}
 
-		dev.Destroy(texture, {}, error);
-		dev.Destroy(buffer, {}, error);
-		dev.CollectGarbage(error);
+		dev.destroy(texture, {}, error);
+		dev.destroy(buffer, {}, error);
+		dev.collect_garbage(error);
 		return true;
 	}
 
@@ -244,7 +244,7 @@ int main(int argc, char ** argv)
 {
 	rhi::SetProfiler(&g_profiler);
 
-	constexpr rhi::BuildInfo build = rhi::GetBuildInfo();
+	constexpr rhi::BuildInfo build = rhi::get_build_info();
 	if (!build.profilingEnabled)
 	{
 		LOG_INFO(fw::Log(), "note: this build has profiling compiled out, so nothing will call the sink");
@@ -253,7 +253,7 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
@@ -261,6 +261,6 @@ int main(int argc, char ** argv)
 	const bool ran = RunSomeWork(backends);
 	g_profiler.Report();
 
-	rhi::SetProfiler(nullptr);
+	rhi::set_profiler(nullptr);
 	return ran ? 0 : 1;
 }

@@ -42,10 +42,10 @@ namespace
 
 	constexpr std::uint32_t kPoolQueries = 4;
 
-	static_assert(rhi::QueueCanNameStage(rhi::QueueType::eGraphics, rhi::Stage::eColorOutput));
-	static_assert(!rhi::QueueCanNameStage(rhi::QueueType::eCompute, rhi::Stage::eColorOutput));
-	static_assert(!rhi::QueueCanNameStage(rhi::QueueType::eCopy, rhi::Stage::eCompute));
-	static_assert(rhi::QueueCanNameStage(rhi::QueueType::eCopy, rhi::Stage::eAllCommands));
+	static_assert(rhi::queue_can_name_stage(rhi::QueueType::eGraphics, rhi::Stage::eColorOutput));
+	static_assert(!rhi::queue_can_name_stage(rhi::QueueType::eCompute, rhi::Stage::eColorOutput));
+	static_assert(!rhi::queue_can_name_stage(rhi::QueueType::eCopy, rhi::Stage::eCompute));
+	static_assert(rhi::queue_can_name_stage(rhi::QueueType::eCopy, rhi::Stage::eAllCommands));
 
 	TEST_P(TimestampStageTest, RefusesAGraphicsStageOnACopyList)
 	{
@@ -54,24 +54,24 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		{
 			test::Recording recording(Dev(), rhi::QueueType::eCopy);
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			rhi::Error stageError{};
-			EXPECT_FALSE(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eColorOutput, stageError))
+			EXPECT_FALSE(recording.List().write_timestamp(pool, 0, rhi::Stage::eColorOutput, stageError))
 				<< "a copy list wrote a timestamp at a stage only a graphics queue runs";
 			EXPECT_TRUE(test::ErrorIsPopulated(stageError));
 
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eCopy, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().write_timestamp(pool, 0, rhi::Stage::eCopy, error), error));
 
 			EXPECT_TRUE(recording.End());
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 	TEST_P(TimestampStageTest, AcceptsTheSameGraphicsStageOnAGraphicsList)
@@ -79,18 +79,18 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTimestampQueries, "timestamp queries");
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		{
 			test::Recording recording(Dev());
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eColorOutput, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().write_timestamp(pool, 0, rhi::Stage::eColorOutput, error), error));
 			EXPECT_TRUE(recording.End());
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 	TEST_P(TimestampStageTest, RefusesAGraphicsStageOnAComputeList)
@@ -100,24 +100,24 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(kPoolQueries), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(kPoolQueries), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		{
 			test::Recording recording(Dev(), rhi::QueueType::eCompute);
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			rhi::Error stageError{};
-			EXPECT_FALSE(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eVertexWork, stageError))
+			EXPECT_FALSE(recording.List().write_timestamp(pool, 0, rhi::Stage::eVertexWork, stageError))
 				<< "a compute list wrote a timestamp at a stage only a graphics queue runs";
 			EXPECT_TRUE(test::ErrorIsPopulated(stageError));
 
-			EXPECT_TRUE(test::Ok(recording.List().WriteTimestamp(pool, 0, rhi::Stage::eCompute, error), error));
+			EXPECT_TRUE(test::Ok(recording.List().write_timestamp(pool, 0, rhi::Stage::eCompute, error), error));
 
 			EXPECT_TRUE(recording.End());
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 }

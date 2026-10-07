@@ -39,7 +39,7 @@ namespace
 
 	[[nodiscard]] bool OrderContains(const rhi::BackendSelection & backends, const std::string_view canonicalName)
 	{
-		const std::span<const rhi::BackendInfo> order = backends.Preferred();
+		const std::span<const rhi::BackendInfo> order = backends.preferred();
 		return std::ranges::any_of(order,
 			[canonicalName](const rhi::BackendInfo & info)
 			{
@@ -49,7 +49,7 @@ namespace
 
 	TEST(ModuleLoading, LoadsAndDescribesItself)
 	{
-		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::Load(kModulePath);
+		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 		ASSERT_TRUE(test::Ok(loaded)) << "the module at " << kModulePath << " did not load";
 
 		EXPECT_TRUE(loaded.Value().IsLoaded());
@@ -63,7 +63,7 @@ namespace
 
 	TEST(ModuleLoading, NamesTheModuleOwnsOutliveTheEntryPointCall)
 	{
-		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::Load(kModulePath);
+		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 		ASSERT_TRUE(test::Ok(loaded));
 
 		const rhi::BackendEntry & entry = loaded.Value().Entries().front();
@@ -77,8 +77,8 @@ namespace
 
 	TEST(ModuleLoading, gate_ModuleAbiStamp)
 	{
-		const rhi::AbiStamp mine = rhi::CurrentAbiStamp();
-		EXPECT_EQ(mine, rhi::CurrentAbiStamp()) << "the stamp is not stable within one build, so it can compare nothing";
+		const rhi::AbiStamp mine = rhi::current_abi_stamp();
+		EXPECT_EQ(mine, rhi::current_abi_stamp()) << "the stamp is not stable within one build, so it can compare nothing";
 
 		rhi::AbiStamp differentLibrary	 = mine;
 		differentLibrary.standardLibrary = mine.standardLibrary + 1;
@@ -100,22 +100,22 @@ namespace
 		differentRhi.rhiVersionMajor = mine.rhiVersionMajor + 1;
 		EXPECT_FALSE(differentRhi == mine);
 
-		const rhi::Result<rhi::BackendModule> notAModule = rhi::BackendModule::Load("azoth.rhi.test.nothing-is-here");
-		EXPECT_FALSE(notAModule.HasValue());
-		EXPECT_TRUE(test::ErrorIsPopulated(notAModule.GetError()));
+		const rhi::Result<rhi::BackendModule> notAModule = rhi::BackendModule::load("azoth.rhi.test.nothing-is-here");
+		EXPECT_FALSE(notAModule.has_value());
+		EXPECT_TRUE(test::ErrorIsPopulated(notAModule.get_error()));
 	}
 
 	TEST(ModuleLoading, gate_ModuleUnloadRefusedWhileLive)
 	{
-		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::Load(kModulePath);
+		rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 		ASSERT_TRUE(test::Ok(loaded));
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "loadable", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.AddModule(loaded.Value().Entries())));
+		ASSERT_TRUE(test::Ok(backends.add_module(loaded.Value().Entries())));
 		ASSERT_TRUE(OrderContains(backends, kLoadableBackend)) << "the module's backend did not join the order";
 
 		{
-			const rhi::Result<rhi::UniqueInstance> instance = backends.CreateInstance();
+			const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance();
 			ASSERT_TRUE(test::Ok(instance)) << "the loaded backend could not bring up an instance";
 			ASSERT_EQ(loaded.Value().LiveObjects(), 1u) << "the module did not count what it handed out";
 
@@ -132,18 +132,18 @@ namespace
 	TEST(ModuleLoading, gate_NoDanglingAfterUnload)
 	{
 		{
-			rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::Load(kModulePath);
+			rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 			ASSERT_TRUE(test::Ok(loaded));
 
 			rhi::BackendSelection backends{ rhi::BackendPreference{ .includeAvailable = false } };
-			ASSERT_TRUE(test::Ok(backends.AddModule(loaded.Value().Entries())));
+			ASSERT_TRUE(test::Ok(backends.add_module(loaded.Value().Entries())));
 
 			EXPECT_TRUE(test::Ok(loaded.Value().Unload()));
 			EXPECT_EQ(loaded.Value().Entries().size(), 0u) << "the entries survived the unload that invalidated them";
 		}
 
 		rhi::BackendSelection after{ rhi::BackendPreference{ .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(after.AddCatalog()));
+		ASSERT_TRUE(test::Ok(after.add_catalog()));
 		EXPECT_FALSE(OrderContains(after, kLoadableBackend)) << "an unloaded module's backend is still reachable by name";
 	}
 
@@ -161,7 +161,7 @@ namespace
 			workers.emplace_back(
 				[&]
 				{
-					rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::Load(kModulePath);
+					rhi::Result<rhi::BackendModule> loaded = rhi::BackendModule::load(kModulePath);
 					if (!loaded)
 					{
 						return;

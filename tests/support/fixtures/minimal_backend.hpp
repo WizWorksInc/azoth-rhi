@@ -28,7 +28,7 @@ namespace azo::rhi::test::minimal
 	{
 		static constexpr std::string_view canonicalName = "azoth.rhi.test.minimal";
 		static constexpr std::string_view displayName	= "Minimal headless fixture";
-		static constexpr GraphicsApiId id				= MakeGraphicsApiId(canonicalName);
+		static constexpr GraphicsApiId id				= make_graphics_api_id(canonicalName);
 	};
 
 	static_assert(GraphicsApiTag<HeadlessApi>);
@@ -37,7 +37,7 @@ namespace azo::rhi::test::minimal
 	{
 		static constexpr std::string_view canonicalName = "azoth.rhi.test.minimalPresenting";
 		static constexpr std::string_view displayName	= "Minimal presenting fixture";
-		static constexpr GraphicsApiId id				= MakeGraphicsApiId(canonicalName);
+		static constexpr GraphicsApiId id				= make_graphics_api_id(canonicalName);
 	};
 
 	static_assert(GraphicsApiTag<PresentingApi>);

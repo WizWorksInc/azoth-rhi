@@ -104,13 +104,13 @@ namespace
 
 int main(int argc, char ** argv)
 {
-	constexpr rhi::BuildInfo build = rhi::GetBuildInfo();
+	constexpr rhi::BuildInfo build = rhi::get_build_info();
 	LOG_INFO(fw::Log(), "Azoth RHI {}", rhi::kVersionString);
 
 	std::string available = "  backends:";
-	for (const rhi::BackendEntry & backend : rhi::AvailableBackends())
+	for (const rhi::BackendEntry & backend : rhi::available_backends())
 	{
-		available += std::format(" {}", rhi::ShortApiName(backend.canonicalName));
+		available += std::format(" {}", rhi::short_api_name(backend.canonicalName));
 	}
 	LOG_INFO(fw::Log(), "{}", available);
 	LOG_INFO(fw::Log(), "  profiling: {}, tracy: {}\n", Yes(build.profilingEnabled), Yes(build.tracyEnabled));
@@ -118,7 +118,7 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
@@ -145,17 +145,17 @@ int main(int argc, char ** argv)
 	};
 	desc.preferredFeatures = reportable;
 
-	const rhi::Result<rhi::UniqueDevice> device = backends.CreateDevice(desc);
+	const rhi::Result<rhi::UniqueDevice> device = backends.create_device(desc);
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	const rhi::Device handle		 = device.Value().Get();
-	const rhi::AdapterInfo & adapter = handle.GetAdapterInfo();
-	const rhi::DeviceCaps & caps	 = handle.GetCaps();
+	const rhi::AdapterInfo & adapter = handle.get_adapter_info();
+	const rhi::DeviceCaps & caps	 = handle.get_caps();
 
-	LOG_INFO(fw::Log(), "backend: {} {}.{}", handle.GetGraphicsApiName(), caps.apiVersion.major, caps.apiVersion.minor);
+	LOG_INFO(fw::Log(), "backend: {} {}.{}", handle.get_graphics_api_name(), caps.apiVersion.major, caps.apiVersion.minor);
 	LOG_INFO(fw::Log(), "adapter: {} ({})", OrUnknown(adapter.name), Describe(adapter.type));
 	LOG_INFO(fw::Log(), "  vendor id:      0x{:x}", adapter.vendorId);
 	LOG_INFO(fw::Log(), "  device id:      0x{:x}", adapter.deviceId);
@@ -163,9 +163,9 @@ int main(int argc, char ** argv)
 	LOG_INFO(fw::Log(), "  dedicated vram: {} MiB", adapter.dedicatedVideoMemoryBytes / (std::uint64_t{ 1024 } * 1024));
 	LOG_INFO(fw::Log(), "  unified memory: {}", Yes(adapter.unifiedMemoryArchitecture));
 
-	LOG_INFO(fw::Log(), "  device uuid:    {}", rhi::FormatAdapterUuid(adapter.deviceUUID).data());
-	LOG_INFO(fw::Log(), "  driver uuid:    {}", rhi::FormatAdapterUuid(adapter.driverUUID).data());
-	LOG_INFO(fw::Log(), "  device luid:    {}", adapter.deviceLUIDValid ? rhi::FormatAdapterLuid(adapter.deviceLUID).data() : "none");
+	LOG_INFO(fw::Log(), "  device uuid:    {}", rhi::format_adapter_uuid(adapter.deviceUUID).data());
+	LOG_INFO(fw::Log(), "  driver uuid:    {}", rhi::format_adapter_uuid(adapter.driverUUID).data());
+	LOG_INFO(fw::Log(), "  device luid:    {}", adapter.deviceLUIDValid ? rhi::format_adapter_luid(adapter.deviceLUID).data() : "none");
 
 	LOG_INFO(fw::Log(), "\nqueues");
 	LOG_INFO(fw::Log(), "  graphics: {}", caps.graphicsQueueCount);

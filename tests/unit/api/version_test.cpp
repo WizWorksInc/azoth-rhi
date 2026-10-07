@@ -29,7 +29,7 @@ namespace
 
 	TEST(BuildInfo, ConstantFoldsSoCheckingABackendCostsNothing)
 	{
-		constexpr rhi::BuildInfo info = rhi::GetBuildInfo();
+		constexpr rhi::BuildInfo info = rhi::get_build_info();
 		static_assert(info.versionMajor == rhi::kVersionMajor);
 		static_assert(std::is_trivially_copyable_v<rhi::BuildInfo>);
 
@@ -38,7 +38,7 @@ namespace
 
 	TEST(BuildInfo, ReportsTheVersionTheHeadersDeclare)
 	{
-		constexpr rhi::BuildInfo info = rhi::GetBuildInfo();
+		constexpr rhi::BuildInfo info = rhi::get_build_info();
 
 		EXPECT_EQ(info.versionMajor, rhi::kVersionMajor);
 		EXPECT_EQ(info.versionMinor, rhi::kVersionMinor);
@@ -55,16 +55,16 @@ namespace
 
 	TEST(BuildInfo, SaysNothingAboutWhichBackendsThisBuildHas)
 	{
-		constexpr rhi::BuildInfo info = rhi::GetBuildInfo();
+		constexpr rhi::BuildInfo info = rhi::get_build_info();
 		static_assert(info.versionMajor == rhi::kVersionMajor);
 
-		EXPECT_FALSE(rhi::AvailableBackends().empty()) << "the Null backend is always compiled in, so this is never empty";
-		EXPECT_NE(rhi::FindAvailableBackend(rhi::NullApi::id), nullptr);
+		EXPECT_FALSE(rhi::available_backends().empty()) << "the Null backend is always compiled in, so this is never empty";
+		EXPECT_NE(rhi::find_available_backend(rhi::NullApi::id), nullptr);
 	}
 
 	TEST(BuildInfo, ReportsWhetherInstrumentationIsLive)
 	{
-		constexpr rhi::BuildInfo info = rhi::GetBuildInfo();
+		constexpr rhi::BuildInfo info = rhi::get_build_info();
 
 #ifdef AZOTH_RHI_ENABLE_PROFILING
 		EXPECT_TRUE(info.profilingEnabled);

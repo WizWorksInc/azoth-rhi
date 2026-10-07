@@ -63,7 +63,7 @@ namespace
 			return ::operator new(size, std::align_val_t{ alignment });
 		}
 
-		void Free(void * memory, std::size_t, const std::size_t alignment) override
+		void free(void * memory, std::size_t, const std::size_t alignment) override
 		{
 			::operator delete(memory, std::align_val_t{ alignment });
 		}
@@ -76,9 +76,9 @@ namespace
 	{
 		const rhi::GraphicsApiRegistry registry;
 
-		EXPECT_TRUE(registry.EnumerateBackends().empty());
-		EXPECT_FALSE(registry.IsRegistered(rhi::VulkanApi::id));
-		EXPECT_FALSE(registry.IsRegistered(rhi::NullApi::id));
+		EXPECT_TRUE(registry.enumerate_backends().empty());
+		EXPECT_FALSE(registry.is_registered(rhi::VulkanApi::id));
+		EXPECT_FALSE(registry.is_registered(rhi::NullApi::id));
 	}
 
 	TEST(GraphicsApiRegistry, RegistersABackendUnderTheTagsId)
@@ -87,9 +87,9 @@ namespace
 
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("stub"))));
 
-		EXPECT_TRUE(registry.IsRegistered(rhi::VulkanApi::id));
-		EXPECT_FALSE(registry.IsRegistered(rhi::D3D12Api::id));
-		EXPECT_EQ(registry.EnumerateBackends().size(), 1u);
+		EXPECT_TRUE(registry.is_registered(rhi::VulkanApi::id));
+		EXPECT_FALSE(registry.is_registered(rhi::D3D12Api::id));
+		EXPECT_EQ(registry.enumerate_backends().size(), 1u);
 	}
 
 	TEST(GraphicsApiRegistry, StampsTheIdFromTheTagRatherThanFromTheCreateInfo)
@@ -101,9 +101,9 @@ namespace
 
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::MetalApi>(info)));
 
-		EXPECT_TRUE(registry.IsRegistered(rhi::MetalApi::id));
-		EXPECT_FALSE(registry.IsRegistered(rhi::D3D12Api::id)) << "the create-info id overrode the tag";
-		EXPECT_EQ(registry.EnumerateBackends().front().id, rhi::MetalApi::id);
+		EXPECT_TRUE(registry.is_registered(rhi::MetalApi::id));
+		EXPECT_FALSE(registry.is_registered(rhi::D3D12Api::id)) << "the create-info id overrode the tag";
+		EXPECT_EQ(registry.enumerate_backends().front().id, rhi::MetalApi::id);
 	}
 
 	TEST(GraphicsApiRegistry, RefusesToRegisterTheSameApiTwice)
@@ -114,10 +114,10 @@ namespace
 
 		const rhi::Result<void> second = registry.Register<rhi::VulkanApi>(StubBackend("second"));
 		EXPECT_TRUE(test::Failed(second, rhi::ErrorCode::eInvalidState));
-		EXPECT_TRUE(test::ErrorIsPopulated(second.GetError()));
+		EXPECT_TRUE(test::ErrorIsPopulated(second.get_error()));
 
-		ASSERT_EQ(registry.EnumerateBackends().size(), 1u);
-		EXPECT_EQ(registry.EnumerateBackends().front().displayName, "first") << "the rejected registration still replaced the first";
+		ASSERT_EQ(registry.enumerate_backends().size(), 1u);
+		EXPECT_EQ(registry.enumerate_backends().front().displayName, "first") << "the rejected registration still replaced the first";
 	}
 
 	TEST(GraphicsApiRegistry, ReportsARefusedHostAllocationRatherThanLeavingItThroughBadAlloc)
@@ -133,8 +133,8 @@ namespace
 		const rhi::Result<void> registered = registry.Register<rhi::VulkanApi>(StubBackend("stub"));
 
 		EXPECT_TRUE(test::Failed(registered, rhi::ErrorCode::eOutOfHostMemory));
-		EXPECT_TRUE(test::ErrorIsPopulated(registered.GetError()));
-		EXPECT_TRUE(registry.EnumerateBackends().empty());
+		EXPECT_TRUE(test::ErrorIsPopulated(registered.get_error()));
+		EXPECT_TRUE(registry.enumerate_backends().empty());
 #endif
 	}
 
@@ -152,11 +152,11 @@ namespace
 			EXPECT_TRUE(test::Failed(registry.Register<rhi::VulkanApi>(StubBackend("refused")), rhi::ErrorCode::eOutOfHostMemory));
 		}
 
-		EXPECT_TRUE(registry.EnumerateBackends().empty());
-		EXPECT_FALSE(registry.IsRegistered(rhi::VulkanApi::id));
+		EXPECT_TRUE(registry.enumerate_backends().empty());
+		EXPECT_FALSE(registry.is_registered(rhi::VulkanApi::id));
 
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("retry"))));
-		EXPECT_EQ(registry.EnumerateBackends().size(), 1u);
+		EXPECT_EQ(registry.enumerate_backends().size(), 1u);
 
 		const rhi::BackendCreateInfo * entry = rhi::detail::RegistryAccess::Find(registry, rhi::VulkanApi::id);
 		ASSERT_NE(entry, nullptr);
@@ -172,16 +172,16 @@ namespace
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::MetalApi>(StubBackend("metal"))));
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::NullApi>(StubBackend("null"))));
 
-		const std::span<const rhi::BackendInfo> backends = registry.EnumerateBackends();
+		const std::span<const rhi::BackendInfo> backends = registry.enumerate_backends();
 		ASSERT_EQ(backends.size(), 3u);
 		EXPECT_EQ(backends[0].id, rhi::VulkanApi::id);
 		EXPECT_EQ(backends[1].id, rhi::MetalApi::id);
 		EXPECT_EQ(backends[2].id, rhi::NullApi::id);
 
-		EXPECT_TRUE(registry.IsRegistered(rhi::VulkanApi::id));
-		EXPECT_TRUE(registry.IsRegistered(rhi::MetalApi::id));
-		EXPECT_TRUE(registry.IsRegistered(rhi::NullApi::id));
-		EXPECT_FALSE(registry.IsRegistered(rhi::D3D12Api::id));
+		EXPECT_TRUE(registry.is_registered(rhi::VulkanApi::id));
+		EXPECT_TRUE(registry.is_registered(rhi::MetalApi::id));
+		EXPECT_TRUE(registry.is_registered(rhi::NullApi::id));
+		EXPECT_FALSE(registry.is_registered(rhi::D3D12Api::id));
 	}
 
 	TEST(GraphicsApiRegistry, KeepsTheStaticInformationABackendDeclared)
@@ -194,7 +194,7 @@ namespace
 		info.info.supportsSurfaces	= true;
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(info)));
 
-		const rhi::BackendInfo & stored = registry.EnumerateBackends().front();
+		const rhi::BackendInfo & stored = registry.enumerate_backends().front();
 		EXPECT_EQ(stored.apiVersionMajor, 1u);
 		EXPECT_EQ(stored.apiVersionMinor, 4u);
 		EXPECT_TRUE(stored.supportsSurfaces);
@@ -207,9 +207,9 @@ namespace
 		rhi::GraphicsApiRegistry registry;
 		constexpr std::array preferred{ rhi::VulkanApi::id };
 
-		const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, rhi::InstanceDesc{});
+		const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, rhi::InstanceDesc{});
 		EXPECT_TRUE(test::Failed(instance, rhi::ErrorCode::eUnsupportedApi));
-		EXPECT_TRUE(test::ErrorIsPopulated(instance.GetError()));
+		EXPECT_TRUE(test::ErrorIsPopulated(instance.get_error()));
 	}
 
 	TEST(CreateInstance, ReportsAnUnsupportedApiForAnEmptyPreferenceList)
@@ -217,7 +217,7 @@ namespace
 		rhi::GraphicsApiRegistry registry;
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("stub"))));
 
-		const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, std::span<const rhi::GraphicsApiId>{}, rhi::InstanceDesc{});
+		const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, std::span<const rhi::GraphicsApiId>{}, rhi::InstanceDesc{});
 		EXPECT_TRUE(test::Failed(instance, rhi::ErrorCode::eUnsupportedApi));
 	}
 
@@ -227,7 +227,7 @@ namespace
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(StubBackend("no entry point"))));
 
 		constexpr std::array preferred{ rhi::VulkanApi::id, rhi::MetalApi::id };
-		const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, rhi::InstanceDesc{});
+		const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, rhi::InstanceDesc{});
 
 		EXPECT_TRUE(test::Failed(instance, rhi::ErrorCode::eUnsupportedApi));
 	}
@@ -244,7 +244,7 @@ namespace
 			rhi::InstanceDesc desc{};
 			desc.validation = test::kValidationMode;
 
-			const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, desc);
+			const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, desc);
 			if (!instance)
 			{
 				continue;
@@ -272,7 +272,7 @@ namespace
 		rhi::DeviceDesc desc{};
 		desc.requireSwapchain = false;
 
-		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, desc);
+		const rhi::Result<rhi::UniqueDevice> device = rhi::create_device(registry, preferred, desc);
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eUnsupportedApi));
 	}
 
@@ -284,9 +284,9 @@ namespace
 			ASSERT_NE(backend.RegisterInto, nullptr) << backend.shortName << " is listed as available with no entry point";
 			ASSERT_TRUE(test::Ok(backend.RegisterInto(registry))) << backend.shortName << " failed to register";
 
-			EXPECT_TRUE(registry.IsRegistered(backend.id)) << backend.shortName << " registered under a different id";
-			ASSERT_EQ(registry.EnumerateBackends().size(), 1u);
-			EXPECT_EQ(registry.EnumerateBackends().front().canonicalName, backend.canonicalName);
+			EXPECT_TRUE(registry.is_registered(backend.id)) << backend.shortName << " registered under a different id";
+			ASSERT_EQ(registry.enumerate_backends().size(), 1u);
+			EXPECT_EQ(registry.enumerate_backends().front().canonicalName, backend.canonicalName);
 		}
 	}
 
@@ -299,7 +299,7 @@ namespace
 			EXPECT_TRUE(test::Ok(backend.RegisterInto(registry))) << backend.shortName << " could not join a registry holding the others";
 		}
 
-		EXPECT_EQ(registry.EnumerateBackends().size(), test::AvailableBackends().size());
+		EXPECT_EQ(registry.enumerate_backends().size(), test::AvailableBackends().size());
 	}
 
 	namespace holed
@@ -376,11 +376,11 @@ namespace
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(holed::Backend())));
 
 		constexpr std::array preferred{ rhi::VulkanApi::id };
-		const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, rhi::InstanceDesc{});
+		const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, rhi::InstanceDesc{});
 
 		ASSERT_TRUE(test::Failed(instance, rhi::ErrorCode::eValidationFailed));
-		ASSERT_NE(instance.GetError().message, nullptr);
-		EXPECT_EQ(std::string_view{ instance.GetError().message }, "InstanceApi::createDevice is null") << "the diagnostic did not name the gap";
+		ASSERT_NE(instance.get_error().message, nullptr);
+		EXPECT_EQ(std::string_view{ instance.get_error().message }, "InstanceApi::createDevice is null") << "the diagnostic did not name the gap";
 	}
 
 	TEST(CreateInstance, HandsBackAnInstanceItRejectsRatherThanStrandingIt)
@@ -392,7 +392,7 @@ namespace
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(holed::Backend())));
 
 		constexpr std::array preferred{ rhi::VulkanApi::id };
-		const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, rhi::InstanceDesc{});
+		const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, rhi::InstanceDesc{});
 
 		EXPECT_TRUE(test::Failed(instance, rhi::ErrorCode::eValidationFailed));
 		EXPECT_EQ(holed::g_destroyCalls, 1u) << "the rejected instance was left for process exit";
@@ -407,7 +407,7 @@ namespace
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(holed::Backend())));
 
 		constexpr std::array preferred{ rhi::VulkanApi::id };
-		const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, rhi::InstanceDesc{});
+		const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, rhi::InstanceDesc{});
 
 		EXPECT_TRUE(test::Failed(instance, rhi::ErrorCode::eValidationFailed));
 		EXPECT_EQ(holed::g_destroyCalls, 0u);
@@ -432,7 +432,7 @@ namespace
 		rhi::DeviceDesc desc{};
 		desc.requireSwapchain = false;
 
-		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, desc);
+		const rhi::Result<rhi::UniqueDevice> device = rhi::create_device(registry, preferred, desc);
 
 		ASSERT_TRUE(test::Ok(device)) << "the backend in front refused and the one behind it was never asked";
 		EXPECT_EQ(device.Value().Get().GetGraphicsApiId(), rhi::NullApi::id);
@@ -451,10 +451,10 @@ namespace
 		rhi::DeviceDesc desc{};
 		desc.requireSwapchain = false;
 
-		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, desc);
+		const rhi::Result<rhi::UniqueDevice> device = rhi::create_device(registry, preferred, desc);
 
-		ASSERT_FALSE(device.HasValue());
-		EXPECT_NE(device.GetError().code, rhi::ErrorCode::eUnsupportedApi) << "a backend was tried and refused, so the report is its reason and not an absence";
+		ASSERT_FALSE(device.has_value());
+		EXPECT_NE(device.get_error().code, rhi::ErrorCode::eUnsupportedApi) << "a backend was tried and refused, so the report is its reason and not an absence";
 	}
 
 	TEST(CreateDevice, RejectsAHoledInstanceTableBeforeReachingCreateDeviceThroughIt)
@@ -466,7 +466,7 @@ namespace
 		ASSERT_TRUE(test::Ok(registry.Register<rhi::VulkanApi>(holed::Backend())));
 
 		constexpr std::array preferred{ rhi::VulkanApi::id };
-		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, rhi::DeviceDesc{});
+		const rhi::Result<rhi::UniqueDevice> device = rhi::create_device(registry, preferred, rhi::DeviceDesc{});
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eValidationFailed));
 		EXPECT_EQ(holed::g_destroyCalls, 1u);
@@ -481,7 +481,7 @@ namespace
 
 		constexpr std::array preferred{ rhi::VulkanApi::id };
 		{
-			const rhi::Result<rhi::UniqueInstance> instance = rhi::CreateInstance(registry, preferred, rhi::InstanceDesc{});
+			const rhi::Result<rhi::UniqueInstance> instance = rhi::create_instance(registry, preferred, rhi::InstanceDesc{});
 			ASSERT_TRUE(test::Ok(instance));
 			EXPECT_TRUE(instance.Value().IsValid());
 		}

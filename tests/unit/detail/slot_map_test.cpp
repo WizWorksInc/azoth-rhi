@@ -39,90 +39,90 @@ namespace
 	TEST(SlotMap, StoreHandsBackALiveHandle)
 	{
 		TestMap map;
-		const TestHandle handle = map.Store(42);
+		const TestHandle handle = map.store(42);
 
-		ASSERT_TRUE(handle.IsValid());
-		ASSERT_NE(map.Resolve(handle, true), nullptr);
-		EXPECT_EQ(*map.Resolve(handle, true), 42);
-		EXPECT_EQ(map.LiveCount(), 1u);
+		ASSERT_TRUE(handle.is_valid());
+		ASSERT_NE(map.resolve(handle, true), nullptr);
+		EXPECT_EQ(*map.resolve(handle, true), 42);
+		EXPECT_EQ(map.live_count(), 1u);
 	}
 
 	TEST(SlotMap, HandsOutDistinctIndicesWhileNothingIsRetired)
 	{
 		TestMap map;
-		const TestHandle first	= map.Store(1);
-		const TestHandle second = map.Store(2);
+		const TestHandle first	= map.store(1);
+		const TestHandle second = map.store(2);
 
 		EXPECT_NE(first.index, second.index);
-		EXPECT_EQ(*map.Resolve(first, true), 1);
-		EXPECT_EQ(*map.Resolve(second, true), 2);
-		EXPECT_EQ(map.LiveCount(), 2u);
+		EXPECT_EQ(*map.resolve(first, true), 1);
+		EXPECT_EQ(*map.resolve(second, true), 2);
+		EXPECT_EQ(map.live_count(), 2u);
 	}
 
 	TEST(SlotMap, RetireDropsTheHandleAndTheLiveCount)
 	{
 		TestMap map;
-		const TestHandle handle = map.Store(7);
+		const TestHandle handle = map.store(7);
 
-		EXPECT_TRUE(map.Retire(handle, true));
-		EXPECT_EQ(map.Resolve(handle, true), nullptr);
-		EXPECT_EQ(map.LiveCount(), 0u);
+		EXPECT_TRUE(map.retire(handle, true));
+		EXPECT_EQ(map.resolve(handle, true), nullptr);
+		EXPECT_EQ(map.live_count(), 0u);
 	}
 
 	TEST(SlotMap, ReusesTheSlotWithABumpedGenerationSoTheOldHandleStaysDead)
 	{
 		TestMap map;
-		const TestHandle first = map.Store(1);
-		ASSERT_TRUE(map.Retire(first, true));
+		const TestHandle first = map.store(1);
+		ASSERT_TRUE(map.retire(first, true));
 
-		const TestHandle second = map.Store(2);
+		const TestHandle second = map.store(2);
 		EXPECT_EQ(second.index, first.index) << "the retired slot was not reused";
 		EXPECT_NE(second.generation, first.generation) << "the reused slot kept its old generation";
 
-		EXPECT_EQ(map.Resolve(first, true), nullptr);
-		ASSERT_NE(map.Resolve(second, true), nullptr);
-		EXPECT_EQ(*map.Resolve(second, true), 2);
+		EXPECT_EQ(map.resolve(first, true), nullptr);
+		ASSERT_NE(map.resolve(second, true), nullptr);
+		EXPECT_EQ(*map.resolve(second, true), 2);
 	}
 
 	TEST(SlotMap, RejectsADoubleRetireSoNothingIsFreedTwice)
 	{
 		TestMap map;
-		const TestHandle handle = map.Store(1);
+		const TestHandle handle = map.store(1);
 
-		EXPECT_TRUE(map.Retire(handle, true));
-		EXPECT_FALSE(map.Retire(handle, true)) << "a second retire of the same handle was accepted";
+		EXPECT_TRUE(map.retire(handle, true));
+		EXPECT_FALSE(map.retire(handle, true)) << "a second retire of the same handle was accepted";
 
-		const TestHandle reused = map.Store(2);
-		const TestHandle fresh	= map.Store(3);
+		const TestHandle reused = map.store(2);
+		const TestHandle fresh	= map.store(3);
 		EXPECT_NE(reused.index, fresh.index);
 	}
 
 	TEST(SlotMap, BoundsAreCheckedEvenWithValidationOff)
 	{
 		TestMap map;
-		static_cast<void>(map.Store(1));
+		static_cast<void>(map.store(1));
 
 		constexpr TestHandle outOfRange{
 			.index		= 1000,
 			.generation = 1,
 		};
-		EXPECT_EQ(map.Resolve(outOfRange, false), nullptr);
-		EXPECT_EQ(map.Resolve(outOfRange, true), nullptr);
-		EXPECT_FALSE(map.Retire(outOfRange, false));
-		EXPECT_FALSE(map.Retire(outOfRange, true));
+		EXPECT_EQ(map.resolve(outOfRange, false), nullptr);
+		EXPECT_EQ(map.resolve(outOfRange, true), nullptr);
+		EXPECT_FALSE(map.retire(outOfRange, false));
+		EXPECT_FALSE(map.retire(outOfRange, true));
 	}
 
 	TEST(SlotMap, SkippingValidationResolvesAStaleHandleToTheCurrentOccupant)
 	{
 		TestMap map;
-		const TestHandle first = map.Store(1);
-		ASSERT_TRUE(map.Retire(first, true));
-		const TestHandle second = map.Store(2);
+		const TestHandle first = map.store(1);
+		ASSERT_TRUE(map.retire(first, true));
+		const TestHandle second = map.store(2);
 		ASSERT_EQ(second.index, first.index);
 
-		EXPECT_EQ(map.Resolve(first, true), nullptr);
-		ASSERT_NE(map.Resolve(first, false), nullptr);
-		EXPECT_EQ(*map.Resolve(first, false), 2);
+		EXPECT_EQ(map.resolve(first, true), nullptr);
+		ASSERT_NE(map.resolve(first, false), nullptr);
+		EXPECT_EQ(*map.resolve(first, false), 2);
 	}
 
 	TEST(SlotMap, TheDeviceTagKeepsTwoMapsFromAliasing)
@@ -130,12 +130,12 @@ namespace
 		TestMap owner(1u);
 		TestMap other(2u);
 
-		const TestHandle fromOwner = owner.Store(1);
-		static_cast<void>(other.Store(2));
+		const TestHandle fromOwner = owner.store(1);
+		static_cast<void>(other.store(2));
 
-		EXPECT_NE(rhi::detail::TagOfIndex(fromOwner.index), 0u);
-		EXPECT_EQ(other.Resolve(fromOwner, true), nullptr) << "a foreign handle resolved inside another map";
-		EXPECT_FALSE(other.Retire(fromOwner, true)) << "a foreign handle was retired by another map";
+		EXPECT_NE(rhi::detail::tag_of_index(fromOwner.index), 0u);
+		EXPECT_EQ(other.resolve(fromOwner, true), nullptr) << "a foreign handle resolved inside another map";
+		EXPECT_FALSE(other.retire(fromOwner, true)) << "a foreign handle was retired by another map";
 	}
 
 	TEST(SlotMap, AForeignHandleIsRejectedEvenWithValidationOff)
@@ -143,57 +143,57 @@ namespace
 		TestMap owner(1u);
 		TestMap other(2u);
 
-		const TestHandle fromOwner = owner.Store(1);
-		static_cast<void>(other.Store(2));
+		const TestHandle fromOwner = owner.store(1);
+		static_cast<void>(other.store(2));
 
-		EXPECT_EQ(other.Resolve(fromOwner, false), nullptr) << "a foreign handle resolved with validation off";
-		EXPECT_FALSE(other.Retire(fromOwner, false)) << "a foreign handle was retired with validation off";
+		EXPECT_EQ(other.resolve(fromOwner, false), nullptr) << "a foreign handle resolved with validation off";
+		EXPECT_FALSE(other.retire(fromOwner, false)) << "a foreign handle was retired with validation off";
 	}
 
 	TEST(SlotMap, RecyclingOneSlotLeavesTheDeviceTagAlone)
 	{
 		TestMap map(1u);
-		const TestHandle first			 = map.Store(0);
-		const std::uint32_t expectedTag	 = rhi::detail::TagOfIndex(first.index);
-		const std::uint32_t expectedSlot = rhi::detail::SlotOfIndex(first.index);
-		ASSERT_TRUE(map.Retire(first, true));
+		const TestHandle first			 = map.store(0);
+		const std::uint32_t expectedTag	 = rhi::detail::tag_of_index(first.index);
+		const std::uint32_t expectedSlot = rhi::detail::slot_of_index(first.index);
+		ASSERT_TRUE(map.retire(first, true));
 
 		TestHandle handle{};
 		for (int i = 0; i < 100000; ++i)
 		{
-			handle = map.Store(i);
-			ASSERT_TRUE(map.Retire(handle, true));
+			handle = map.store(i);
+			ASSERT_TRUE(map.retire(handle, true));
 		}
 
-		EXPECT_EQ(rhi::detail::TagOfIndex(handle.index), expectedTag) << "the generation counter carried into the device tag";
-		EXPECT_EQ(rhi::detail::SlotOfIndex(handle.index), expectedSlot);
+		EXPECT_EQ(rhi::detail::tag_of_index(handle.index), expectedTag) << "the generation counter carried into the device tag";
+		EXPECT_EQ(rhi::detail::slot_of_index(handle.index), expectedSlot);
 	}
 
 	TEST(SlotMap, ConstResolveFollowsTheSameRules)
 	{
 		TestMap map;
-		const TestHandle handle	 = map.Store(5);
+		const TestHandle handle	 = map.store(5);
 		const TestMap & readOnly = map;
 
-		ASSERT_NE(readOnly.Resolve(handle, true), nullptr);
-		EXPECT_EQ(*readOnly.Resolve(handle, true), 5);
+		ASSERT_NE(readOnly.resolve(handle, true), nullptr);
+		EXPECT_EQ(*readOnly.resolve(handle, true), 5);
 
-		ASSERT_TRUE(map.Retire(handle, true));
-		EXPECT_EQ(readOnly.Resolve(handle, true), nullptr);
+		ASSERT_TRUE(map.retire(handle, true));
+		EXPECT_EQ(readOnly.resolve(handle, true), nullptr);
 	}
 
 	TEST(SlotMap, ForEachLiveVisitsOnlyLiveSlots)
 	{
 		TestMap map;
-		const TestHandle first = map.Store(1);
-		static_cast<void>(map.Store(2));
-		const TestHandle third = map.Store(3);
+		const TestHandle first = map.store(1);
+		static_cast<void>(map.store(2));
+		const TestHandle third = map.store(3);
 
-		ASSERT_TRUE(map.Retire(first, true));
-		ASSERT_TRUE(map.Retire(third, true));
+		ASSERT_TRUE(map.retire(first, true));
+		ASSERT_TRUE(map.retire(third, true));
 
 		std::vector<int> visited;
-		map.ForEachLive(
+		map.for_each_live(
 			[&visited](const int & payload)
 			{
 				visited.push_back(payload);
@@ -205,15 +205,15 @@ namespace
 	TEST(SlotMap, ResetEmptiesTheMapAndRestartsIndices)
 	{
 		TestMap map;
-		static_cast<void>(map.Store(1));
-		static_cast<void>(map.Store(2));
+		static_cast<void>(map.store(1));
+		static_cast<void>(map.store(2));
 
 		map.Reset();
-		EXPECT_EQ(map.LiveCount(), 0u);
+		EXPECT_EQ(map.live_count(), 0u);
 
-		const TestHandle afterReset = map.Store(3);
+		const TestHandle afterReset = map.store(3);
 		EXPECT_EQ(afterReset.index, 0u);
-		EXPECT_EQ(map.LiveCount(), 1u);
+		EXPECT_EQ(map.live_count(), 1u);
 	}
 
 	TEST(SlotMap, MovesPayloadsRatherThanCopyingThem)
@@ -223,9 +223,9 @@ namespace
 		std::string payload = "a string long enough to have heap storage of its own";
 		const char * before = payload.data();
 
-		const rhi::Handle<PayloadTag> handle = map.Store(std::move(payload));
-		ASSERT_NE(map.Resolve(handle, true), nullptr);
-		EXPECT_EQ(map.Resolve(handle, true)->data(), before) << "the payload was copied into the slot";
+		const rhi::Handle<PayloadTag> handle = map.store(std::move(payload));
+		ASSERT_NE(map.resolve(handle, true), nullptr);
+		EXPECT_EQ(map.resolve(handle, true)->data(), before) << "the payload was copied into the slot";
 	}
 
 	TEST(SlotMap, SurvivesAlternatingStoreAndRetireWithoutLeakingSlots)
@@ -235,13 +235,13 @@ namespace
 
 		for (int round = 0; round < 64; ++round)
 		{
-			const TestHandle handle = map.Store(round);
+			const TestHandle handle = map.store(round);
 			EXPECT_EQ(handle.index, 0u) << "a freed slot was not reused on round " << round;
 			generations.push_back(handle.generation);
-			ASSERT_TRUE(map.Retire(handle, true));
+			ASSERT_TRUE(map.retire(handle, true));
 		}
 
-		EXPECT_EQ(map.LiveCount(), 0u);
+		EXPECT_EQ(map.live_count(), 0u);
 
 		for (std::size_t index = 1; index < generations.size(); ++index)
 		{
@@ -253,8 +253,8 @@ namespace
 	{
 		TestMap map;
 
-		const TestHandle first = map.Store(1234);
-		ASSERT_TRUE(first.IsValid());
+		const TestHandle first = map.store(1234);
+		ASSERT_TRUE(first.is_valid());
 
 		constexpr std::size_t kAtLeastRead = 64;
 		constexpr int kAtLeastStored	   = 4096;
@@ -272,7 +272,7 @@ namespace
 			{
 				while (!stop.load(std::memory_order_relaxed))
 				{
-					const int * payload = map.Resolve(first, true);
+					const int * payload = map.resolve(first, true);
 					if (payload == nullptr || *payload != 1234)
 					{
 						mismatched.store(true, std::memory_order_relaxed);
@@ -282,7 +282,7 @@ namespace
 					if (const int reach = published.load(std::memory_order_acquire); reach > 0)
 					{
 						const int newest		 = reach - 1;
-						const int * grownPayload = map.Resolve(grown[static_cast<std::size_t>(newest)], true);
+						const int * grownPayload = map.resolve(grown[static_cast<std::size_t>(newest)], true);
 						if (grownPayload == nullptr || *grownPayload != newest)
 						{
 							mismatched.store(true, std::memory_order_relaxed);
@@ -296,7 +296,7 @@ namespace
 
 		for (int index = 0; index < kAtLeastStored; ++index)
 		{
-			grown.push_back(map.Store(index));
+			grown.push_back(map.store(index));
 			published.store(index + 1, std::memory_order_release);
 		}
 
@@ -313,7 +313,7 @@ namespace
 
 		for (int stored = 0; stored < kAtLeastStored; ++stored)
 		{
-			const int * payload = map.Resolve(grown[static_cast<std::size_t>(stored)], true);
+			const int * payload = map.resolve(grown[static_cast<std::size_t>(stored)], true);
 			ASSERT_NE(payload, nullptr) << "slot " << stored;
 			EXPECT_EQ(*payload, stored);
 		}
@@ -323,16 +323,16 @@ namespace
 	{
 		TestMap map;
 
-		const TestHandle early	 = map.Store(7);
-		const int * beforeGrowth = map.Resolve(early, true);
+		const TestHandle early	 = map.store(7);
+		const int * beforeGrowth = map.resolve(early, true);
 		ASSERT_NE(beforeGrowth, nullptr);
 
 		for (int index = 0; index < 8192; ++index)
 		{
-			static_cast<void>(map.Store(index));
+			static_cast<void>(map.store(index));
 		}
 
-		EXPECT_EQ(map.Resolve(early, true), beforeGrowth) << "a slot moved, which is the whole thing chunked storage rules out";
+		EXPECT_EQ(map.resolve(early, true), beforeGrowth) << "a slot moved, which is the whole thing chunked storage rules out";
 	}
 
 }

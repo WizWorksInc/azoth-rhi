@@ -53,26 +53,26 @@ namespace
 
 	TEST(IsDepthFormat, IdentifiesExactlyTheDepthAndDepthStencilFormats)
 	{
-		static_assert(rhi::IsDepthFormat(rhi::Format::eD16UNorm));
-		static_assert(rhi::IsDepthFormat(rhi::Format::eD24UNormS8UInt));
-		static_assert(rhi::IsDepthFormat(rhi::Format::eD32Float));
-		static_assert(rhi::IsDepthFormat(rhi::Format::eD32FloatS8UInt));
-		static_assert(rhi::IsDepthFormat(rhi::Format::eX8D24UNorm));
+		static_assert(rhi::is_depth_format(rhi::Format::eD16UNorm));
+		static_assert(rhi::is_depth_format(rhi::Format::eD24UNormS8UInt));
+		static_assert(rhi::is_depth_format(rhi::Format::eD32Float));
+		static_assert(rhi::is_depth_format(rhi::Format::eD32FloatS8UInt));
+		static_assert(rhi::is_depth_format(rhi::Format::eX8D24UNorm));
 
 		SUCCEED();
 	}
 
 	TEST(IsDepthFormat, RejectsColorFormatsIncludingTheOnesThatLookNumericallySimilar)
 	{
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eUndefined));
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eRGBA8UNorm));
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eBGRA8Srgb));
+		static_assert(!rhi::is_depth_format(rhi::Format::eUndefined));
+		static_assert(!rhi::is_depth_format(rhi::Format::eRGBA8UNorm));
+		static_assert(!rhi::is_depth_format(rhi::Format::eBGRA8Srgb));
 
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eR32Float));
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eR16Float));
+		static_assert(!rhi::is_depth_format(rhi::Format::eR32Float));
+		static_assert(!rhi::is_depth_format(rhi::Format::eR16Float));
 
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eBC7UNorm));
-		static_assert(!rhi::IsDepthFormat(rhi::Format::eBC6HSFloat));
+		static_assert(!rhi::is_depth_format(rhi::Format::eBC7UNorm));
+		static_assert(!rhi::is_depth_format(rhi::Format::eBC6HSFloat));
 
 		SUCCEED();
 	}
@@ -245,9 +245,9 @@ namespace
 		static_assert(static_cast<std::uint8_t>(rhi::TextureAspect::eStencil) == 0b100);
 
 		constexpr rhi::Flags<rhi::TextureAspect> both = rhi::Flags<rhi::TextureAspect>(rhi::TextureAspect::eDepth) | rhi::TextureAspect::eStencil;
-		static_assert(both.Contains(rhi::TextureAspect::eDepth));
-		static_assert(both.Contains(rhi::TextureAspect::eStencil));
-		static_assert(!both.Contains(rhi::TextureAspect::eColor));
+		static_assert(both.contains(rhi::TextureAspect::eDepth));
+		static_assert(both.contains(rhi::TextureAspect::eStencil));
+		static_assert(!both.contains(rhi::TextureAspect::eColor));
 
 		SUCCEED();
 	}

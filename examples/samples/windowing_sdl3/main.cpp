@@ -97,7 +97,7 @@ namespace
 			{
 				flags |= SDL_WINDOW_VULKAN;
 			}
-			else if (rhi::IsMetalFamily(api))
+			else if (rhi::is_metal_family(api))
 			{
 				flags |= SDL_WINDOW_METAL;
 			}
@@ -109,7 +109,7 @@ namespace
 				return false;
 			}
 
-			if (rhi::IsMetalFamily(api))
+			if (rhi::is_metal_family(api))
 			{
 				m_metalView = SDL_Metal_CreateView(m_window);
 			}
@@ -142,7 +142,7 @@ namespace
 			return rhi::Extent2D{ .width = static_cast<std::uint32_t>(width), .height = static_cast<std::uint32_t>(height) };
 		}
 
-		[[nodiscard]] bool Provide(const rhi::SurfaceRequest & request) override
+		[[nodiscard]] bool provide(const rhi::SurfaceRequest & request) override
 		{
 			if (auto * loader = rhi::SurfacePayloadOf<rhi::native::VulkanLoaderPayload>(request); loader != nullptr)
 			{
@@ -184,13 +184,13 @@ int main(int argc, char ** argv)
 	const std::uint64_t frameLimit = args.size() > 1 ? std::strtoull(args[1], nullptr, 10) : 0;
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .includeNull = false } };
-	if (backends.IsEmpty())
+	if (backends.is_empty())
 	{
 		LOG_INFO(fw::Log(), "this build has no backend that can present");
 		return 1;
 	}
 
-	const rhi::GraphicsApiId api = backends.Preferred().front().id;
+	const rhi::GraphicsApiId api = backends.preferred().front().id;
 
 	Window window;
 	if (!window.Open(api))
@@ -198,39 +198,39 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::MakePresentationBackend(api);
-	if (presentation == nullptr || !presentation->InitInstanceLoader(window))
+	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::make_presentation_backend(api);
+	if (presentation == nullptr || !presentation->init_instance_loader(window))
 	{
 		LOG_ERROR(fw::Log(), "this build cannot present through the backend it picked");
 		return 1;
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder().DebugName("sdl3").GraphicsQueue().Build(backends.Registry(), backends.PreferredApis().first(1));
+		rhi::DeviceBuilder().debug_name("sdl3").graphics_queue().build(backends.registry(), backends.preferred_apis().first(1));
 	if (!device)
 	{
-		LOG_ERROR(fw::Log(), "failed to create a device: {}", device.GetError().message != nullptr ? device.GetError().message : "no diagnostic");
+		LOG_ERROR(fw::Log(), "failed to create a device: {}", device.get_error().message != nullptr ? device.get_error().message : "no diagnostic");
 		return 1;
 	}
 
 	rhi::Device dev = device.Value().Get();
 	rhi::Error error{};
 
-	const rhi::SurfaceHandle surface = presentation->CreateSurface(window, dev);
+	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
 	const rhi::Extent2D initial		 = window.GetDrawableSize();
 
-	rhi::Swapchain swapchain = dev.CreateSwapchain(
+	rhi::Swapchain swapchain = dev.create_swapchain(
 		rhi::SwapchainDesc{ .surface = surface, .width = initial.width, .height = initial.height, .debugName = "present.swapchain" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "present.timeline" }, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "present.pool" }, error);
-	if (surface.value == 0 || !swapchain.IsValid() || !queue.IsValid() || !timeline.IsValid() || !pool.IsValid())
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "present.timeline" }, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "present.pool" }, error);
+	if (surface.value == 0 || !swapchain.is_valid() || !queue.is_valid() || !timeline.is_valid() || !pool.is_valid())
 	{
 		LOG_ERROR(fw::Log(), "failed to set up presentation: {}", error.message != nullptr ? error.message : "no diagnostic");
 		return 1;
 	}
 
-	LOG_INFO(fw::Log(), "{} at {}x{}, {} images", dev.GetGraphicsApiName(), swapchain.GetWidth(), swapchain.GetHeight(), swapchain.GetImageCount());
+	LOG_INFO(fw::Log(), "{} at {}x{}, {} images", dev.get_graphics_api_name(), swapchain.get_width(), swapchain.get_height(), swapchain.get_image_count());
 
 	std::uint64_t frame = 0;
 	while (window.PumpEvents())
@@ -246,22 +246,22 @@ int main(int argc, char ** argv)
 			continue;
 		}
 
-		if (size.width != swapchain.GetWidth() || size.height != swapchain.GetHeight())
+		if (size.width != swapchain.get_width() || size.height != swapchain.get_height())
 		{
-			static_cast<void>(queue.WaitIdle(error));
-			if (!swapchain.Resize(size.width, size.height, error))
+			static_cast<void>(queue.wait_idle(error));
+			if (!swapchain.resize(size.width, size.height, error))
 			{
 				LOG_ERROR(fw::Log(), "failed to resize the swapchain");
 				return 1;
 			}
-			LOG_INFO(fw::Log(), "resized to {}x{}", swapchain.GetWidth(), swapchain.GetHeight());
+			LOG_INFO(fw::Log(), "resized to {}x{}", swapchain.get_width(), swapchain.get_height());
 		}
 
-		const rhi::AcquireResult acquired = swapchain.AcquireNextImage(kNoTimeout, error);
+		const rhi::AcquireResult acquired = swapchain.acquire_next_image(kNoTimeout, error);
 		if (acquired.status == rhi::SwapchainStatus::eOutOfDate)
 		{
-			static_cast<void>(queue.WaitIdle(error));
-			static_cast<void>(swapchain.Resize(size.width, size.height, error));
+			static_cast<void>(queue.wait_idle(error));
+			static_cast<void>(swapchain.resize(size.width, size.height, error));
 			continue;
 		}
 		if (acquired.status != rhi::SwapchainStatus::eOk && acquired.status != rhi::SwapchainStatus::eSuboptimal)
@@ -279,7 +279,7 @@ int main(int argc, char ** argv)
 		}
 
 		rhi::CommandList list = pool.Allocate("present.frame", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			LOG_ERROR(fw::Log(), "failed to start recording");
 			return 1;
@@ -305,9 +305,9 @@ int main(int argc, char ** argv)
 		} };
 
 		const bool recorded =
-			list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
-			list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.GetWidth(), .height = swapchain.GetHeight() }, error) &&
-			list.EndRendering(error) && list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
+			list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
+			list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.get_width(), .height = swapchain.get_height() }, error) &&
+			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
 		if (!recorded)
 		{
 			LOG_ERROR(fw::Log(), "failed to record the frame: {}", error.message != nullptr ? error.message : "no diagnostic");
@@ -325,7 +325,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "present.submit",
 		};
 
-		if (!queue.Submit(submit, error))
+		if (!queue.submit(submit, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to submit the frame");
 			return 1;
@@ -340,8 +340,8 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	static_cast<void>(queue.WaitIdle(error));
-	dev.CollectGarbage(timeline, frame, error);
+	static_cast<void>(queue.wait_idle(error));
+	dev.collect_garbage(timeline, frame, error);
 
 	LOG_INFO(fw::Log(), "{} frames presented", frame);
 	return 0;

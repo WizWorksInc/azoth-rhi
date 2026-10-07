@@ -40,7 +40,7 @@ namespace azo::rhi::test::oracle
 
 		[[nodiscard]] const BackendObject * Published(void * impl)
 		{
-			return detail::ObjectOf(impl);
+			return detail::object_of(impl);
 		}
 
 		template <typename Block>
@@ -75,7 +75,7 @@ namespace azo::rhi::test::oracle
 			EXPECT_EQ(block->header.byteSize, sizeof(Block)) << what << " declared a size other than the layout it published";
 			EXPECT_GE(block->header.version, 1u) << what << " published a block with no version";
 
-			EXPECT_EQ(object->queryInterface(impl, MakeInterfaceId("azoth.rhi.block.nobodyMintedThis"), 1), nullptr)
+			EXPECT_EQ(object->queryInterface(impl, make_interface_id("azoth.rhi.block.nobodyMintedThis"), 1), nullptr)
 				<< what << " answered for a block it does not implement";
 			EXPECT_EQ(object->queryInterface(impl, id, kVersion + 1000), nullptr) << what << " handed back an older block than the caller asked for";
 		}
@@ -132,15 +132,15 @@ namespace azo::rhi::test::oracle
 		{
 			Error error{};
 
-			CommandPool pool = device.CreateCommandPool(samples::CommandPool(QueueType::eGraphics), error);
-			ASSERT_TRUE(Ok(pool.IsValid(), error));
+			CommandPool pool = device.create_command_pool(samples::CommandPool(QueueType::eGraphics), error);
+			ASSERT_TRUE(Ok(pool.is_valid(), error));
 
-			void * poolImpl			= detail::FacadeBuilder::ImplOf(pool);
+			void * poolImpl			= detail::FacadeBuilder::impl_of(pool);
 			const void * atCreation = QueryOnce<CommandPoolApi>(poolImpl);
 			ASSERT_NE(atCreation, nullptr) << "a command pool published no block when it was new";
 
 			CommandList list = pool.Allocate("azoth.rhi.conformance.blockLifetime", error);
-			ASSERT_TRUE(Ok(list.IsValid(), error));
+			ASSERT_TRUE(Ok(list.is_valid(), error));
 			EXPECT_TRUE(Ok(list.Begin(error), error));
 			EXPECT_TRUE(Ok(list.End(error), error));
 
@@ -152,7 +152,7 @@ namespace azo::rhi::test::oracle
 
 	void CheckRequiredBlocks(Device device)
 	{
-		void * deviceImpl = detail::FacadeBuilder::ImplOf(device);
+		void * deviceImpl = detail::FacadeBuilder::impl_of(device);
 		ASSERT_NE(deviceImpl, nullptr) << "a valid device resolved to no implementation";
 
 		EXPECT_NE(QueryOnce<CoreDeviceApi>(deviceImpl), nullptr) << "the device publishes no CoreDeviceApi, which is the one block it cannot be driven "
@@ -160,30 +160,30 @@ namespace azo::rhi::test::oracle
 
 		Error error{};
 
-		Queue queue = device.GetQueue(QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(Ok(queue.IsValid(), error));
-		EXPECT_NE(QueryOnce<QueueApi>(detail::FacadeBuilder::ImplOf(queue)), nullptr) << "a queue publishes no QueueApi, so nothing can be submitted to it";
+		Queue queue = device.get_queue(QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(Ok(queue.is_valid(), error));
+		EXPECT_NE(QueryOnce<QueueApi>(detail::FacadeBuilder::impl_of(queue)), nullptr) << "a queue publishes no QueueApi, so nothing can be submitted to it";
 
-		CommandPool pool = device.CreateCommandPool(samples::CommandPool(QueueType::eGraphics), error);
-		ASSERT_TRUE(Ok(pool.IsValid(), error));
-		EXPECT_NE(QueryOnce<CommandPoolApi>(detail::FacadeBuilder::ImplOf(pool)), nullptr) << "a command pool publishes no CommandPoolApi, so it can hand "
+		CommandPool pool = device.create_command_pool(samples::CommandPool(QueueType::eGraphics), error);
+		ASSERT_TRUE(Ok(pool.is_valid(), error));
+		EXPECT_NE(QueryOnce<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool)), nullptr) << "a command pool publishes no CommandPoolApi, so it can hand "
 																							  "out nothing";
 
 		CommandList list = pool.Allocate("azoth.rhi.conformance.requiredBlocks", error);
-		ASSERT_TRUE(Ok(list.IsValid(), error));
-		EXPECT_NE(QueryOnce<RenderCommandApi>(detail::FacadeBuilder::ImplOf(list)), nullptr) << "a command list publishes no RenderCommandApi, so nothing "
+		ASSERT_TRUE(Ok(list.is_valid(), error));
+		EXPECT_NE(QueryOnce<RenderCommandApi>(detail::FacadeBuilder::impl_of(list)), nullptr) << "a command list publishes no RenderCommandApi, so nothing "
 																								"can be recorded into it";
 
-		DescriptorArena arena = device.CreateDescriptorArena(samples::DescriptorArena(), error);
-		ASSERT_TRUE(Ok(arena.IsValid(), error));
-		EXPECT_NE(QueryOnce<DescriptorArenaApi>(detail::FacadeBuilder::ImplOf(arena)), nullptr) << "a descriptor arena publishes no DescriptorArenaApi, so "
+		DescriptorArena arena = device.create_descriptor_arena(samples::DescriptorArena(), error);
+		ASSERT_TRUE(Ok(arena.is_valid(), error));
+		EXPECT_NE(QueryOnce<DescriptorArenaApi>(detail::FacadeBuilder::impl_of(arena)), nullptr) << "a descriptor arena publishes no DescriptorArenaApi, so "
 																								   "no set can be allocated from it";
 	}
 
 	void CheckCapsFollowBlocks(Device device)
 	{
-		void * deviceImpl		= detail::FacadeBuilder::ImplOf(device);
-		const DeviceCaps & caps = device.GetCaps();
+		void * deviceImpl		= detail::FacadeBuilder::impl_of(device);
+		const DeviceCaps & caps = device.get_caps();
 
 		const bool present		 = QueryOnce<PresentApi>(deviceImpl) != nullptr;
 		const bool placedMemory	 = QueryOnce<PlacedMemoryApi>(deviceImpl) != nullptr;
@@ -203,7 +203,7 @@ namespace azo::rhi::test::oracle
 		{
 			for (std::size_t raw = 0; raw < kFormatCount; ++raw)
 			{
-				const FormatSupport support = device.GetFormatSupport(static_cast<Format>(raw));
+				const FormatSupport support = device.get_format_support(static_cast<Format>(raw));
 				EXPECT_FALSE(support.blitSrc || support.blitDst) << "a format reports blit support on a device reporting no scaled blit";
 			}
 		}
@@ -231,46 +231,46 @@ namespace azo::rhi::test::oracle
 
 	void CheckBlockStability(Device device)
 	{
-		ExpectAnswersTheSameWayTwice<CoreDeviceApi>(detail::FacadeBuilder::ImplOf(device), "the device");
+		ExpectAnswersTheSameWayTwice<CoreDeviceApi>(detail::FacadeBuilder::impl_of(device), "the device");
 
 		Error error{};
 
-		Queue queue = device.GetQueue(QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(Ok(queue.IsValid(), error));
-		ExpectAnswersTheSameWayTwice<QueueApi>(detail::FacadeBuilder::ImplOf(queue), "a queue");
+		Queue queue = device.get_queue(QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(Ok(queue.is_valid(), error));
+		ExpectAnswersTheSameWayTwice<QueueApi>(detail::FacadeBuilder::impl_of(queue), "a queue");
 
-		CommandPool pool = device.CreateCommandPool(samples::CommandPool(QueueType::eGraphics), error);
-		ASSERT_TRUE(Ok(pool.IsValid(), error));
-		ExpectAnswersTheSameWayTwice<CommandPoolApi>(detail::FacadeBuilder::ImplOf(pool), "a command pool");
+		CommandPool pool = device.create_command_pool(samples::CommandPool(QueueType::eGraphics), error);
+		ASSERT_TRUE(Ok(pool.is_valid(), error));
+		ExpectAnswersTheSameWayTwice<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool), "a command pool");
 
 		CommandList list = pool.Allocate("azoth.rhi.conformance.blockStability", error);
-		ASSERT_TRUE(Ok(list.IsValid(), error));
-		ExpectAnswersTheSameWayTwice<RenderCommandApi>(detail::FacadeBuilder::ImplOf(list), "a command list");
+		ASSERT_TRUE(Ok(list.is_valid(), error));
+		ExpectAnswersTheSameWayTwice<RenderCommandApi>(detail::FacadeBuilder::impl_of(list), "a command list");
 
-		DescriptorArena arena = device.CreateDescriptorArena(samples::DescriptorArena(), error);
-		ASSERT_TRUE(Ok(arena.IsValid(), error));
-		ExpectAnswersTheSameWayTwice<DescriptorArenaApi>(detail::FacadeBuilder::ImplOf(arena), "a descriptor arena");
+		DescriptorArena arena = device.create_descriptor_arena(samples::DescriptorArena(), error);
+		ASSERT_TRUE(Ok(arena.is_valid(), error));
+		ExpectAnswersTheSameWayTwice<DescriptorArenaApi>(detail::FacadeBuilder::impl_of(arena), "a descriptor arena");
 
 		ExpectCallableForTheWholeLife(device);
 	}
 
 	void CheckConcurrentBlockQuery(Device device)
 	{
-		ExpectAnswersTheSameWayConcurrently<CoreDeviceApi>(detail::FacadeBuilder::ImplOf(device), "the device");
+		ExpectAnswersTheSameWayConcurrently<CoreDeviceApi>(detail::FacadeBuilder::impl_of(device), "the device");
 
 		Error error{};
 
-		Queue queue = device.GetQueue(QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(Ok(queue.IsValid(), error));
-		ExpectAnswersTheSameWayConcurrently<QueueApi>(detail::FacadeBuilder::ImplOf(queue), "a queue");
+		Queue queue = device.get_queue(QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(Ok(queue.is_valid(), error));
+		ExpectAnswersTheSameWayConcurrently<QueueApi>(detail::FacadeBuilder::impl_of(queue), "a queue");
 
-		CommandPool pool = device.CreateCommandPool(samples::CommandPool(QueueType::eGraphics), error);
-		ASSERT_TRUE(Ok(pool.IsValid(), error));
-		ExpectAnswersTheSameWayConcurrently<CommandPoolApi>(detail::FacadeBuilder::ImplOf(pool), "a command pool");
+		CommandPool pool = device.create_command_pool(samples::CommandPool(QueueType::eGraphics), error);
+		ASSERT_TRUE(Ok(pool.is_valid(), error));
+		ExpectAnswersTheSameWayConcurrently<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool), "a command pool");
 
 		CommandList list = pool.Allocate("azoth.rhi.conformance.concurrentQuery", error);
-		ASSERT_TRUE(Ok(list.IsValid(), error));
-		ExpectAnswersTheSameWayConcurrently<RenderCommandApi>(detail::FacadeBuilder::ImplOf(list), "a command list");
+		ASSERT_TRUE(Ok(list.is_valid(), error));
+		ExpectAnswersTheSameWayConcurrently<RenderCommandApi>(detail::FacadeBuilder::impl_of(list), "a command list");
 	}
 
 }

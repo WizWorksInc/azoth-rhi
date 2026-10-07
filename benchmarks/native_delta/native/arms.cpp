@@ -40,7 +40,7 @@ namespace bench::native
 
 	bool Prepare([[maybe_unused]] rhi::Device device, [[maybe_unused]] const Workload & work)
 	{
-		g_api = device.GetGraphicsApiId();
+		g_api = device.get_graphics_api_id();
 
 #ifdef AZOTH_RHI_BENCH_VULKAN
 		if (g_api == rhi::VulkanApi::id)
@@ -51,7 +51,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_METAL
-		if (rhi::IsMetalFamily(g_api))
+		if (rhi::is_metal_family(g_api))
 		{
 			g_ready = PrepareMetal(device, work);
 			return g_ready;
@@ -84,7 +84,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_METAL
-		if (rhi::IsMetalFamily(g_api))
+		if (rhi::is_metal_family(g_api))
 		{
 			ReleaseMetal();
 		}
@@ -103,7 +103,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_METAL
-		if (rhi::IsMetalFamily(g_api))
+		if (rhi::is_metal_family(g_api))
 		{
 			return MetalGap(kind);
 		}
@@ -122,7 +122,7 @@ namespace bench::native
 	bool RecordsNothing([[maybe_unused]] const Kind kind)
 	{
 #ifdef AZOTH_RHI_BENCH_METAL
-		if (rhi::IsMetalFamily(g_api))
+		if (rhi::is_metal_family(g_api))
 		{
 			return MetalRecordsNothing(kind);
 		}
@@ -152,7 +152,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_METAL
-		if (rhi::IsMetalFamily(g_api))
+		if (rhi::is_metal_family(g_api))
 		{
 			return RecordMetal(kind, list, mutation, work, commands, elapsed);
 		}

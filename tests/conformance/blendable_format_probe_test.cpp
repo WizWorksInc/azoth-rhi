@@ -45,8 +45,8 @@ namespace
 
 	[[nodiscard]] bool BlendPipelineBuilds(rhi::Device device, const rhi::Format format, rhi::Error & error)
 	{
-		rhi::PipelineLayoutHandle layout = device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.probe.layout" }, error);
-		if (!layout.IsValid())
+		rhi::PipelineLayoutHandle layout = device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.probe.layout" }, error);
+		if (!layout.is_valid())
 		{
 			return false;
 		}
@@ -78,16 +78,16 @@ namespace
 		desc.blend.attachments[0].dstColorBlendFactor = rhi::BlendFactor::eOneMinusSrcAlpha;
 		desc.debugName								  = "azoth.rhi.probe.blend";
 
-		const rhi::GraphicsPipelineHandle pipeline = device.CreateGraphicsPipeline(desc, error);
-		const bool built						   = pipeline.IsValid();
+		const rhi::GraphicsPipelineHandle pipeline = device.create_graphics_pipeline(desc, error);
+		const bool built						   = pipeline.is_valid();
 
 		rhi::Error cleanup{};
 		if (built)
 		{
-			static_cast<void>(device.Destroy(pipeline, {}, cleanup));
+			static_cast<void>(device.destroy(pipeline, {}, cleanup));
 		}
 
-		static_cast<void>(device.Destroy(layout, {}, cleanup));
+		static_cast<void>(device.destroy(layout, {}, cleanup));
 		return built;
 	}
 
@@ -112,7 +112,7 @@ namespace
 		constexpr std::array probed{ rhi::Format::eRGB9E5Float, rhi::Format::eR32UInt, rhi::Format::eBC7UNorm };
 		for (const rhi::Format format : probed)
 		{
-			const rhi::FormatSupport support = driver.Get().GetFormatSupport(format);
+			const rhi::FormatSupport support = driver.Get().get_format_support(format);
 
 			rhi::Error error{};
 			const bool built = BlendPipelineBuilds(driver.Get(), format, error);

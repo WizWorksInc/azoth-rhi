@@ -45,7 +45,7 @@ namespace azo::rhi::test
 				{
 					entries.push_back(Backend{ .id = entry.id,
 						.canonicalName			   = names.emplace_back(entry.canonicalName).c_str(),
-						.shortName				   = names.emplace_back(ShortApiName(entry.canonicalName)).c_str(),
+						.shortName				   = names.emplace_back(short_api_name(entry.canonicalName)).c_str(),
 						.displayName			   = names.emplace_back(entry.displayName).c_str(),
 						.RegisterInto			   = entry.Register });
 				}

@@ -40,8 +40,8 @@ namespace
 	[[nodiscard]] rhi::BackendSelection Selection(rhi::Result<void> (*registerInto)(rhi::GraphicsApiRegistry &), const char * name)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = name, .includeAvailable = false } };
-		EXPECT_TRUE(test::Ok(backends.Add(rhi::BackendEntry{
-			.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimal"),
+		EXPECT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
+			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimal"),
 			.canonicalName = "azoth.rhi.test.minimal",
 			.displayName   = "Minimal fixture",
 			.Register	   = registerInto,
@@ -61,108 +61,108 @@ namespace
 	{
 		rhi::BackendSelection backends = Selection(&minimal::RegisterHeadless, "minimal");
 
-		const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
+		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(owner));
 
 		rhi::Device device = owner.Value().Get();
 		rhi::Error error{};
 
-		rhi::CommandPool pool = device.CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = device.create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		rhi::CommandList list = pool.Allocate("minimal.list", error);
-		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
-		EXPECT_TRUE(list.SetViewport(rhi::Viewport{ .width = 64.0f, .height = 64.0f }, error));
-		EXPECT_TRUE(list.Draw(3, 1, 0, 0, error));
+		EXPECT_TRUE(list.set_viewport(rhi::Viewport{ .width = 64.0f, .height = 64.0f }, error));
+		EXPECT_TRUE(list.draw(3, 1, 0, 0, error));
 		ASSERT_TRUE(test::Ok(list.End(error), error));
 
-		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		const rhi::TimelineHandle timeline = device.CreateTimeline(rhi::TimelineDesc{}, error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = device.create_timeline(rhi::TimelineDesc{}, error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
-		EXPECT_TRUE(test::Ok(queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error));
+		EXPECT_TRUE(test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals }, error), error));
 		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, std::numeric_limits<std::uint64_t>::max(), error), error));
 	}
 
 	TEST(MinimalBackend, EveryDeclinedCapabilityReportsItselfRatherThanFailingSomewhereElse)
 	{
 		rhi::BackendSelection backends			   = Selection(&minimal::RegisterHeadless, "minimal");
-		const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
+		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(owner));
 
 		rhi::Device device = owner.Value().Get();
 		rhi::Error error{};
 
-		static_cast<void>(device.CreateSwapchain(rhi::SwapchainDesc{}, error));
+		static_cast<void>(device.create_swapchain(rhi::SwapchainDesc{}, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "declining PresentApi did not read as a declined capability";
 
-		static_cast<void>(device.CreateHeap(rhi::HeapDesc{}, error));
+		static_cast<void>(device.create_heap(rhi::HeapDesc{}, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "PlacedMemoryApi";
 
-		static_cast<void>(device.CreateQueryPool(rhi::QueryPoolDesc{}, error));
+		static_cast<void>(device.create_query_pool(rhi::QueryPoolDesc{}, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "QueryApi";
 
-		static_cast<void>(device.CreatePipelineCache(rhi::PipelineCacheDesc{}, error));
+		static_cast<void>(device.create_pipeline_cache(rhi::PipelineCacheDesc{}, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "PipelineCacheApi";
 
-		static_cast<void>(device.CreateRayTracingPipeline(rhi::RayTracingPipelineDesc{}, error));
+		static_cast<void>(device.create_ray_tracing_pipeline(rhi::RayTracingPipelineDesc{}, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "RayTracingApi";
 
 		rhi::MemoryBudgetInfo budget{};
-		EXPECT_FALSE(device.QueryMemoryBudget(rhi::HeapType::eGpuLocal, budget, error));
+		EXPECT_FALSE(device.query_memory_budget(rhi::HeapType::eGpuLocal, budget, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "ResidencyApi";
 
-		rhi::CommandPool pool = device.CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = device.create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 		rhi::CommandList list = pool.Allocate("minimal.declined", error);
-		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 
-		EXPECT_FALSE(list.AliasBarriers({}, error));
+		EXPECT_FALSE(list.alias_barriers({}, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "AliasingCommandApi";
 
-		EXPECT_FALSE(list.DrawIndirect(rhi::BufferHandle{}, 0, 1, 0, error));
+		EXPECT_FALSE(list.draw_indirect(rhi::BufferHandle{}, 0, 1, 0, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "IndirectApi";
 
-		EXPECT_FALSE(list.BeginQuery(rhi::QueryPoolHandle{}, 0, error));
+		EXPECT_FALSE(list.begin_query(rhi::QueryPoolHandle{}, 0, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "QueryCommandApi";
 
-		EXPECT_FALSE(list.TraceRays(rhi::ShaderBindingTableDesc{}, 1, 1, 1, error));
+		EXPECT_FALSE(list.trace_rays(rhi::ShaderBindingTableDesc{}, 1, 1, 1, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature) << "RayTracingCommandApi";
 	}
 
 	TEST(MinimalBackend, gate_PresentingFixture)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.Add(rhi::BackendEntry{
-			.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimalPresenting"),
+		ASSERT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
+			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
 			.canonicalName = "azoth.rhi.test.minimalPresenting",
 			.displayName   = "Minimal presenting fixture",
 			.Register	   = &minimal::RegisterPresenting,
 		})));
 
-		const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{});
+		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
 
 		rhi::Device device = owner.Value().Get();
 		rhi::Error error{};
 
-		rhi::Swapchain swapchain = device.CreateSwapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
-		ASSERT_TRUE(test::Ok(swapchain.IsValid(), error)) << "publishing PresentApi did not make swapchains reachable";
+		rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
+		ASSERT_TRUE(test::Ok(swapchain.is_valid(), error)) << "publishing PresentApi did not make swapchains reachable";
 
-		EXPECT_EQ(swapchain.GetWidth(), 64u);
-		EXPECT_EQ(swapchain.GetImageCount(), 2u);
+		EXPECT_EQ(swapchain.get_width(), 64u);
+		EXPECT_EQ(swapchain.get_image_count(), 2u);
 
-		const rhi::AcquireResult acquired = swapchain.AcquireNextImage(std::numeric_limits<std::uint64_t>::max(), error);
+		const rhi::AcquireResult acquired = swapchain.acquire_next_image(std::numeric_limits<std::uint64_t>::max(), error);
 		ASSERT_EQ(acquired.status, rhi::SwapchainStatus::eOk);
 
-		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		const rhi::PresentResult presented = swapchain.Present(queue, acquired.imageIndex, rhi::BinarySemaphoreHandle{}, error);
 		EXPECT_EQ(presented.status, rhi::SwapchainStatus::eOk) << "the eight block fixture did not present";
@@ -171,42 +171,42 @@ namespace
 	TEST(MinimalBackend, gate_AFrameNotAPresent)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.Add(rhi::BackendEntry{
-			.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimalPresenting"),
+		ASSERT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
+			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
 			.canonicalName = "azoth.rhi.test.minimalPresenting",
 			.displayName   = "Minimal presenting fixture",
 			.Register	   = &minimal::RegisterPresenting,
 		})));
 
-		const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{});
+		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
 
 		rhi::Device device = owner.Value().Get();
 		rhi::Error error{};
 
-		rhi::Swapchain swapchain = device.CreateSwapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
-		ASSERT_TRUE(test::Ok(swapchain.IsValid(), error));
+		rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
+		ASSERT_TRUE(test::Ok(swapchain.is_valid(), error));
 
-		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		rhi::CommandPool pool = device.CreateCommandPool(test::samples::CommandPool(), error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = device.create_command_pool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 
 		for (int frame = 0; frame < 2; ++frame)
 		{
 			SCOPED_TRACE(frame == 0 ? "first frame" : "after a resize");
 
-			const rhi::AcquireResult acquired = swapchain.AcquireNextImage(std::numeric_limits<std::uint64_t>::max(), error);
+			const rhi::AcquireResult acquired = swapchain.acquire_next_image(std::numeric_limits<std::uint64_t>::max(), error);
 			ASSERT_EQ(acquired.status, rhi::SwapchainStatus::eOk);
 
-			const rhi::TextureHandle backBuffer = swapchain.GetBackBuffer(acquired.imageIndex);
-			const rhi::TextureViewHandle view	= swapchain.GetBackBufferView(acquired.imageIndex);
-			ASSERT_TRUE(backBuffer.IsValid()) << "the swapchain handed out no back buffer to render into";
-			ASSERT_TRUE(view.IsValid()) << "the swapchain handed out no view of its back buffer";
+			const rhi::TextureHandle backBuffer = swapchain.get_back_buffer(acquired.imageIndex);
+			const rhi::TextureViewHandle view	= swapchain.get_back_buffer_view(acquired.imageIndex);
+			ASSERT_TRUE(backBuffer.is_valid()) << "the swapchain handed out no back buffer to render into";
+			ASSERT_TRUE(view.is_valid()) << "the swapchain handed out no view of its back buffer";
 
 			rhi::CommandList list = pool.Allocate("azoth.rhi.test.frame", error);
-			ASSERT_TRUE(test::Ok(list.IsValid(), error));
+			ASSERT_TRUE(test::Ok(list.is_valid(), error));
 			ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 			const std::array<rhi::TextureBarrier, 1> toAttachment{ rhi::TextureBarrier{
@@ -215,7 +215,7 @@ namespace
 				.after	 = { .use = rhi::ResourceUse::eColorTarget, .stages = rhi::Stage::eColorOutput },
 				.range	 = test::samples::WholeColorRange(),
 			} };
-			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error), error))
+			EXPECT_TRUE(test::Ok(list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error), error))
 				<< "barriering the acquired back buffer was refused";
 
 			const std::array<rhi::RenderingAttachment, 1> colors{ rhi::RenderingAttachment{
@@ -224,9 +224,9 @@ namespace
 				.load  = rhi::LoadOp::eClear,
 				.store = rhi::StoreOp::eStore,
 			} };
-			EXPECT_TRUE(test::Ok(list.BeginRendering(rhi::BeginRenderingDesc{ .colors = colors, .width = 64, .height = 64 }, error), error))
+			EXPECT_TRUE(test::Ok(list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = 64, .height = 64 }, error), error))
 				<< "opening a rendering scope against the back buffer's view was refused";
-			EXPECT_TRUE(test::Ok(list.EndRendering(error), error));
+			EXPECT_TRUE(test::Ok(list.end_rendering(error), error));
 
 			const std::array<rhi::TextureBarrier, 1> toPresent{ rhi::TextureBarrier{
 				.texture = backBuffer,
@@ -234,7 +234,7 @@ namespace
 				.after	 = { .use = rhi::ResourceUse::ePresent },
 				.range	 = test::samples::WholeColorRange(),
 			} };
-			EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error), error));
+			EXPECT_TRUE(test::Ok(list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error), error));
 
 			EXPECT_TRUE(test::Ok(list.End(error), error));
 
@@ -243,8 +243,8 @@ namespace
 
 			if (frame == 0)
 			{
-				ASSERT_TRUE(test::Ok(swapchain.Resize(128, 128, error), error)) << "the swapchain refused to resize between frames";
-				EXPECT_EQ(swapchain.GetWidth(), 128u);
+				ASSERT_TRUE(test::Ok(swapchain.resize(128, 128, error), error)) << "the swapchain refused to resize between frames";
+				EXPECT_EQ(swapchain.get_width(), 128u);
 			}
 		}
 	}
@@ -257,32 +257,32 @@ namespace
 		}
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.Add(rhi::BackendEntry{
-			.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimalPresenting"),
+		ASSERT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
+			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
 			.canonicalName = "azoth.rhi.test.minimalPresenting",
 			.displayName   = "Minimal presenting fixture",
 			.Register	   = &minimal::RegisterPresenting,
 		})));
 
-		const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{});
+		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
 
 		rhi::Device device = owner.Value().Get();
 		rhi::Error error{};
 
-		rhi::Swapchain swapchain = device.CreateSwapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
-		ASSERT_TRUE(test::Ok(swapchain.IsValid(), error));
+		rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
+		ASSERT_TRUE(test::Ok(swapchain.is_valid(), error));
 
-		const rhi::AcquireResult acquired = swapchain.AcquireNextImage(std::numeric_limits<std::uint64_t>::max(), error);
+		const rhi::AcquireResult acquired = swapchain.acquire_next_image(std::numeric_limits<std::uint64_t>::max(), error);
 		ASSERT_EQ(acquired.status, rhi::SwapchainStatus::eOk);
 
-		const rhi::TextureHandle backBuffer = swapchain.GetBackBuffer(acquired.imageIndex);
-		ASSERT_TRUE(backBuffer.IsValid()) << "the presenting fixture vended no back buffer to barrier";
+		const rhi::TextureHandle backBuffer = swapchain.get_back_buffer(acquired.imageIndex);
+		ASSERT_TRUE(backBuffer.is_valid()) << "the presenting fixture vended no back buffer to barrier";
 
-		rhi::CommandPool pool = device.CreateCommandPool(rhi::CommandPoolDesc{}, error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+		rhi::CommandPool pool = device.create_command_pool(rhi::CommandPoolDesc{}, error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
 		rhi::CommandList list = pool.Allocate("azoth.rhi.test.backBuffer", error);
-		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.is_valid(), error));
 		ASSERT_TRUE(test::Ok(list.Begin(error), error));
 
 		const std::array intoColorTarget{
@@ -293,17 +293,17 @@ namespace
 			},
 		};
 
-		EXPECT_TRUE(test::Ok(list.Barriers(rhi::BarrierBatch{ .textures = intoColorTarget }, error), error))
+		EXPECT_TRUE(test::Ok(list.barriers(rhi::BarrierBatch{ .textures = intoColorTarget }, error), error))
 			<< "a barrier naming a back buffer this swapchain vended was refused";
 
-		const rhi::TextureViewHandle view = swapchain.GetBackBufferView(acquired.imageIndex);
-		ASSERT_TRUE(view.IsValid());
+		const rhi::TextureViewHandle view = swapchain.get_back_buffer_view(acquired.imageIndex);
+		ASSERT_TRUE(view.is_valid());
 
 		const std::array attachments{ rhi::RenderingAttachment{ .view = view } };
-		EXPECT_TRUE(test::Ok(list.BeginRendering(rhi::BeginRenderingDesc{ .colors = attachments, .width = 64, .height = 64 }, error), error))
+		EXPECT_TRUE(test::Ok(list.begin_rendering(rhi::BeginRenderingDesc{ .colors = attachments, .width = 64, .height = 64 }, error), error))
 			<< "a rendering scope naming a back buffer view was refused";
 
-		static_cast<void>(list.EndRendering(error));
+		static_cast<void>(list.end_rendering(error));
 		static_cast<void>(list.End(error));
 	}
 
@@ -312,14 +312,14 @@ namespace
 		const auto openAScope = [](const rhi::ValidationMode validation) noexcept
 		{
 			rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-			EXPECT_TRUE(test::Ok(backends.Add(rhi::BackendEntry{
-				.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimalPresenting"),
+			EXPECT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
+				.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
 				.canonicalName = "azoth.rhi.test.minimalPresenting",
 				.displayName   = "Minimal presenting fixture",
 				.Register	   = &minimal::RegisterPresenting,
 			})));
 
-			const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .validation = validation });
+			const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .validation = validation });
 			EXPECT_TRUE(test::Ok(owner));
 			if (!owner)
 			{
@@ -329,26 +329,26 @@ namespace
 			rhi::Device device = owner.Value().Get();
 			rhi::Error error{};
 
-			rhi::Swapchain swapchain = device.CreateSwapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
-			EXPECT_TRUE(test::Ok(swapchain.IsValid(), error));
+			rhi::Swapchain swapchain = device.create_swapchain(rhi::SwapchainDesc{ .width = 64, .height = 64 }, error);
+			EXPECT_TRUE(test::Ok(swapchain.is_valid(), error));
 
-			const rhi::AcquireResult acquired = swapchain.AcquireNextImage(std::numeric_limits<std::uint64_t>::max(), error);
+			const rhi::AcquireResult acquired = swapchain.acquire_next_image(std::numeric_limits<std::uint64_t>::max(), error);
 			EXPECT_EQ(acquired.status, rhi::SwapchainStatus::eOk);
 
-			const rhi::TextureViewHandle view = swapchain.GetBackBufferView(acquired.imageIndex);
-			EXPECT_TRUE(view.IsValid());
+			const rhi::TextureViewHandle view = swapchain.get_back_buffer_view(acquired.imageIndex);
+			EXPECT_TRUE(view.is_valid());
 
-			rhi::CommandPool pool = device.CreateCommandPool(rhi::CommandPoolDesc{}, error);
-			EXPECT_TRUE(test::Ok(pool.IsValid(), error));
+			rhi::CommandPool pool = device.create_command_pool(rhi::CommandPoolDesc{}, error);
+			EXPECT_TRUE(test::Ok(pool.is_valid(), error));
 			rhi::CommandList list = pool.Allocate("azoth.rhi.test.backBufferFormat", error);
-			EXPECT_TRUE(test::Ok(list.IsValid(), error));
+			EXPECT_TRUE(test::Ok(list.is_valid(), error));
 			EXPECT_TRUE(test::Ok(list.Begin(error), error));
 
 			const std::array attachments{ rhi::RenderingAttachment{ .view = view } };
-			const bool opened = list.BeginRendering(rhi::BeginRenderingDesc{ .colors = attachments, .width = 64, .height = 64 }, error);
+			const bool opened = list.begin_rendering(rhi::BeginRenderingDesc{ .colors = attachments, .width = 64, .height = 64 }, error);
 			if (opened)
 			{
-				static_cast<void>(list.EndRendering(error));
+				static_cast<void>(list.end_rendering(error));
 			}
 
 			static_cast<void>(list.End(error));
@@ -365,7 +365,7 @@ namespace
 	TEST(MinimalBackend, EveryCategoricalCapabilityComesOffTheBlocksRatherThanAField)
 	{
 		rhi::BackendSelection headless			  = Selection(&minimal::RegisterHeadless, "minimal");
-		const rhi::Result<rhi::UniqueDevice> bare = headless.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
+		const rhi::Result<rhi::UniqueDevice> bare = headless.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(bare));
 
 		const rhi::DeviceCaps & declined = bare.Value().Get().GetCaps();
@@ -382,14 +382,14 @@ namespace
 		EXPECT_EQ(declined.sparseTier, rhi::SparseTier::eNone) << "SparseApi";
 
 		rhi::BackendSelection presenting{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(presenting.Add(rhi::BackendEntry{
-			.id			   = rhi::MakeGraphicsApiId("azoth.rhi.test.minimalPresenting"),
+		ASSERT_TRUE(test::Ok(presenting.add(rhi::BackendEntry{
+			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
 			.canonicalName = "azoth.rhi.test.minimalPresenting",
 			.displayName   = "Minimal presenting fixture",
 			.Register	   = &minimal::RegisterPresenting,
 		})));
 
-		const rhi::Result<rhi::UniqueDevice> withSurfaces = presenting.CreateDevice(rhi::DeviceDesc{});
+		const rhi::Result<rhi::UniqueDevice> withSurfaces = presenting.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(withSurfaces));
 
 		const rhi::DeviceCaps & provided = withSurfaces.Value().Get().GetCaps();
@@ -402,40 +402,40 @@ namespace
 
 	TEST(MinimalBackend, ABundledBackendReportsOnlyWhatItPublished)
 	{
-		for (const rhi::BackendEntry & entry : rhi::AvailableBackends())
+		for (const rhi::BackendEntry & entry : rhi::available_backends())
 		{
 			rhi::BackendSelection backends{ rhi::BackendPreference{ .includeAvailable = false } };
-			ASSERT_TRUE(test::Ok(backends.Add(entry))) << entry.canonicalName;
+			ASSERT_TRUE(test::Ok(backends.add(entry))) << entry.canonicalName;
 
-			const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
+			const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 			if (!owner)
 			{
 				continue;
 			}
 
 			rhi::Device device				 = owner.Value().Get();
-			const rhi::DeviceCaps & reported = device.GetCaps();
+			const rhi::DeviceCaps & reported = device.get_caps();
 			rhi::Error error{};
 
 			if (reported.sparseTier > rhi::SparseTier::eNone)
 			{
-				rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics, 0, error);
-				ASSERT_TRUE(test::Ok(queue.IsValid(), error));
-				static_cast<void>(queue.BindSparse(rhi::SparseBindDesc{}, error));
+				rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics, 0, error);
+				ASSERT_TRUE(test::Ok(queue.is_valid(), error));
+				static_cast<void>(queue.bind_sparse(rhi::SparseBindDesc{}, error));
 				EXPECT_NE(error.code, rhi::ErrorCode::eUnsupportedFeature)
 					<< entry.canonicalName << " claims sparse binding and then declines the block behind it";
 			}
 
 			if (reported.supportsPipelineCache)
 			{
-				static_cast<void>(device.CreatePipelineCache(rhi::PipelineCacheDesc{}, error));
+				static_cast<void>(device.create_pipeline_cache(rhi::PipelineCacheDesc{}, error));
 				EXPECT_NE(error.code, rhi::ErrorCode::eUnsupportedFeature) << entry.canonicalName << " claims a pipeline cache it declined";
 			}
 
 			if (reported.supportsMemoryBudget)
 			{
 				rhi::MemoryBudgetInfo budget{};
-				static_cast<void>(device.QueryMemoryBudget(rhi::HeapType::eGpuLocal, budget, error));
+				static_cast<void>(device.query_memory_budget(rhi::HeapType::eGpuLocal, budget, error));
 				EXPECT_NE(error.code, rhi::ErrorCode::eUnsupportedFeature) << entry.canonicalName << " claims a memory budget it declined";
 			}
 		}
@@ -447,7 +447,7 @@ namespace
 
 		{
 			rhi::BackendSelection backends			   = Selection(&minimal::RegisterHeadless, "minimal");
-			const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
+			const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 			ASSERT_TRUE(test::Ok(owner));
 		}
 
@@ -462,32 +462,32 @@ namespace
 		}
 
 		rhi::BackendSelection backends			   = Selection(&minimal::RegisterHeadless, "minimal");
-		const rhi::Result<rhi::UniqueDevice> owner = backends.CreateDevice(rhi::DeviceDesc{ .requireSwapchain = false });
+		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .requireSwapchain = false });
 		ASSERT_TRUE(test::Ok(owner));
 
 		rhi::Device device = owner.Value().Get();
 		rhi::Error error{};
 
 		const rhi::BufferHandle never{};
-		EXPECT_FALSE(device.Destroy(never, {}, error)) << "a handle this device never handed out was accepted";
+		EXPECT_FALSE(device.destroy(never, {}, error)) << "a handle this device never handed out was accepted";
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 
-		const rhi::BufferHandle live = device.CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(live.IsValid(), error));
-		ASSERT_TRUE(test::Ok(device.Destroy(live, {}, error), error));
+		const rhi::BufferHandle live = device.create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(live.is_valid(), error));
+		ASSERT_TRUE(test::Ok(device.destroy(live, {}, error), error));
 
 		error = {};
-		EXPECT_FALSE(device.Destroy(live, {}, error)) << "a handle destroyed twice was accepted the second time";
+		EXPECT_FALSE(device.destroy(live, {}, error)) << "a handle destroyed twice was accepted the second time";
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 
 		error							 = {};
-		const rhi::TextureHandle texture = device.CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
-		ASSERT_TRUE(test::Ok(device.Destroy(texture, {}, error), error));
+		const rhi::TextureHandle texture = device.create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
+		ASSERT_TRUE(test::Ok(device.destroy(texture, {}, error), error));
 
 		error								  = {};
-		const rhi::TextureViewHandle fromDead = device.CreateTextureView(texture, rhi::TextureViewDesc{}, error);
-		EXPECT_FALSE(fromDead.IsValid()) << "a view was made over a texture that had already gone back";
+		const rhi::TextureViewHandle fromDead = device.create_texture_view(texture, rhi::TextureViewDesc{}, error);
+		EXPECT_FALSE(fromDead.is_valid()) << "a view was made over a texture that had already gone back";
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 	}
 

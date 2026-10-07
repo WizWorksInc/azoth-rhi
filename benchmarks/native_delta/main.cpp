@@ -75,21 +75,21 @@ namespace
 		case Kind::eSetViewport:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.SetViewport(work.viewport));
+				accepted += static_cast<std::uint64_t>(list.set_viewport(work.viewport));
 			}
 			break;
 
 		case Kind::eSetScissor:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.SetScissor(work.scissor));
+				accepted += static_cast<std::uint64_t>(list.set_scissor(work.scissor));
 			}
 			break;
 
 		case Kind::ePushConstants:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.PushConstants(work.layout,
+				accepted += static_cast<std::uint64_t>(list.push_constants(work.layout,
 					rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment,
 					0,
 					kPushConstantBytes,
@@ -100,35 +100,35 @@ namespace
 		case Kind::eBindDescriptorSet:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.BindDescriptorSet(work.layout, 0, work.set));
+				accepted += static_cast<std::uint64_t>(list.bind_descriptor_set(work.layout, 0, work.set));
 			}
 			break;
 
 		case Kind::eSetGraphicsPipeline:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.SetGraphicsPipeline(work.pipeline));
+				accepted += static_cast<std::uint64_t>(list.set_graphics_pipeline(work.pipeline));
 			}
 			break;
 
 		case Kind::eDraw:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.Draw(3, 1, 0, 0));
+				accepted += static_cast<std::uint64_t>(list.draw(3, 1, 0, 0));
 			}
 			break;
 
 		case Kind::eDrawIndexed:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.DrawIndexed(3, 1, 0, 0, 0));
+				accepted += static_cast<std::uint64_t>(list.draw_indexed(3, 1, 0, 0, 0));
 			}
 			break;
 
 		case Kind::eBarrier:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.Barriers(rhi::BarrierBatch{ .textures = work.holdBarrier }));
+				accepted += static_cast<std::uint64_t>(list.barriers(rhi::BarrierBatch{ .textures = work.holdBarrier }));
 			}
 			break;
 		}
@@ -164,7 +164,7 @@ int main(int argc, char ** argv)
 	}
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = options.backend } };
-	if (options.backend != nullptr && !backends.HonoredRequest())
+	if (options.backend != nullptr && !backends.honored_request())
 	{
 		std::println("this build has no {} backend", options.backend);
 		return 1;
@@ -175,10 +175,10 @@ int main(int argc, char ** argv)
 	deviceDesc.requireSwapchain = false;
 	deviceDesc.debugName		= "bench.nativeDelta";
 
-	const rhi::Result<rhi::UniqueDevice> device = backends.CreateDevice(deviceDesc);
+	const rhi::Result<rhi::UniqueDevice> device = backends.create_device(deviceDesc);
 	if (!device)
 	{
-		bench::ReportError("failed to create a device", device.GetError());
+		bench::ReportError("failed to create a device", device.get_error());
 		return 1;
 	}
 
@@ -196,12 +196,12 @@ int main(int argc, char ** argv)
 		.debugName = "bench.colorTarget",
 	};
 
-	work.target						   = dev.CreateTexture(targetDesc, error);
-	const rhi::TextureViewHandle view  = dev.CreateTextureView(work.target, rhi::TextureViewDesc{ .debugName = "bench.colorTargetView" }, error);
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "bench.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "bench.pool" }, error);
-	if (!work.target.IsValid() || !view.IsValid() || !timeline.IsValid() || !queue.IsValid() || !pool.IsValid())
+	work.target						   = dev.create_texture(targetDesc, error);
+	const rhi::TextureViewHandle view  = dev.create_texture_view(work.target, rhi::TextureViewDesc{ .debugName = "bench.colorTargetView" }, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "bench.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "bench.pool" }, error);
+	if (!work.target.is_valid() || !view.is_valid() || !timeline.is_valid() || !queue.is_valid() || !pool.is_valid())
 	{
 		bench::ReportError("failed to create the recording resources", error);
 		return 1;
@@ -212,7 +212,7 @@ int main(int argc, char ** argv)
 		.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eIndex,
 		.debugName = "bench.scratch",
 	};
-	work.scratch = dev.CreateBuffer(scratchDesc, error);
+	work.scratch = dev.create_buffer(scratchDesc, error);
 
 	const std::array bindings{ rhi::DescriptorBinding{
 		.binding = 0,
@@ -221,7 +221,7 @@ int main(int argc, char ** argv)
 		.stages	 = rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment,
 	} };
 	const rhi::DescriptorSetLayoutHandle setLayout =
-		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "bench.setLayout" }, error);
+		dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "bench.setLayout" }, error);
 
 	const std::array setLayouts{ setLayout };
 	const std::array pushRanges{ rhi::PushConstantRange{
@@ -230,9 +230,9 @@ int main(int argc, char ** argv)
 		.size	= kPushConstantBytes,
 	} };
 	work.layout =
-		dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushRanges, .debugName = "bench.pipelineLayout" }, error);
+		dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushRanges, .debugName = "bench.pipelineLayout" }, error);
 
-	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
+	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
 			.maxSets		= 1,
@@ -240,14 +240,14 @@ int main(int argc, char ** argv)
 			.debugName		= "bench.arena",
 		},
 		error);
-	if (!work.scratch.IsValid() || !setLayout.IsValid() || !work.layout.IsValid() || !arena.IsValid())
+	if (!work.scratch.is_valid() || !setLayout.is_valid() || !work.layout.is_valid() || !arena.is_valid())
 	{
 		bench::ReportError("failed to create the binding resources", error);
 		return 1;
 	}
 
 	work.set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "bench.set" }, error);
-	if (!work.set.IsValid())
+	if (!work.set.is_valid())
 	{
 		bench::ReportError("failed to allocate the descriptor set", error);
 		return 1;
@@ -259,13 +259,13 @@ int main(int argc, char ** argv)
 		.type	 = rhi::DescriptorType::eStorageBuffer,
 		.buffer	 = work.scratch,
 	} };
-	if (!dev.UpdateDescriptors(writes, error))
+	if (!dev.update_descriptors(writes, error))
 	{
 		bench::ReportError("failed to write the descriptor set", error);
 		return 1;
 	}
 
-	const rhi::DeviceCaps & caps = dev.GetCaps();
+	const rhi::DeviceCaps & caps = dev.get_caps();
 	if (caps.supportsShaderSource && caps.shaderBinaryFormat == rhi::ShaderBinaryFormat::eBackendNative)
 	{
 		const std::array shaders{
@@ -299,8 +299,8 @@ int main(int argc, char ** argv)
 		pipelineDesc.dynamicStates					 = rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor;
 		pipelineDesc.debugName						 = "bench.pipeline";
 
-		work.pipeline = dev.CreateGraphicsPipeline(pipelineDesc, error);
-		if (!work.pipeline.IsValid())
+		work.pipeline = dev.create_graphics_pipeline(pipelineDesc, error);
+		if (!work.pipeline.is_valid())
 		{
 			bench::ReportError("failed to create the pipeline the draws are recorded against", error);
 			return 1;
@@ -309,7 +309,7 @@ int main(int argc, char ** argv)
 
 	if (!bench::native::Prepare(dev, work))
 	{
-		std::println("no native arm for {}, so there is nothing to compare against", dev.GetGraphicsApiName());
+		std::println("no native arm for {}, so there is nothing to compare against", dev.get_graphics_api_name());
 		return 0;
 	}
 
@@ -337,7 +337,7 @@ int main(int argc, char ** argv)
 		.height = kTargetExtent,
 	};
 
-	benchmark::AddCustomContext("backend", std::string(dev.GetGraphicsApiName()));
+	benchmark::AddCustomContext("backend", std::string(dev.get_graphics_api_name()));
 	benchmark::AddCustomContext("validation", std::string(bench::ValidationName(options.validation)));
 	benchmark::AddCustomContext("spread tolerance", std::to_string(static_cast<int>(options.maxSpreadPercent)) + " percent");
 
@@ -359,26 +359,26 @@ int main(int argc, char ** argv)
 		}
 
 		rhi::CommandList list = pool.Allocate("bench.list", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			bench::ReportError("failed to begin recording", error);
 			return false;
 		}
 
-		if (!list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error))
+		if (!list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error))
 		{
 			bench::ReportError("failed to move the target to its attachment state", error);
 			return false;
 		}
 
-		if (bench::NeedsRenderingScope(kind) && !list.BeginRendering(rendering, error))
+		if (bench::NeedsRenderingScope(kind) && !list.begin_rendering(rendering, error))
 		{
 			bench::ReportError("failed to open the rendering scope", error);
 			return false;
 		}
 
 		if ((kind == Kind::eDraw || kind == Kind::eDrawIndexed) &&
-			(!list.SetGraphicsPipeline(work.pipeline, error) || !list.SetIndexBuffer(work.scratch, 0, false, error)))
+			(!list.set_graphics_pipeline(work.pipeline, error) || !list.set_index_buffer(work.scratch, 0, false, error)))
 		{
 			bench::ReportError("failed to bind what a draw needs", error);
 			return false;
@@ -391,7 +391,7 @@ int main(int argc, char ** argv)
 			return false;
 		}
 
-		if (bench::NeedsRenderingScope(kind) && !list.EndRendering(error))
+		if (bench::NeedsRenderingScope(kind) && !list.end_rendering(error))
 		{
 			bench::ReportError("failed to close the rendering scope", error);
 			return false;
@@ -412,7 +412,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "bench.pass",
 		};
 
-		if (!queue.Submit(submit, error) || !queue.Wait(timeline, submitted, kPassTimeoutNanoseconds, error))
+		if (!queue.submit(submit, error) || !queue.Wait(timeline, submitted, kPassTimeoutNanoseconds, error))
 		{
 			bench::ReportError("failed to drain the recorded pass, which a timeout here means the GPU did not finish it inside thirty seconds", error);
 			return false;
@@ -542,16 +542,16 @@ int main(int argc, char ** argv)
 	bench::native::Release();
 
 	constexpr rhi::DestroyDesc idle{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle };
-	if (work.pipeline.IsValid())
+	if (work.pipeline.is_valid())
 	{
-		dev.Destroy(work.pipeline, idle, error);
+		dev.destroy(work.pipeline, idle, error);
 	}
-	dev.Destroy(work.layout, idle, error);
-	dev.Destroy(setLayout, idle, error);
-	dev.Destroy(work.scratch, idle, error);
-	dev.Destroy(view, idle, error);
-	dev.Destroy(work.target, idle, error);
-	dev.Destroy(timeline, idle, error);
+	dev.destroy(work.layout, idle, error);
+	dev.destroy(setLayout, idle, error);
+	dev.destroy(work.scratch, idle, error);
+	dev.destroy(view, idle, error);
+	dev.destroy(work.target, idle, error);
+	dev.destroy(timeline, idle, error);
 
 	if (passFailed)
 	{

@@ -45,81 +45,81 @@ namespace
 	TEST_P(TimelineTest, CreatesAndDestroysATimeline)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(), error);
 
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, CreatesATimelineSeededAtANonZeroValue)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(64), error);
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(64), error);
 
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, ReadsBackACompletedValue)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		std::uint64_t completed = 0;
-		EXPECT_TRUE(test::Ok(queue.GetCompletedValue(timeline, completed, error), error));
+		EXPECT_TRUE(test::Ok(queue.get_completed_value(timeline, completed, error), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, TheThreeCompletedValueOverloadsAgree)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		std::uint64_t sentinel = 0;
-		ASSERT_TRUE(queue.GetCompletedValue(timeline, sentinel));
+		ASSERT_TRUE(queue.get_completed_value(timeline, sentinel));
 
 		std::uint64_t withError = 0;
-		ASSERT_TRUE(test::Ok(queue.GetCompletedValue(timeline, withError, error), error));
+		ASSERT_TRUE(test::Ok(queue.get_completed_value(timeline, withError, error), error));
 
-		const rhi::Result<std::uint64_t> asResult = queue.GetCompletedValueWithResult(timeline);
+		const rhi::Result<std::uint64_t> asResult = queue.get_completed_value_with_result(timeline);
 		ASSERT_TRUE(test::Ok(asResult));
 
 		EXPECT_EQ(sentinel, withError);
 		EXPECT_EQ(withError, asResult.Value());
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, ACompletedValueNeverMovesBackwards)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(8), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(8), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		std::uint64_t previous = 0;
-		ASSERT_TRUE(test::Ok(queue.GetCompletedValue(timeline, previous, error), error));
+		ASSERT_TRUE(test::Ok(queue.get_completed_value(timeline, previous, error), error));
 
 		for (int poll = 0; poll < 16; ++poll)
 		{
 			std::uint64_t current = 0;
-			ASSERT_TRUE(test::Ok(queue.GetCompletedValue(timeline, current, error), error));
+			ASSERT_TRUE(test::Ok(queue.get_completed_value(timeline, current, error), error));
 			EXPECT_GE(current, previous) << "a timeline's completed value went backwards";
 			previous = current;
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, ClearsTheOutputWhenACompletedValueQueryFails)
@@ -127,13 +127,13 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		std::uint64_t completed = 0xDEADBEEF;
 		rhi::Error queryError{};
 
-		if (queue.GetCompletedValue(
+		if (queue.get_completed_value(
 				rhi::TimelineHandle{
 					.index		= 6000,
 					.generation = 1,
@@ -150,29 +150,29 @@ namespace
 	TEST_P(TimelineTest, SignalsAndWaitsThroughTheQueue)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		if (!queue.Signal(timeline, 1, error))
 		{
-			static_cast<void>(Dev().Destroy(timeline, {}, error));
+			static_cast<void>(Dev().destroy(timeline, {}, error));
 			GTEST_SKIP() << "this backend does not signal timelines from the host: " << test::Describe(error);
 		}
 
 		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, test::kWaitTimeoutNanoseconds, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, PollsACompletedValueAndTimesOutOnAnUnsignaledValue)
 	{
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "native timeline waits");
 		rhi::Error error{};
-		const auto timeline = Dev().CreateTimeline(test::samples::Timeline(1), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
-		auto queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+		const auto timeline = Dev().create_timeline(test::samples::Timeline(1), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
+		auto queue = Dev().get_queue(rhi::QueueType::eGraphics);
 		EXPECT_TRUE(test::Ok(queue.Wait(timeline, 1, 0, error), error));
 		EXPECT_FALSE(queue.Wait(timeline, 2, 0, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
@@ -180,16 +180,16 @@ namespace
 		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
 		EXPECT_FALSE(queue.Wait(timeline, 2, 1'000'000, error));
 		EXPECT_EQ(error.code, rhi::ErrorCode::eTimeout);
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, AHostSignalWakesFiniteAndInfiniteWaits)
 	{
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "native timeline waits");
 		rhi::Error error{};
-		const auto timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
-		auto queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+		const auto timeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
+		auto queue = Dev().get_queue(rhi::QueueType::eGraphics);
 		const std::array timeouts{ test::kWaitTimeoutNanoseconds, std::numeric_limits<std::uint64_t>::max() - 1, std::numeric_limits<std::uint64_t>::max() };
 		std::uint64_t value = 0;
 		for (const auto timeout : timeouts)
@@ -208,16 +208,16 @@ namespace
 			EXPECT_TRUE(test::Ok(signaled, signalError));
 			EXPECT_TRUE(test::Ok(waited, error)) << "timeout " << timeout;
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, CreatesAndDestroysABinarySemaphore)
 	{
 		rhi::Error error{};
-		const rhi::BinarySemaphoreHandle semaphore = Dev().CreateBinarySemaphore(rhi::BinarySemaphoreDesc{ .debugName = "azoth.rhi.test.semaphore" }, error);
+		const rhi::BinarySemaphoreHandle semaphore = Dev().create_binary_semaphore(rhi::BinarySemaphoreDesc{ .debugName = "azoth.rhi.test.semaphore" }, error);
 
-		ASSERT_TRUE(test::Ok(semaphore.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(semaphore, {}, error), error));
+		ASSERT_TRUE(test::Ok(semaphore.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(semaphore, {}, error), error));
 	}
 
 	TEST_P(TimelineTest, KeepsTimelineAndSemaphoreHandleDomainsApart)
@@ -231,29 +231,29 @@ namespace
 	TEST_P(TimelineTest, WaitIdleReturnsOnAQueueWithNothingSubmitted)
 	{
 		rhi::Error error{};
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
+		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
 	}
 
 	TEST_P(TimelineTest, CollectsGarbageAgainstATimelineValue)
 	{
 		rhi::Error error{};
-		const rhi::TimelineHandle timeline = Dev().CreateTimeline(test::samples::Timeline(), error);
-		ASSERT_TRUE(test::Ok(timeline.IsValid(), error));
+		const rhi::TimelineHandle timeline = Dev().create_timeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(timeline.is_valid(), error));
 
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		const rhi::DestroyDesc deferred{
 			.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 			.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 1 },
 		};
-		ASSERT_TRUE(test::Ok(Dev().Destroy(buffer, deferred, error), error));
+		ASSERT_TRUE(test::Ok(Dev().destroy(buffer, deferred, error), error));
 
-		EXPECT_TRUE(test::Ok(Dev().CollectGarbage(timeline, 1, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(timeline, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().collect_garbage(timeline, 1, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(timeline, {}, error), error));
 	}
 
 }

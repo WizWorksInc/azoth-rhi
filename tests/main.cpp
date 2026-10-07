@@ -78,7 +78,7 @@ namespace
 		namespace rhi  = azo::rhi;
 		namespace test = azo::rhi::test;
 
-		constexpr rhi::BuildInfo build = rhi::GetBuildInfo();
+		constexpr rhi::BuildInfo build = rhi::get_build_info();
 
 		std::cout << "AzothRHI " << build.versionMajor << '.' << build.versionMinor << '.' << build.versionPatch << " test suite\n";
 

@@ -74,7 +74,7 @@ namespace
 
 		static constexpr std::array kQueues{ rhi::QueueRequest{ .type = rhi::QueueType::eGraphics } };
 
-		rhi::Result<rhi::raii::Device> device = selection.CreateDevice(rhi::DeviceDesc{
+		rhi::Result<rhi::raii::Device> device = selection.create_device(rhi::DeviceDesc{
 			.queues			  = kQueues,
 			.requireSwapchain = false,
 			.debugName		  = "raii_handles",
@@ -82,7 +82,7 @@ namespace
 
 		if (!device)
 		{
-			return device.GetError();
+			return device.get_error();
 		}
 
 		resources.device = std::move(device.Value());
@@ -90,10 +90,10 @@ namespace
 		rhi::BufferBuilder uploadDesc;
 		uploadDesc.Size(kBytes).Usage(rhi::BufferUsage::eCopySrc).CpuUpload().DebugName("raii.upload");
 
-		rhi::Result<rhi::raii::Buffer> upload = resources.device.CreateBuffer(uploadDesc.Build());
+		rhi::Result<rhi::raii::Buffer> upload = resources.device.create_buffer(uploadDesc.build());
 		if (!upload)
 		{
-			return upload.GetError();
+			return upload.get_error();
 		}
 
 		resources.upload = std::move(upload.Value());
@@ -101,10 +101,10 @@ namespace
 		rhi::BufferBuilder readbackDesc;
 		readbackDesc.Size(kBytes).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("raii.readback");
 
-		rhi::Result<rhi::raii::Buffer> readback = resources.device.CreateBuffer(readbackDesc.Build());
+		rhi::Result<rhi::raii::Buffer> readback = resources.device.create_buffer(readbackDesc.build());
 		if (!readback)
 		{
-			return readback.GetError();
+			return readback.get_error();
 		}
 
 		resources.readback = std::move(readback.Value());
@@ -115,35 +115,35 @@ namespace
 			.Usage(rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eCopySrc)
 			.DebugName("raii.texture");
 
-		rhi::Result<rhi::raii::Texture> texture = resources.device.CreateTexture(textureDesc.Build());
+		rhi::Result<rhi::raii::Texture> texture = resources.device.create_texture(textureDesc.build());
 		if (!texture)
 		{
-			return texture.GetError();
+			return texture.get_error();
 		}
 
 		resources.texture = std::move(texture.Value());
 
 		rhi::Result<rhi::raii::TextureView> view =
-			resources.device.CreateTextureView(resources.texture.Get(), rhi::TextureViewDesc{ .debugName = "raii.view" });
+			resources.device.create_texture_view(resources.texture.Get(), rhi::TextureViewDesc{ .debugName = "raii.view" });
 		if (!view)
 		{
-			return view.GetError();
+			return view.get_error();
 		}
 
 		resources.view = std::move(view.Value());
 
-		rhi::Result<rhi::raii::Sampler> sampler = resources.device.CreateSampler(rhi::SamplerDesc{ .debugName = "raii.sampler" });
+		rhi::Result<rhi::raii::Sampler> sampler = resources.device.create_sampler(rhi::SamplerDesc{ .debugName = "raii.sampler" });
 		if (!sampler)
 		{
-			return sampler.GetError();
+			return sampler.get_error();
 		}
 
 		resources.sampler = std::move(sampler.Value());
 
-		rhi::Result<rhi::raii::Timeline> timeline = resources.device.CreateTimeline(rhi::TimelineDesc{ .debugName = "raii.timeline" });
+		rhi::Result<rhi::raii::Timeline> timeline = resources.device.create_timeline(rhi::TimelineDesc{ .debugName = "raii.timeline" });
 		if (!timeline)
 		{
-			return timeline.GetError();
+			return timeline.get_error();
 		}
 
 		resources.timeline = std::move(timeline.Value());
@@ -163,12 +163,12 @@ namespace
 		rhi::Device dev = resources.device.Get();
 		rhi::Error error{};
 
-		rhi::Queue queue = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
+		rhi::Queue queue = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 
-		rhi::Result<rhi::raii::CommandPool> pool = resources.device.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "raii.pool" });
-		if (!queue.IsValid() || !pool)
+		rhi::Result<rhi::raii::CommandPool> pool = resources.device.create_command_pool(rhi::CommandPoolDesc{ .debugName = "raii.pool" });
+		if (!queue.is_valid() || !pool)
 		{
-			fw::ReportError("failed to set up the submission", queue.IsValid() ? pool.GetError() : error);
+			fw::ReportError("failed to set up the submission", queue.is_valid() ? pool.get_error() : error);
 			return RoundTripOutcome::eFailed;
 		}
 
@@ -185,14 +185,14 @@ namespace
 		}
 
 		std::memcpy(mapped.data, pattern.data(), pattern.size());
-		if ((!mapped.coherent && !dev.FlushMappedRange(resources.upload.Get(), 0, kBytes, error)) || !dev.Unmap(resources.upload.Get(), error))
+		if ((!mapped.coherent && !dev.flush_mapped_range(resources.upload.Get(), 0, kBytes, error)) || !dev.Unmap(resources.upload.Get(), error))
 		{
 			fw::ReportError("failed to flush the upload buffer", error);
 			return RoundTripOutcome::eFailed;
 		}
 
 		rhi::CommandList list = pool.Value().Allocate("raii.roundTrip", error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			fw::ReportError("failed to start recording", error);
 			return RoundTripOutcome::eFailed;
@@ -216,10 +216,10 @@ namespace
 			},
 		};
 
-		const bool recorded = list.Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error) &&
-							  list.CopyBufferToTexture(resources.texture.Get(), resources.upload.Get(), regions, error) &&
-							  list.Barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error) &&
-							  list.CopyTextureToBuffer(resources.readback.Get(), resources.texture.Get(), regions, error) && list.End(error);
+		const bool recorded = list.barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error) &&
+							  list.copy_buffer_to_texture(resources.texture.Get(), resources.upload.Get(), regions, error) &&
+							  list.barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error) &&
+							  list.copy_texture_to_buffer(resources.readback.Get(), resources.texture.Get(), regions, error) && list.End(error);
 
 		if (!recorded)
 		{
@@ -231,7 +231,7 @@ namespace
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = resources.timeline.Get(), .value = kSignalValue } };
 
-		if (!queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "raii.submit" }, error) ||
+		if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "raii.submit" }, error) ||
 			!queue.Wait(resources.timeline.Get(), kSignalValue, kNoTimeout, error))
 		{
 			fw::ReportError("failed to run the round trip", error);
@@ -245,7 +245,7 @@ namespace
 			return RoundTripOutcome::eFailed;
 		}
 
-		if (!read.coherent && !dev.InvalidateMappedRange(resources.readback.Get(), 0, kBytes, error))
+		if (!read.coherent && !dev.invalidate_mapped_range(resources.readback.Get(), 0, kBytes, error))
 		{
 			fw::ReportError("failed to invalidate the readback buffer", error);
 			return RoundTripOutcome::eFailed;
@@ -264,7 +264,7 @@ int main(int argc, char ** argv)
 	rhi::Result<Resources> built = Build(fw::RequestedBackend(argc, argv));
 	if (!built)
 	{
-		return fw::ReportNoDevice(built.GetError());
+		return fw::ReportNoDevice(built.get_error());
 	}
 
 	Resources & resources = built.Value();

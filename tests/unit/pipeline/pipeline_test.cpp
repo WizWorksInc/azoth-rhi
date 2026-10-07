@@ -47,10 +47,10 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsPipelineCache || IsNullBackend(), "pipeline caches");
 
 		rhi::Error error{};
-		const rhi::PipelineCacheHandle cache = Dev().CreatePipelineCache(rhi::PipelineCacheDesc{ .debugName = "azoth.rhi.test.cache" }, error);
+		const rhi::PipelineCacheHandle cache = Dev().create_pipeline_cache(rhi::PipelineCacheDesc{ .debugName = "azoth.rhi.test.cache" }, error);
 
-		ASSERT_TRUE(test::Ok(cache.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(cache, {}, error), error));
+		ASSERT_TRUE(test::Ok(cache.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(cache, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RejectsCacheDataFromSomewhereElseRatherThanTrustingIt)
@@ -60,7 +60,7 @@ namespace
 		constexpr std::array<std::byte, 32> junk{};
 
 		rhi::Error error{};
-		const rhi::PipelineCacheHandle cache = Dev().CreatePipelineCache(
+		const rhi::PipelineCacheHandle cache = Dev().create_pipeline_cache(
 			rhi::PipelineCacheDesc{
 				.initialData = junk.data(),
 				.initialSize = junk.size(),
@@ -68,7 +68,7 @@ namespace
 			},
 			error);
 
-		if (!cache.IsValid())
+		if (!cache.is_valid())
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error)) << "cache data was rejected with no diagnostic";
 			SUCCEED() << "the backend rejected foreign cache data outright";
@@ -76,12 +76,12 @@ namespace
 		}
 
 		rhi::PipelineCacheData readBack{};
-		if (Dev().GetPipelineCacheData(cache, readBack, error))
+		if (Dev().get_pipeline_cache_data(cache, readBack, error))
 		{
 			EXPECT_TRUE(readBack.data != nullptr || readBack.size == 0) << "the cache reported a size for a null blob";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(cache, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(cache, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, ReadsBackCacheDataOrSaysItCannot)
@@ -89,39 +89,39 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsPipelineCache || IsNullBackend(), "pipeline caches");
 
 		rhi::Error error{};
-		const rhi::PipelineCacheHandle cache = Dev().CreatePipelineCache(rhi::PipelineCacheDesc{ .debugName = "azoth.rhi.test.cache" }, error);
-		ASSERT_TRUE(test::Ok(cache.IsValid(), error));
+		const rhi::PipelineCacheHandle cache = Dev().create_pipeline_cache(rhi::PipelineCacheDesc{ .debugName = "azoth.rhi.test.cache" }, error);
+		ASSERT_TRUE(test::Ok(cache.is_valid(), error));
 
 		rhi::PipelineCacheData data{};
-		if (!Dev().GetPipelineCacheData(cache, data, error))
+		if (!Dev().get_pipeline_cache_data(cache, data, error))
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error));
-			static_cast<void>(Dev().Destroy(cache, {}, error));
+			static_cast<void>(Dev().destroy(cache, {}, error));
 			GTEST_SKIP() << "this backend does not serialize pipeline caches: " << test::Describe(error);
 		}
 
 		EXPECT_TRUE(data.data != nullptr || data.size == 0);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(cache, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(cache, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesAGraphicsPipelineWithNoShadersRatherThanProducingOne)
 	{
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		rhi::GraphicsPipelineDesc desc{};
 		desc.layout	   = layout;
 		desc.debugName = "azoth.rhi.test.emptyPipeline";
 
 		rhi::Error pipelineError{};
-		const rhi::GraphicsPipelineHandle pipeline = Dev().CreateGraphicsPipeline(desc, pipelineError);
+		const rhi::GraphicsPipelineHandle pipeline = Dev().create_graphics_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a graphics pipeline was created with no shader stages";
+		EXPECT_FALSE(pipeline.is_valid()) << "a graphics pipeline was created with no shader stages";
 		EXPECT_TRUE(test::ErrorIsPopulated(pipelineError));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, TheReportedShaderFormatIsTheOneItActuallyTakes)
@@ -129,8 +129,8 @@ namespace
 		constexpr std::array<std::byte, 4> notAShader{};
 
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		const rhi::ShaderBinary shader{
 			.stage			 = rhi::ShaderStage::eCompute,
@@ -142,11 +142,11 @@ namespace
 
 		rhi::Error shaderError{};
 		const rhi::ComputePipelineHandle pipeline =
-			Dev().CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "azoth.rhi.test.format" }, shaderError);
+			Dev().create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "azoth.rhi.test.format" }, shaderError);
 
 		if (!IsNullBackend())
 		{
-			EXPECT_FALSE(pipeline.IsValid());
+			EXPECT_FALSE(pipeline.is_valid());
 			EXPECT_TRUE(test::ErrorIsPopulated(shaderError)) << "malformed bytes were refused with no diagnostic";
 		}
 
@@ -157,19 +157,19 @@ namespace
 
 			rhi::Error sourceError{};
 			EXPECT_FALSE(Dev()
-					.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = asSource, .debugName = "azoth.rhi.test.source" }, sourceError)
-					.IsValid());
+					.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = asSource, .debugName = "azoth.rhi.test.source" }, sourceError)
+					.is_valid());
 			EXPECT_EQ(sourceError.code, rhi::ErrorCode::eUnsupportedFormat) << "a device reporting no source support took a source binary anyway";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesADescNamingMoreColorAttachmentsThanItCanHold)
 	{
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		const rhi::VertexInputDesc vertexInput{};
 		rhi::GraphicsPipelineDesc desc{};
@@ -180,24 +180,24 @@ namespace
 		desc.renderTarget.colorFormatCount = static_cast<std::uint32_t>(desc.renderTarget.colorFormats.size()) + 1;
 
 		rhi::Error colorError{};
-		EXPECT_FALSE(Dev().CreateGraphicsPipeline(desc, colorError).IsValid()) << "a colorFormatCount past the array was accepted";
+		EXPECT_FALSE(Dev().create_graphics_pipeline(desc, colorError).is_valid()) << "a colorFormatCount past the array was accepted";
 		EXPECT_EQ(colorError.code, rhi::ErrorCode::eInvalidArgument);
 
 		desc.renderTarget.colorFormatCount = 0;
 		desc.blend.attachmentCount		   = static_cast<std::uint32_t>(desc.blend.attachments.size()) + 1;
 
 		rhi::Error blendError{};
-		EXPECT_FALSE(Dev().CreateGraphicsPipeline(desc, blendError).IsValid()) << "an attachmentCount past the array was accepted";
+		EXPECT_FALSE(Dev().create_graphics_pipeline(desc, blendError).is_valid()) << "an attachmentCount past the array was accepted";
 		EXPECT_EQ(blendError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, ConservativeRasterIsRefusedExactlyWhenTheDeviceReportsNoTier)
 	{
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		const rhi::VertexInputDesc vertexInput{};
 		rhi::GraphicsPipelineDesc desc{};
@@ -207,8 +207,8 @@ namespace
 		desc.debugName						 = "azoth.rhi.test.conservativePipeline";
 
 		rhi::Error pipelineError{};
-		const rhi::GraphicsPipelineHandle pipeline = Dev().CreateGraphicsPipeline(desc, pipelineError);
-		EXPECT_FALSE(pipeline.IsValid()) << "this pipeline has no stages, so nothing here should have produced one";
+		const rhi::GraphicsPipelineHandle pipeline = Dev().create_graphics_pipeline(desc, pipelineError);
+		EXPECT_FALSE(pipeline.is_valid()) << "this pipeline has no stages, so nothing here should have produced one";
 
 		if (Caps().conservativeRasterTier == rhi::ConservativeRasterTier::eNone)
 		{
@@ -220,7 +220,7 @@ namespace
 				<< "a device reporting tier " << static_cast<int>(Caps().conservativeRasterTier) << " refused the request as unsupported anyway";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesAShaderBinaryInAContainerItCannotConsume)
@@ -228,8 +228,8 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "a native shader container");
 
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		const std::array<std::uint32_t, 4> bytes{ 1, 2, 3, 4 };
 
@@ -245,19 +245,19 @@ namespace
 		desc.debugName				= "azoth.rhi.test.wrongContainer";
 
 		rhi::Error pipelineError{};
-		const rhi::ComputePipelineHandle pipeline = Dev().CreateComputePipeline(desc, pipelineError);
+		const rhi::ComputePipelineHandle pipeline = Dev().create_compute_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a shader in a container this backend cannot consume was accepted";
+		EXPECT_FALSE(pipeline.is_valid()) << "a shader in a container this backend cannot consume was accepted";
 		EXPECT_TRUE(test::ErrorIsPopulated(pipelineError));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesAComputePipelineThatDidNotStateItsThreadgroupSize)
 	{
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		rhi::ComputePipelineDesc desc{};
 		desc.layout		  = layout;
@@ -265,12 +265,12 @@ namespace
 		desc.debugName	  = "azoth.rhi.test.sizelessCompute";
 
 		rhi::Error pipelineError{};
-		const rhi::ComputePipelineHandle pipeline = Dev().CreateComputePipeline(desc, pipelineError);
+		const rhi::ComputePipelineHandle pipeline = Dev().create_compute_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a compute pipeline was created without a threadgroup size";
+		EXPECT_FALSE(pipeline.is_valid()) << "a compute pipeline was created without a threadgroup size";
 		EXPECT_EQ(pipelineError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	[[nodiscard]] rhi::ShaderBinaryFormat NativeShaderFormat(const rhi::GraphicsApiId api)
@@ -289,7 +289,7 @@ namespace
 			rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eUniformBuffer },
 		};
 
-		return device.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.mappedSet" }, error);
+		return device.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.mappedSet" }, error);
 	}
 
 	TEST_P(PipelineTest, RefusesAShaderBinaryWhoseBindingMapDisagreesWithTheLayout)
@@ -298,18 +298,18 @@ namespace
 
 		rhi::Error error{};
 		const rhi::DescriptorSetLayoutHandle setLayout = MakeOneBindingSetLayout(Dev(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		const std::array<rhi::DescriptorSetLayoutHandle, 1> sets{ setLayout };
 		const rhi::PipelineLayoutHandle layout =
-			Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = sets, .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+			Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = sets, .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		static constexpr std::array<rhi::DescriptorBinding, 1> abiBindings{
 			rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eUniformBuffer },
 		};
 		const std::array<rhi::DescriptorSetLayoutDesc, 1> abiSets{ rhi::DescriptorSetLayoutDesc{ .bindings = abiBindings } };
-		const rhi::NativeBinding actual = rhi::NativeBindingFor(Caps().apiId, Caps().bindingTier, rhi::ShaderAbiLayout{ .sets = abiSets }, 0, 0);
+		const rhi::NativeBinding actual = rhi::native_binding_for(Caps().apiId, Caps().bindingTier, rhi::ShaderAbiLayout{ .sets = abiSets }, 0, 0);
 		ASSERT_TRUE(actual.exists) << "the ABI has no slot for a binding the layout declares";
 
 		rhi::NativeSlot moved = actual.resource;
@@ -333,13 +333,13 @@ namespace
 		desc.debugName				= "azoth.rhi.test.movedBinding";
 
 		rhi::Error pipelineError{};
-		const rhi::ComputePipelineHandle pipeline = Dev().CreateComputePipeline(desc, pipelineError);
+		const rhi::ComputePipelineHandle pipeline = Dev().create_compute_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a shader claiming a slot the layout does not bind was accepted";
+		EXPECT_FALSE(pipeline.is_valid()) << "a shader claiming a slot the layout does not bind was accepted";
 		EXPECT_EQ(pipelineError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesAShaderBinaryBuiltAgainstAnAbiRevisionThisBuildDoesNotImplement)
@@ -347,8 +347,8 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "a backend that resolves native binding slots");
 
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		const rhi::ShaderBindingMap map{ .abi = rhi::ShaderAbiVersion{ rhi::kShaderAbiVersion.value + 1 } };
 
@@ -365,12 +365,12 @@ namespace
 		desc.debugName				= "azoth.rhi.test.futureAbi";
 
 		rhi::Error pipelineError{};
-		const rhi::ComputePipelineHandle pipeline = Dev().CreateComputePipeline(desc, pipelineError);
+		const rhi::ComputePipelineHandle pipeline = Dev().create_compute_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a shader built against another revision of the binding ABI was accepted";
+		EXPECT_FALSE(pipeline.is_valid()) << "a shader built against another revision of the binding ABI was accepted";
 		EXPECT_EQ(pipelineError.code, rhi::ErrorCode::eUnsupportedFormat);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesABindingMapNamingABindingTheLayoutNeverDeclared)
@@ -378,8 +378,8 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "a backend that resolves native binding slots");
 
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		const std::array<rhi::ShaderBindingEntry, 1> entries{
 			rhi::ShaderBindingEntry{ .set = 0, .binding = 0, .resource = rhi::NativeSlot{ .space = 0, .index = 0 } },
@@ -399,12 +399,12 @@ namespace
 		desc.debugName				= "azoth.rhi.test.strayBinding";
 
 		rhi::Error pipelineError{};
-		const rhi::ComputePipelineHandle pipeline = Dev().CreateComputePipeline(desc, pipelineError);
+		const rhi::ComputePipelineHandle pipeline = Dev().create_compute_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a shader claiming a binding the layout never declared was accepted";
+		EXPECT_FALSE(pipeline.is_valid()) << "a shader claiming a binding the layout never declared was accepted";
 		EXPECT_EQ(pipelineError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesAStageItCannotBuildRatherThanBuildingTheRestWithoutIt)
@@ -421,8 +421,8 @@ namespace
 		)";
 
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		rhi::ShaderBinary vertex{};
 		vertex.stage	  = rhi::ShaderStage::eVertex;
@@ -442,8 +442,8 @@ namespace
 		alone.debugName	  = "azoth.rhi.test.vertexOnly";
 
 		rhi::Error aloneError{};
-		const rhi::GraphicsPipelineHandle built = Dev().CreateGraphicsPipeline(alone, aloneError);
-		ASSERT_TRUE(test::Ok(built.IsValid(), aloneError)) << "the vertex shader alone was refused, so the refusal below would prove nothing";
+		const rhi::GraphicsPipelineHandle built = Dev().create_graphics_pipeline(alone, aloneError);
+		ASSERT_TRUE(test::Ok(built.is_valid(), aloneError)) << "the vertex shader alone was refused, so the refusal below would prove nothing";
 
 		struct Unbuildable final
 		{
@@ -469,21 +469,21 @@ namespace
 			dropped.debugName				  = "azoth.rhi.test.unbuildableStage";
 
 			rhi::Error droppedError{};
-			const rhi::GraphicsPipelineHandle silent = Dev().CreateGraphicsPipeline(dropped, droppedError);
+			const rhi::GraphicsPipelineHandle silent = Dev().create_graphics_pipeline(dropped, droppedError);
 
-			EXPECT_FALSE(silent.IsValid()) << "a stage Metal cannot build was dropped and the pipeline handed back as if it had been honoured";
+			EXPECT_FALSE(silent.is_valid()) << "a stage Metal cannot build was dropped and the pipeline handed back as if it had been honoured";
 			EXPECT_EQ(droppedError.code, unbuilt.code) << "refused, but not with the code that says why";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(built, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(built, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, RefusesAGraphicsPipelineWithNoVertexInputByName)
 	{
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle layout = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
-		ASSERT_TRUE(test::Ok(layout.IsValid(), error));
+		const rhi::PipelineLayoutHandle layout = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.layout" }, error);
+		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		rhi::GraphicsPipelineDesc desc{};
 		desc.layout		 = layout;
@@ -491,13 +491,13 @@ namespace
 		desc.debugName	 = "azoth.rhi.test.meshlessPipeline";
 
 		rhi::Error pipelineError{};
-		const rhi::GraphicsPipelineHandle pipeline = Dev().CreateGraphicsPipeline(desc, pipelineError);
+		const rhi::GraphicsPipelineHandle pipeline = Dev().create_graphics_pipeline(desc, pipelineError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a graphics pipeline was created with no vertex input";
+		EXPECT_FALSE(pipeline.is_valid()) << "a graphics pipeline was created with no vertex input";
 
 		EXPECT_EQ(pipelineError.code, rhi::ErrorCode::eUnsupportedFeature) << "refused, but not as a missing capability";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, ReportsRayTracingSupportHonestly)
@@ -506,26 +506,26 @@ namespace
 
 		rhi::AccelerationStructureDesc structureDesc{};
 		structureDesc.debugName							 = "azoth.rhi.test.accelerationStructure";
-		const rhi::AccelerationStructureHandle structure = Dev().CreateAccelerationStructure(structureDesc, error);
+		const rhi::AccelerationStructureHandle structure = Dev().create_acceleration_structure(structureDesc, error);
 
 		rhi::RayTracingPipelineDesc pipelineDesc{};
 		pipelineDesc.debugName						 = "azoth.rhi.test.rayTracingPipeline";
-		const rhi::RayTracingPipelineHandle pipeline = Dev().CreateRayTracingPipeline(pipelineDesc, error);
+		const rhi::RayTracingPipelineHandle pipeline = Dev().create_ray_tracing_pipeline(pipelineDesc, error);
 
 		if (!Caps().supportsRayTracing && !IsNullBackend())
 		{
-			EXPECT_FALSE(structure.IsValid()) << "a backend reporting no ray tracing still created an acceleration structure";
-			EXPECT_FALSE(pipeline.IsValid()) << "a backend reporting no ray tracing still created a ray tracing pipeline";
+			EXPECT_FALSE(structure.is_valid()) << "a backend reporting no ray tracing still created an acceleration structure";
+			EXPECT_FALSE(pipeline.is_valid()) << "a backend reporting no ray tracing still created a ray tracing pipeline";
 			return;
 		}
 
-		if (structure.IsValid())
+		if (structure.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(structure, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(structure, {}, error), error));
 		}
-		if (pipeline.IsValid())
+		if (pipeline.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(pipeline, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(pipeline, {}, error), error));
 		}
 	}
 
@@ -535,11 +535,11 @@ namespace
 
 		if (Caps().supportsTimestampQueries || IsNullBackend())
 		{
-			const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(test::samples::TimestampPool(), error);
-			EXPECT_TRUE(test::Ok(pool.IsValid(), error));
-			if (pool.IsValid())
+			const rhi::QueryPoolHandle pool = Dev().create_query_pool(test::samples::TimestampPool(), error);
+			EXPECT_TRUE(test::Ok(pool.is_valid(), error));
+			if (pool.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 			}
 		}
 
@@ -548,10 +548,10 @@ namespace
 		occlusion.queryCount = 4;
 		occlusion.debugName	 = "azoth.rhi.test.occlusionPool";
 
-		const rhi::QueryPoolHandle occlusionPool = Dev().CreateQueryPool(occlusion, error);
-		if (occlusionPool.IsValid())
+		const rhi::QueryPoolHandle occlusionPool = Dev().create_query_pool(occlusion, error);
+		if (occlusionPool.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(occlusionPool, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(occlusionPool, {}, error), error));
 		}
 	}
 
@@ -567,9 +567,9 @@ namespace
 			rhi::Flags<rhi::PipelineStatistic>(rhi::PipelineStatistic::eVertexShaderInvocations) | rhi::PipelineStatistic::eFragmentShaderInvocations;
 		desc.debugName = "azoth.rhi.test.statisticsPool";
 
-		const rhi::QueryPoolHandle pool = Dev().CreateQueryPool(desc, error);
-		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pool, {}, error), error));
+		const rhi::QueryPoolHandle pool = Dev().create_query_pool(desc, error);
+		ASSERT_TRUE(test::Ok(pool.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pool, {}, error), error));
 	}
 
 	TEST_P(PipelineTest, CalibratesTimestampsOrSaysItCannot)
@@ -577,7 +577,7 @@ namespace
 		rhi::Error error{};
 		rhi::TimestampCalibration calibration{};
 
-		if (!Dev().CalibrateTimestamp(rhi::QueueType::eGraphics, calibration, error))
+		if (!Dev().calibrate_timestamp(rhi::QueueType::eGraphics, calibration, error))
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error));
 			GTEST_SKIP() << "this backend does not calibrate timestamps: " << test::Describe(error);

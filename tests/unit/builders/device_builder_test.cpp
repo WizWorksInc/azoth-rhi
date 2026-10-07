@@ -33,16 +33,16 @@ namespace
 	{
 		rhi::GraphicsApiRegistry registry;
 		constexpr std::array preferred{ rhi::NullApi::id };
-		return builder.Build(registry, preferred);
+		return builder.build(registry, preferred);
 	}
 
 	TEST(DeviceBuilder, RejectsAnEmptyPreferredApiList)
 	{
 		rhi::GraphicsApiRegistry registry;
-		const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder{}.Build(registry, std::span<const rhi::GraphicsApiId>{});
+		const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder{}.build(registry, std::span<const rhi::GraphicsApiId>{});
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eInvalidArgument));
-		EXPECT_TRUE(test::ErrorIsPopulated(device.GetError()));
+		EXPECT_TRUE(test::ErrorIsPopulated(device.get_error()));
 	}
 
 	TEST(DeviceBuilder, SuppliesOneGraphicsQueueWhenNothingWasAskedFor)
@@ -54,14 +54,14 @@ namespace
 
 	TEST(DeviceBuilder, RejectsARequestWithNoQueuesAtAll)
 	{
-		const rhi::Result<rhi::UniqueDevice> device = BuildAgainstNothing(rhi::DeviceBuilder{}.DefaultGraphicsQueue(false));
+		const rhi::Result<rhi::UniqueDevice> device = BuildAgainstNothing(rhi::DeviceBuilder{}.default_graphics_queue(false));
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eInvalidArgument));
 	}
 
 	TEST(DeviceBuilder, RejectsAQueueRequestForZeroQueues)
 	{
-		const rhi::Result<rhi::UniqueDevice> device = BuildAgainstNothing(rhi::DeviceBuilder{}.GraphicsQueue(0));
+		const rhi::Result<rhi::UniqueDevice> device = BuildAgainstNothing(rhi::DeviceBuilder{}.graphics_queue(0));
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eInvalidArgument));
 	}
@@ -69,7 +69,7 @@ namespace
 	TEST(DeviceBuilder, RejectsRequiringASwapchainWithoutAGraphicsQueue)
 	{
 		const rhi::Result<rhi::UniqueDevice> device =
-			BuildAgainstNothing(rhi::DeviceBuilder{}.DefaultGraphicsQueue(false).ClearQueues().ComputeQueue().RequireSwapchain(true));
+			BuildAgainstNothing(rhi::DeviceBuilder{}.default_graphics_queue(false).clear_queues().compute_queue().require_swapchain(true));
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eInvalidArgument));
 	}
@@ -77,23 +77,23 @@ namespace
 	TEST(DeviceBuilder, AllowsAComputeOnlyDeviceOnceTheSwapchainRequirementIsDropped)
 	{
 		const rhi::Result<rhi::UniqueDevice> device =
-			BuildAgainstNothing(rhi::DeviceBuilder{}.DefaultGraphicsQueue(false).ClearQueues().ComputeQueue().RequireSwapchain(false));
+			BuildAgainstNothing(rhi::DeviceBuilder{}.default_graphics_queue(false).clear_queues().compute_queue().require_swapchain(false));
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eUnsupportedApi)) << "a headless compute request was rejected by validation";
 	}
 
 	TEST(DeviceBuilder, ClearQueuesDropsTheExplicitRequestsAndKeepsTheDefaultSetting)
 	{
-		const rhi::Result<rhi::UniqueDevice> cleared = BuildAgainstNothing(rhi::DeviceBuilder{}.ComputeQueue().CopyQueue().ClearQueues());
+		const rhi::Result<rhi::UniqueDevice> cleared = BuildAgainstNothing(rhi::DeviceBuilder{}.compute_queue().copy_queue().clear_queues());
 		EXPECT_TRUE(test::Failed(cleared, rhi::ErrorCode::eUnsupportedApi));
 
-		const rhi::Result<rhi::UniqueDevice> empty = BuildAgainstNothing(rhi::DeviceBuilder{}.ComputeQueue().DefaultGraphicsQueue(false).ClearQueues());
+		const rhi::Result<rhi::UniqueDevice> empty = BuildAgainstNothing(rhi::DeviceBuilder{}.compute_queue().default_graphics_queue(false).clear_queues());
 		EXPECT_TRUE(test::Failed(empty, rhi::ErrorCode::eInvalidArgument));
 	}
 
 	TEST(DeviceBuilder, ReplacesRatherThanDuplicatesARepeatedQueueType)
 	{
-		const rhi::Result<rhi::UniqueDevice> device = BuildAgainstNothing(rhi::DeviceBuilder{}.GraphicsQueue(4).GraphicsQueue(1));
+		const rhi::Result<rhi::UniqueDevice> device = BuildAgainstNothing(rhi::DeviceBuilder{}.graphics_queue(4).graphics_queue(1));
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eUnsupportedApi));
 	}
@@ -101,11 +101,11 @@ namespace
 	TEST(DeviceBuilder, BuildsARealDeviceThroughARegisteredBackend)
 	{
 		rhi::GraphicsApiRegistry registry;
-		ASSERT_TRUE(test::Ok(rhi::RegisterBackend<rhi::NullApi>(registry)));
+		ASSERT_TRUE(test::Ok(rhi::register_backend<rhi::NullApi>(registry)));
 
 		constexpr std::array preferred{ rhi::NullApi::id };
 		const rhi::Result<rhi::UniqueDevice> device =
-			rhi::DeviceBuilder{}.RequireSwapchain(false).DebugName("azoth.rhi.test.builtDevice").Build(registry, preferred);
+			rhi::DeviceBuilder{}.require_swapchain(false).debug_name("azoth.rhi.test.builtDevice").build(registry, preferred);
 
 		ASSERT_TRUE(test::Ok(device));
 		EXPECT_TRUE(device.Value().IsValid());
@@ -115,10 +115,10 @@ namespace
 	TEST(DeviceBuilder, PassesQueueRequestsThroughToTheBackendRatherThanSwallowingThem)
 	{
 		rhi::GraphicsApiRegistry registry;
-		ASSERT_TRUE(test::Ok(rhi::RegisterBackend<rhi::NullApi>(registry)));
+		ASSERT_TRUE(test::Ok(rhi::register_backend<rhi::NullApi>(registry)));
 
 		constexpr std::array preferred{ rhi::NullApi::id };
-		const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder{}.RequireSwapchain(false).DedicatedComputeQueue().Build(registry, preferred);
+		const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder{}.require_swapchain(false).dedicated_compute_queue().build(registry, preferred);
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eUnsupportedFeature));
 	}
@@ -126,11 +126,11 @@ namespace
 	TEST(DeviceBuilder, CarriesTheRequestedQueueCountsIntoTheDeviceCaps)
 	{
 		rhi::GraphicsApiRegistry registry;
-		ASSERT_TRUE(test::Ok(rhi::RegisterBackend<rhi::NullApi>(registry)));
+		ASSERT_TRUE(test::Ok(rhi::register_backend<rhi::NullApi>(registry)));
 
 		constexpr std::array preferred{ rhi::NullApi::id };
 		const rhi::Result<rhi::UniqueDevice> device =
-			rhi::DeviceBuilder{}.RequireSwapchain(false).ClearQueues().GraphicsQueue(2).ComputeQueue(1).Build(registry, preferred);
+			rhi::DeviceBuilder{}.require_swapchain(false).clear_queues().graphics_queue(2).compute_queue(1).build(registry, preferred);
 
 		ASSERT_TRUE(test::Ok(device));
 
@@ -144,13 +144,13 @@ namespace
 	TEST(DeviceBuilder, DefaultQueueSetAsksForAllThreeTypes)
 	{
 		rhi::GraphicsApiRegistry registry;
-		ASSERT_TRUE(test::Ok(rhi::RegisterBackend<rhi::NullApi>(registry)));
+		ASSERT_TRUE(test::Ok(rhi::register_backend<rhi::NullApi>(registry)));
 
 		constexpr std::array preferred{ rhi::NullApi::id };
 		rhi::DeviceDesc desc{};
 		desc.requireSwapchain = false;
 
-		const rhi::Result<rhi::UniqueDevice> device = rhi::CreateDevice(registry, preferred, desc);
+		const rhi::Result<rhi::UniqueDevice> device = rhi::create_device(registry, preferred, desc);
 		ASSERT_TRUE(test::Ok(device));
 
 		const rhi::DeviceCaps & caps = device.Value().Get().GetCaps();
@@ -162,10 +162,10 @@ namespace
 	TEST(DeviceBuilder, ValidationRunsBeforeTheBackendIsConsulted)
 	{
 		rhi::GraphicsApiRegistry registry;
-		ASSERT_TRUE(test::Ok(rhi::RegisterBackend<rhi::NullApi>(registry)));
+		ASSERT_TRUE(test::Ok(rhi::register_backend<rhi::NullApi>(registry)));
 
 		constexpr std::array preferred{ rhi::NullApi::id };
-		const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder{}.RequireSwapchain(false).GraphicsQueue(0).Build(registry, preferred);
+		const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder{}.require_swapchain(false).graphics_queue(0).build(registry, preferred);
 
 		EXPECT_TRUE(test::Failed(device, rhi::ErrorCode::eInvalidArgument));
 	}

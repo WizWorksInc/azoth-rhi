@@ -124,14 +124,14 @@ namespace bench::native
 
 		[[nodiscard]] bool PrepareArm(rhi::Device device, const Workload & work)
 		{
-			g_arm.four = device.GetGraphicsApiId() == rhi::Metal4Api::id;
+			g_arm.four = device.get_graphics_api_id() == rhi::Metal4Api::id;
 
 			rhi::Error error{};
 			if (g_arm.four)
 			{
 #ifdef AZOTH_RHI_BENCH_METAL4
 				rhi::NativeBuffer<rhi::Metal4Api> buffer{};
-				if (!device.GetNativeBuffer<rhi::Metal4Api>(work.scratch, buffer, error))
+				if (!device.get_native_buffer<rhi::Metal4Api>(work.scratch, buffer, error))
 				{
 					ReportError("failed to reach the MTLBuffer behind the scratch buffer", error);
 					return false;
@@ -144,7 +144,7 @@ namespace bench::native
 			{
 #ifdef AZOTH_RHI_BENCH_METAL3
 				rhi::NativeBuffer<rhi::MetalApi> buffer{};
-				if (!device.GetNativeBuffer<rhi::MetalApi>(work.scratch, buffer, error))
+				if (!device.get_native_buffer<rhi::MetalApi>(work.scratch, buffer, error))
 				{
 					ReportError("failed to reach the MTLBuffer behind the scratch buffer", error);
 					return false;
@@ -159,7 +159,7 @@ namespace bench::native
 				return false;
 			}
 
-			if (work.pipeline.IsValid())
+			if (work.pipeline.is_valid())
 			{
 				g_arm.pipeline	  = g_arm.four ? BuildMetal4Pipeline(g_arm.buffer->device(), g_arm.compiler) : BuildMetalPipeline(g_arm.buffer->device());
 				g_arm.hasPipeline = g_arm.pipeline != nullptr;
@@ -212,7 +212,7 @@ namespace bench::native
 				.width	= work.scissor.width,
 				.height = work.scissor.height,
 			};
-			const std::uint32_t argumentIndex = rhi::MetalArgumentBufferIndexForSet(0);
+			const std::uint32_t argumentIndex = rhi::metal_argument_buffer_index_for_set(0);
 
 			const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 			switch (kind)
@@ -298,7 +298,7 @@ namespace bench::native
 				.height = work.scissor.height,
 			};
 
-			const std::uint32_t argumentIndex	  = rhi::MetalArgumentBufferIndexForSet(0);
+			const std::uint32_t argumentIndex	  = rhi::metal_argument_buffer_index_for_set(0);
 			const MTL::GPUAddress bufferAddress	  = g_arm.buffer->gpuAddress();
 			const MTL::GPUAddress constantAddress = g_arm.pushConstants != nullptr ? g_arm.pushConstants->gpuAddress() : 0;
 			void * constantContents				  = g_arm.pushConstants != nullptr ? g_arm.pushConstants->contents() : nullptr;
@@ -406,8 +406,8 @@ namespace bench::native
 #ifdef AZOTH_RHI_BENCH_METAL4
 		if (g_arm.four)
 		{
-			MTL4::RenderCommandEncoder * fourEncoder = rhi::GetMetal4RenderCommandEncoder(list);
-			MTL4::ArgumentTable * table				 = rhi::GetMetal4ArgumentTable(list);
+			MTL4::RenderCommandEncoder * fourEncoder = rhi::get_metal4_render_command_encoder(list);
+			MTL4::ArgumentTable * table				 = rhi::get_metal4_argument_table(list);
 			if (fourEncoder == nullptr && NeedsRenderingScope(kind))
 			{
 				std::println("the Metal 4 command list has no open render encoder");

@@ -78,15 +78,15 @@ int main(int argc, char ** argv)
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
 
 	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder().DebugName("bindless").Headless().GraphicsQueue().Build(backends.Registry(), backends.PreferredApis());
+		rhi::DeviceBuilder().debug_name("bindless").headless().graphics_queue().build(backends.registry(), backends.preferred_apis());
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	rhi::Device dev				 = device.Value().Get();
-	const rhi::DeviceCaps & caps = dev.GetCaps();
-	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+	const rhi::DeviceCaps & caps = dev.get_caps();
+	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	if (caps.bindingTier < rhi::BindingTier::eUnbounded)
 	{
@@ -106,7 +106,7 @@ int main(int argc, char ** argv)
 
 	fw::shader::SlangCompiler compiler;
 	std::string why;
-	if (!compiler.Open(dev.GetGraphicsApiId(), why))
+	if (!compiler.Open(dev.get_graphics_api_id(), why))
 	{
 		LOG_ERROR(fw::Log(), "{}", why);
 		return fw::kSkipExitCode;
@@ -135,19 +135,19 @@ int main(int argc, char ** argv)
 	};
 
 	const rhi::DescriptorSetLayoutHandle setLayout =
-		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "bindless.set" }, error);
+		dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "bindless.set" }, error);
 
 	const std::array setLayouts{ setLayout };
 	const std::array pushConstants{
 		rhi::PushConstantRange{ .stages = rhi::ShaderStage::eCompute, .offset = 0, .size = sizeof(Params) },
 	};
 	const rhi::PipelineLayoutHandle layout =
-		dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "bindless.layout" }, error);
+		dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "bindless.layout" }, error);
 
 	const rhi::ComputePipelineHandle pipeline =
-		dev.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = gather, .debugName = "bindless.pipeline" }, error);
+		dev.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = gather, .debugName = "bindless.pipeline" }, error);
 
-	if (!setLayout.IsValid() || !layout.IsValid() || !pipeline.IsValid())
+	if (!setLayout.is_valid() || !layout.is_valid() || !pipeline.is_valid())
 	{
 		fw::ReportError("the unbounded layout did not build a pipeline", error);
 		return 1;
@@ -157,7 +157,7 @@ int main(int argc, char ** argv)
 	std::vector<rhi::TextureViewHandle> views(kTextures);
 	for (std::uint32_t slot = 0; slot < kTextures; ++slot)
 	{
-		textures.at(slot) = dev.CreateTexture(
+		textures.at(slot) = dev.create_texture(
 			rhi::TextureDesc{
 				.type	   = rhi::TextureType::eTex2D,
 				.format	   = rhi::Format::eRGBA8UNorm,
@@ -167,17 +167,17 @@ int main(int argc, char ** argv)
 				.debugName = "bindless.texture",
 			},
 			error);
-		views.at(slot) = dev.CreateTextureView(textures.at(slot), rhi::TextureViewDesc{ .debugName = "bindless.textureView" }, error);
-		if (!textures.at(slot).IsValid() || !views.at(slot).IsValid())
+		views.at(slot) = dev.create_texture_view(textures.at(slot), rhi::TextureViewDesc{ .debugName = "bindless.textureView" }, error);
+		if (!textures.at(slot).is_valid() || !views.at(slot).is_valid())
 		{
 			fw::ReportError("a texture was refused", error);
 			return 1;
 		}
 	}
 
-	const rhi::SamplerHandle sampler = dev.CreateSampler(rhi::SamplerDesc{ .debugName = "bindless.sampler" }, error);
+	const rhi::SamplerHandle sampler = dev.create_sampler(rhi::SamplerDesc{ .debugName = "bindless.sampler" }, error);
 
-	const rhi::BufferHandle output = dev.CreateBuffer(
+	const rhi::BufferHandle output = dev.create_buffer(
 		rhi::BufferDesc{
 			.size	   = kOutputBytes,
 			.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopySrc,
@@ -185,7 +185,7 @@ int main(int argc, char ** argv)
 			.debugName = "bindless.output",
 		},
 		error);
-	const rhi::BufferHandle readback = dev.CreateBuffer(
+	const rhi::BufferHandle readback = dev.create_buffer(
 		rhi::BufferDesc{
 			.size	   = kOutputBytes,
 			.usage	   = rhi::BufferUsage::eCopyDst,
@@ -194,13 +194,13 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	if (!sampler.IsValid() || !output.IsValid() || !readback.IsValid())
+	if (!sampler.is_valid() || !output.is_valid() || !readback.is_valid())
 	{
 		fw::ReportError("the sampler or the buffers were refused", error);
 		return 1;
 	}
 
-	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
+	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
 			.maxSets		= 1,
@@ -211,7 +211,7 @@ int main(int argc, char ** argv)
 
 	const rhi::DescriptorSetHandle set =
 		arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
-	if (!set.IsValid())
+	if (!set.is_valid())
 	{
 		fw::ReportError("the variable length set was refused", error);
 		return 1;
@@ -221,7 +221,7 @@ int main(int argc, char ** argv)
 	const std::array bufferWrites{
 		rhi::DescriptorWriteBuffer{ .set = set, .binding = 1, .type = rhi::DescriptorType::eStorageBuffer, .buffer = output, .range = kOutputBytes },
 	};
-	if (!dev.UpdateDescriptors(std::span(samplerWrites), error) || !dev.UpdateDescriptors(std::span(bufferWrites), error))
+	if (!dev.update_descriptors(std::span(samplerWrites), error) || !dev.update_descriptors(std::span(bufferWrites), error))
 	{
 		fw::ReportError("the fixed descriptors were refused", error);
 		return 1;
@@ -239,17 +239,17 @@ int main(int argc, char ** argv)
 			.view		= views.at(slot),
 		});
 	}
-	if (!dev.UpdateDescriptors(std::span(earlyWrites), error))
+	if (!dev.update_descriptors(std::span(earlyWrites), error))
 	{
 		fw::ReportError("the first half of the array was refused", error);
 		return 1;
 	}
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "bindless.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "bindless.pool" }, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "bindless.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "bindless.pool" }, error);
 	rhi::CommandList list			   = pool.Allocate("bindless.gather", error);
-	if (!timeline.IsValid() || !queue.IsValid() || !list.IsValid() || !list.Begin(error))
+	if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
 	{
 		fw::ReportError("the submission objects were refused", error);
 		return 1;
@@ -288,21 +288,21 @@ int main(int argc, char ** argv)
 		},
 	};
 
-	bool recorded = list.Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error);
+	bool recorded = list.barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error);
 
 	const std::array wholeTexture{ rhi::TextureSubresourceRange{ .aspects = rhi::TextureAspect::eColor } };
 	for (std::uint32_t slot = 0; slot < kTextures && recorded; ++slot)
 	{
-		recorded = list.ClearTexture(textures.at(slot), ColorFor(slot), wholeTexture, error);
+		recorded = list.clear_texture(textures.at(slot), ColorFor(slot), wholeTexture, error);
 	}
 
 	const Params params{ .count = kTextures };
 
-	recorded = recorded && list.Barriers(rhi::BarrierBatch{ .buffers = outputToWrite, .textures = toShaderRead }, error) &&
-			   list.SetComputePipeline(pipeline, error) && list.BindDescriptorSet(layout, 0, set, {}, error) &&
-			   list.PushConstants(layout, rhi::ShaderStage::eCompute, 0, sizeof(params), &params, error) &&
-			   list.Dispatch(kTextures / gather.threadgroupSize.x, 1, 1, error) && list.Barriers(rhi::BarrierBatch{ .buffers = outputToCopy }, error) &&
-			   list.CopyBuffer(readback, 0, output, 0, kOutputBytes, error) && list.End(error);
+	recorded = recorded && list.barriers(rhi::BarrierBatch{ .buffers = outputToWrite, .textures = toShaderRead }, error) &&
+			   list.set_compute_pipeline(pipeline, error) && list.bind_descriptor_set(layout, 0, set, {}, error) &&
+			   list.push_constants(layout, rhi::ShaderStage::eCompute, 0, sizeof(params), &params, error) &&
+			   list.Dispatch(kTextures / gather.threadgroupSize.x, 1, 1, error) && list.barriers(rhi::BarrierBatch{ .buffers = outputToCopy }, error) &&
+			   list.copy_buffer(readback, 0, output, 0, kOutputBytes, error) && list.End(error);
 
 	if (!recorded)
 	{
@@ -322,7 +322,7 @@ int main(int argc, char ** argv)
 			.view		= views.at(slot),
 		});
 	}
-	if (!dev.UpdateDescriptors(std::span(lateWrites), error))
+	if (!dev.update_descriptors(std::span(lateWrites), error))
 	{
 		fw::ReportError("the second half of the array was refused after the list was recorded", error);
 		return 1;
@@ -332,7 +332,7 @@ int main(int argc, char ** argv)
 
 	std::array<const rhi::CommandList *, 1> lists{ &list };
 	const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
-	if (!queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "bindless.submit" }, error) ||
+	if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "bindless.submit" }, error) ||
 		!queue.Wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("the dispatch did not complete", error);
@@ -346,7 +346,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	if (!mapped.coherent && !dev.InvalidateMappedRange(readback, 0, kOutputBytes, error))
+	if (!mapped.coherent && !dev.invalidate_mapped_range(readback, 0, kOutputBytes, error))
 	{
 		fw::ReportError("the readback could not be invalidated", error);
 		return 1;
@@ -391,16 +391,16 @@ int main(int argc, char ** argv)
 		.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 		.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 1 },
 	};
-	dev.Destroy(readback, retired, error);
-	dev.Destroy(output, retired, error);
-	dev.Destroy(sampler, retired, error);
+	dev.destroy(readback, retired, error);
+	dev.destroy(output, retired, error);
+	dev.destroy(sampler, retired, error);
 	for (std::uint32_t slot = 0; slot < kTextures; ++slot)
 	{
-		dev.Destroy(views.at(slot), retired, error);
-		dev.Destroy(textures.at(slot), retired, error);
+		dev.destroy(views.at(slot), retired, error);
+		dev.destroy(textures.at(slot), retired, error);
 	}
-	dev.CollectGarbage(timeline, 1, error);
-	dev.Destroy(timeline, {}, error);
+	dev.collect_garbage(timeline, 1, error);
+	dev.destroy(timeline, {}, error);
 
 	return status;
 }

@@ -72,7 +72,7 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
@@ -81,14 +81,14 @@ int main(int argc, char ** argv)
 	deviceDesc.requireSwapchain = false;
 	deviceDesc.debugName		= "offscreen_clear";
 
-	const rhi::Result<rhi::UniqueDevice> device = backends.CreateDevice(deviceDesc);
+	const rhi::Result<rhi::UniqueDevice> device = backends.create_device(deviceDesc);
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	rhi::Error error{};
 
@@ -101,8 +101,8 @@ int main(int argc, char ** argv)
 		.debugName = "example.colorTarget",
 	};
 
-	const rhi::TextureHandle target	  = dev.CreateTexture(targetDesc, error);
-	const rhi::TextureViewHandle view = dev.CreateTextureView(target, rhi::TextureViewDesc{ .debugName = "example.colorTargetView" }, error);
+	const rhi::TextureHandle target	  = dev.create_texture(targetDesc, error);
+	const rhi::TextureViewHandle view = dev.create_texture_view(target, rhi::TextureViewDesc{ .debugName = "example.colorTargetView" }, error);
 
 	const rhi::BufferDesc readbackDesc{
 		.size	   = kReadbackBytes,
@@ -110,19 +110,19 @@ int main(int argc, char ** argv)
 		.memory	   = rhi::MemoryUsage::eCpuReadback,
 		.debugName = "example.readback",
 	};
-	const rhi::BufferHandle readback = dev.CreateBuffer(readbackDesc, error);
+	const rhi::BufferHandle readback = dev.create_buffer(readbackDesc, error);
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "example.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "example.pool" }, error);
-	if (!target.IsValid() || !view.IsValid() || !readback.IsValid() || !timeline.IsValid() || !queue.IsValid() || !pool.IsValid())
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "example.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "example.pool" }, error);
+	if (!target.is_valid() || !view.is_valid() || !readback.is_valid() || !timeline.is_valid() || !queue.is_valid() || !pool.is_valid())
 	{
 		fw::ReportError("failed to create the render resources", error);
 		return 1;
 	}
 
 	rhi::CommandList list = pool.Allocate("example.clear", error);
-	if (!list.IsValid() || !list.Begin(error))
+	if (!list.is_valid() || !list.Begin(error))
 	{
 		fw::ReportError("failed to begin recording", error);
 		return 1;
@@ -157,22 +157,22 @@ int main(int argc, char ** argv)
 		.textureExtent = { .width = kExtent, .height = kExtent, .depth = 1 },
 	} };
 
-	if (!list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error))
+	if (!list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error))
 	{
 		fw::ReportError("failed to record the attachment barrier", error);
 		return 1;
 	}
 
-	if (!list.BeginRendering(rendering, error))
+	if (!list.begin_rendering(rendering, error))
 	{
 		fw::ReportError("this backend refused the rendering scope", error);
 		return 1;
 	}
 
-	list.EndRendering(error);
+	list.end_rendering(error);
 
 	const bool recorded =
-		list.Barriers(rhi::BarrierBatch{ .textures = toCopySource }, error) && list.CopyTextureToBuffer(readback, target, regions, error) && list.End(error);
+		list.barriers(rhi::BarrierBatch{ .textures = toCopySource }, error) && list.copy_texture_to_buffer(readback, target, regions, error) && list.End(error);
 	if (!recorded)
 	{
 		fw::ReportError("failed to record the readback copy", error);
@@ -187,7 +187,7 @@ int main(int argc, char ** argv)
 		.debugName	  = "example.clearSubmit",
 	};
 
-	if (!queue.Submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
+	if (!queue.submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("failed to submit the clear", error);
 		return 1;
@@ -201,7 +201,7 @@ int main(int argc, char ** argv)
 	}
 	else
 	{
-		if (!mapped.coherent && !dev.InvalidateMappedRange(readback, 0, kReadbackBytes, error))
+		if (!mapped.coherent && !dev.invalidate_mapped_range(readback, 0, kReadbackBytes, error))
 		{
 			fw::ReportError("failed to invalidate the readback buffer", error);
 			return 1;
@@ -240,11 +240,11 @@ int main(int argc, char ** argv)
 		.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 		.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 1 },
 	};
-	dev.Destroy(readback, retired, error);
-	dev.Destroy(view, retired, error);
-	dev.Destroy(target, retired, error);
-	dev.CollectGarbage(timeline, 1, error);
-	dev.Destroy(timeline, {}, error);
+	dev.destroy(readback, retired, error);
+	dev.destroy(view, retired, error);
+	dev.destroy(target, retired, error);
+	dev.collect_garbage(timeline, 1, error);
+	dev.destroy(timeline, {}, error);
 
 	return status;
 }

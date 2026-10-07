@@ -30,14 +30,14 @@ namespace
 
 	TEST(GraphicsApiId, IsDerivedFromTheCanonicalName)
 	{
-		static_assert(rhi::MakeGraphicsApiId("azoth.rhi.vulkan") == rhi::VulkanApi::id);
-		static_assert(rhi::MakeGraphicsApiId("azoth.rhi.d3d12") == rhi::D3D12Api::id);
-		static_assert(rhi::MakeGraphicsApiId("azoth.rhi.metal") == rhi::MetalApi::id);
-		static_assert(rhi::MakeGraphicsApiId("azoth.rhi.metal4") == rhi::Metal4Api::id);
-		static_assert(rhi::MakeGraphicsApiId("azoth.rhi.null") == rhi::NullApi::id);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.vulkan") == rhi::VulkanApi::id);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.d3d12") == rhi::D3D12Api::id);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.metal") == rhi::MetalApi::id);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.metal4") == rhi::Metal4Api::id);
+		static_assert(rhi::make_graphics_api_id("azoth.rhi.null") == rhi::NullApi::id);
 
-		static_assert(rhi::MakeGraphicsApiId(rhi::VulkanApi::canonicalName) == rhi::VulkanApi::id);
-		static_assert(rhi::MakeGraphicsApiId(rhi::NullApi::canonicalName) == rhi::NullApi::id);
+		static_assert(rhi::make_graphics_api_id(rhi::VulkanApi::canonicalName) == rhi::VulkanApi::id);
+		static_assert(rhi::make_graphics_api_id(rhi::NullApi::canonicalName) == rhi::NullApi::id);
 
 		SUCCEED();
 	}
@@ -49,10 +49,10 @@ namespace
 		static_assert(rhi::MetalApi::id.value == 0x3cfc979e01c9c8cdULL);
 		static_assert(rhi::NullApi::id.value == 0x0a57d2b2badd572fULL);
 
-		EXPECT_EQ(rhi::Metal4Api::id.value, rhi::hash::Fnv1a64Hash("azoth.rhi.metal4"));
+		EXPECT_EQ(rhi::Metal4Api::id.value, rhi::hash::fnv1a64_hash("azoth.rhi.metal4"));
 
-		EXPECT_EQ(rhi::VulkanApi::id.value, rhi::hash::Fnv1a64Hash("azoth.rhi.vulkan"));
-		EXPECT_EQ(rhi::NullApi::id.value, rhi::hash::Fnv1a64Hash("azoth.rhi.null"));
+		EXPECT_EQ(rhi::VulkanApi::id.value, rhi::hash::fnv1a64_hash("azoth.rhi.vulkan"));
+		EXPECT_EQ(rhi::NullApi::id.value, rhi::hash::fnv1a64_hash("azoth.rhi.null"));
 	}
 
 	TEST(GraphicsApiId, IsDistinctForEveryBackend)
@@ -133,13 +133,13 @@ namespace
 
 	TEST(ShortApiName, DistinguishesTheTwoMetalBackends)
 	{
-		static_assert(rhi::ShortApiName(rhi::MetalApi::canonicalName) == "metal");
-		static_assert(rhi::ShortApiName(rhi::Metal4Api::canonicalName) == "metal4");
+		static_assert(rhi::short_api_name(rhi::MetalApi::canonicalName) == "metal");
+		static_assert(rhi::short_api_name(rhi::Metal4Api::canonicalName) == "metal4");
 
-		static_assert(rhi::IsMetalFamily(rhi::MetalApi::id));
-		static_assert(rhi::IsMetalFamily(rhi::Metal4Api::id));
-		static_assert(!rhi::IsMetalFamily(rhi::VulkanApi::id));
-		static_assert(!rhi::IsMetalFamily(rhi::NullApi::id));
+		static_assert(rhi::is_metal_family(rhi::MetalApi::id));
+		static_assert(rhi::is_metal_family(rhi::Metal4Api::id));
+		static_assert(!rhi::is_metal_family(rhi::VulkanApi::id));
+		static_assert(!rhi::is_metal_family(rhi::NullApi::id));
 
 		SUCCEED();
 	}

@@ -74,23 +74,23 @@ namespace azo::rhi::test
 	template <class T>
 	[[nodiscard]] ::testing::AssertionResult Ok(const Result<T> & result)
 	{
-		if (result.HasValue())
+		if (result.has_value())
 		{
 			return ::testing::AssertionSuccess();
 		}
-		return ::testing::AssertionFailure() << "expected success, got " << Describe(result.GetError());
+		return ::testing::AssertionFailure() << "expected success, got " << Describe(result.get_error());
 	}
 
 	template <class T>
 	[[nodiscard]] ::testing::AssertionResult Failed(const Result<T> & result, const ErrorCode expected)
 	{
-		if (result.HasValue())
+		if (result.has_value())
 		{
 			return ::testing::AssertionFailure() << "expected " << ErrorCodeName(expected) << ", got success";
 		}
-		if (result.GetError().code != expected)
+		if (result.get_error().code != expected)
 		{
-			return ::testing::AssertionFailure() << "expected " << ErrorCodeName(expected) << ", got " << Describe(result.GetError());
+			return ::testing::AssertionFailure() << "expected " << ErrorCodeName(expected) << ", got " << Describe(result.get_error());
 		}
 		return ::testing::AssertionSuccess();
 	}
@@ -168,7 +168,7 @@ namespace azo::rhi
 	template <class Tag>
 	void PrintTo(const Handle<Tag> handle, std::ostream * out)
 	{
-		if (!handle.IsValid())
+		if (!handle.is_valid())
 		{
 			*out << "Handle{invalid}";
 			return;

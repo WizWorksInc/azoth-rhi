@@ -44,20 +44,20 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle handle = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
+		const rhi::DescriptorSetLayoutHandle handle = Dev().create_descriptor_set_layout(layout.Desc(), error);
 
-		ASSERT_TRUE(test::Ok(handle.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(handle, {}, error), error));
+		ASSERT_TRUE(test::Ok(handle.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, CreatesALayoutWithNoBindingsAtAll)
 	{
 		rhi::Error error{};
 		const rhi::DescriptorSetLayoutHandle handle =
-			Dev().CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .debugName = "azoth.rhi.test.emptySet" }, error);
+			Dev().create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .debugName = "azoth.rhi.test.emptySet" }, error);
 
-		ASSERT_TRUE(test::Ok(handle.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(handle, {}, error), error));
+		ASSERT_TRUE(test::Ok(handle.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, CreatesALayoutCoveringTheDescriptorTypesTheBaselineUses)
@@ -76,15 +76,15 @@ namespace
 			rhi::DescriptorBinding{ .binding = 3, .type = rhi::DescriptorType::eSampler, .count = 1 } };
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle handle = Dev().CreateDescriptorSetLayout(
+		const rhi::DescriptorSetLayoutHandle handle = Dev().create_descriptor_set_layout(
 			rhi::DescriptorSetLayoutDesc{
 				.bindings  = bindings,
 				.debugName = "azoth.rhi.test.mixedSet",
 			},
 			error);
 
-		ASSERT_TRUE(test::Ok(handle.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(handle, {}, error), error));
+		ASSERT_TRUE(test::Ok(handle.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, CreatesAPipelineLayoutOverASetAndAPushConstantRange)
@@ -92,32 +92,32 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		const test::samples::SimplePipelineLayout pipelineLayout(setLayout);
-		const rhi::PipelineLayoutHandle handle = Dev().CreatePipelineLayout(pipelineLayout.Desc(), error);
-		ASSERT_TRUE(test::Ok(handle.IsValid(), error));
+		const rhi::PipelineLayoutHandle handle = Dev().create_pipeline_layout(pipelineLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(handle.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(handle, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, CreatesAPipelineLayoutWithNothingInIt)
 	{
 		rhi::Error error{};
-		const rhi::PipelineLayoutHandle handle = Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.emptyLayout" }, error);
+		const rhi::PipelineLayoutHandle handle = Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "azoth.rhi.test.emptyLayout" }, error);
 
-		ASSERT_TRUE(test::Ok(handle.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(handle, {}, error), error));
+		ASSERT_TRUE(test::Ok(handle.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, CreatesADescriptorArena)
 	{
 		rhi::Error error{};
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
 
-		EXPECT_TRUE(test::Ok(arena.IsValid(), error));
+		EXPECT_TRUE(test::Ok(arena.is_valid(), error));
 	}
 
 	TEST_P(DescriptorTest, AllocatesSetsFromAnArena)
@@ -125,11 +125,11 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetAllocDesc alloc{
 			.layout					 = setLayout,
@@ -138,14 +138,14 @@ namespace
 		};
 
 		const rhi::DescriptorSetHandle first = arena.Allocate(alloc, error);
-		ASSERT_TRUE(test::Ok(first.IsValid(), error));
+		ASSERT_TRUE(test::Ok(first.is_valid(), error));
 
 		const rhi::DescriptorSetHandle second = arena.Allocate(alloc, error);
-		ASSERT_TRUE(test::Ok(second.IsValid(), error));
+		ASSERT_TRUE(test::Ok(second.is_valid(), error));
 
 		EXPECT_NE(first, second) << "two sets from the same arena share a handle";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, TakesBackADescriptorSetTheSameWayEveryBackendDoes)
@@ -153,22 +153,22 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set =
 			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.destroyedSet" }, error);
-		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(set, {}, error), error)) << "this backend declines to take back a descriptor set the others do";
+		EXPECT_TRUE(test::Ok(Dev().destroy(set, {}, error), error)) << "this backend declines to take back a descriptor set the others do";
 
 		rhi::Error twiceError{};
-		EXPECT_FALSE(Dev().Destroy(set, {}, twiceError)) << "the set was not retired, so destroying it twice was accepted";
+		EXPECT_FALSE(Dev().destroy(set, {}, twiceError)) << "the set was not retired, so destroying it twice was accepted";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, RefusesAnAccelerationStructureWriteToABindingDeclaredAsSomethingElse)
@@ -178,24 +178,24 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set =
 			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.accelWrite" }, error);
-		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		const std::array writes{ rhi::DescriptorWriteAccelerationStructure{ .set = set, .binding = 0, .arrayIndex = 0 } };
 
 		rhi::Error writeError{};
-		EXPECT_FALSE(Dev().UpdateDescriptors(std::span<const rhi::DescriptorWriteAccelerationStructure>{ writes }, writeError))
+		EXPECT_FALSE(Dev().update_descriptors(std::span<const rhi::DescriptorWriteAccelerationStructure>{ writes }, writeError))
 			<< "an acceleration structure was written to a binding the layout declared as a uniform buffer";
 		EXPECT_TRUE(test::ErrorIsPopulated(writeError));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, ResetsAnArenaAndAllocatesFromItAgain)
@@ -203,11 +203,11 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetAllocDesc alloc{
 			.layout					 = setLayout,
@@ -219,9 +219,9 @@ namespace
 		ASSERT_TRUE(test::Ok(arena.Reset(rhi::RetirePoint{}, error), error));
 
 		const rhi::DescriptorSetHandle afterReset = arena.Allocate(alloc, error);
-		EXPECT_TRUE(test::Ok(afterReset.IsValid(), error)) << "a reset arena stopped handing out sets";
+		EXPECT_TRUE(test::Ok(afterReset.is_valid(), error)) << "a reset arena stopped handing out sets";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, RejectsBindingASetThatItsArenaHasSinceReset)
@@ -231,15 +231,15 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		const test::samples::SimplePipelineLayout pipelineLayout(setLayout);
-		const rhi::PipelineLayoutHandle layoutHandle = Dev().CreatePipelineLayout(pipelineLayout.Desc(), error);
-		ASSERT_TRUE(test::Ok(layoutHandle.IsValid(), error));
+		const rhi::PipelineLayoutHandle layoutHandle = Dev().create_pipeline_layout(pipelineLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(layoutHandle.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle stale = arena.Allocate(
 			rhi::DescriptorSetAllocDesc{
@@ -248,7 +248,7 @@ namespace
 				.debugName				 = "azoth.rhi.test.staleSet",
 			},
 			error);
-		ASSERT_TRUE(test::Ok(stale.IsValid(), error));
+		ASSERT_TRUE(test::Ok(stale.is_valid(), error));
 
 		ASSERT_TRUE(test::Ok(arena.Reset(rhi::RetirePoint{}, error), error));
 
@@ -256,12 +256,12 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		rhi::Error bindError{};
-		EXPECT_FALSE(recording.List().BindDescriptorSet(layoutHandle, 0, stale, {}, bindError)) << "a set outlived the arena reset that invalidated it";
+		EXPECT_FALSE(recording.List().bind_descriptor_set(layoutHandle, 0, stale, {}, bindError)) << "a set outlived the arena reset that invalidated it";
 		EXPECT_TRUE(test::ErrorIsPopulated(bindError));
 
 		static_cast<void>(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layoutHandle, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layoutHandle, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, BindsASetThatIsStillLive)
@@ -269,15 +269,15 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		const test::samples::SimplePipelineLayout pipelineLayout(setLayout);
-		const rhi::PipelineLayoutHandle layoutHandle = Dev().CreatePipelineLayout(pipelineLayout.Desc(), error);
-		ASSERT_TRUE(test::Ok(layoutHandle.IsValid(), error));
+		const rhi::PipelineLayoutHandle layoutHandle = Dev().create_pipeline_layout(pipelineLayout.Desc(), error);
+		ASSERT_TRUE(test::Ok(layoutHandle.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle live = arena.Allocate(
 			rhi::DescriptorSetAllocDesc{
@@ -286,16 +286,16 @@ namespace
 				.debugName				 = "azoth.rhi.test.liveSet",
 			},
 			error);
-		ASSERT_TRUE(test::Ok(live.IsValid(), error));
+		ASSERT_TRUE(test::Ok(live.is_valid(), error));
 
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		EXPECT_TRUE(test::Ok(recording.List().BindDescriptorSet(layoutHandle, 0, live, {}, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().bind_descriptor_set(layoutHandle, 0, live, {}, error), error));
 
 		EXPECT_TRUE(recording.End());
-		EXPECT_TRUE(test::Ok(Dev().Destroy(layoutHandle, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(layoutHandle, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, ADynamicOffsetGoesToTheBindingItNamesRatherThanItsPlaceInTheList)
@@ -318,9 +318,9 @@ namespace
 			};
 		};
 
-		const rhi::BufferHandle roomy = Dev().CreateBuffer(uniformOf(kRoomy), error);
-		const rhi::BufferHandle snug  = Dev().CreateBuffer(uniformOf(kSnug), error);
-		ASSERT_TRUE(test::Ok(roomy.IsValid() && snug.IsValid(), error));
+		const rhi::BufferHandle roomy = Dev().create_buffer(uniformOf(kRoomy), error);
+		const rhi::BufferHandle snug  = Dev().create_buffer(uniformOf(kSnug), error);
+		ASSERT_TRUE(test::Ok(roomy.is_valid() && snug.is_valid(), error));
 
 		constexpr std::array bindings{
 			rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eDynamicUniformBuffer, .stages = rhi::ShaderStage::eCompute },
@@ -328,20 +328,20 @@ namespace
 		};
 
 		const rhi::DescriptorSetLayoutHandle setLayout =
-			Dev().CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.dynamicSet" }, error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+			Dev().create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.dynamicSet" }, error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		const std::array setLayouts{ setLayout };
 		const rhi::PipelineLayoutHandle pipelineLayout =
-			Dev().CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .debugName = "azoth.rhi.test.dynamicLayout" }, error);
-		ASSERT_TRUE(test::Ok(pipelineLayout.IsValid(), error));
+			Dev().create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .debugName = "azoth.rhi.test.dynamicLayout" }, error);
+		ASSERT_TRUE(test::Ok(pipelineLayout.is_valid(), error));
 
 		rhi::DescriptorArena arena =
-			Dev().CreateDescriptorArena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 2 }, error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+			Dev().create_descriptor_arena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 2 }, error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout }, error);
-		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		const std::array writes{
 			rhi::DescriptorWriteBuffer{
@@ -349,7 +349,7 @@ namespace
 			rhi::DescriptorWriteBuffer{
 				.set = set, .binding = 1, .type = rhi::DescriptorType::eDynamicUniformBuffer, .buffer = snug, .offset = 0, .range = kRange },
 		};
-		ASSERT_TRUE(test::Ok(Dev().UpdateDescriptors(std::span(writes), error), error));
+		ASSERT_TRUE(test::Ok(Dev().update_descriptors(std::span(writes), error), error));
 
 		const std::array offsets{
 			rhi::DynamicDescriptorOffset{ .binding = 1, .arrayIndex = 0, .offset = 0 },
@@ -359,15 +359,15 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		EXPECT_TRUE(test::Ok(recording.List().BindDescriptorSet(pipelineLayout, 0, set, std::span(offsets), error), error));
+		EXPECT_TRUE(test::Ok(recording.List().bind_descriptor_set(pipelineLayout, 0, set, std::span(offsets), error), error));
 		EXPECT_TRUE(recording.End());
 
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a dynamic offset was applied to the wrong binding, which put a range outside its buffer");
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(pipelineLayout, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(snug, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(roomy, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(pipelineLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(snug, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(roomy, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, WritesABufferDescriptorIntoASet)
@@ -375,11 +375,11 @@ namespace
 		const test::samples::UniformLayout layout;
 
 		rhi::Error error{};
-		const rhi::DescriptorSetLayoutHandle setLayout = Dev().CreateDescriptorSetLayout(layout.Desc(), error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+		const rhi::DescriptorSetLayoutHandle setLayout = Dev().create_descriptor_set_layout(layout.Desc(), error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set = arena.Allocate(
 			rhi::DescriptorSetAllocDesc{
@@ -388,12 +388,12 @@ namespace
 				.debugName				 = "azoth.rhi.test.set",
 			},
 			error);
-		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		rhi::BufferDesc uniformDesc		= test::samples::StorageBuffer();
 		uniformDesc.usage				= rhi::BufferUsage::eUniform;
-		const rhi::BufferHandle uniform = Dev().CreateBuffer(uniformDesc, error);
-		ASSERT_TRUE(test::Ok(uniform.IsValid(), error));
+		const rhi::BufferHandle uniform = Dev().create_buffer(uniformDesc, error);
+		ASSERT_TRUE(test::Ok(uniform.is_valid(), error));
 
 		const std::array writes{ rhi::DescriptorWriteBuffer{ .set = set,
 			.binding											  = 0,
@@ -403,10 +403,10 @@ namespace
 			.offset												  = 0,
 			.range												  = test::samples::kBufferSize } };
 
-		EXPECT_TRUE(test::Ok(Dev().UpdateDescriptors(writes, error), error));
+		EXPECT_TRUE(test::Ok(Dev().update_descriptors(writes, error), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(uniform, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(uniform, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, WritesACombinedImageSamplerThroughOneBinding)
@@ -420,28 +420,28 @@ namespace
 
 		rhi::Error error{};
 		const rhi::DescriptorSetLayoutHandle setLayout =
-			Dev().CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.combinedLayout" }, error);
-		ASSERT_TRUE(test::Ok(setLayout.IsValid(), error));
+			Dev().create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.combinedLayout" }, error);
+		ASSERT_TRUE(test::Ok(setLayout.is_valid(), error));
 
 		const test::samples::SimplePipelineLayout pipelineLayout(setLayout);
-		const rhi::PipelineLayoutHandle pipeline = Dev().CreatePipelineLayout(pipelineLayout.Desc(), error);
-		EXPECT_TRUE(test::Ok(pipeline.IsValid(), error)) << "a pipeline layout over a combined binding was refused";
+		const rhi::PipelineLayoutHandle pipeline = Dev().create_pipeline_layout(pipelineLayout.Desc(), error);
+		EXPECT_TRUE(test::Ok(pipeline.is_valid(), error)) << "a pipeline layout over a combined binding was refused";
 
-		rhi::DescriptorArena arena = Dev().CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		ASSERT_TRUE(test::Ok(arena.IsValid(), error));
+		rhi::DescriptorArena arena = Dev().create_descriptor_arena(test::samples::DescriptorArena(), error);
+		ASSERT_TRUE(test::Ok(arena.is_valid(), error));
 
 		const rhi::DescriptorSetHandle set =
 			arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = 0, .debugName = "azoth.rhi.test.combinedSet" }, error);
-		ASSERT_TRUE(test::Ok(set.IsValid(), error));
+		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, test::samples::FullTextureView(), error);
-		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.is_valid(), error));
 
-		const rhi::SamplerHandle sampler = Dev().CreateSampler(test::samples::LinearSampler(), error);
-		ASSERT_TRUE(test::Ok(sampler.IsValid(), error));
+		const rhi::SamplerHandle sampler = Dev().create_sampler(test::samples::LinearSampler(), error);
+		ASSERT_TRUE(test::Ok(sampler.is_valid(), error));
 
 		const std::array writes{ rhi::DescriptorWriteTexture{
 			.set		 = set,
@@ -453,31 +453,31 @@ namespace
 			.expectedUse = rhi::ResourceUse::eSampledRead,
 		} };
 
-		EXPECT_TRUE(test::Ok(Dev().UpdateDescriptors(writes, error), error)) << "a combined image sampler write was refused";
+		EXPECT_TRUE(test::Ok(Dev().update_descriptors(writes, error), error)) << "a combined image sampler write was refused";
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a combined image sampler write tripped native validation");
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(sampler, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
-		if (pipeline.IsValid())
+		EXPECT_TRUE(test::Ok(Dev().destroy(sampler, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
+		if (pipeline.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(pipeline, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(pipeline, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(setLayout, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(setLayout, {}, error), error));
 	}
 
 	TEST_P(DescriptorTest, AcceptsAnEmptyBatchOfDescriptorWrites)
 	{
 		rhi::Error error{};
-		EXPECT_TRUE(test::Ok(Dev().UpdateDescriptors(std::span<const rhi::DescriptorWriteBuffer>{}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().UpdateDescriptors(std::span<const rhi::DescriptorWriteTexture>{}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().UpdateDescriptors(std::span<const rhi::DescriptorWriteSampler>{}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().update_descriptors(std::span<const rhi::DescriptorWriteBuffer>{}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().update_descriptors(std::span<const rhi::DescriptorWriteTexture>{}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().update_descriptors(std::span<const rhi::DescriptorWriteSampler>{}, error), error));
 	}
 
 	TEST_P(DescriptorTest, ADefaultConstructedArenaIsInert)
 	{
 		rhi::DescriptorArena arena;
-		EXPECT_FALSE(arena.IsValid());
+		EXPECT_FALSE(arena.is_valid());
 	}
 
 }

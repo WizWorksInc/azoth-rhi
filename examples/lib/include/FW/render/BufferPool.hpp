@@ -38,7 +38,7 @@ namespace fw::render
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return data != nullptr && buffer.IsValid();
+			return data != nullptr && buffer.is_valid();
 		}
 
 		template <typename T>

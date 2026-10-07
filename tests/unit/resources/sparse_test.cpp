@@ -55,14 +55,14 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().sparseTier >= rhi::SparseTier::eBuffers, "sparse buffers");
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(SparseBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error)) << "a device reporting sparse buffers refused to create one";
+		const rhi::BufferHandle buffer = Dev().create_buffer(SparseBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error)) << "a device reporting sparse buffers refused to create one";
 
-		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(kPageBytes * 4), error);
-		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
+		const rhi::HeapHandle heap = Dev().create_heap(test::samples::GpuHeap(kPageBytes * 4), error);
+		ASSERT_TRUE(test::Ok(heap.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		const std::array<rhi::SparseBufferBind, 1> bind{
 			rhi::SparseBufferBind{ .buffer = buffer, .resourceOffset = 0, .page = rhi::SparseMemoryPage{ .heap = heap, .heapOffset = 0, .size = kPageBytes } },
@@ -71,7 +71,7 @@ namespace
 		rhi::SparseBindDesc bound{};
 		bound.buffers	= bind;
 		bound.debugName = "azoth.rhi.test.bindPage";
-		EXPECT_TRUE(test::Ok(queue.BindSparse(bound, error), error)) << "binding one page to a sparse buffer failed";
+		EXPECT_TRUE(test::Ok(queue.bind_sparse(bound, error), error)) << "binding one page to a sparse buffer failed";
 
 		const std::array<rhi::SparseBufferBind, 1> unbind{
 			rhi::SparseBufferBind{ .buffer = buffer, .resourceOffset = 0, .page = rhi::SparseMemoryPage{ .size = kPageBytes } },
@@ -80,11 +80,11 @@ namespace
 		rhi::SparseBindDesc released{};
 		released.buffers   = unbind;
 		released.debugName = "azoth.rhi.test.unbindPage";
-		EXPECT_TRUE(test::Ok(queue.BindSparse(released, error), error)) << "unbinding a page from a sparse buffer failed";
+		EXPECT_TRUE(test::Ok(queue.bind_sparse(released, error), error)) << "unbinding a page from a sparse buffer failed";
 
-		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 	TEST_P(SparseTest, RefusesASparseBindAgainstABufferThatDidNotAskForOne)
@@ -94,14 +94,14 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "a backend that remembers what a buffer was created as");
 
 		rhi::Error error{};
-		const rhi::BufferHandle ordinary = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(ordinary.IsValid(), error));
+		const rhi::BufferHandle ordinary = Dev().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(ordinary.is_valid(), error));
 
-		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(kPageBytes * 4), error);
-		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
+		const rhi::HeapHandle heap = Dev().create_heap(test::samples::GpuHeap(kPageBytes * 4), error);
+		ASSERT_TRUE(test::Ok(heap.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		const std::array<rhi::SparseBufferBind, 1> bind{
 			rhi::SparseBufferBind{
@@ -112,11 +112,11 @@ namespace
 		bound.buffers = bind;
 
 		rhi::Error bindError{};
-		EXPECT_FALSE(queue.BindSparse(bound, bindError)) << "a page was bound into a buffer that owns its memory outright";
+		EXPECT_FALSE(queue.bind_sparse(bound, bindError)) << "a page was bound into a buffer that owns its memory outright";
 		EXPECT_TRUE(test::ErrorIsPopulated(bindError));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(ordinary, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(ordinary, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 	TEST_P(SparseTest, ADeviceWithoutSparseRefusesToCreateASparseBuffer)
@@ -124,9 +124,9 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().sparseTier == rhi::SparseTier::eNone, "a device without sparse support");
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(SparseBuffer(), error);
+		const rhi::BufferHandle buffer = Dev().create_buffer(SparseBuffer(), error);
 
-		EXPECT_FALSE(buffer.IsValid()) << "a device reporting no sparse support created a sparse buffer anyway";
+		EXPECT_FALSE(buffer.is_valid()) << "a device reporting no sparse support created a sparse buffer anyway";
 		EXPECT_TRUE(test::ErrorIsPopulated(error));
 	}
 
@@ -142,14 +142,14 @@ namespace
 		desc.allowSparseBinding = true;
 		desc.debugName			= "azoth.rhi.test.sparseTexture";
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error)) << "a device reporting sparse textures refused to create one";
+		const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error)) << "a device reporting sparse textures refused to create one";
 
-		const rhi::HeapHandle heap = Dev().CreateHeap(test::samples::GpuHeap(kPageBytes * 16), error);
-		ASSERT_TRUE(test::Ok(heap.IsValid(), error));
+		const rhi::HeapHandle heap = Dev().create_heap(test::samples::GpuHeap(kPageBytes * 16), error);
+		ASSERT_TRUE(test::Ok(heap.is_valid(), error));
 
-		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics, 0, error);
-		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+		rhi::Queue queue = Dev().get_queue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		const std::array<rhi::SparseTextureBind, 1> bind{
 			rhi::SparseTextureBind{ .texture = texture,
@@ -162,11 +162,11 @@ namespace
 		rhi::SparseBindDesc bound{};
 		bound.textures	= bind;
 		bound.debugName = "azoth.rhi.test.bindTile";
-		EXPECT_TRUE(test::Ok(queue.BindSparse(bound, error), error)) << "binding one tile to a sparse texture failed";
+		EXPECT_TRUE(test::Ok(queue.bind_sparse(bound, error), error)) << "binding one tile to a sparse texture failed";
 
-		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(heap, {}, error), error));
+		EXPECT_TRUE(test::Ok(queue.wait_idle(error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(heap, {}, error), error));
 	}
 
 }

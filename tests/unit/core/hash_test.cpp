@@ -30,23 +30,23 @@ namespace
 
 	TEST(Fnv1a64, MatchesThePublishedVectors)
 	{
-		static_assert(rhi::hash::Fnv1a64Hash("") == 0xcbf29ce484222325ULL, "the empty string has to fold to the offset basis");
-		static_assert(rhi::hash::Fnv1a64Hash("a") == 0xaf63dc4c8601ec8cULL);
-		static_assert(rhi::hash::Fnv1a64Hash("foobar") == 0x85944171f73967e8ULL);
+		static_assert(rhi::hash::fnv1a64_hash("") == 0xcbf29ce484222325ULL, "the empty string has to fold to the offset basis");
+		static_assert(rhi::hash::fnv1a64_hash("a") == 0xaf63dc4c8601ec8cULL);
+		static_assert(rhi::hash::fnv1a64_hash("foobar") == 0x85944171f73967e8ULL);
 
-		EXPECT_EQ(rhi::hash::Fnv1a64Hash(""), rhi::hash::kFnv1a64OffsetBasis);
-		EXPECT_EQ(rhi::hash::Fnv1a64Hash("a"), 0xaf63dc4c8601ec8cULL);
-		EXPECT_EQ(rhi::hash::Fnv1a64Hash("foobar"), 0x85944171f73967e8ULL);
+		EXPECT_EQ(rhi::hash::fnv1a64_hash(""), rhi::hash::kFnv1a64OffsetBasis);
+		EXPECT_EQ(rhi::hash::fnv1a64_hash("a"), 0xaf63dc4c8601ec8cULL);
+		EXPECT_EQ(rhi::hash::fnv1a64_hash("foobar"), 0x85944171f73967e8ULL);
 	}
 
 	TEST(Fnv1a32, MatchesThePublishedVectors)
 	{
-		static_assert(rhi::hash::Fnv1a32Hash("") == 0x811c9dc5u);
-		static_assert(rhi::hash::Fnv1a32Hash("a") == 0xe40c292cu);
-		static_assert(rhi::hash::Fnv1a32Hash("foobar") == 0xbf9cf968u);
+		static_assert(rhi::hash::fnv1a32_hash("") == 0x811c9dc5u);
+		static_assert(rhi::hash::fnv1a32_hash("a") == 0xe40c292cu);
+		static_assert(rhi::hash::fnv1a32_hash("foobar") == 0xbf9cf968u);
 
-		EXPECT_EQ(rhi::hash::Fnv1a32Hash(""), rhi::hash::kFnv1a32OffsetBasis);
-		EXPECT_EQ(rhi::hash::Fnv1a32Hash("foobar"), 0xbf9cf968u);
+		EXPECT_EQ(rhi::hash::fnv1a32_hash(""), rhi::hash::kFnv1a32OffsetBasis);
+		EXPECT_EQ(rhi::hash::fnv1a32_hash("foobar"), 0xbf9cf968u);
 	}
 
 	TEST(Fnv1a64, FoldsBytesUnsignedSoThePlatformCharSignDoesNotShow)
@@ -60,7 +60,7 @@ namespace
 			expected *= rhi::hash::kFnv1a64Prime;
 		}
 
-		EXPECT_EQ(rhi::hash::Fnv1a64Hash(highBit), expected);
+		EXPECT_EQ(rhi::hash::fnv1a64_hash(highBit), expected);
 	}
 
 	TEST(Fnv1a64, IncrementalMixMatchesTheOneShotHash)
@@ -70,16 +70,16 @@ namespace
 		rhi::hash::Fnv1a64 incremental;
 		for (const char c : text)
 		{
-			incremental.Mix(static_cast<std::uint64_t>(static_cast<unsigned char>(c)));
+			incremental.mix(static_cast<std::uint64_t>(static_cast<unsigned char>(c)));
 		}
 
-		EXPECT_EQ(incremental.Value(), rhi::hash::Fnv1a64Hash(text));
+		EXPECT_EQ(incremental.Value(), rhi::hash::fnv1a64_hash(text));
 	}
 
 	TEST(Fnv1a64, MixIsOrderSensitive)
 	{
-		const std::uint64_t forward = rhi::hash::Fnv1a64{}.Mix(1).Mix(2).Value();
-		const std::uint64_t reverse = rhi::hash::Fnv1a64{}.Mix(2).Mix(1).Value();
+		const std::uint64_t forward = rhi::hash::Fnv1a64{}.mix(1).mix(2).Value();
+		const std::uint64_t reverse = rhi::hash::Fnv1a64{}.mix(2).mix(1).Value();
 
 		EXPECT_NE(forward, reverse);
 	}
@@ -90,12 +90,12 @@ namespace
 		const std::span<const std::byte> bytes{ reinterpret_cast<const std::byte *>(text.data()),
 			text.size() }; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
-		EXPECT_EQ(rhi::hash::Fnv1a64Hash(bytes), rhi::hash::Fnv1a64Hash(text));
+		EXPECT_EQ(rhi::hash::fnv1a64_hash(bytes), rhi::hash::fnv1a64_hash(text));
 	}
 
 	TEST(Fnv1a64, EmptyByteRunLeavesTheStateAtTheOffsetBasis)
 	{
-		EXPECT_EQ(rhi::hash::Fnv1a64Hash(std::span<const std::byte>{}), rhi::hash::kFnv1a64OffsetBasis);
+		EXPECT_EQ(rhi::hash::fnv1a64_hash(std::span<const std::byte>{}), rhi::hash::kFnv1a64OffsetBasis);
 	}
 
 	TEST(Fnv1a64, DistinctNamesDoNotCollideAcrossTheIdSpaceWeActuallyUse)
@@ -109,7 +109,7 @@ namespace
 		{
 			for (std::size_t rhs = lhs + 1; rhs < names.size(); ++rhs)
 			{
-				EXPECT_NE(rhi::hash::Fnv1a64Hash(names[lhs]), rhi::hash::Fnv1a64Hash(names[rhs])) << names[lhs] << " collides with " << names[rhs];
+				EXPECT_NE(rhi::hash::fnv1a64_hash(names[lhs]), rhi::hash::fnv1a64_hash(names[rhs])) << names[lhs] << " collides with " << names[rhs];
 			}
 		}
 	}

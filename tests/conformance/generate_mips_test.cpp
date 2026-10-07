@@ -124,27 +124,27 @@ namespace
 		~MipChain()
 		{
 			rhi::Error ignored{};
-			if (done.IsValid())
+			if (done.is_valid())
 			{
-				static_cast<void>(device.Destroy(done, {}, ignored));
+				static_cast<void>(device.destroy(done, {}, ignored));
 			}
-			if (readback.IsValid())
+			if (readback.is_valid())
 			{
-				static_cast<void>(device.Destroy(readback, {}, ignored));
+				static_cast<void>(device.destroy(readback, {}, ignored));
 			}
-			if (upload.IsValid())
+			if (upload.is_valid())
 			{
-				static_cast<void>(device.Destroy(upload, {}, ignored));
+				static_cast<void>(device.destroy(upload, {}, ignored));
 			}
-			if (texture.IsValid())
+			if (texture.is_valid())
 			{
-				static_cast<void>(device.Destroy(texture, {}, ignored));
+				static_cast<void>(device.destroy(texture, {}, ignored));
 			}
 		}
 
 		[[nodiscard]] bool IsValid() const noexcept
 		{
-			return texture.IsValid() && upload.IsValid() && readback.IsValid() && done.IsValid();
+			return texture.is_valid() && upload.is_valid() && readback.is_valid() && done.is_valid();
 		}
 	};
 
@@ -157,7 +157,7 @@ namespace
 		}
 
 		std::memcpy(staging.data, bytes.data(), bytes.size());
-		if (!staging.coherent && !device.FlushMappedRange(upload, 0, bytes.size(), error))
+		if (!staging.coherent && !device.flush_mapped_range(upload, 0, bytes.size(), error))
 		{
 			return false;
 		}
@@ -168,10 +168,10 @@ namespace
 	{
 		const std::vector<std::uint8_t> source = Pattern(LevelBytes(0));
 
-		chain.texture  = chain.device.CreateTexture(test::samples::MippedTexture2D(kBaseDim, levels), error);
-		chain.upload   = chain.device.CreateBuffer(test::samples::UploadBuffer(source.size()), error);
-		chain.readback = chain.device.CreateBuffer(test::samples::ReadbackBuffer(kReadbackBytes), error);
-		chain.done	   = chain.device.CreateTimeline(test::samples::Timeline(), error);
+		chain.texture  = chain.device.create_texture(test::samples::MippedTexture2D(kBaseDim, levels), error);
+		chain.upload   = chain.device.create_buffer(test::samples::UploadBuffer(source.size()), error);
+		chain.readback = chain.device.create_buffer(test::samples::ReadbackBuffer(kReadbackBytes), error);
+		chain.done	   = chain.device.create_timeline(test::samples::Timeline(), error);
 
 		return chain.IsValid() && FillUpload(chain.device, chain.upload, source, error);
 	}
@@ -226,7 +226,7 @@ namespace
 		{
 			return {};
 		}
-		if (!mapped.coherent && !device.InvalidateMappedRange(readback, 0, kReadbackBytes, error))
+		if (!mapped.coherent && !device.invalidate_mapped_range(readback, 0, kReadbackBytes, error))
 		{
 			return {};
 		}
@@ -245,10 +245,10 @@ namespace
 			return ::testing::AssertionFailure() << "the recording did not close: " << test::Describe(recording.GetError());
 		}
 
-		rhi::Queue queue = device.GetQueue(rhi::QueueType::eGraphics);
+		rhi::Queue queue = device.get_queue(rhi::QueueType::eGraphics);
 		std::array<const rhi::CommandList *, 1> lists{ &recording.List() };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
-		if (!queue.Submit({ .commandLists = lists, .signals = signals, .debugName = "generateMips" }, error))
+		if (!queue.submit({ .commandLists = lists, .signals = signals, .debugName = "generateMips" }, error))
 		{
 			return ::testing::AssertionFailure() << "the submit was refused: " << test::Describe(error);
 		}
@@ -273,15 +273,15 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array toCopyDst = WholeChainToCopyDst(chain.texture, kLevels);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
 
 			const std::array upload = LevelZeroRegion();
-			ASSERT_TRUE(test::Ok(recording.List().CopyBufferToTexture(chain.texture, chain.upload, upload, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer_to_texture(chain.texture, chain.upload, upload, error), error));
 
 			const std::array toCopySrc = LevelZeroToCopySrc(chain.texture);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error), error));
 
-			if (!recording.List().GenerateMips(chain.texture, error))
+			if (!recording.List().generate_mips(chain.texture, error))
 			{
 				if (error.code == rhi::ErrorCode::eUnsupportedFeature)
 				{
@@ -291,7 +291,7 @@ namespace
 			}
 
 			const std::vector regions = LevelsBelowZero(kLevels);
-			ASSERT_TRUE(test::Ok(recording.List().CopyTextureToBuffer(chain.readback, chain.texture, regions, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_texture_to_buffer(chain.readback, chain.texture, regions, error), error));
 
 			ASSERT_TRUE(RunAndWait(recording, Dev(), chain.done));
 		}
@@ -324,10 +324,10 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array toCopyDst = WholeChainToCopyDst(chain.texture, 1);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
 
 			const std::array upload = LevelZeroRegion();
-			ASSERT_TRUE(test::Ok(recording.List().CopyBufferToTexture(chain.texture, chain.upload, upload, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer_to_texture(chain.texture, chain.upload, upload, error), error));
 
 			const std::array split{
 				rhi::TextureBarrier{
@@ -343,10 +343,10 @@ namespace
 					.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
 				},
 			};
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error))
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = split }, error), error))
 				<< "the entry states CommandList::GenerateMips documents cannot be recorded";
 
-			if (!recording.List().GenerateMips(chain.texture, error))
+			if (!recording.List().generate_mips(chain.texture, error))
 			{
 				if (error.code == rhi::ErrorCode::eUnsupportedFeature)
 				{
@@ -361,7 +361,7 @@ namespace
 				.after	 = { .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading },
 				.range	 = { .baseMip = 0, .mipCount = kLevels },
 			} };
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toSampled }, error), error))
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toSampled }, error), error))
 				<< "the exit state CommandList::GenerateMips documents cannot be claimed afterwards";
 
 			const std::array backToCopySrc{ rhi::TextureBarrier{
@@ -370,10 +370,10 @@ namespace
 				.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 				.range	 = { .baseMip = 0, .mipCount = kLevels },
 			} };
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = backToCopySrc }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = backToCopySrc }, error), error));
 
 			const std::vector regions = LevelsBelowZero(kLevels);
-			ASSERT_TRUE(test::Ok(recording.List().CopyTextureToBuffer(chain.readback, chain.texture, regions, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_texture_to_buffer(chain.readback, chain.texture, regions, error), error));
 
 			ASSERT_TRUE(RunAndWait(recording, Dev(), chain.done));
 		}
@@ -406,21 +406,21 @@ namespace
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array toCopyDst = WholeChainToCopyDst(chain.texture, 1);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
 
 			const std::array upload = LevelZeroRegion();
-			ASSERT_TRUE(test::Ok(recording.List().CopyBufferToTexture(chain.texture, chain.upload, upload, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_buffer_to_texture(chain.texture, chain.upload, upload, error), error));
 
 			const std::array toCopySrc = LevelZeroToCopySrc(chain.texture);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopySrc }, error), error));
 
-			EXPECT_TRUE(test::Ok(recording.List().GenerateMips(chain.texture, error), error)) << "a single-level texture was refused";
+			EXPECT_TRUE(test::Ok(recording.List().generate_mips(chain.texture, error), error)) << "a single-level texture was refused";
 
 			const std::array<rhi::BufferTextureCopy, 1> regions{ rhi::BufferTextureCopy{
 				.subresource   = { .mip = 0 },
 				.textureExtent = { .width = LevelDim(0), .height = LevelDim(0) },
 			} };
-			ASSERT_TRUE(test::Ok(recording.List().CopyTextureToBuffer(chain.readback, chain.texture, regions, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().copy_texture_to_buffer(chain.readback, chain.texture, regions, error), error));
 
 			ASSERT_TRUE(RunAndWait(recording, Dev(), chain.done));
 		}
@@ -462,9 +462,9 @@ namespace
 				.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
 			},
 		};
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = split }, error), error));
 
-		if (!recording.List().GenerateMips(chain.texture, error))
+		if (!recording.List().generate_mips(chain.texture, error))
 		{
 			if (error.code == rhi::ErrorCode::eUnsupportedFeature)
 			{
@@ -481,9 +481,9 @@ namespace
 				.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
 			},
 		};
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = again }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = again }, error), error));
 
-		EXPECT_TRUE(test::Ok(recording.List().GenerateMips(chain.texture, error), error))
+		EXPECT_TRUE(test::Ok(recording.List().generate_mips(chain.texture, error), error))
 			<< "the entry states are the ones the contract asks for, so the second chain has to be taken too";
 
 		EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
@@ -507,7 +507,7 @@ namespace
 			.after	 = { .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy },
 			.range	 = { .mipCount = rhi::kAllMips, .layerCount = rhi::kAllLayers },
 		} };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = whole }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = whole }, error), error));
 
 		const std::array below{ rhi::TextureBarrier{
 			.texture = chain.texture,
@@ -515,9 +515,9 @@ namespace
 			.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
 			.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
 		} };
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = below }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = below }, error), error));
 
-		if (!recording.List().GenerateMips(chain.texture, error))
+		if (!recording.List().generate_mips(chain.texture, error))
 		{
 			if (error.code == rhi::ErrorCode::eUnsupportedFeature)
 			{
@@ -544,10 +544,10 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array toCopyDst = WholeChainToCopyDst(chain.texture, kLevels);
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopyDst }, error), error));
 
 		rhi::Error entryError{};
-		EXPECT_FALSE(recording.List().GenerateMips(chain.texture, entryError)) << "the whole chain was left a copy destination and generateMips took it";
+		EXPECT_FALSE(recording.List().generate_mips(chain.texture, entryError)) << "the whole chain was left a copy destination and generateMips took it";
 		EXPECT_TRUE(test::ErrorIsPopulated(entryError));
 		EXPECT_NE(entryError.code, rhi::ErrorCode::eUnsupportedFeature) << "refused for having no mip generation, so the entry state was never reached";
 
@@ -582,10 +582,10 @@ namespace
 				.range	 = { .baseMip = 1, .mipCount = kLevels - 1 },
 			},
 		};
-		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = split }, error), error));
+		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = split }, error), error));
 
 		rhi::Error entryError{};
-		EXPECT_FALSE(recording.List().GenerateMips(chain.texture, entryError)) << "the levels below zero were left readable and generateMips took it";
+		EXPECT_FALSE(recording.List().generate_mips(chain.texture, entryError)) << "the levels below zero were left readable and generateMips took it";
 		EXPECT_TRUE(test::ErrorIsPopulated(entryError));
 		EXPECT_NE(entryError.code, rhi::ErrorCode::eUnsupportedFeature) << "refused for having no mip generation, so the entry state was never reached";
 

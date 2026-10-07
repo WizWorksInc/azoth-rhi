@@ -76,40 +76,40 @@ namespace
 	void ExpectExitStateHolds(rhi::Device device, const std::uint32_t levels)
 	{
 		rhi::Error error{};
-		rhi::DescriptorArena arena = device.CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		if (!arena.IsValid())
+		rhi::DescriptorArena arena = device.create_descriptor_arena(test::samples::DescriptorArena(), error);
+		if (!arena.is_valid())
 		{
 			GTEST_SKIP() << "this backend did not give up a descriptor arena: " << test::Describe(error);
 		}
 
 		azo::rhi::Result<utils::Resampler> made =
 			utils::Resampler::Create(device, utils::ResamplerDesc{ .arena = &arena, .debugName = "azoth.rhi.test.resampler" });
-		if (!made.HasValue())
+		if (!made.has_value())
 		{
-			GTEST_SKIP() << "no resampler for this backend: " << test::Describe(made.GetError());
+			GTEST_SKIP() << "no resampler for this backend: " << test::Describe(made.get_error());
 		}
 		utils::Resampler & resampler = made.Value();
 
-		const rhi::TextureHandle texture = device.CreateTexture(ResampleTarget(levels), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = device.create_texture(ResampleTarget(levels), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		{
 			test::Recording recording(device);
 			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 			const std::array uploaded = ToUploaded(texture, levels);
-			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = uploaded }, error), error));
+			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = uploaded }, error), error));
 
 			ASSERT_TRUE(test::Ok(resampler.GenerateMips(recording.List(), texture, error), error));
 
 			const std::array exit = FromPromisedExit(texture, levels);
-			EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = exit }, error), error))
+			EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = exit }, error), error))
 				<< "the resampler did not leave every level where its documentation says it does";
 
 			EXPECT_TRUE(test::Ok(recording.End(), recording.GetError()));
 		}
 
-		static_cast<void>(device.Destroy(texture, {}, error));
+		static_cast<void>(device.destroy(texture, {}, error));
 	}
 
 	TEST_P(ResamplerTest, LeavesASingleLevelTextureWhereItsContractSaysItDoes)

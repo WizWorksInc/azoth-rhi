@@ -42,15 +42,15 @@ namespace
 	protected:
 		void TearDown() override
 		{
-			ASSERT_EQ(rhi::GetHostAllocator(), nullptr) << "a case leaked its host allocator into the next one";
-			ASSERT_EQ(rhi::GetDeviceMemoryAllocator(), nullptr) << "a case leaked its device allocator into the next one";
+			ASSERT_EQ(rhi::get_host_allocator(), nullptr) << "a case leaked its host allocator into the next one";
+			ASSERT_EQ(rhi::get_device_memory_allocator(), nullptr) << "a case leaked its device allocator into the next one";
 		}
 	};
 
 	TEST_F(AllocatorSeamTest, NothingIsInstalledByDefault)
 	{
-		EXPECT_EQ(rhi::GetHostAllocator(), nullptr);
-		EXPECT_EQ(rhi::GetDeviceMemoryAllocator(), nullptr);
+		EXPECT_EQ(rhi::get_host_allocator(), nullptr);
+		EXPECT_EQ(rhi::get_device_memory_allocator(), nullptr);
 	}
 
 	TEST_F(AllocatorSeamTest, InstallingAHostAllocatorIsVisibleAndReversible)
@@ -58,9 +58,9 @@ namespace
 		test::CountingHostAllocator allocator;
 		{
 			const test::ScopedHostAllocator scope(&allocator);
-			EXPECT_EQ(rhi::GetHostAllocator(), &allocator);
+			EXPECT_EQ(rhi::get_host_allocator(), &allocator);
 		}
-		EXPECT_EQ(rhi::GetHostAllocator(), nullptr) << "the previous allocator was not put back";
+		EXPECT_EQ(rhi::get_host_allocator(), nullptr) << "the previous allocator was not put back";
 	}
 
 	TEST_F(AllocatorSeamTest, InstallingNestsSoATooLifetimeCanOverrideAndRestore)
@@ -71,9 +71,9 @@ namespace
 		const test::ScopedHostAllocator outerScope(&outer);
 		{
 			const test::ScopedHostAllocator innerScope(&inner);
-			EXPECT_EQ(rhi::GetHostAllocator(), &inner);
+			EXPECT_EQ(rhi::get_host_allocator(), &inner);
 		}
-		EXPECT_EQ(rhi::GetHostAllocator(), &outer) << "the inner scope restored to null and not to what it replaced";
+		EXPECT_EQ(rhi::get_host_allocator(), &outer) << "the inner scope restored to null and not to what it replaced";
 	}
 
 	TEST_F(AllocatorSeamTest, HostAllocateRoutesThroughTheInstalledAllocator)
@@ -81,13 +81,13 @@ namespace
 		test::CountingHostAllocator allocator;
 		const test::ScopedHostAllocator scope(&allocator);
 
-		void * memory = rhi::HostAllocate(128, alignof(std::max_align_t));
+		void * memory = rhi::host_allocate(128, alignof(std::max_align_t));
 		// NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks): the only path that skips the free is a run this assertion already failed.
 		ASSERT_NE(memory, nullptr);
 		EXPECT_EQ(allocator.allocateCalls.load(), 1u);
 		EXPECT_EQ(allocator.LiveBlocks(), 1u);
 
-		rhi::HostFree(memory, 128, alignof(std::max_align_t));
+		rhi::host_free(memory, 128, alignof(std::max_align_t));
 		EXPECT_EQ(allocator.freeCalls.load(), 1u);
 		EXPECT_EQ(allocator.LiveBlocks(), 0u);
 		EXPECT_EQ(allocator.liveBytes.load(), 0);
@@ -102,10 +102,10 @@ namespace
 		{
 			for (const std::size_t size : { std::size_t{ 8 }, std::size_t{ 129 }, std::size_t{ 4096 } })
 			{
-				void * memory = rhi::HostAllocate(size, alignment);
+				void * memory = rhi::host_allocate(size, alignment);
 				// NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks): the only path that skips the free is a run this assertion already failed.
 				ASSERT_NE(memory, nullptr);
-				rhi::HostFree(memory, size, alignment);
+				rhi::host_free(memory, size, alignment);
 			}
 		}
 
@@ -121,23 +121,23 @@ namespace
 
 		for (const std::size_t alignment : { std::size_t{ 16 }, std::size_t{ 64 }, std::size_t{ 256 } })
 		{
-			void * memory = rhi::HostAllocate(alignment * 3, alignment);
+			void * memory = rhi::host_allocate(alignment * 3, alignment);
 			// NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks): the only path that skips the free is a run this assertion already failed.
 			ASSERT_NE(memory, nullptr);
 			EXPECT_EQ(reinterpret_cast<std::uintptr_t>(memory) % alignment, 0u) // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 				<< "an allocation came back off its requested alignment of " << alignment;
-			rhi::HostFree(memory, alignment * 3, alignment);
+			rhi::host_free(memory, alignment * 3, alignment);
 		}
 	}
 
 	TEST_F(AllocatorSeamTest, HostAllocateFallsBackToOperatorNewWhenNothingIsInstalled)
 	{
-		ASSERT_EQ(rhi::GetHostAllocator(), nullptr);
+		ASSERT_EQ(rhi::get_host_allocator(), nullptr);
 
-		void * memory = rhi::HostAllocate(64, alignof(std::max_align_t));
+		void * memory = rhi::host_allocate(64, alignof(std::max_align_t));
 		// NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks): the only path that skips the free is a run this assertion already failed.
 		ASSERT_NE(memory, nullptr);
-		rhi::HostFree(memory, 64, alignof(std::max_align_t));
+		rhi::host_free(memory, 64, alignof(std::max_align_t));
 	}
 
 	TEST_F(AllocatorSeamTest, AnAllocatorThatRefusesReturnsNullRatherThanThrowing)
@@ -150,13 +150,13 @@ namespace
 				return nullptr;
 			}
 
-			void Free(void *, std::size_t, std::size_t) override {}
+			void free(void *, std::size_t, std::size_t) override {}
 		};
 
 		RefusingAllocator allocator;
 		const test::ScopedHostAllocator scope(&allocator);
 
-		EXPECT_EQ(rhi::HostAllocate(64, alignof(std::max_align_t)), nullptr);
+		EXPECT_EQ(rhi::host_allocate(64, alignof(std::max_align_t)), nullptr);
 	}
 
 	TEST_F(AllocatorSeamTest, TheStandardLibraryAdapterIsStatelessAndAlwaysCompaesEqual)
@@ -207,9 +207,9 @@ namespace
 		test::RecordingDeviceAllocator allocator;
 		{
 			const test::ScopedDeviceAllocator scope(&allocator);
-			EXPECT_EQ(rhi::GetDeviceMemoryAllocator(), &allocator);
+			EXPECT_EQ(rhi::get_device_memory_allocator(), &allocator);
 		}
-		EXPECT_EQ(rhi::GetDeviceMemoryAllocator(), nullptr);
+		EXPECT_EQ(rhi::get_device_memory_allocator(), nullptr);
 	}
 
 	TEST_F(AllocatorSeamTest, ADeviceAllocatorReportsNoStatisticsByDefault)
@@ -222,7 +222,7 @@ namespace
 				return false;
 			}
 
-			void Free(rhi::Device, const rhi::MemorySpan &) override {}
+			void free(rhi::Device, const rhi::MemorySpan &) override {}
 		};
 
 		const MinimalAllocator allocator;
@@ -235,7 +235,7 @@ namespace
 	TEST_F(AllocatorSeamTest, AMemorySpanIsValidOnlyOnceItNamesAHeap)
 	{
 		constexpr rhi::MemorySpan empty{};
-		static_assert(!empty.IsValid());
+		static_assert(!empty.is_valid());
 
 		constexpr rhi::MemorySpan granted{
 			.heap	  = rhi::HeapHandle{ .index = 2, .generation = 1 },
@@ -243,21 +243,21 @@ namespace
 			.size	  = 256,
 			.userData = nullptr,
 		};
-		static_assert(granted.IsValid());
+		static_assert(granted.is_valid());
 
 		SUCCEED();
 	}
 
 	TEST_F(AllocatorSeamTest, HeapTypeForUsageMapsEveryMemoryUsageOntoAHeapClass)
 	{
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eCpuUpload) == rhi::HeapType::eCpuUpload);
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eCpuToGpu) == rhi::HeapType::eCpuUpload);
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eCpuReadback) == rhi::HeapType::eCpuReadback);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eCpuUpload) == rhi::HeapType::eCpuUpload);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eCpuToGpu) == rhi::HeapType::eCpuUpload);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eCpuReadback) == rhi::HeapType::eCpuReadback);
 
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eGpuOnly) == rhi::HeapType::eGpuLocal);
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eGpuToCpu) == rhi::HeapType::eGpuLocal);
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eTransient) == rhi::HeapType::eGpuLocal);
-		static_assert(rhi::HeapTypeForUsage(rhi::MemoryUsage::eReserved) == rhi::HeapType::eGpuLocal);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eGpuOnly) == rhi::HeapType::eGpuLocal);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eGpuToCpu) == rhi::HeapType::eGpuLocal);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eTransient) == rhi::HeapType::eGpuLocal);
+		static_assert(rhi::heap_type_for_usage(rhi::MemoryUsage::eReserved) == rhi::HeapType::eGpuLocal);
 
 		SUCCEED();
 	}
@@ -290,8 +290,8 @@ namespace
 
 			for (rhi::BufferHandle & buffer : buffers)
 			{
-				buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
-				if (!buffer.IsValid())
+				buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
+				if (!buffer.is_valid())
 				{
 					return false;
 				}
@@ -299,7 +299,7 @@ namespace
 
 			for (const rhi::BufferHandle buffer : buffers)
 			{
-				if (!Dev().Destroy(buffer, {}, error))
+				if (!Dev().destroy(buffer, {}, error))
 				{
 					return false;
 				}
@@ -346,27 +346,27 @@ namespace
 		}
 
 		rhi::Error error{};
-		const rhi::BufferHandle fromOne = one.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(fromOne.IsValid(), error));
+		const rhi::BufferHandle fromOne = one.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(fromOne.is_valid(), error));
 
 		EXPECT_EQ(first.OutstandingSpans(), 1u) << "a create did not reach the allocator its device was given";
 		EXPECT_EQ(second.OutstandingSpans(), 0u) << "one device's create reached another device's allocator";
 
-		const rhi::BufferHandle fromTwo = two.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(fromTwo.IsValid(), error));
+		const rhi::BufferHandle fromTwo = two.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(fromTwo.is_valid(), error));
 
 		EXPECT_EQ(first.OutstandingSpans(), 1u);
 		EXPECT_EQ(second.OutstandingSpans(), 1u) << "the second device's create did not reach its own allocator";
 
-		EXPECT_TRUE(test::Ok(one.Get().Destroy(fromOne, {}, error), error));
-		EXPECT_TRUE(test::Ok(two.Get().Destroy(fromTwo, {}, error), error));
+		EXPECT_TRUE(test::Ok(one.Get().destroy(fromOne, {}, error), error));
+		EXPECT_TRUE(test::Ok(two.Get().destroy(fromTwo, {}, error), error));
 		EXPECT_EQ(first.OutstandingSpans(), 1u) << "a deferred destroy released its span before the collect";
 
-		EXPECT_TRUE(test::Ok(one.Get().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(one.Get().collect_garbage(error), error));
 		EXPECT_EQ(first.OutstandingSpans(), 0u) << "a collect did not return the span its device's allocator granted";
 		EXPECT_EQ(second.OutstandingSpans(), 1u) << "one device's collect returned another device's span";
 
-		EXPECT_TRUE(test::Ok(two.Get().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(two.Get().collect_garbage(error), error));
 		EXPECT_EQ(second.OutstandingSpans(), 0u);
 	}
 
@@ -387,12 +387,12 @@ namespace
 		}
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 		EXPECT_EQ(allocator.OutstandingSpans(), 1u) << "the create did not route through the installed allocator";
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
-		EXPECT_TRUE(test::Ok(device.Get().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().collect_garbage(error), error));
 
 		EXPECT_EQ(scheduler.acquired.load(std::memory_order_relaxed), 0u) << "a single threaded device took a lock on the create path";
 		EXPECT_EQ(scheduler.created.load(std::memory_order_relaxed), 0u) << "a single threaded device asked the host for a lock it cannot need";
@@ -417,17 +417,17 @@ namespace
 		scheduler.peakHeld.store(0, std::memory_order_relaxed);
 
 		rhi::Error error{};
-		const rhi::BufferHandle buffer = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 		EXPECT_EQ(scheduler.peakHeld.load(std::memory_order_relaxed), 1u) << "a buffer create held one guard while taking another";
 
-		const rhi::TextureHandle texture = device.Get().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = device.Get().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 		EXPECT_EQ(scheduler.peakHeld.load(std::memory_order_relaxed), 1u) << "a texture create held one guard while taking another";
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(buffer, {}, error), error));
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(texture, {}, error), error));
-		EXPECT_TRUE(test::Ok(device.Get().CollectGarbage(error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().collect_garbage(error), error));
 		EXPECT_EQ(scheduler.peakHeld.load(std::memory_order_relaxed), 1u) << "a collect held one guard while taking another";
 		EXPECT_EQ(allocator.OutstandingSpans(), 0u);
 	}
@@ -445,21 +445,21 @@ namespace
 			GTEST_SKIP() << CurrentBackend().displayName << " cannot place resources, so it cannot honor an allocator";
 		}
 
-		const std::uint64_t before = rhi::detail::ReentrancyViolations();
+		const std::uint64_t before = rhi::detail::reentrancy_violations();
 
 		rhi::Error error{};
 
-		const rhi::BufferHandle immediate = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(immediate.IsValid(), error));
+		const rhi::BufferHandle immediate = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(immediate.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(immediate, rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle }, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(immediate, rhi::DestroyDesc{ .policy = rhi::DestroyPolicy::eRequireAlreadyIdle }, error), error));
 
-		const rhi::BufferHandle deferred = device.Get().CreateBuffer(test::samples::StorageBuffer(), error);
-		ASSERT_TRUE(test::Ok(deferred.IsValid(), error));
-		EXPECT_TRUE(test::Ok(device.Get().Destroy(deferred, {}, error), error));
-		EXPECT_TRUE(test::Ok(device.Get().CollectGarbage(error), error));
+		const rhi::BufferHandle deferred = device.Get().create_buffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(deferred.is_valid(), error));
+		EXPECT_TRUE(test::Ok(device.Get().destroy(deferred, {}, error), error));
+		EXPECT_TRUE(test::Ok(device.Get().collect_garbage(error), error));
 
-		EXPECT_EQ(rhi::detail::ReentrancyViolations(), before) << "the RHI called the allocator while holding a device guard";
+		EXPECT_EQ(rhi::detail::reentrancy_violations(), before) << "the RHI called the allocator while holding a device guard";
 		EXPECT_EQ(allocator.OutstandingSpans(), 0u) << "a span the allocator granted was never handed back";
 	}
 

@@ -320,23 +320,23 @@ int main(int argc, char ** argv)
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
-													  .DebugName("shader_reflection")
-													  .Validation(rhi::ValidationMode::eDeveloper)
-													  .Headless()
-													  .ComputeQueue()
-													  .Build(backends.Registry(), backends.PreferredApis());
+													  .debug_name("shader_reflection")
+													  .validation(rhi::ValidationMode::eDeveloper)
+													  .headless()
+													  .compute_queue()
+													  .build(backends.registry(), backends.preferred_apis());
 	if (!device)
 	{
-		fw::ReportError("failed to create a device", device.GetError());
+		fw::ReportError("failed to create a device", device.get_error());
 		return 77;
 	}
 
 	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	Program program;
 	std::string why;
-	if (!Reflect(dev.GetGraphicsApiId(), program, why))
+	if (!Reflect(dev.get_graphics_api_id(), program, why))
 	{
 		LOG_ERROR(fw::Log(), "{}", why);
 		return 77;
@@ -366,7 +366,7 @@ int main(int argc, char ** argv)
 	}
 
 	const rhi::DescriptorSetLayoutHandle setLayout =
-		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "reflection.set" }, error);
+		dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "reflection.set" }, error);
 
 	const std::array setLayouts{ setLayout };
 	const std::array pushConstants{
@@ -374,7 +374,7 @@ int main(int argc, char ** argv)
 	};
 
 	const rhi::PipelineLayoutHandle layout =
-		dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "reflection.layout" }, error);
+		dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "reflection.layout" }, error);
 
 	const rhi::ShaderBinary binary{
 		.stage			 = rhi::ShaderStage::eCompute,
@@ -386,9 +386,9 @@ int main(int argc, char ** argv)
 	};
 
 	const rhi::ComputePipelineHandle pipeline =
-		dev.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = binary, .debugName = "reflection.pipeline" }, error);
+		dev.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = binary, .debugName = "reflection.pipeline" }, error);
 
-	if (!setLayout.IsValid() || !layout.IsValid() || !pipeline.IsValid())
+	if (!setLayout.is_valid() || !layout.is_valid() || !pipeline.is_valid())
 	{
 		fw::ReportError("the reflected layout did not build a pipeline", error);
 		return 1;
@@ -396,18 +396,18 @@ int main(int argc, char ** argv)
 
 	rhi::BufferBuilder inputDesc;
 	inputDesc.Size(kBufferSize).Usage(rhi::BufferUsage::eStorage).CpuUpload().DebugName("reflection.input");
-	const rhi::BufferHandle input = dev.CreateBuffer(inputDesc.Build(), error);
+	const rhi::BufferHandle input = dev.create_buffer(inputDesc.build(), error);
 
 	rhi::BufferBuilder outputDesc;
 	outputDesc.Size(kBufferSize).GpuOnly().DebugName("reflection.output");
 	outputDesc.Usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopySrc);
-	const rhi::BufferHandle output = dev.CreateBuffer(outputDesc.Build(), error);
+	const rhi::BufferHandle output = dev.create_buffer(outputDesc.build(), error);
 
 	rhi::BufferBuilder readDesc;
 	readDesc.Size(kBufferSize).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("reflection.readback");
-	const rhi::BufferHandle readback = dev.CreateBuffer(readDesc.Build(), error);
+	const rhi::BufferHandle readback = dev.create_buffer(readDesc.build(), error);
 
-	if (!input.IsValid() || !output.IsValid() || !readback.IsValid())
+	if (!input.is_valid() || !output.is_valid() || !readback.is_valid())
 	{
 		fw::ReportError("the buffers were refused", error);
 		return 1;
@@ -434,7 +434,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
+	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
 			.maxSets		= 1,
@@ -458,17 +458,17 @@ int main(int argc, char ** argv)
 		});
 	}
 
-	if (!set.IsValid() || !dev.UpdateDescriptors(std::span(writes), error))
+	if (!set.is_valid() || !dev.update_descriptors(std::span(writes), error))
 	{
 		fw::ReportError("the descriptors were refused", error);
 		return 1;
 	}
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "reflection.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eCompute, 0, error);
-	rhi::CommandPool pool = dev.CreateCommandPool(rhi::CommandPoolDesc{ .queueType = rhi::QueueType::eCompute, .debugName = "reflection.pool" }, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "reflection.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eCompute, 0, error);
+	rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .queueType = rhi::QueueType::eCompute, .debugName = "reflection.pool" }, error);
 	rhi::CommandList list = pool.Allocate("reflection.dispatch", error);
-	if (!timeline.IsValid() || !queue.IsValid() || !list.IsValid() || !list.Begin(error))
+	if (!timeline.is_valid() || !queue.is_valid() || !list.is_valid() || !list.Begin(error))
 	{
 		fw::ReportError("the submission objects were refused", error);
 		return 1;
@@ -491,10 +491,10 @@ int main(int argc, char ** argv)
 	};
 
 	const bool recorded =
-		list.Barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error) && list.SetComputePipeline(pipeline, error) &&
-		list.BindDescriptorSet(layout, 0, set, {}, error) && list.PushConstants(layout, rhi::ShaderStage::eCompute, 0, sizeof(kParams), &kParams, error) &&
-		list.Dispatch(kElements / program.threadgroup.at(0), 1, 1, error) && list.Barriers(rhi::BarrierBatch{ .buffers = afterDispatch }, error) &&
-		list.CopyBuffer(readback, 0, output, 0, kBufferSize, error) && list.End(error);
+		list.barriers(rhi::BarrierBatch{ .buffers = intoShaderWrite }, error) && list.set_compute_pipeline(pipeline, error) &&
+		list.bind_descriptor_set(layout, 0, set, {}, error) && list.push_constants(layout, rhi::ShaderStage::eCompute, 0, sizeof(kParams), &kParams, error) &&
+		list.Dispatch(kElements / program.threadgroup.at(0), 1, 1, error) && list.barriers(rhi::BarrierBatch{ .buffers = afterDispatch }, error) &&
+		list.copy_buffer(readback, 0, output, 0, kBufferSize, error) && list.End(error);
 
 	if (!recorded)
 	{
@@ -505,7 +505,7 @@ int main(int argc, char ** argv)
 	std::array<const rhi::CommandList *, 1> lists{ &list };
 	const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = 1 } };
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
-	if (!queue.Submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "reflection.submit" }, error) ||
+	if (!queue.submit(rhi::SubmitDesc{ .commandLists = lists, .signals = signals, .debugName = "reflection.submit" }, error) ||
 		!queue.Wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("the dispatch did not complete", error);

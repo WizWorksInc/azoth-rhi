@@ -83,7 +83,7 @@ namespace
 
 	[[nodiscard]] std::uint64_t CopyAlignmentOf(const rhi::Device & dev)
 	{
-		const std::uint64_t reported = dev.GetCaps().optimalBufferCopyOffsetAlignment;
+		const std::uint64_t reported = dev.get_caps().optimalBufferCopyOffsetAlignment;
 		return reported != 0 ? reported : kFallbackCopyAlignment;
 	}
 
@@ -126,7 +126,7 @@ namespace
 			stagingBytes += AlignUp(scene.images[i].pixels.size(), copyAlignment);
 		}
 
-		const rhi::BufferHandle staging = dev.CreateBuffer(
+		const rhi::BufferHandle staging = dev.create_buffer(
 			rhi::BufferDesc{
 				.size	   = stagingBytes,
 				.usage	   = rhi::BufferUsage::eCopySrc,
@@ -135,7 +135,7 @@ namespace
 			},
 			error);
 
-		gpu.vertices = dev.CreateBuffer(
+		gpu.vertices = dev.create_buffer(
 			rhi::BufferDesc{
 				.size	   = vertexBytes,
 				.stride	   = sizeof(deccer::Vertex),
@@ -144,7 +144,7 @@ namespace
 			},
 			error);
 
-		gpu.indices = dev.CreateBuffer(
+		gpu.indices = dev.create_buffer(
 			rhi::BufferDesc{
 				.size	   = indexBytes,
 				.stride	   = sizeof(std::uint32_t),
@@ -153,7 +153,7 @@ namespace
 			},
 			error);
 
-		if (!staging.IsValid() || !gpu.vertices.IsValid() || !gpu.indices.IsValid())
+		if (!staging.is_valid() || !gpu.vertices.is_valid() || !gpu.indices.is_valid())
 		{
 			fw::ReportError("failed to create the geometry buffers", error);
 			return false;
@@ -174,7 +174,7 @@ namespace
 			std::memcpy(bytes + imageOffsets[i], scene.images[i].pixels.data(), scene.images[i].pixels.size());
 		}
 
-		if ((!mapped.coherent && !dev.FlushMappedRange(staging, 0, stagingBytes, error)) || !dev.Unmap(staging, error))
+		if ((!mapped.coherent && !dev.flush_mapped_range(staging, 0, stagingBytes, error)) || !dev.Unmap(staging, error))
 		{
 			fw::ReportError("failed to flush the staging buffer", error);
 			return false;
@@ -184,7 +184,7 @@ namespace
 		{
 			const std::uint32_t mips = fw::assets::MipCount(image.width, image.height);
 
-			const rhi::TextureHandle texture = dev.CreateTexture(
+			const rhi::TextureHandle texture = dev.create_texture(
 				rhi::TextureDesc{
 					.format			  = rhi::Format::eRGBA8Srgb,
 					.width			  = image.width,
@@ -197,14 +197,14 @@ namespace
 				},
 				error);
 
-			const rhi::TextureViewHandle view = dev.CreateTextureView(texture,
+			const rhi::TextureViewHandle view = dev.create_texture_view(texture,
 				rhi::TextureViewDesc{
 					.range	   = { .mipCount = mips },
 					.debugName = "deccer.textureView",
 				},
 				error);
 
-			if (!texture.IsValid() || !view.IsValid())
+			if (!texture.is_valid() || !view.is_valid())
 			{
 				fw::ReportError("failed to create a texture", error);
 				return false;
@@ -214,9 +214,9 @@ namespace
 			gpu.views.push_back(view);
 		}
 
-		rhi::CommandPool pool = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "deccer.uploadPool" }, error);
+		rhi::CommandPool pool = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "deccer.uploadPool" }, error);
 		rhi::CommandList list = pool.Allocate("deccer.upload", error);
-		if (!pool.IsValid() || !list.IsValid() || !list.Begin(error))
+		if (!pool.is_valid() || !list.is_valid() || !list.Begin(error))
 		{
 			fw::ReportError("failed to start the upload", error);
 			return false;
@@ -228,7 +228,7 @@ namespace
 			resampleSets += fw::assets::MipCount(image.width, image.height) - 1;
 		}
 
-		rhi::DescriptorArena resampleArena = dev.CreateDescriptorArena(
+		rhi::DescriptorArena resampleArena = dev.create_descriptor_arena(
 			rhi::DescriptorArenaDesc{
 				.type			= rhi::DescriptorArenaType::ePersistent,
 				.maxSets		= resampleSets,
@@ -237,7 +237,7 @@ namespace
 			},
 			error);
 
-		if (!resampleArena.IsValid())
+		if (!resampleArena.is_valid())
 		{
 			fw::ReportError("failed to create the resampler descriptor arena", error);
 			return false;
@@ -247,7 +247,7 @@ namespace
 			rhi::utils::Resampler::Create(dev, rhi::utils::ResamplerDesc{ .arena = &resampleArena, .debugName = "deccer.resampler" });
 		if (!resamplerResult)
 		{
-			error = resamplerResult.GetError();
+			error = resamplerResult.get_error();
 			fw::ReportError("failed to create the resampler", error);
 			return false;
 		}
@@ -284,9 +284,9 @@ namespace
 			});
 		}
 
-		bool recorded = list.Barriers(rhi::BarrierBatch{ .buffers = toCopy, .textures = toCopyDst }, error) &&
-						list.CopyBuffer(gpu.vertices, 0, staging, 0, vertexBytes, error) &&
-						list.CopyBuffer(gpu.indices, 0, staging, AlignUp(vertexBytes, copyAlignment), indexBytes, error);
+		bool recorded = list.barriers(rhi::BarrierBatch{ .buffers = toCopy, .textures = toCopyDst }, error) &&
+						list.copy_buffer(gpu.vertices, 0, staging, 0, vertexBytes, error) &&
+						list.copy_buffer(gpu.indices, 0, staging, AlignUp(vertexBytes, copyAlignment), indexBytes, error);
 
 		for (std::size_t i = 0; recorded && i < gpu.textures.size(); ++i)
 		{
@@ -297,10 +297,10 @@ namespace
 				},
 			};
 
-			recorded = list.CopyBufferToTexture(gpu.textures[i], staging, regions, error) && resampler.GenerateMips(list, gpu.textures[i], error);
+			recorded = list.copy_buffer_to_texture(gpu.textures[i], staging, regions, error) && resampler.GenerateMips(list, gpu.textures[i], error);
 		}
 
-		recorded = recorded && list.Barriers(rhi::BarrierBatch{ .buffers = toRead, .textures = toSample }, error) && list.End(error);
+		recorded = recorded && list.barriers(rhi::BarrierBatch{ .buffers = toRead, .textures = toSample }, error) && list.End(error);
 		if (!recorded)
 		{
 			fw::ReportError("failed to record the upload", error);
@@ -310,13 +310,13 @@ namespace
 		std::array<const rhi::CommandList *, 1> lists{ &list };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = timeline, .value = signalValue } };
 		const rhi::SubmitDesc submit{ .commandLists = lists, .signals = signals, .debugName = "deccer.uploadSubmit" };
-		if (!queue.Submit(submit, error) || !queue.Wait(timeline, signalValue, kNoTimeout, error))
+		if (!queue.submit(submit, error) || !queue.Wait(timeline, signalValue, kNoTimeout, error))
 		{
 			fw::ReportError("failed to submit the upload", error);
 			return false;
 		}
 
-		dev.Destroy(staging, {}, error);
+		dev.destroy(staging, {}, error);
 		return true;
 	}
 
@@ -352,7 +352,7 @@ namespace
 		}
 
 		std::memcpy(mapped.data, block.data(), sizeof(block));
-		if ((!mapped.coherent && !dev.FlushMappedRange(buffer, 0, sizeof(block), error)) || !dev.Unmap(buffer, error))
+		if ((!mapped.coherent && !dev.flush_mapped_range(buffer, 0, sizeof(block), error)) || !dev.Unmap(buffer, error))
 		{
 			fw::ReportError("failed to flush the frame buffer", error);
 			return false;
@@ -383,7 +383,7 @@ int main(int argc, char ** argv)
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .includeNull = false } };
 
 	rhi::GraphicsApiId api{};
-	for (const rhi::BackendInfo & backend : backends.Preferred())
+	for (const rhi::BackendInfo & backend : backends.preferred())
 	{
 		if (deccer::CanCompileFor(backend.id))
 		{
@@ -404,30 +404,30 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::MakePresentationBackend(api);
-	if (presentation == nullptr || !presentation->InitInstanceLoader(window))
+	const rhi::HostUniquePtr<rhi::PresentationBackend> presentation = rhi::make_presentation_backend(api);
+	if (presentation == nullptr || !presentation->init_instance_loader(window))
 	{
 		LOG_ERROR(fw::Log(), "this build cannot present through the backend it picked");
 		return 1;
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device = rhi::DeviceBuilder()
-													  .DebugName("deccer_cubes")
-													  .GraphicsQueue()
-													  .RequireFeature(rhi::DeviceFeature::eShaderDrawParameters)
-													  .Build(backends.Registry(), backends.PreferredApis().first(1));
+													  .debug_name("deccer_cubes")
+													  .graphics_queue()
+													  .require_feature(rhi::DeviceFeature::eShaderDrawParameters)
+													  .build(backends.registry(), backends.preferred_apis().first(1));
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	rhi::Device dev = device.Value().Get();
 	rhi::Error error{};
 
-	const rhi::SurfaceHandle surface = presentation->CreateSurface(window, dev);
+	const rhi::SurfaceHandle surface = presentation->create_surface(window, dev);
 	const rhi::Extent2D initial		 = window.GetDrawableSize();
 
-	rhi::Swapchain swapchain = dev.CreateSwapchain(
+	rhi::Swapchain swapchain = dev.create_swapchain(
 		rhi::SwapchainDesc{
 			.surface   = surface,
 			.width	   = initial.width,
@@ -435,15 +435,15 @@ int main(int argc, char ** argv)
 			.debugName = "deccer.swapchain",
 		},
 		error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "deccer.timeline" }, error);
-	if (surface.value == 0 || !swapchain.IsValid() || !queue.IsValid() || !timeline.IsValid())
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "deccer.timeline" }, error);
+	if (surface.value == 0 || !swapchain.is_valid() || !queue.is_valid() || !timeline.is_valid())
 	{
 		fw::ReportError("failed to set up presentation", error);
 		return 1;
 	}
 
-	LOG_INFO(fw::Log(), "{} at {}x{}", dev.GetGraphicsApiName(), swapchain.GetWidth(), swapchain.GetHeight());
+	LOG_INFO(fw::Log(), "{} at {}x{}", dev.get_graphics_api_name(), swapchain.get_width(), swapchain.get_height());
 
 	deccer::ShaderCompiler compiler;
 	std::string shaderError;
@@ -466,14 +466,14 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::FrameRing ring = rhi::FrameRing::Create(dev, queue, rhi::FrameRingDesc{ .framesInFlight = 2, .debugName = "deccer.frame" }, error);
-	if (!ring.IsValid())
+	rhi::FrameRing ring = rhi::FrameRing::create(dev, queue, rhi::FrameRingDesc{ .framesInFlight = 2, .debugName = "deccer.frame" }, error);
+	if (!ring.is_valid())
 	{
 		fw::ReportError("failed to create the frame ring", error);
 		return 1;
 	}
 
-	const rhi::BufferHandle frameBuffer = dev.CreateBuffer(
+	const rhi::BufferHandle frameBuffer = dev.create_buffer(
 		rhi::BufferDesc{
 			.size	   = sizeof(float) * 36,
 			.usage	   = rhi::BufferUsage::eUniform,
@@ -482,8 +482,8 @@ int main(int argc, char ** argv)
 		},
 		error);
 
-	const rhi::SamplerHandle sampler = dev.CreateSampler(rhi::SamplerDesc{ .debugName = "deccer.sampler" }, error);
-	if (!frameBuffer.IsValid() || !sampler.IsValid())
+	const rhi::SamplerHandle sampler = dev.create_sampler(rhi::SamplerDesc{ .debugName = "deccer.sampler" }, error);
+	if (!frameBuffer.is_valid() || !sampler.is_valid())
 	{
 		fw::ReportError("failed to create the frame buffer or the sampler", error);
 		return 1;
@@ -503,10 +503,10 @@ int main(int argc, char ** argv)
 
 	const auto materialCount = static_cast<std::uint32_t>(gpu.views.size());
 	const rhi::DescriptorSetLayoutHandle frameSetLayout =
-		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = frameBindings, .debugName = "deccer.frameSet" }, error);
+		dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = frameBindings, .debugName = "deccer.frameSet" }, error);
 	const rhi::DescriptorSetLayoutHandle materialSetLayout =
-		dev.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = materialBindings, .debugName = "deccer.materialSet" }, error);
-	rhi::DescriptorArena arena = dev.CreateDescriptorArena(
+		dev.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = materialBindings, .debugName = "deccer.materialSet" }, error);
+	rhi::DescriptorArena arena = dev.create_descriptor_arena(
 		rhi::DescriptorArenaDesc{
 			.type			= rhi::DescriptorArenaType::ePersistent,
 			.maxSets		= materialCount + 1,
@@ -514,7 +514,7 @@ int main(int argc, char ** argv)
 			.debugName		= "deccer.arena",
 		},
 		error);
-	if (!frameSetLayout.IsValid() || !materialSetLayout.IsValid() || !arena.IsValid())
+	if (!frameSetLayout.is_valid() || !materialSetLayout.is_valid() || !arena.is_valid())
 	{
 		fw::ReportError("failed to create the descriptor layouts", error);
 		return 1;
@@ -524,7 +524,7 @@ int main(int argc, char ** argv)
 	const std::array frameWrites{
 		rhi::DescriptorWriteBuffer{ .set = frameSet, .binding = kFrameBinding, .type = rhi::DescriptorType::eUniformBuffer, .buffer = frameBuffer },
 	};
-	if (!frameSet.IsValid() || !dev.UpdateDescriptors(std::span(frameWrites), error))
+	if (!frameSet.is_valid() || !dev.update_descriptors(std::span(frameWrites), error))
 	{
 		fw::ReportError("failed to write the frame descriptor set", error);
 		return 1;
@@ -534,7 +534,7 @@ int main(int argc, char ** argv)
 	for (std::size_t i = 0; i < gpu.views.size(); ++i)
 	{
 		materialSets[i] = arena.Allocate(rhi::DescriptorSetAllocDesc{ .layout = materialSetLayout, .debugName = "deccer.material" }, error);
-		if (!materialSets[i].IsValid())
+		if (!materialSets[i].is_valid())
 		{
 			fw::ReportError("failed to allocate a descriptor set", error);
 			return 1;
@@ -547,7 +547,7 @@ int main(int argc, char ** argv)
 		};
 		const std::array samplers{ rhi::DescriptorWriteSampler{ .set = materialSets[i], .binding = kSamplerBinding, .sampler = sampler } };
 
-		if (!dev.UpdateDescriptors(std::span(textures), error) || !dev.UpdateDescriptors(std::span(samplers), error))
+		if (!dev.update_descriptors(std::span(textures), error) || !dev.update_descriptors(std::span(samplers), error))
 		{
 			fw::ReportError("failed to write a descriptor set", error);
 			return 1;
@@ -589,7 +589,7 @@ int main(int argc, char ** argv)
 
 	rhi::GraphicsPipelineDesc pipelineDesc{};
 	pipelineDesc.layout =
-		dev.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "deccer.layout" }, error);
+		dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "deccer.layout" }, error);
 	pipelineDesc.shaders = shaders;
 
 	rhi::VertexInputDesc vertexInput{};
@@ -603,7 +603,7 @@ int main(int argc, char ** argv)
 	pipelineDesc.depthStencil.depthWriteEnable = true;
 	pipelineDesc.depthStencil.depthCompareOp   = rhi::CompareOp::eLess;
 
-	pipelineDesc.renderTarget.colorFormats.at(0) = swapchain.GetFormat();
+	pipelineDesc.renderTarget.colorFormats.at(0) = swapchain.get_format();
 	pipelineDesc.renderTarget.colorFormatCount	 = 1;
 	pipelineDesc.renderTarget.depthStencilFormat = kDepthFormat;
 	pipelineDesc.blend.attachmentCount			 = 1;
@@ -619,9 +619,9 @@ int main(int argc, char ** argv)
 	skyDesc.depthStencil.depthWriteEnable = false;
 	skyDesc.debugName					  = "deccer.sky.pipeline";
 
-	const rhi::GraphicsPipelineHandle pipeline	  = dev.CreateGraphicsPipeline(pipelineDesc, error);
-	const rhi::GraphicsPipelineHandle skyPipeline = dev.CreateGraphicsPipeline(skyDesc, error);
-	if (!pipelineDesc.layout.IsValid() || !pipeline.IsValid() || !skyPipeline.IsValid())
+	const rhi::GraphicsPipelineHandle pipeline	  = dev.create_graphics_pipeline(pipelineDesc, error);
+	const rhi::GraphicsPipelineHandle skyPipeline = dev.create_graphics_pipeline(skyDesc, error);
+	if (!pipelineDesc.layout.is_valid() || !pipeline.is_valid() || !skyPipeline.is_valid())
 	{
 		fw::ReportError("failed to create the pipelines", error);
 		return 1;
@@ -645,23 +645,23 @@ int main(int argc, char ** argv)
 
 	const auto resize = [&]()
 	{
-		depthWidth	= swapchain.GetWidth();
-		depthHeight = swapchain.GetHeight();
+		depthWidth	= swapchain.get_width();
+		depthHeight = swapchain.get_height();
 
-		for (std::uint32_t slot = 0; slot < ring.FramesInFlight(); ++slot)
+		for (std::uint32_t slot = 0; slot < ring.frames_in_flight(); ++slot)
 		{
 			DepthTarget & target = depths.at(slot);
-			if (target.texture.IsValid())
+			if (target.texture.is_valid())
 			{
 				const rhi::DestroyDesc retired{
 					.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
-					.safeAfter = ring.Retire(),
+					.safeAfter = ring.retire(),
 				};
-				dev.Destroy(target.view, retired, error);
-				dev.Destroy(target.texture, retired, error);
+				dev.destroy(target.view, retired, error);
+				dev.destroy(target.texture, retired, error);
 			}
 
-			target.texture = dev.CreateTexture(
+			target.texture = dev.create_texture(
 				rhi::TextureDesc{
 					.format	   = kDepthFormat,
 					.width	   = depthWidth,
@@ -670,7 +670,7 @@ int main(int argc, char ** argv)
 					.debugName = "deccer.depth",
 				},
 				error);
-			target.view = dev.CreateTextureView(target.texture,
+			target.view = dev.create_texture_view(target.texture,
 				rhi::TextureViewDesc{
 					.format	   = kDepthFormat,
 					.range	   = { .aspects = rhi::TextureAspect::eDepth },
@@ -678,7 +678,7 @@ int main(int argc, char ** argv)
 				},
 				error);
 
-			if (!target.texture.IsValid() || !target.view.IsValid())
+			if (!target.texture.is_valid() || !target.view.is_valid())
 			{
 				return false;
 			}
@@ -699,7 +699,7 @@ int main(int argc, char ** argv)
 
 	while (window.PumpEvents())
 	{
-		if (frameLimit != 0 && ring.FrameIndex() >= frameLimit)
+		if (frameLimit != 0 && ring.frame_index() >= frameLimit)
 		{
 			break;
 		}
@@ -707,8 +707,8 @@ int main(int argc, char ** argv)
 		if (window.TakeResized())
 		{
 			const rhi::Extent2D size = window.GetDrawableSize();
-			static_cast<void>(queue.WaitIdle(error));
-			static_cast<void>(swapchain.Resize(size.width, size.height, error));
+			static_cast<void>(queue.wait_idle(error));
+			static_cast<void>(swapchain.resize(size.width, size.height, error));
 			if (!resize())
 			{
 				fw::ReportError("failed to resize the depth buffer", error);
@@ -716,12 +716,12 @@ int main(int argc, char ** argv)
 			}
 		}
 
-		const rhi::AcquireResult acquired = swapchain.AcquireNextImage(kNoTimeout, error);
+		const rhi::AcquireResult acquired = swapchain.acquire_next_image(kNoTimeout, error);
 		if (acquired.status == rhi::SwapchainStatus::eOutOfDate)
 		{
 			const rhi::Extent2D size = window.GetDrawableSize();
-			static_cast<void>(queue.WaitIdle(error));
-			static_cast<void>(swapchain.Resize(size.width, size.height, error));
+			static_cast<void>(queue.wait_idle(error));
+			static_cast<void>(swapchain.resize(size.width, size.height, error));
 			if (!resize())
 			{
 				fw::ReportError("failed to resize the depth buffer", error);
@@ -736,13 +736,13 @@ int main(int argc, char ** argv)
 		}
 
 		rhi::CommandList list = ring.Begin(error);
-		if (!list.IsValid() || !list.Begin(error))
+		if (!list.is_valid() || !list.Begin(error))
 		{
 			fw::ReportError("failed to start recording", error);
 			return 1;
 		}
 
-		const DepthTarget & depth = depths.at(ring.SlotIndex());
+		const DepthTarget & depth = depths.at(ring.slot_index());
 
 		const rhi::TextureHandle backBuffer = acquired.texture;
 		const std::array toAttachment{
@@ -784,23 +784,23 @@ int main(int argc, char ** argv)
 			.clearDepthStencil = { .depth = 1.0f },
 		};
 
-		const rhi::Viewport viewport{ .width = static_cast<float>(swapchain.GetWidth()), .height = static_cast<float>(swapchain.GetHeight()) };
-		const rhi::Rect2D scissor{ .width = swapchain.GetWidth(), .height = swapchain.GetHeight() };
+		const rhi::Viewport viewport{ .width = static_cast<float>(swapchain.get_width()), .height = static_cast<float>(swapchain.get_height()) };
+		const rhi::Rect2D scissor{ .width = swapchain.get_width(), .height = swapchain.get_height() };
 
-		bool recorded = list.Barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
-						list.BeginRendering(
+		bool recorded = list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
+						list.begin_rendering(
 							rhi::BeginRenderingDesc{
 								.colors		  = colors,
 								.depthStencil = &depthAttachment,
-								.width		  = swapchain.GetWidth(),
-								.height		  = swapchain.GetHeight(),
+								.width		  = swapchain.get_width(),
+								.height		  = swapchain.get_height(),
 							},
 							error) &&
-						list.SetViewport(viewport, error) && list.SetScissor(scissor, error) &&
-						list.BindDescriptorSet(pipelineDesc.layout, kFrameSet, frameSet, {}, error) &&
-						list.BindDescriptorSet(pipelineDesc.layout, kMaterialSet, materialSets[0], {}, error) && list.SetGraphicsPipeline(skyPipeline, error) &&
-						list.Draw(3, 1, 0, 0, error) && list.SetGraphicsPipeline(pipeline, error) && list.SetVertexBuffer(0, gpu.vertices, 0, error) &&
-						list.SetIndexBuffer(gpu.indices, 0, true, error);
+						list.set_viewport(viewport, error) && list.set_scissor(scissor, error) &&
+						list.bind_descriptor_set(pipelineDesc.layout, kFrameSet, frameSet, {}, error) &&
+						list.bind_descriptor_set(pipelineDesc.layout, kMaterialSet, materialSets[0], {}, error) && list.set_graphics_pipeline(skyPipeline, error) &&
+						list.draw(3, 1, 0, 0, error) && list.set_graphics_pipeline(pipeline, error) && list.set_vertex_buffer(0, gpu.vertices, 0, error) &&
+						list.set_index_buffer(gpu.indices, 0, true, error);
 
 		for (const deccer::Draw & draw : scene.draws)
 		{
@@ -816,12 +816,12 @@ int main(int argc, char ** argv)
 			constants[28] = draw.metallic;
 			constants[29] = draw.roughness;
 
-			recorded = list.PushConstants(pipelineDesc.layout, kPushConstantStages, 0, kPushConstantBytes, constants.data(), error) &&
-					   list.BindDescriptorSet(pipelineDesc.layout, kMaterialSet, materialSets[draw.textureIndex], {}, error) &&
-					   list.DrawIndexed(draw.indexCount, 1, draw.firstIndex, draw.vertexOffset, 0, error);
+			recorded = list.push_constants(pipelineDesc.layout, kPushConstantStages, 0, kPushConstantBytes, constants.data(), error) &&
+					   list.bind_descriptor_set(pipelineDesc.layout, kMaterialSet, materialSets[draw.textureIndex], {}, error) &&
+					   list.draw_indexed(draw.indexCount, 1, draw.firstIndex, draw.vertexOffset, 0, error);
 		}
 
-		recorded = recorded && list.EndRendering(error) && list.Barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
+		recorded = recorded && list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.End(error);
 		if (!recorded)
 		{
 			fw::ReportError("failed to record the frame", error);
@@ -840,7 +840,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "deccer.submit",
 		};
 
-		if (!queue.Submit(submit, error))
+		if (!queue.submit(submit, error))
 		{
 			LOG_ERROR(fw::Log(), "failed to submit the frame");
 			return 1;
@@ -850,9 +850,9 @@ int main(int argc, char ** argv)
 		capture.FramePresented();
 	}
 
-	static_cast<void>(queue.WaitIdle(error));
-	dev.CollectGarbage(ring.Timeline(), ring.FrameIndex(), error);
+	static_cast<void>(queue.wait_idle(error));
+	dev.collect_garbage(ring.Timeline(), ring.frame_index(), error);
 
-	LOG_INFO(fw::Log(), "{} frames presented", ring.FrameIndex());
+	LOG_INFO(fw::Log(), "{} frames presented", ring.frame_index());
 	return 0;
 }

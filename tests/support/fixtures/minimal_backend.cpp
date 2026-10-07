@@ -123,27 +123,27 @@ namespace azo::rhi::test::minimal
 
 		const BackendObject * CommandListObject() noexcept
 		{
-			return PublishingObject<Published<RenderCommandApi, &RenderBlock>>();
+			return publishing_object<Published<RenderCommandApi, &RenderBlock>>();
 		}
 
 		const BackendObject * QueueObject() noexcept
 		{
-			return PublishingObject<Published<QueueApi, &QueueBlock>>();
+			return publishing_object<Published<QueueApi, &QueueBlock>>();
 		}
 
 		const BackendObject * CommandPoolObject() noexcept
 		{
-			return PublishingObject<Published<CommandPoolApi, &CommandPoolBlock>>();
+			return publishing_object<Published<CommandPoolApi, &CommandPoolBlock>>();
 		}
 
 		const BackendObject * DescriptorArenaObject() noexcept
 		{
-			return PublishingObject<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
+			return publishing_object<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
 		}
 
 		const BackendObject * SwapchainObject() noexcept
 		{
-			return PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
+			return publishing_object<Published<SwapchainApi, &SwapchainBlock>>();
 		}
 
 		GraphicsApiId DeviceApiId(void * impl) noexcept
@@ -697,12 +697,12 @@ namespace azo::rhi::test::minimal
 
 		const BackendObject * HeadlessDeviceObject() noexcept
 		{
-			return PublishingObject<Published<CoreDeviceApi, &CoreBlock>>();
+			return publishing_object<Published<CoreDeviceApi, &CoreBlock>>();
 		}
 
 		const BackendObject * PresentingDeviceObject() noexcept
 		{
-			return PublishingObject<Published<CoreDeviceApi, &CoreBlock>, Published<PresentApi, &PresentBlock>>();
+			return publishing_object<Published<CoreDeviceApi, &CoreBlock>, Published<PresentApi, &PresentBlock>>();
 		}
 
 		template <bool Presenting>
@@ -755,7 +755,7 @@ namespace azo::rhi::test::minimal
 		void * CreateInstance(const void *, Error * error) noexcept
 		{
 			Succeed(error);
-			return New(PublishingObject<Published<InstanceApi, &InstanceBlock<Presenting>>>(), Presenting);
+			return New(publishing_object<Published<InstanceApi, &InstanceBlock<Presenting>>>(), Presenting);
 		}
 
 	}

@@ -33,7 +33,7 @@ namespace
 
 	[[nodiscard]] std::uint32_t Index(const std::uint32_t tag, const std::uint32_t slot) noexcept
 	{
-		return rhi::detail::ComposeIndex(tag, slot);
+		return rhi::detail::compose_index(tag, slot);
 	}
 
 	[[nodiscard]] RegisteredHandle Buffer(const std::uint32_t tag, const std::uint32_t slot, const std::uint32_t generation = 1) noexcept
@@ -49,8 +49,8 @@ namespace
 	{
 		const HandleRegistry registry;
 
-		EXPECT_FALSE(registry.IsLive(Buffer(1, 0)));
-		EXPECT_EQ(registry.LiveCount(), 0u);
+		EXPECT_FALSE(registry.is_live(Buffer(1, 0)));
+		EXPECT_EQ(registry.live_count(), 0u);
 	}
 
 	TEST(HandleRegistry, RecognizesAHandleItWasToldAbout)
@@ -59,9 +59,9 @@ namespace
 		const RegisteredHandle buffer = Buffer(1, 7);
 
 		ASSERT_TRUE(registry.Record(buffer));
-		EXPECT_TRUE(registry.IsLive(buffer));
-		EXPECT_EQ(registry.LiveCount(rhi::ResourceType::eBuffer), 1u);
-		EXPECT_EQ(registry.LiveCount(), 1u);
+		EXPECT_TRUE(registry.is_live(buffer));
+		EXPECT_EQ(registry.live_count(rhi::ResourceType::eBuffer), 1u);
+		EXPECT_EQ(registry.live_count(), 1u);
 	}
 
 	TEST(HandleRegistry, AHandleHeldPastItsDestroyNoLongerResolves)
@@ -70,15 +70,15 @@ namespace
 
 		const RegisteredHandle first = Buffer(1, 3, 1);
 		ASSERT_TRUE(registry.Record(first));
-		ASSERT_TRUE(registry.Retire(first));
+		ASSERT_TRUE(registry.retire(first));
 
-		EXPECT_FALSE(registry.IsLive(first)) << "a retired handle still resolved";
+		EXPECT_FALSE(registry.is_live(first)) << "a retired handle still resolved";
 
 		const RegisteredHandle reused = Buffer(1, 3, 2);
 		ASSERT_TRUE(registry.Record(reused));
 
-		EXPECT_TRUE(registry.IsLive(reused));
-		EXPECT_FALSE(registry.IsLive(first)) << "the old handle came back to life when its slot was reused";
+		EXPECT_TRUE(registry.is_live(reused));
+		EXPECT_FALSE(registry.is_live(first)) << "the old handle came back to life when its slot was reused";
 	}
 
 	TEST(HandleRegistry, ASecondDestroyOfTheSameHandleIsRefused)
@@ -87,9 +87,9 @@ namespace
 		const RegisteredHandle buffer = Buffer(1, 0);
 
 		ASSERT_TRUE(registry.Record(buffer));
-		EXPECT_TRUE(registry.Retire(buffer));
-		EXPECT_FALSE(registry.Retire(buffer)) << "a double destroy was accepted, which is the case this exists to catch";
-		EXPECT_EQ(registry.LiveCount(), 0u);
+		EXPECT_TRUE(registry.retire(buffer));
+		EXPECT_FALSE(registry.retire(buffer)) << "a double destroy was accepted, which is the case this exists to catch";
+		EXPECT_EQ(registry.live_count(), 0u);
 	}
 
 	TEST(HandleRegistry, AHandleFromAnotherDeviceIsNotThisOnes)
@@ -97,11 +97,11 @@ namespace
 		HandleRegistry registry;
 
 		ASSERT_TRUE(registry.Record(Buffer(1, 5)));
-		EXPECT_TRUE(registry.IsLive(Buffer(1, 5)));
-		EXPECT_FALSE(registry.IsLive(Buffer(2, 5))) << "a handle from another device resolved against this one";
-		EXPECT_FALSE(registry.Retire(Buffer(2, 5))) << "another device's handle was accepted for destroy";
+		EXPECT_TRUE(registry.is_live(Buffer(1, 5)));
+		EXPECT_FALSE(registry.is_live(Buffer(2, 5))) << "a handle from another device resolved against this one";
+		EXPECT_FALSE(registry.retire(Buffer(2, 5))) << "another device's handle was accepted for destroy";
 
-		EXPECT_TRUE(registry.IsLive(Buffer(1, 5)));
+		EXPECT_TRUE(registry.is_live(Buffer(1, 5)));
 	}
 
 	TEST(HandleRegistry, TwoDevicesSharingARowStayApart)
@@ -111,15 +111,15 @@ namespace
 		ASSERT_TRUE(registry.Record(Buffer(1, 9)));
 		ASSERT_TRUE(registry.Record(Buffer(2, 9)));
 
-		EXPECT_FALSE(registry.IsLive(Buffer(1, 9))) << "the second record took the row, so the first is no longer what it names";
-		EXPECT_TRUE(registry.IsLive(Buffer(2, 9)));
+		EXPECT_FALSE(registry.is_live(Buffer(1, 9))) << "the second record took the row, so the first is no longer what it names";
+		EXPECT_TRUE(registry.is_live(Buffer(2, 9)));
 	}
 
 	TEST(HandleRegistry, TheInvalidHandleIsNeverRecorded)
 	{
 		HandleRegistry registry;
 		EXPECT_FALSE(registry.Record(RegisteredHandle{ .type = rhi::ResourceType::eBuffer }));
-		EXPECT_EQ(registry.LiveCount(), 0u);
+		EXPECT_EQ(registry.live_count(), 0u);
 	}
 
 	TEST(HandleRegistry, KindsAreKeptApart)
@@ -130,11 +130,11 @@ namespace
 		const RegisteredHandle texture{ .type = rhi::ResourceType::eTexture, .index = Index(1, 4), .generation = 1 };
 
 		ASSERT_TRUE(registry.Record(buffer));
-		EXPECT_FALSE(registry.IsLive(texture)) << "a buffer answered for a texture of the same index";
+		EXPECT_FALSE(registry.is_live(texture)) << "a buffer answered for a texture of the same index";
 
 		ASSERT_TRUE(registry.Record(texture));
-		ASSERT_TRUE(registry.Retire(buffer));
-		EXPECT_TRUE(registry.IsLive(texture)) << "retiring a buffer retired the texture beside it";
+		ASSERT_TRUE(registry.retire(buffer));
+		EXPECT_TRUE(registry.is_live(texture)) << "retiring a buffer retired the texture beside it";
 	}
 
 	TEST(HandleRegistry, HoldsWhatIsKnownAboutALiveResource)
@@ -144,14 +144,14 @@ namespace
 
 		ASSERT_TRUE(registry.Record(buffer));
 
-		ResourceRecord * record = registry.Lookup(buffer);
+		ResourceRecord * record = registry.lookup(buffer);
 		ASSERT_NE(record, nullptr);
 
 		record->use.store(0x24, std::memory_order_relaxed);
 		record->owned.store(true, std::memory_order_relaxed);
 		record->owner.store(2, std::memory_order_relaxed);
 
-		const ResourceRecord * again = registry.Lookup(buffer);
+		const ResourceRecord * again = registry.lookup(buffer);
 		ASSERT_EQ(again, record) << "the same handle resolved to a different record";
 		EXPECT_EQ(again->use.load(std::memory_order_relaxed), 0x24u);
 		EXPECT_TRUE(again->owned.load(std::memory_order_relaxed));
@@ -163,14 +163,14 @@ namespace
 
 		const RegisteredHandle first = Buffer(1, 6, 1);
 		ASSERT_TRUE(registry.Record(first));
-		registry.Lookup(first)->use.store(0x99, std::memory_order_relaxed);
-		registry.Lookup(first)->owned.store(true, std::memory_order_relaxed);
-		ASSERT_TRUE(registry.Retire(first));
+		registry.lookup(first)->use.store(0x99, std::memory_order_relaxed);
+		registry.lookup(first)->owned.store(true, std::memory_order_relaxed);
+		ASSERT_TRUE(registry.retire(first));
 
 		const RegisteredHandle reused = Buffer(1, 6, 2);
 		ASSERT_TRUE(registry.Record(reused));
 
-		const ResourceRecord * record = registry.Lookup(reused);
+		const ResourceRecord * record = registry.lookup(reused);
 		ASSERT_NE(record, nullptr);
 		EXPECT_EQ(record->use.load(std::memory_order_relaxed), 0u) << "a new resource inherited its predecessor's state";
 		EXPECT_FALSE(record->owned.load(std::memory_order_relaxed));
@@ -185,7 +185,7 @@ namespace
 		const RegisteredHandle early = Buffer(1, 0);
 		ASSERT_TRUE(registry.Record(early));
 
-		ResourceRecord * held = registry.Lookup(early);
+		ResourceRecord * held = registry.lookup(early);
 		ASSERT_NE(held, nullptr);
 		held->use.store(0x1234, std::memory_order_relaxed);
 
@@ -195,8 +195,8 @@ namespace
 		}
 
 		EXPECT_EQ(held->use.load(std::memory_order_relaxed), 0x1234u) << "growth moved a record a caller was already holding";
-		EXPECT_EQ(registry.Lookup(early), held) << "the same handle resolved somewhere else after growth";
-		EXPECT_EQ(registry.LiveCount(), kFarPastTheFirstChunk + 1u);
+		EXPECT_EQ(registry.lookup(early), held) << "the same handle resolved somewhere else after growth";
+		EXPECT_EQ(registry.live_count(), kFarPastTheFirstChunk + 1u);
 	}
 
 	TEST(HandleRegistry, gate_WaitFreeRegistryRead)
@@ -208,7 +208,7 @@ namespace
 
 		const RegisteredHandle held = Buffer(1, 0);
 		ASSERT_TRUE(registry.Record(held));
-		registry.Lookup(held)->use.store(0xABCD, std::memory_order_relaxed);
+		registry.lookup(held)->use.store(0xABCD, std::memory_order_relaxed);
 
 		std::atomic<bool> writing{ true };
 		std::atomic<std::size_t> reads{ 0 };
@@ -219,7 +219,7 @@ namespace
 			{
 				while (writing.load(std::memory_order_relaxed))
 				{
-					const ResourceRecord * record = registry.Lookup(held);
+					const ResourceRecord * record = registry.lookup(held);
 					if (record == nullptr || record->use.load(std::memory_order_relaxed) != 0xABCDu)
 					{
 						wrongAnswers.fetch_add(1, std::memory_order_relaxed);
@@ -254,17 +254,17 @@ namespace
 			ASSERT_TRUE(registry.Record(RegisteredHandle{ .type = rhi::ResourceType::eTexture, .index = Index(1, slot), .generation = 1 }));
 		}
 
-		EXPECT_EQ(registry.LiveCount(rhi::ResourceType::eBuffer), 8u);
-		EXPECT_EQ(registry.LiveCount(rhi::ResourceType::eTexture), 8u);
-		EXPECT_EQ(registry.LiveCount(), 16u);
+		EXPECT_EQ(registry.live_count(rhi::ResourceType::eBuffer), 8u);
+		EXPECT_EQ(registry.live_count(rhi::ResourceType::eTexture), 8u);
+		EXPECT_EQ(registry.live_count(), 16u);
 
 		for (std::uint32_t slot = 0; slot < 8; ++slot)
 		{
-			ASSERT_TRUE(registry.Retire(Buffer(1, slot)));
+			ASSERT_TRUE(registry.retire(Buffer(1, slot)));
 		}
 
-		EXPECT_EQ(registry.LiveCount(rhi::ResourceType::eBuffer), 0u);
-		EXPECT_EQ(registry.LiveCount(), 8u) << "retiring the buffers took the textures with them";
+		EXPECT_EQ(registry.live_count(rhi::ResourceType::eBuffer), 0u);
+		EXPECT_EQ(registry.live_count(), 8u) << "retiring the buffers took the textures with them";
 	}
 
 }

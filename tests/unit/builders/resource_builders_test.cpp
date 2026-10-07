@@ -27,11 +27,11 @@ namespace
 
 	TEST(BufferBuilder, DefaultsToAnEmptyDescRatherThanAUsableOne)
 	{
-		const rhi::BufferDesc desc = rhi::BufferBuilder{}.Build();
+		const rhi::BufferDesc desc = rhi::BufferBuilder{}.build();
 
 		EXPECT_EQ(desc.size, 0u);
 		EXPECT_EQ(desc.stride, 0u);
-		EXPECT_TRUE(desc.usage.Empty());
+		EXPECT_TRUE(desc.usage.empty());
 		EXPECT_EQ(desc.memory, rhi::MemoryUsage::eGpuOnly);
 		EXPECT_FALSE(desc.allowAliasing);
 		EXPECT_FALSE(desc.allowSparseBinding);
@@ -51,8 +51,8 @@ namespace
 
 		EXPECT_EQ(desc.size, 4096u);
 		EXPECT_EQ(desc.stride, 16u);
-		EXPECT_TRUE(desc.usage.Contains(rhi::BufferUsage::eVertex));
-		EXPECT_TRUE(desc.usage.Contains(rhi::BufferUsage::eCopyDst));
+		EXPECT_TRUE(desc.usage.contains(rhi::BufferUsage::eVertex));
+		EXPECT_TRUE(desc.usage.contains(rhi::BufferUsage::eCopyDst));
 		EXPECT_EQ(desc.memory, rhi::MemoryUsage::eCpuUpload);
 		EXPECT_TRUE(desc.allowAliasing);
 		EXPECT_TRUE(desc.allowSparseBinding);
@@ -61,28 +61,28 @@ namespace
 	TEST(BufferBuilder, UsageReplacesWhileAddUsageAccumulates)
 	{
 		const rhi::BufferDesc replaced = rhi::BufferBuilder{}.Usage(rhi::BufferUsage::eVertex).Usage(rhi::BufferUsage::eIndex).Build();
-		EXPECT_FALSE(replaced.usage.Contains(rhi::BufferUsage::eVertex));
-		EXPECT_TRUE(replaced.usage.Contains(rhi::BufferUsage::eIndex));
+		EXPECT_FALSE(replaced.usage.contains(rhi::BufferUsage::eVertex));
+		EXPECT_TRUE(replaced.usage.contains(rhi::BufferUsage::eIndex));
 
 		const rhi::BufferDesc accumulated = rhi::BufferBuilder{}.Usage(rhi::BufferUsage::eVertex).AddUsage(rhi::BufferUsage::eIndex).Build();
-		EXPECT_TRUE(accumulated.usage.Contains(rhi::BufferUsage::eVertex));
-		EXPECT_TRUE(accumulated.usage.Contains(rhi::BufferUsage::eIndex));
+		EXPECT_TRUE(accumulated.usage.contains(rhi::BufferUsage::eVertex));
+		EXPECT_TRUE(accumulated.usage.contains(rhi::BufferUsage::eIndex));
 	}
 
 	TEST(BufferBuilder, AddUsageIsIdempotent)
 	{
-		const rhi::BufferDesc desc = rhi::BufferBuilder{}.AddUsage(rhi::BufferUsage::eStorage).AddUsage(rhi::BufferUsage::eStorage).Build();
+		const rhi::BufferDesc desc = rhi::BufferBuilder{}.add_usage(rhi::BufferUsage::eStorage).add_usage(rhi::BufferUsage::eStorage).build();
 
 		EXPECT_EQ(desc.usage, rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eStorage));
 	}
 
 	TEST(BufferBuilder, MemoryShorthandsMatchTheEnumeratorsTheyName)
 	{
-		EXPECT_EQ(rhi::BufferBuilder{}.GpuOnly().Build().memory, rhi::MemoryUsage::eGpuOnly);
-		EXPECT_EQ(rhi::BufferBuilder{}.CpuUpload().Build().memory, rhi::MemoryUsage::eCpuUpload);
-		EXPECT_EQ(rhi::BufferBuilder{}.CpuReadback().Build().memory, rhi::MemoryUsage::eCpuReadback);
+		EXPECT_EQ(rhi::BufferBuilder{}.gpu_only().build().memory, rhi::MemoryUsage::eGpuOnly);
+		EXPECT_EQ(rhi::BufferBuilder{}.cpu_upload().build().memory, rhi::MemoryUsage::eCpuUpload);
+		EXPECT_EQ(rhi::BufferBuilder{}.cpu_readback().build().memory, rhi::MemoryUsage::eCpuReadback);
 
-		EXPECT_EQ(rhi::BufferBuilder{}.Memory(rhi::MemoryUsage::eTransient).Build().memory, rhi::MemoryUsage::eTransient);
+		EXPECT_EQ(rhi::BufferBuilder{}.memory(rhi::MemoryUsage::eTransient).build().memory, rhi::MemoryUsage::eTransient);
 	}
 
 	TEST(BufferBuilder, DebugNamePointsIntoTheBuilderAndSurvivesUntilItIsModified)
@@ -90,8 +90,8 @@ namespace
 		rhi::BufferBuilder builder;
 		builder.Size(64).DebugName("azoth.rhi.test.named");
 
-		const rhi::BufferDesc first	 = builder.Build();
-		const rhi::BufferDesc second = builder.Build();
+		const rhi::BufferDesc first	 = builder.build();
+		const rhi::BufferDesc second = builder.build();
 
 		ASSERT_NE(first.debugName, nullptr);
 		EXPECT_STREQ(first.debugName, "azoth.rhi.test.named");
@@ -100,15 +100,15 @@ namespace
 
 	TEST(BufferBuilder, AnEmptyDebugNameStaysNullRatherThanBecomingAnEmptyString)
 	{
-		EXPECT_EQ(rhi::BufferBuilder{}.DebugName("").Build().debugName, nullptr);
-		EXPECT_NE(rhi::BufferBuilder{}.DebugName("x").Build().debugName, nullptr);
+		EXPECT_EQ(rhi::BufferBuilder{}.debug_name("").build().debugName, nullptr);
+		EXPECT_NE(rhi::BufferBuilder{}.debug_name("x").build().debugName, nullptr);
 	}
 
 	TEST(BufferBuilder, DebugNameAcceptsAViewThatIsNotNullTerminated)
 	{
 		const std::string source = "prefix.name.suffix";
 		rhi::BufferBuilder builder;
-		const rhi::BufferDesc desc = builder.DebugName(std::string_view{ source }.substr(7, 4)).Build();
+		const rhi::BufferDesc desc = builder.debug_name(std::string_view{ source }.substr(7, 4)).build();
 
 		ASSERT_NE(desc.debugName, nullptr);
 		EXPECT_STREQ(desc.debugName, "name");
@@ -116,7 +116,7 @@ namespace
 
 	TEST(TextureBuilder, DefaultsToAUsableTwoDimensionalShapeWithNoFormatOrUsage)
 	{
-		const rhi::TextureDesc desc = rhi::TextureBuilder{}.Build();
+		const rhi::TextureDesc desc = rhi::TextureBuilder{}.build();
 
 		EXPECT_EQ(desc.type, rhi::TextureType::eTex2D);
 		EXPECT_EQ(desc.format, rhi::Format::eUndefined);
@@ -126,7 +126,7 @@ namespace
 		EXPECT_EQ(desc.mipLevels, 1u);
 		EXPECT_EQ(desc.arrayLayers, 1u);
 		EXPECT_EQ(desc.samples, rhi::SampleCount::e1);
-		EXPECT_TRUE(desc.usage.Empty());
+		EXPECT_TRUE(desc.usage.empty());
 	}
 
 	TEST(TextureBuilder, ExtentDefaultsTheDimensionsATwoDimensionalTextureDoesNotUse)
@@ -161,13 +161,13 @@ namespace
 		EXPECT_EQ(desc.mipLevels, 8u);
 		EXPECT_EQ(desc.arrayLayers, 6u);
 		EXPECT_EQ(desc.samples, rhi::SampleCount::e4);
-		EXPECT_TRUE(desc.usage.Contains(rhi::TextureUsage::eSampled));
-		EXPECT_TRUE(desc.usage.Contains(rhi::TextureUsage::eColorAttachment));
+		EXPECT_TRUE(desc.usage.contains(rhi::TextureUsage::eSampled));
+		EXPECT_TRUE(desc.usage.contains(rhi::TextureUsage::eColorAttachment));
 	}
 
 	TEST(MapBuilder, DefaultsToWritingTheWholeBuffer)
 	{
-		constexpr rhi::MapDesc desc = rhi::MapBuilder{}.Build();
+		constexpr rhi::MapDesc desc = rhi::MapBuilder{}.build();
 
 		static_assert(desc.mode == rhi::MapMode::eWrite);
 		static_assert(desc.offset == 0);
@@ -178,10 +178,10 @@ namespace
 
 	TEST(MapBuilder, ModeShorthandsAndTheRangeSettersAgreeWithTheDesc)
 	{
-		EXPECT_EQ(rhi::MapBuilder{}.Read().Build().mode, rhi::MapMode::eRead);
+		EXPECT_EQ(rhi::MapBuilder{}.read().build().mode, rhi::MapMode::eRead);
 		EXPECT_EQ(rhi::MapBuilder{}.Write().Build().mode, rhi::MapMode::eWrite);
-		EXPECT_EQ(rhi::MapBuilder{}.ReadWrite().Build().mode, rhi::MapMode::eReadWrite);
-		EXPECT_EQ(rhi::MapBuilder{}.Mode(rhi::MapMode::eRead).Build().mode, rhi::MapMode::eRead);
+		EXPECT_EQ(rhi::MapBuilder{}.read_write().build().mode, rhi::MapMode::eReadWrite);
+		EXPECT_EQ(rhi::MapBuilder{}.mode(rhi::MapMode::eRead).build().mode, rhi::MapMode::eRead);
 
 		const rhi::MapDesc ranged = rhi::MapBuilder{}.Offset(128).Size(64).Build();
 		EXPECT_EQ(ranged.offset, 128u);
@@ -192,7 +192,7 @@ namespace
 
 	TEST(HeapBuilder, DefaultsToAGpuLocalHeapThatTakesBothResourceKinds)
 	{
-		const rhi::HeapDesc desc = rhi::HeapBuilder{}.Build();
+		const rhi::HeapDesc desc = rhi::HeapBuilder{}.build();
 
 		EXPECT_EQ(desc.type, rhi::HeapType::eGpuLocal);
 		EXPECT_EQ(desc.size, 0u);
@@ -247,12 +247,12 @@ namespace
 
 		const rhi::ResidencyPriorityDesc asBuffer = rhi::ResidencyPriorityBuilder{}.Buffer(buffer).Priority(rhi::ResidencyPriority::eHigh).Build();
 		EXPECT_EQ(asBuffer.buffer, buffer);
-		EXPECT_FALSE(asBuffer.texture.IsValid());
+		EXPECT_FALSE(asBuffer.texture.is_valid());
 		EXPECT_EQ(asBuffer.priority, rhi::ResidencyPriority::eHigh);
 
 		const rhi::ResidencyPriorityDesc asTexture = rhi::ResidencyPriorityBuilder{}.Buffer(buffer).Texture(texture).Build();
 		EXPECT_EQ(asTexture.texture, texture);
-		EXPECT_FALSE(asTexture.buffer.IsValid()) << "naming a texture left the earlier buffer set as well";
+		EXPECT_FALSE(asTexture.buffer.is_valid()) << "naming a texture left the earlier buffer set as well";
 		EXPECT_EQ(asTexture.priority, rhi::ResidencyPriority::eNormal);
 	}
 

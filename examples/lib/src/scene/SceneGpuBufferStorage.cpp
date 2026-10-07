@@ -148,7 +148,7 @@ namespace fw::scene
 
 	SceneGpuBufferStorage::SceneGpuBufferStorage(SceneConfig sceneConfig) : m_config(std::move(sceneConfig))
 	{
-		if (!m_config.device.IsValid())
+		if (!m_config.device.is_valid())
 		{
 			LOG_INFO(fw::Log(), "scene storage: the scene config carries no device");
 			return;
@@ -262,7 +262,7 @@ namespace fw::scene
 	{
 		azo::rhi::Error error{};
 
-		buffer.handle = m_config.device.CreateBuffer(
+		buffer.handle = m_config.device.create_buffer(
 			azo::rhi::BufferDesc{
 				.size	   = sizeBytes,
 				.stride	   = stride,
@@ -272,7 +272,7 @@ namespace fw::scene
 			},
 			error);
 
-		if (!buffer.handle.IsValid())
+		if (!buffer.handle.is_valid())
 		{
 			ReportError(debugName, error);
 			return false;
@@ -320,7 +320,7 @@ namespace fw::scene
 		azo::rhi::Device device = m_config.device;
 
 		azo::rhi::Error error{};
-		if (!device.FlushMappedRange(buffer.handle, offset, sizeBytes, error))
+		if (!device.flush_mapped_range(buffer.handle, offset, sizeBytes, error))
 		{
 			ReportError("failed to flush a scene buffer", error);
 			return false;
@@ -331,7 +331,7 @@ namespace fw::scene
 
 	void SceneGpuBufferStorage::DestroyBuffer(MappedBuffer & buffer) noexcept
 	{
-		if (!buffer.handle.IsValid())
+		if (!buffer.handle.is_valid())
 		{
 			return;
 		}
@@ -342,7 +342,7 @@ namespace fw::scene
 			buffer.data = nullptr;
 		}
 
-		static_cast<void>(m_config.device.Destroy(buffer.handle));
+		static_cast<void>(m_config.device.destroy(buffer.handle));
 		buffer.handle = {};
 	}
 

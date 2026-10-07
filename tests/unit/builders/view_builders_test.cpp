@@ -25,11 +25,11 @@ namespace
 
 	TEST(TextureViewBuilder, DefaultsToTheFirstMipAndLayerOfATwoDimensionalColorTexture)
 	{
-		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}.Build();
+		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}.build();
 
 		EXPECT_EQ(desc.type, rhi::TextureViewType::eTex2D);
 		EXPECT_EQ(desc.format, rhi::Format::eUndefined) << "an unset view format has to inherit from the source texture";
-		EXPECT_TRUE(desc.range.aspects.Contains(rhi::TextureAspect::eColor));
+		EXPECT_TRUE(desc.range.aspects.contains(rhi::TextureAspect::eColor));
 		EXPECT_EQ(desc.range.baseMip, 0u);
 		EXPECT_EQ(desc.range.mipCount, 1u);
 		EXPECT_EQ(desc.range.baseLayer, 0u);
@@ -49,7 +49,7 @@ namespace
 	TEST(TextureViewBuilder, RangeReplacesEverythingTheSlicersWouldHaveSet)
 	{
 		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}
-											  .Mips(5, 5)
+											  .mips(5, 5)
 											  .Range(rhi::TextureSubresourceRange{
 												  .aspects	  = rhi::TextureAspect::eDepth,
 												  .baseMip	  = 0,
@@ -61,36 +61,36 @@ namespace
 
 		EXPECT_EQ(desc.range.baseMip, 0u);
 		EXPECT_EQ(desc.range.mipCount, 1u);
-		EXPECT_TRUE(desc.range.aspects.Contains(rhi::TextureAspect::eDepth));
-		EXPECT_FALSE(desc.range.aspects.Contains(rhi::TextureAspect::eColor));
+		EXPECT_TRUE(desc.range.aspects.contains(rhi::TextureAspect::eDepth));
+		EXPECT_FALSE(desc.range.aspects.contains(rhi::TextureAspect::eColor));
 	}
 
 	TEST(TextureViewBuilder, SelectsTheDepthAspectForADepthStencilView)
 	{
 		const rhi::TextureViewDesc depth = rhi::TextureViewBuilder{}.Format(rhi::Format::eD32FloatS8UInt).Aspects(rhi::TextureAspect::eDepth).Build();
 
-		EXPECT_TRUE(depth.range.aspects.Contains(rhi::TextureAspect::eDepth));
-		EXPECT_FALSE(depth.range.aspects.Contains(rhi::TextureAspect::eStencil));
+		EXPECT_TRUE(depth.range.aspects.contains(rhi::TextureAspect::eDepth));
+		EXPECT_FALSE(depth.range.aspects.contains(rhi::TextureAspect::eStencil));
 
 		const rhi::TextureViewDesc stencil = rhi::TextureViewBuilder{}.Format(rhi::Format::eD32FloatS8UInt).Aspects(rhi::TextureAspect::eStencil).Build();
-		EXPECT_TRUE(stencil.range.aspects.Contains(rhi::TextureAspect::eStencil));
+		EXPECT_TRUE(stencil.range.aspects.contains(rhi::TextureAspect::eStencil));
 	}
 
 	TEST(TextureViewBuilder, CarriesADebugNameIntoTheDesc)
 	{
 		rhi::TextureViewBuilder builder;
-		builder.DebugName("azoth.rhi.test.view");
+		builder.debug_name("azoth.rhi.test.view");
 
-		const rhi::TextureViewDesc desc = builder.Build();
+		const rhi::TextureViewDesc desc = builder.build();
 		ASSERT_NE(desc.debugName, nullptr);
 		EXPECT_STREQ(desc.debugName, "azoth.rhi.test.view");
 
-		EXPECT_EQ(rhi::TextureViewBuilder{}.Build().debugName, nullptr);
+		EXPECT_EQ(rhi::TextureViewBuilder{}.build().debugName, nullptr);
 	}
 
 	TEST(SamplerBuilder, DefaultsToTrilinearRepeatWithNoComparison)
 	{
-		const rhi::SamplerDesc desc = rhi::SamplerBuilder{}.Build();
+		const rhi::SamplerDesc desc = rhi::SamplerBuilder{}.build();
 
 		EXPECT_EQ(desc.magFilter, rhi::Filter::eLinear);
 		EXPECT_EQ(desc.minFilter, rhi::Filter::eLinear);
@@ -109,11 +109,11 @@ namespace
 
 	TEST(SamplerBuilder, FilterShorthandsSetBothEndsOfTheFilterPair)
 	{
-		const rhi::SamplerDesc nearest = rhi::SamplerBuilder{}.Nearest().Build();
+		const rhi::SamplerDesc nearest = rhi::SamplerBuilder{}.nearest().build();
 		EXPECT_EQ(nearest.magFilter, rhi::Filter::eNearest);
 		EXPECT_EQ(nearest.minFilter, rhi::Filter::eNearest);
 
-		const rhi::SamplerDesc linear = rhi::SamplerBuilder{}.Nearest().Linear().Build();
+		const rhi::SamplerDesc linear = rhi::SamplerBuilder{}.nearest().linear().build();
 		EXPECT_EQ(linear.magFilter, rhi::Filter::eLinear);
 		EXPECT_EQ(linear.minFilter, rhi::Filter::eLinear);
 
@@ -124,13 +124,13 @@ namespace
 
 	TEST(SamplerBuilder, AddressAllSetsEveryAxisAndAddressSetsThemSeparately)
 	{
-		const rhi::SamplerDesc clamped = rhi::SamplerBuilder{}.AddressAll(rhi::AddressMode::eClampToEdge).Build();
+		const rhi::SamplerDesc clamped = rhi::SamplerBuilder{}.address_all(rhi::AddressMode::eClampToEdge).build();
 		EXPECT_EQ(clamped.addressU, rhi::AddressMode::eClampToEdge);
 		EXPECT_EQ(clamped.addressV, rhi::AddressMode::eClampToEdge);
 		EXPECT_EQ(clamped.addressW, rhi::AddressMode::eClampToEdge);
 
 		const rhi::SamplerDesc mixed =
-			rhi::SamplerBuilder{}.Address(rhi::AddressMode::eRepeat, rhi::AddressMode::eClampToBorder, rhi::AddressMode::eMirroredRepeat).Build();
+			rhi::SamplerBuilder{}.address(rhi::AddressMode::eRepeat, rhi::AddressMode::eClampToBorder, rhi::AddressMode::eMirroredRepeat).build();
 		EXPECT_EQ(mixed.addressU, rhi::AddressMode::eRepeat);
 		EXPECT_EQ(mixed.addressV, rhi::AddressMode::eClampToBorder);
 		EXPECT_EQ(mixed.addressW, rhi::AddressMode::eMirroredRepeat);
@@ -138,7 +138,7 @@ namespace
 
 	TEST(SamplerBuilder, TakesTheLodRangeAndBiasTogether)
 	{
-		const rhi::SamplerDesc desc = rhi::SamplerBuilder{}.Lod(1.0f, 8.0f, -0.5f).Build();
+		const rhi::SamplerDesc desc = rhi::SamplerBuilder{}.lod(1.0f, 8.0f, -0.5f).build();
 
 		EXPECT_FLOAT_EQ(desc.minLod, 1.0f);
 		EXPECT_FLOAT_EQ(desc.maxLod, 8.0f);
@@ -147,22 +147,22 @@ namespace
 
 	TEST(SamplerBuilder, EnablesAnisotropyAndComparisonAlongsideTheirValues)
 	{
-		const rhi::SamplerDesc anisotropic = rhi::SamplerBuilder{}.Anisotropy(16.0f).Build();
+		const rhi::SamplerDesc anisotropic = rhi::SamplerBuilder{}.anisotropy(16.0f).build();
 		EXPECT_TRUE(anisotropic.anisotropyEnable);
 		EXPECT_FLOAT_EQ(anisotropic.maxAnisotropy, 16.0f);
 
-		const rhi::SamplerDesc shadow = rhi::SamplerBuilder{}.Compare(rhi::CompareOp::eLessOrEqual).Build();
+		const rhi::SamplerDesc shadow = rhi::SamplerBuilder{}.compare(rhi::CompareOp::eLessOrEqual).build();
 		EXPECT_TRUE(shadow.compareEnable);
 		EXPECT_EQ(shadow.compareOp, rhi::CompareOp::eLessOrEqual);
 
-		const rhi::SamplerDesc disabled = rhi::SamplerBuilder{}.Anisotropy(16.0f, false).Build();
+		const rhi::SamplerDesc disabled = rhi::SamplerBuilder{}.anisotropy(16.0f, false).build();
 		EXPECT_FALSE(disabled.anisotropyEnable);
 		EXPECT_FLOAT_EQ(disabled.maxAnisotropy, 16.0f);
 	}
 
 	TEST(SamplerBuilder, CarriesTheBorderColorUsedByClampToBorder)
 	{
-		const rhi::SamplerDesc desc = rhi::SamplerBuilder{}.AddressAll(rhi::AddressMode::eClampToBorder).Border(rhi::BorderColor::eOpaqueWhiteFloat).Build();
+		const rhi::SamplerDesc desc = rhi::SamplerBuilder{}.address_all(rhi::AddressMode::eClampToBorder).border(rhi::BorderColor::eOpaqueWhiteFloat).build();
 
 		EXPECT_EQ(desc.addressU, rhi::AddressMode::eClampToBorder);
 		EXPECT_EQ(desc.borderColor, rhi::BorderColor::eOpaqueWhiteFloat);

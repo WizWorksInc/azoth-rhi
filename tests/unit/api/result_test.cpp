@@ -32,11 +32,11 @@ namespace
 	{
 		constexpr rhi::Result<int> result = 42;
 
-		static_assert(result.HasValue());
+		static_assert(result.has_value());
 		static_assert(static_cast<bool>(result));
 		static_assert(result.Value() == 42);
 
-		EXPECT_TRUE(result.HasValue());
+		EXPECT_TRUE(result.has_value());
 	}
 
 	TEST(Result, HoldsAnErrorWhenConstructedFromOne)
@@ -46,11 +46,11 @@ namespace
 			.message = "out of memory",
 		};
 
-		static_assert(!result.HasValue());
+		static_assert(!result.has_value());
 		static_assert(!static_cast<bool>(result));
-		static_assert(result.GetError().code == rhi::ErrorCode::eOutOfMemory);
+		static_assert(result.get_error().code == rhi::ErrorCode::eOutOfMemory);
 
-		EXPECT_STREQ(result.GetError().message, "out of memory");
+		EXPECT_STREQ(result.get_error().message, "out of memory");
 	}
 
 	TEST(Result, ConvertsToBoolOnlyExplicitly)
@@ -84,14 +84,14 @@ namespace
 			};
 		};
 
-		EXPECT_TRUE(fallible(true).HasValue());
-		EXPECT_EQ(fallible(false).GetError().code, rhi::ErrorCode::eInvalidArgument);
+		EXPECT_TRUE(fallible(true).has_value());
+		EXPECT_EQ(fallible(false).get_error().code, rhi::ErrorCode::eInvalidArgument);
 	}
 
 	TEST(Result, RvalueValueMovesRatherThanCopies)
 	{
 		rhi::Result<std::unique_ptr<int>> result = std::make_unique<int>(9);
-		ASSERT_TRUE(result.HasValue());
+		ASSERT_TRUE(result.has_value());
 
 		const std::unique_ptr<int> taken = std::move(result).Value();
 		ASSERT_NE(taken, nullptr);
@@ -127,10 +127,10 @@ namespace
 	{
 		constexpr rhi::Result<void> result;
 
-		static_assert(result.HasValue());
+		static_assert(result.has_value());
 		static_assert(static_cast<bool>(result));
 
-		EXPECT_TRUE(result.HasValue());
+		EXPECT_TRUE(result.has_value());
 	}
 
 	TEST(ResultVoid, HoldsAnErrorWhenConstructedFromOne)
@@ -140,10 +140,10 @@ namespace
 			.message = "already registered",
 		};
 
-		static_assert(!result.HasValue());
-		static_assert(result.GetError().code == rhi::ErrorCode::eInvalidState);
+		static_assert(!result.has_value());
+		static_assert(result.get_error().code == rhi::ErrorCode::eInvalidState);
 
-		EXPECT_FALSE(result.HasValue());
+		EXPECT_FALSE(result.has_value());
 	}
 
 	TEST(ResultVoid, ReturnsCleanlyFromBothPaths)
@@ -162,7 +162,7 @@ namespace
 
 		EXPECT_TRUE(fallible(true));
 		EXPECT_FALSE(fallible(false));
-		EXPECT_EQ(fallible(false).GetError().code, rhi::ErrorCode::eUnsupportedFeature);
+		EXPECT_EQ(fallible(false).get_error().code, rhi::ErrorCode::eUnsupportedFeature);
 	}
 
 	TEST(ErrorValue, DefaultsToOkWithNoMessage)

@@ -369,7 +369,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what;
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the register space";
@@ -389,7 +389,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::NativeBindingFor(rhi::VulkanApi::id, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::VulkanApi::id, rhi::BindingTier::eBasic, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what;
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the descriptor set";
@@ -439,7 +439,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what << ": the ABI has no answer for a set argument buffers can address";
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the buffer index the set binds at";
@@ -500,13 +500,13 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		Drawable out;
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .includeNull = false } };
-		if (backends.PreferredApis().empty())
+		if (backends.preferred_apis().empty())
 		{
 			out.skip = "this build has no backend that draws";
 			return out;
 		}
 
-		out.owner = rhi::DeviceBuilder().DebugName(debugName).GraphicsQueue().Build(backends.Registry(), backends.PreferredApis().first(1));
+		out.owner = rhi::DeviceBuilder().debug_name(debugName).graphics_queue().build(backends.registry(), backends.preferred_apis().first(1));
 		if (!out.owner)
 		{
 			out.skip = "no driver here for the backend this build prefers";
@@ -514,7 +514,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		}
 
 		out.device					 = out.owner.Value().Get();
-		const rhi::GraphicsApiId api = out.device.GetGraphicsApiId();
+		const rhi::GraphicsApiId api = out.device.get_graphics_api_id();
 
 		const char * profile = "";
 		rhi::ShaderBinaryFormat format{};
@@ -572,8 +572,8 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		const std::array<rhi::ShaderBinary, 2> & shaders = drawable.shaders;
 
 		rhi::Error rhiError{};
-		const rhi::PipelineLayoutHandle layout = device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "shader_abi.layout" }, rhiError);
-		ASSERT_TRUE(layout.IsValid()) << (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
+		const rhi::PipelineLayoutHandle layout = device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "shader_abi.layout" }, rhiError);
+		ASSERT_TRUE(layout.is_valid()) << (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
 
 		rhi::VertexInputDesc vertexInput{};
 		vertexInput.bindings   = kVertexAbiBindings;
@@ -589,15 +589,15 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		pipelineDesc.blend.attachmentCount			 = 1;
 		pipelineDesc.debugName						 = "shader_abi.vertexSemantics";
 
-		const rhi::GraphicsPipelineHandle pipeline = device.CreateGraphicsPipeline(pipelineDesc, rhiError);
-		EXPECT_TRUE(pipeline.IsValid()) << "a pipeline whose shader follows the vertex ABI was refused: "
+		const rhi::GraphicsPipelineHandle pipeline = device.create_graphics_pipeline(pipelineDesc, rhiError);
+		EXPECT_TRUE(pipeline.is_valid()) << "a pipeline whose shader follows the vertex ABI was refused: "
 										<< (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
 
-		if (pipeline.IsValid())
+		if (pipeline.is_valid())
 		{
-			static_cast<void>(device.Destroy(pipeline, {}, rhiError));
+			static_cast<void>(device.destroy(pipeline, {}, rhiError));
 		}
-		static_cast<void>(device.Destroy(layout, {}, rhiError));
+		static_cast<void>(device.destroy(layout, {}, rhiError));
 	}
 
 	TEST(ShaderAbiAgreement, ViewportAndScissorAreDynamicWhetherOrNotThePipelineSaysSo)
@@ -611,8 +611,8 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		rhi::Device device = drawable.device;
 		rhi::Error rhiError{};
 
-		const rhi::PipelineLayoutHandle layout = device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .debugName = "shader_abi.dynamicLayout" }, rhiError);
-		ASSERT_TRUE(layout.IsValid()) << (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
+		const rhi::PipelineLayoutHandle layout = device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "shader_abi.dynamicLayout" }, rhiError);
+		ASSERT_TRUE(layout.is_valid()) << (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
 
 		rhi::VertexInputDesc vertexInput{};
 		vertexInput.bindings   = kVertexAbiBindings;
@@ -632,19 +632,19 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			desc.debugName						 = what;
 
 			rhi::Error buildError{};
-			const rhi::GraphicsPipelineHandle pipeline = device.CreateGraphicsPipeline(desc, buildError);
-			EXPECT_TRUE(pipeline.IsValid()) << what << " was refused: " << (buildError.message != nullptr ? buildError.message : "no diagnostic");
+			const rhi::GraphicsPipelineHandle pipeline = device.create_graphics_pipeline(desc, buildError);
+			EXPECT_TRUE(pipeline.is_valid()) << what << " was refused: " << (buildError.message != nullptr ? buildError.message : "no diagnostic");
 
-			if (pipeline.IsValid())
+			if (pipeline.is_valid())
 			{
-				static_cast<void>(device.Destroy(pipeline, {}, buildError));
+				static_cast<void>(device.destroy(pipeline, {}, buildError));
 			}
 		};
 
 		build({}, "a pipeline naming no dynamic state");
 		build(rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor, "a pipeline naming viewport and scissor");
 
-		static_cast<void>(device.Destroy(layout, {}, rhiError));
+		static_cast<void>(device.destroy(layout, {}, rhiError));
 	}
 
 	TEST(ShaderAbiAgreement, AShaderNumberingItsSetsElsewhereIsRefusedRatherThanBoundWrong)
@@ -666,20 +666,20 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 )SLANG";
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "metal", .includeNull = false } };
-		if (backends.PreferredApis().empty())
+		if (backends.preferred_apis().empty())
 		{
 			GTEST_SKIP() << "this build has no Metal backend";
 		}
 
 		const rhi::Result<rhi::UniqueDevice> owner =
-			rhi::DeviceBuilder().DebugName("shader_abi.setNumbering").GraphicsQueue().Build(backends.Registry(), backends.PreferredApis().first(1));
+			rhi::DeviceBuilder().debug_name("shader_abi.setNumbering").graphics_queue().build(backends.registry(), backends.preferred_apis().first(1));
 		if (!owner)
 		{
 			GTEST_SKIP() << "no Metal driver here";
 		}
 
 		rhi::Device device			 = owner.Value().Get();
-		const rhi::GraphicsApiId api = device.GetGraphicsApiId();
+		const rhi::GraphicsApiId api = device.get_graphics_api_id();
 		if (api != rhi::MetalApi::id)
 		{
 			GTEST_SKIP() << "the preferred backend is not Metal";
@@ -705,13 +705,13 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 		};
 
 		const rhi::DescriptorSetLayoutHandle setLayout =
-			device.CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "abi.setNumbering.set" }, rhiError);
-		ASSERT_TRUE(setLayout.IsValid());
+			device.create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "abi.setNumbering.set" }, rhiError);
+		ASSERT_TRUE(setLayout.is_valid());
 
 		const std::array setLayouts{ setLayout };
 		const rhi::PipelineLayoutHandle layout =
-			device.CreatePipelineLayout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .debugName = "abi.setNumbering.layout" }, rhiError);
-		ASSERT_TRUE(layout.IsValid());
+			device.create_pipeline_layout(rhi::PipelineLayoutDesc{ .sets = setLayouts, .debugName = "abi.setNumbering.layout" }, rhiError);
+		ASSERT_TRUE(layout.is_valid());
 
 		const rhi::ShaderBinary shader{
 			.stage			 = rhi::ShaderStage::eCompute,
@@ -724,18 +724,18 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 
 		rhi::Error buildError{};
 		const rhi::ComputePipelineHandle pipeline =
-			device.CreateComputePipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "abi.setNumbering.pipeline" }, buildError);
+			device.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "abi.setNumbering.pipeline" }, buildError);
 
-		EXPECT_FALSE(pipeline.IsValid()) << "a shader wanting its set at an index this layout never binds was accepted, which dispatches and reads zeros";
+		EXPECT_FALSE(pipeline.is_valid()) << "a shader wanting its set at an index this layout never binds was accepted, which dispatches and reads zeros";
 		EXPECT_TRUE(buildError.message != nullptr) << "the refusal carried no diagnostic";
 
-		if (pipeline.IsValid())
+		if (pipeline.is_valid())
 		{
-			static_cast<void>(device.Destroy(pipeline, {}, rhiError));
+			static_cast<void>(device.destroy(pipeline, {}, rhiError));
 		}
 
-		static_cast<void>(device.Destroy(layout, {}, rhiError));
-		static_cast<void>(device.Destroy(setLayout, {}, rhiError));
+		static_cast<void>(device.destroy(layout, {}, rhiError));
+		static_cast<void>(device.destroy(setLayout, {}, rhiError));
 	}
 
 }

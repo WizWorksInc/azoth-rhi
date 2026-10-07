@@ -61,7 +61,7 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding first = rhi::NativeBindingFor(rhi::VulkanApi::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 2);
+		const rhi::NativeBinding first = rhi::native_binding_for(rhi::VulkanApi::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 2);
 		ASSERT_TRUE(first.exists);
 		EXPECT_EQ(first.resource.space, 1u);
 		EXPECT_EQ(first.resource.index, 2u);
@@ -73,10 +73,10 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding uniform = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 0);
+		const rhi::NativeBinding uniform = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 0);
 		ASSERT_TRUE(uniform.exists);
 		EXPECT_EQ(uniform.resource.klass, rhi::NativeSlotClass::eConstantBuffer);
-		EXPECT_EQ(uniform.resource.space, rhi::D3D12RegisterSpaceForSet(0));
+		EXPECT_EQ(uniform.resource.space, rhi::d3_d12_register_space_for_set(0));
 		EXPECT_NE(uniform.resource.space, rhi::kPushConstantRegisterSpace) << "a set must not share the push constant space";
 		EXPECT_EQ(uniform.resource.index, 0u) << "push constants no longer push this up";
 	}
@@ -85,17 +85,17 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding second = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 1);
+		const rhi::NativeBinding second = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 1);
 		ASSERT_TRUE(second.exists);
 		EXPECT_EQ(second.resource.klass, rhi::NativeSlotClass::eConstantBuffer);
-		EXPECT_EQ(second.resource.space, rhi::D3D12RegisterSpaceForSet(1));
+		EXPECT_EQ(second.resource.space, rhi::d3_d12_register_space_for_set(1));
 		EXPECT_EQ(second.resource.index, 0u) << "counting restarts inside each set";
 	}
 
 	TEST(BindingAbi, ABindingIsUnmovedByChangesToAnotherSet)
 	{
 		const Fixture fixture;
-		const rhi::NativeBinding before = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 1);
+		const rhi::NativeBinding before = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 1);
 
 		std::array<rhi::DescriptorBinding, 5> widened{
 			fixture.set0[0],
@@ -110,7 +110,7 @@ namespace
 		};
 		const rhi::ShaderAbiLayout grown{ .sets = sets, .pushConstants = fixture.pushConstants };
 
-		const rhi::NativeBinding after = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, grown, 1, 1);
+		const rhi::NativeBinding after = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, grown, 1, 1);
 		ASSERT_TRUE(after.exists);
 		EXPECT_EQ(after.resource, before.resource) << "a binding added to set 0 moved a binding in set 1";
 	}
@@ -119,11 +119,11 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding array = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 1);
+		const rhi::NativeBinding array = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 1);
 		ASSERT_TRUE(array.exists);
 		EXPECT_EQ(array.resource.index, 0u);
 
-		const rhi::NativeBinding combined = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 3);
+		const rhi::NativeBinding combined = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 3);
 		ASSERT_TRUE(combined.exists);
 		EXPECT_EQ(combined.resource.klass, rhi::NativeSlotClass::eShaderResource);
 		EXPECT_EQ(combined.resource.index, 3u) << "the array before it took t0 through t2";
@@ -133,7 +133,7 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding combined = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 3);
+		const rhi::NativeBinding combined = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 3);
 		ASSERT_TRUE(combined.exists);
 		ASSERT_TRUE(combined.hasSampler);
 		EXPECT_EQ(combined.sampler.klass, rhi::NativeSlotClass::eSampler);
@@ -144,9 +144,9 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding bindless = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 1, 2);
+		const rhi::NativeBinding bindless = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 1, 2);
 		ASSERT_TRUE(bindless.exists);
-		EXPECT_GT(bindless.resource.space, rhi::D3D12RegisterSpaceForSet(1)) << "a bindless array takes a space above every set";
+		EXPECT_GT(bindless.resource.space, rhi::d3_d12_register_space_for_set(1)) << "a bindless array takes a space above every set";
 		EXPECT_EQ(bindless.resource.index, 0u);
 		EXPECT_EQ(bindless.resource.klass, rhi::NativeSlotClass::eShaderResource);
 	}
@@ -155,12 +155,12 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding uniform = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eDynamicIndexing, fixture.Layout(), 0, 0);
+		const rhi::NativeBinding uniform = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eDynamicIndexing, fixture.Layout(), 0, 0);
 		ASSERT_TRUE(uniform.exists);
 		EXPECT_EQ(uniform.resource.klass, rhi::NativeSlotClass::eBuffer);
 		EXPECT_EQ(uniform.resource.index, 0u);
 
-		const rhi::NativeBinding texture = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eDynamicIndexing, fixture.Layout(), 0, 1);
+		const rhi::NativeBinding texture = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eDynamicIndexing, fixture.Layout(), 0, 1);
 		ASSERT_TRUE(texture.exists);
 		EXPECT_EQ(texture.resource.klass, rhi::NativeSlotClass::eTexture);
 		EXPECT_EQ(texture.resource.index, 1u) << "the table index is the binding number, not a per-table counter";
@@ -170,7 +170,7 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding second = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eDynamicIndexing, fixture.Layout(), 1, 0);
+		const rhi::NativeBinding second = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eDynamicIndexing, fixture.Layout(), 1, 0);
 		EXPECT_FALSE(second.exists);
 	}
 
@@ -178,20 +178,20 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding uniform = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 0);
+		const rhi::NativeBinding uniform = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 0);
 		ASSERT_TRUE(uniform.exists);
 		EXPECT_EQ(uniform.resource.klass, rhi::NativeSlotClass::eArgumentBufferMember);
-		EXPECT_EQ(uniform.resource.space, rhi::MetalArgumentBufferIndexForSet(0));
+		EXPECT_EQ(uniform.resource.space, rhi::metal_argument_buffer_index_for_set(0));
 		EXPECT_EQ(uniform.resource.index, 0u);
 
-		const rhi::NativeBinding texture = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 1);
+		const rhi::NativeBinding texture = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 1);
 		ASSERT_TRUE(texture.exists);
-		EXPECT_EQ(texture.resource.space, rhi::MetalArgumentBufferIndexForSet(0)) << "every member of one set sits in that set's own buffer";
+		EXPECT_EQ(texture.resource.space, rhi::metal_argument_buffer_index_for_set(0)) << "every member of one set sits in that set's own buffer";
 		EXPECT_EQ(texture.resource.index, 1u) << "the member's place in the struct, which is declaration order";
 
-		const rhi::NativeBinding second = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 1, 0);
+		const rhi::NativeBinding second = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 1, 0);
 		ASSERT_TRUE(second.exists) << "a set beyond the first has an answer once the device has argument buffers";
-		EXPECT_EQ(second.resource.space, rhi::MetalArgumentBufferIndexForSet(1));
+		EXPECT_EQ(second.resource.space, rhi::metal_argument_buffer_index_for_set(1));
 		EXPECT_EQ(second.resource.index, 0u) << "members are numbered inside their own set, not across sets";
 	}
 
@@ -199,11 +199,11 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding combined = rhi::NativeBindingFor(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 3);
+		const rhi::NativeBinding combined = rhi::native_binding_for(rhi::MetalApi::id, rhi::BindingTier::eUnbounded, fixture.Layout(), 0, 3);
 		ASSERT_TRUE(combined.exists);
 		ASSERT_TRUE(combined.hasSampler);
 
-		EXPECT_EQ(combined.resource.space, rhi::MetalArgumentBufferIndexForSet(0));
+		EXPECT_EQ(combined.resource.space, rhi::metal_argument_buffer_index_for_set(0));
 		EXPECT_EQ(combined.resource.index, 5u) << "binding 0 took one member, the array at binding 1 took three, the sampler at binding 2 took one";
 
 		EXPECT_EQ(combined.sampler.klass, rhi::NativeSlotClass::eArgumentBufferMember);
@@ -216,9 +216,9 @@ namespace
 	{
 		const Fixture fixture;
 
-		EXPECT_FALSE(rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 99).exists);
-		EXPECT_FALSE(rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 7, 0).exists);
-		EXPECT_FALSE(rhi::NativeBindingFor(rhi::NullApi::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 0).exists)
+		EXPECT_FALSE(rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 99).exists);
+		EXPECT_FALSE(rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 7, 0).exists);
+		EXPECT_FALSE(rhi::native_binding_for(rhi::NullApi::id, rhi::BindingTier::eBasic, fixture.Layout(), 0, 0).exists)
 			<< "the Null backend has no native slots to speak for";
 	}
 
@@ -234,7 +234,7 @@ namespace
 			{
 				for (std::uint32_t binding = 0; binding < 4; ++binding)
 				{
-					const rhi::NativeBinding at = rhi::NativeBindingFor(api, rhi::BindingTier::eBasic, fixture.Layout(), set, binding);
+					const rhi::NativeBinding at = rhi::native_binding_for(api, rhi::BindingTier::eBasic, fixture.Layout(), set, binding);
 					if (!at.exists)
 					{
 						continue;
@@ -254,7 +254,7 @@ namespace
 			ASSERT_GT(count, 0u);
 
 			const rhi::ShaderBindingMap map{ .bindings = std::span(entries).first(count) };
-			EXPECT_FALSE(rhi::CheckShaderBindingMap(api, rhi::BindingTier::eBasic, fixture.Layout(), map).found)
+			EXPECT_FALSE(rhi::check_shader_binding_map(api, rhi::BindingTier::eBasic, fixture.Layout(), map).found)
 				<< "a map stating exactly what the ABI says was refused";
 		}
 	}
@@ -264,10 +264,10 @@ namespace
 		const Fixture fixture;
 
 		const rhi::ShaderBindingMap conforming{ .abi = rhi::kShaderAbiVersion };
-		EXPECT_FALSE(rhi::CheckShaderBindingMap(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), conforming).found);
+		EXPECT_FALSE(rhi::check_shader_binding_map(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), conforming).found);
 
 		const rhi::ShaderBindingMap stale{ .abi = rhi::ShaderAbiVersion{ rhi::kShaderAbiVersion.value - 1 } };
-		const rhi::ShaderBindingDisagreement bad = rhi::CheckShaderBindingMap(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), stale);
+		const rhi::ShaderBindingDisagreement bad = rhi::check_shader_binding_map(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), stale);
 		EXPECT_TRUE(bad.found);
 		EXPECT_TRUE(bad.wrongAbiVersion);
 	}
@@ -276,7 +276,7 @@ namespace
 	{
 		const Fixture fixture;
 
-		const rhi::NativeBinding at = rhi::NativeBindingFor(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 1);
+		const rhi::NativeBinding at = rhi::native_binding_for(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), 1, 1);
 		ASSERT_TRUE(at.exists);
 
 		rhi::NativeSlot moved = at.resource;
@@ -287,7 +287,7 @@ namespace
 		};
 		const rhi::ShaderBindingMap map{ .bindings = entries };
 
-		const rhi::ShaderBindingDisagreement bad = rhi::CheckShaderBindingMap(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), map);
+		const rhi::ShaderBindingDisagreement bad = rhi::check_shader_binding_map(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), map);
 		ASSERT_TRUE(bad.found);
 		EXPECT_FALSE(bad.wrongAbiVersion);
 		EXPECT_FALSE(bad.unknownToLayout);
@@ -306,7 +306,7 @@ namespace
 		};
 		const rhi::ShaderBindingMap map{ .bindings = entries };
 
-		const rhi::ShaderBindingDisagreement bad = rhi::CheckShaderBindingMap(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), map);
+		const rhi::ShaderBindingDisagreement bad = rhi::check_shader_binding_map(rhi::D3D12Api::id, rhi::BindingTier::eBasic, fixture.Layout(), map);
 		ASSERT_TRUE(bad.found);
 		EXPECT_TRUE(bad.unknownToLayout);
 		EXPECT_EQ(bad.binding, 9u);

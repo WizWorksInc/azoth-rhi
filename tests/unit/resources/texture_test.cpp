@@ -41,10 +41,10 @@ namespace
 	TEST_P(TextureTest, CreatesAndDestroysASampledTexture)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
 
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, CreatesTheAttachmentShapesARendererNeedsOnItsFirstFrame)
@@ -53,11 +53,11 @@ namespace
 
 		for (const rhi::TextureDesc & desc : { test::samples::ColorTarget2D(), test::samples::DepthTarget2D(), test::samples::MippedTexture2D() })
 		{
-			const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-			EXPECT_TRUE(test::Ok(texture.IsValid(), error)) << "a baseline texture shape was refused";
-			if (texture.IsValid())
+			const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+			EXPECT_TRUE(test::Ok(texture.is_valid(), error)) << "a baseline texture shape was refused";
+			if (texture.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 			}
 		}
 	}
@@ -66,11 +66,11 @@ namespace
 	{
 		rhi::Error error{};
 		const rhi::TextureDesc desc		 = test::samples::MippedTexture2D();
-		const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureInfo info{};
-		ASSERT_TRUE(test::Ok(Dev().GetTextureInfo(texture, info, error), error));
+		ASSERT_TRUE(test::Ok(Dev().get_texture_info(texture, info, error), error));
 
 		EXPECT_EQ(info.desc.format, desc.format);
 		EXPECT_EQ(info.desc.width, desc.width);
@@ -82,7 +82,7 @@ namespace
 
 		EXPECT_EQ(info.desc.debugName, nullptr) << "a backend kept the caller's debug name past the call that lent it";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, ReportsWhatABufferWasCreatedWith)
@@ -94,11 +94,11 @@ namespace
 			.debugName = "azoth.rhi.test.describedBuffer",
 		};
 
-		const rhi::BufferHandle buffer = Dev().CreateBuffer(desc, error);
-		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+		const rhi::BufferHandle buffer = Dev().create_buffer(desc, error);
+		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
 		rhi::BufferInfo info{};
-		ASSERT_TRUE(test::Ok(Dev().GetBufferInfo(buffer, info, error), error));
+		ASSERT_TRUE(test::Ok(Dev().get_buffer_info(buffer, info, error), error));
 
 		EXPECT_EQ(info.desc.size, desc.size);
 		EXPECT_EQ(info.desc.usage, desc.usage);
@@ -108,7 +108,7 @@ namespace
 
 		EXPECT_EQ(info.desc.debugName, nullptr) << "a backend kept the caller's debug name past the call that lent it";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesToDescribeABufferThisDeviceNeverCreated)
@@ -116,7 +116,7 @@ namespace
 		rhi::Error error{};
 		rhi::BufferInfo info{};
 
-		EXPECT_TRUE(test::Failed(Dev().GetBufferInfo(rhi::BufferHandle{}, info, error), error, rhi::ErrorCode::eInvalidHandle));
+		EXPECT_TRUE(test::Failed(Dev().get_buffer_info(rhi::BufferHandle{}, info, error), error, rhi::ErrorCode::eInvalidHandle));
 		EXPECT_EQ(info.desc.size, 0u);
 		EXPECT_EQ(info.allocationSize, 0u);
 	}
@@ -126,7 +126,7 @@ namespace
 		rhi::Error error{};
 		rhi::TextureInfo info{};
 
-		EXPECT_TRUE(test::Failed(Dev().GetTextureInfo(rhi::TextureHandle{}, info, error), error, rhi::ErrorCode::eInvalidHandle));
+		EXPECT_TRUE(test::Failed(Dev().get_texture_info(rhi::TextureHandle{}, info, error), error, rhi::ErrorCode::eInvalidHandle));
 
 		EXPECT_EQ(info.desc.format, rhi::Format::eUndefined);
 		EXPECT_EQ(info.allocationSize, 0u);
@@ -150,11 +150,11 @@ namespace
 
 		for (const rhi::TextureDesc & desc : { oneDimensional, volume, cube })
 		{
-			const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-			EXPECT_TRUE(test::Ok(texture.IsValid(), error)) << "texture type " << static_cast<int>(desc.type) << " was refused";
-			if (texture.IsValid())
+			const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+			EXPECT_TRUE(test::Ok(texture.is_valid(), error)) << "texture type " << static_cast<int>(desc.type) << " was refused";
+			if (texture.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 			}
 		}
 	}
@@ -162,38 +162,38 @@ namespace
 	TEST_P(TextureTest, CreatesAViewOverAnExistingTexture)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, test::samples::FullTextureView(), error);
-		ASSERT_TRUE(test::Ok(view.IsValid(), error));
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, test::samples::FullTextureView(), error);
+		ASSERT_TRUE(test::Ok(view.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, CreatesSeveralViewsOverOneTexture)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc wholeDesc	   = test::samples::FullTextureView();
 		wholeDesc.range.mipCount		   = 4;
-		const rhi::TextureViewHandle whole = Dev().CreateTextureView(texture, wholeDesc, error);
-		ASSERT_TRUE(test::Ok(whole.IsValid(), error));
+		const rhi::TextureViewHandle whole = Dev().create_texture_view(texture, wholeDesc, error);
+		ASSERT_TRUE(test::Ok(whole.is_valid(), error));
 
 		rhi::TextureViewDesc singleMip		= test::samples::FullTextureView();
 		singleMip.range.baseMip				= 2;
 		singleMip.range.mipCount			= 1;
-		const rhi::TextureViewHandle sliced = Dev().CreateTextureView(texture, singleMip, error);
-		ASSERT_TRUE(test::Ok(sliced.IsValid(), error));
+		const rhi::TextureViewHandle sliced = Dev().create_texture_view(texture, singleMip, error);
+		ASSERT_TRUE(test::Ok(sliced.is_valid(), error));
 
 		EXPECT_NE(whole, sliced) << "two views of the same texture share a handle";
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(sliced, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(whole, {}, error), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(sliced, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(whole, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, ViewsALinearTextureAsSrgbWhenItAllowedFormatViews)
@@ -201,21 +201,21 @@ namespace
 		rhi::Error error{};
 		rhi::TextureDesc desc			 = test::samples::SampledTexture2D();
 		desc.allowFormatViews			 = true;
-		const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc viewDesc = test::samples::FullTextureView();
 		viewDesc.format				  = rhi::Format::eRGBA8Srgb;
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, viewDesc, error);
-		EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "a texture that allows format views refused one";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, viewDesc, error);
+		EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "a texture that allows format views refused one";
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "an sRGB view of a linear texture tripped native validation");
 
-		if (view.IsValid())
+		if (view.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesAFormatViewOfATextureThatDidNotAllowOne)
@@ -223,37 +223,37 @@ namespace
 		AZO_RHI_REQUIRE_CAP(!IsNullBackend(), "texture formats (the null backend models no resource state)");
 
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc viewDesc = test::samples::FullTextureView();
 		viewDesc.format				  = rhi::Format::eRGBA8Srgb;
 
 		rhi::Error viewError{};
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, viewDesc, viewError);
-		EXPECT_FALSE(view.IsValid()) << "a view reinterpreted a texture that never allowed format views";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, viewDesc, viewError);
+		EXPECT_FALSE(view.is_valid()) << "a view reinterpreted a texture that never allowed format views";
 		EXPECT_EQ(viewError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, ViewsATextureAtItsOwnFormatWithoutAllowingFormatViews)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc sameFormat = test::samples::FullTextureView();
 		sameFormat.format				= rhi::Format::eRGBA8UNorm;
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, sameFormat, error);
-		EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "naming the texture's own format was treated as a reinterpretation";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, sameFormat, error);
+		EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "naming the texture's own format was treated as a reinterpretation";
 
-		if (view.IsValid())
+		if (view.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, SwizzlesASampledViewWhenTheDeviceReportsIt)
@@ -261,8 +261,8 @@ namespace
 		AZO_RHI_REQUIRE_CAP(Caps().supportsTextureViewSwizzle, "texture view swizzle");
 
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(1024, rhi::Format::eR8UNorm), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(1024, rhi::Format::eR8UNorm), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc viewDesc = test::samples::FullTextureView();
 		viewDesc.swizzle			  = rhi::ComponentMapping{
@@ -272,46 +272,46 @@ namespace
 			.a = rhi::ComponentSwizzle::eOne,
 		};
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, viewDesc, error);
-		EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "a sampled texture refused a swizzled view";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, viewDesc, error);
+		EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "a sampled texture refused a swizzled view";
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a swizzled sampled view tripped native validation");
 
-		if (view.IsValid())
+		if (view.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, TreatsAnExplicitSelfMappingAsTheIdentitySwizzle)
 	{
-		static_assert(rhi::ComponentMapping{}.IsIdentity());
+		static_assert(rhi::ComponentMapping{}.is_identity());
 		static_assert(rhi::ComponentMapping{
 			.r = rhi::ComponentSwizzle::eR, .g = rhi::ComponentSwizzle::eG, .b = rhi::ComponentSwizzle::eB, .a = rhi::ComponentSwizzle::eA }
-				.IsIdentity());
-		static_assert(!rhi::ComponentMapping{ .r = rhi::ComponentSwizzle::eG }.IsIdentity());
-		static_assert(!rhi::ComponentMapping{ .a = rhi::ComponentSwizzle::eOne }.IsIdentity());
+				.is_identity());
+		static_assert(!rhi::ComponentMapping{ .r = rhi::ComponentSwizzle::eG }.is_identity());
+		static_assert(!rhi::ComponentMapping{ .a = rhi::ComponentSwizzle::eOne }.is_identity());
 
 		rhi::Error error{};
 		rhi::TextureDesc storage = test::samples::SampledTexture2D();
 		storage.usage			 = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eStorage;
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(storage, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(storage, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc viewDesc = test::samples::FullTextureView();
 		viewDesc.swizzle			  = rhi::ComponentMapping{
 			.r = rhi::ComponentSwizzle::eR, .g = rhi::ComponentSwizzle::eG, .b = rhi::ComponentSwizzle::eB, .a = rhi::ComponentSwizzle::eA
 		};
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, viewDesc, error);
-		EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "an explicit self-mapping was refused as a swizzle";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, viewDesc, error);
+		EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "an explicit self-mapping was refused as a swizzle";
 
-		if (view.IsValid())
+		if (view.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesASwizzledViewThatCouldBeBoundAsStorageOrAnAttachment)
@@ -323,49 +323,49 @@ namespace
 		rhi::TextureDesc storage = test::samples::SampledTexture2D();
 		storage.usage			 = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eStorage;
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(storage, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(storage, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc wide = test::samples::FullTextureView();
 		wide.swizzle			  = rhi::ComponentMapping{ .a = rhi::ComponentSwizzle::eOne };
 
 		rhi::Error wideError{};
-		const rhi::TextureViewHandle refused = Dev().CreateTextureView(texture, wide, wideError);
-		EXPECT_FALSE(refused.IsValid()) << "a swizzled view was allowed to inherit storage usage";
+		const rhi::TextureViewHandle refused = Dev().create_texture_view(texture, wide, wideError);
+		EXPECT_FALSE(refused.is_valid()) << "a swizzled view was allowed to inherit storage usage";
 		EXPECT_EQ(wideError.code, rhi::ErrorCode::eInvalidArgument);
 
 		rhi::TextureViewDesc narrowed = wide;
 		narrowed.usage				  = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled);
 
-		const rhi::TextureViewHandle allowed = Dev().CreateTextureView(texture, narrowed, error);
-		EXPECT_TRUE(test::Ok(allowed.IsValid(), error)) << "narrowing the view usage to sampled did not permit the swizzle";
+		const rhi::TextureViewHandle allowed = Dev().create_texture_view(texture, narrowed, error);
+		EXPECT_TRUE(test::Ok(allowed.is_valid(), error)) << "narrowing the view usage to sampled did not permit the swizzle";
 
-		if (allowed.IsValid())
+		if (allowed.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(allowed, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(allowed, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, DescribesMultiPlanarFormatsIndependentlyOfAnyDevice)
 	{
-		static_assert(rhi::PlaneCountOf(rhi::Format::eRGBA8UNorm) == 1);
-		static_assert(!rhi::IsMultiPlanarFormat(rhi::Format::eRGBA8UNorm));
+		static_assert(rhi::plane_count_of(rhi::Format::eRGBA8UNorm) == 1);
+		static_assert(!rhi::is_multi_planar_format(rhi::Format::eRGBA8UNorm));
 
-		static_assert(rhi::PlaneCountOf(rhi::Format::eG8B8R8Biplanar420UNorm) == 2);
-		static_assert(rhi::IsMultiPlanarFormat(rhi::Format::eG8B8R8Biplanar420UNorm));
-		static_assert(rhi::PlaneFormatOf(rhi::Format::eG8B8R8Biplanar420UNorm, 0) == rhi::Format::eR8UNorm);
-		static_assert(rhi::PlaneFormatOf(rhi::Format::eG8B8R8Biplanar420UNorm, 1) == rhi::Format::eRG8UNorm);
-		static_assert(rhi::PlaneFormatOf(rhi::Format::eG8B8R8Biplanar420UNorm, 2) == rhi::Format::eUndefined);
+		static_assert(rhi::plane_count_of(rhi::Format::eG8B8R8Biplanar420UNorm) == 2);
+		static_assert(rhi::is_multi_planar_format(rhi::Format::eG8B8R8Biplanar420UNorm));
+		static_assert(rhi::plane_format_of(rhi::Format::eG8B8R8Biplanar420UNorm, 0) == rhi::Format::eR8UNorm);
+		static_assert(rhi::plane_format_of(rhi::Format::eG8B8R8Biplanar420UNorm, 1) == rhi::Format::eRG8UNorm);
+		static_assert(rhi::plane_format_of(rhi::Format::eG8B8R8Biplanar420UNorm, 2) == rhi::Format::eUndefined);
 
-		static_assert(rhi::PlaneExtentDivisorOf(rhi::Format::eG8B8R8Biplanar420UNorm, 0) == 1);
-		static_assert(rhi::PlaneExtentDivisorOf(rhi::Format::eG8B8R8Biplanar420UNorm, 1) == 2);
+		static_assert(rhi::plane_extent_divisor_of(rhi::Format::eG8B8R8Biplanar420UNorm, 0) == 1);
+		static_assert(rhi::plane_extent_divisor_of(rhi::Format::eG8B8R8Biplanar420UNorm, 1) == 2);
 
-		static_assert(rhi::PlaneCountOf(rhi::Format::eG8B8R8Triplanar420UNorm) == 3);
-		static_assert(rhi::PlaneFormatOf(rhi::Format::eG8B8R8Triplanar420UNorm, 2) == rhi::Format::eR8UNorm);
+		static_assert(rhi::plane_count_of(rhi::Format::eG8B8R8Triplanar420UNorm) == 3);
+		static_assert(rhi::plane_format_of(rhi::Format::eG8B8R8Triplanar420UNorm, 2) == rhi::Format::eR8UNorm);
 
-		static_assert(rhi::PlaneIndexOf(rhi::Flags<rhi::TextureAspect>(rhi::TextureAspect::eColor)) == rhi::kNoPlane);
-		static_assert(rhi::PlaneIndexOf(rhi::Flags<rhi::TextureAspect>(rhi::TextureAspect::ePlane1)) == 1);
+		static_assert(rhi::plane_index_of(rhi::Flags<rhi::TextureAspect>(rhi::TextureAspect::eColor)) == rhi::kNoPlane);
+		static_assert(rhi::plane_index_of(rhi::Flags<rhi::TextureAspect>(rhi::TextureAspect::ePlane1)) == 1);
 	}
 
 	TEST_P(TextureTest, ViewsOnePlaneOfAMultiPlanarTextureAsItsOwnSinglePlaneFormat)
@@ -376,21 +376,21 @@ namespace
 		rhi::TextureDesc video = test::samples::SampledTexture2D();
 		video.format		   = rhi::Format::eG8B8R8Biplanar420UNorm;
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(video, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(video, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		for (const rhi::TextureAspect aspect : { rhi::TextureAspect::ePlane0, rhi::TextureAspect::ePlane1 })
 		{
 			rhi::TextureViewDesc planeView = test::samples::FullTextureView();
 			planeView.range.aspects		   = rhi::Flags<rhi::TextureAspect>(aspect);
 
-			const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, planeView, error);
-			EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "a plane view of a biplanar texture was refused";
+			const rhi::TextureViewHandle view = Dev().create_texture_view(texture, planeView, error);
+			EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "a plane view of a biplanar texture was refused";
 			AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a plane view tripped native validation");
 
-			if (view.IsValid())
+			if (view.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
 			}
 		}
 
@@ -398,13 +398,13 @@ namespace
 		missingPlane.range.aspects		  = rhi::Flags<rhi::TextureAspect>(rhi::TextureAspect::ePlane2);
 
 		rhi::Error planeError{};
-		const rhi::TextureViewHandle refused = Dev().CreateTextureView(texture, missingPlane, planeError);
+		const rhi::TextureViewHandle refused = Dev().create_texture_view(texture, missingPlane, planeError);
 		if (!IsNullBackend())
 		{
-			EXPECT_FALSE(refused.IsValid()) << "a view named a plane the format does not have";
+			EXPECT_FALSE(refused.is_valid()) << "a view named a plane the format does not have";
 		}
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesAMultiPlanarTextureWhereTheBackendCannotCreateOne)
@@ -415,8 +415,8 @@ namespace
 		rhi::TextureDesc video = test::samples::SampledTexture2D();
 		video.format		   = rhi::Format::eG8B8R8Biplanar420UNorm;
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(video, error);
-		EXPECT_FALSE(texture.IsValid()) << "a backend reporting no multi-planar support created one anyway";
+		const rhi::TextureHandle texture = Dev().create_texture(video, error);
+		EXPECT_FALSE(texture.is_valid()) << "a backend reporting no multi-planar support created one anyway";
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFormat);
 	}
 
@@ -428,8 +428,8 @@ namespace
 		rhi::TextureDesc video = test::samples::SampledTexture2D();
 		video.format		   = rhi::Format::eG8B8R8Biplanar420UNorm;
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(video, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(video, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		const rhi::SamplerYcbcrConversionDesc conversion{
 			.format = rhi::Format::eG8B8R8Biplanar420UNorm,
@@ -440,8 +440,8 @@ namespace
 		rhi::TextureViewDesc viewDesc = test::samples::FullTextureView();
 		viewDesc.ycbcrConversion	  = &conversion;
 
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, viewDesc, error);
-		EXPECT_TRUE(test::Ok(view.IsValid(), error)) << "a view carrying a Y'CbCr conversion was refused";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, viewDesc, error);
+		EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "a view carrying a Y'CbCr conversion was refused";
 
 		rhi::SamplerDesc samplerDesc = test::samples::LinearSampler();
 		samplerDesc.addressU		 = rhi::AddressMode::eClampToEdge;
@@ -449,11 +449,11 @@ namespace
 		samplerDesc.addressW		 = rhi::AddressMode::eClampToEdge;
 		samplerDesc.ycbcrConversion	 = &conversion;
 
-		const rhi::SamplerHandle sampler = Dev().CreateSampler(samplerDesc, error);
-		EXPECT_TRUE(test::Ok(sampler.IsValid(), error)) << "a sampler carrying a Y'CbCr conversion was refused";
+		const rhi::SamplerHandle sampler = Dev().create_sampler(samplerDesc, error);
+		EXPECT_TRUE(test::Ok(sampler.is_valid(), error)) << "a sampler carrying a Y'CbCr conversion was refused";
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "a Y'CbCr conversion tripped native validation");
 
-		if (sampler.IsValid())
+		if (sampler.is_valid())
 		{
 			const std::array<rhi::SamplerHandle, 1> immutable{ sampler };
 			const std::array<rhi::DescriptorBinding, 1> bindings{
@@ -466,21 +466,21 @@ namespace
 				},
 			};
 
-			const rhi::DescriptorSetLayoutHandle layout = Dev().CreateDescriptorSetLayout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings }, error);
-			EXPECT_TRUE(test::Ok(layout.IsValid(), error)) << "a layout baking in a Y'CbCr sampler was refused";
+			const rhi::DescriptorSetLayoutHandle layout = Dev().create_descriptor_set_layout(rhi::DescriptorSetLayoutDesc{ .bindings = bindings }, error);
+			EXPECT_TRUE(test::Ok(layout.is_valid(), error)) << "a layout baking in a Y'CbCr sampler was refused";
 			AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "an immutable Y'CbCr sampler tripped native validation");
 
-			if (layout.IsValid())
+			if (layout.is_valid())
 			{
-				EXPECT_TRUE(test::Ok(Dev().Destroy(layout, {}, error), error));
+				EXPECT_TRUE(test::Ok(Dev().destroy(layout, {}, error), error));
 			}
-			EXPECT_TRUE(test::Ok(Dev().Destroy(sampler, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(sampler, {}, error), error));
 		}
-		if (view.IsValid())
+		if (view.is_valid())
 		{
-			EXPECT_TRUE(test::Ok(Dev().Destroy(view, {}, error), error));
+			EXPECT_TRUE(test::Ok(Dev().destroy(view, {}, error), error));
 		}
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesAWholeTextureViewOfAMultiPlanarFormatWithNoConversion)
@@ -492,15 +492,15 @@ namespace
 		rhi::TextureDesc video = test::samples::SampledTexture2D();
 		video.format		   = rhi::Format::eG8B8R8Biplanar420UNorm;
 
-		const rhi::TextureHandle texture = Dev().CreateTexture(video, error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(video, error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::Error viewError{};
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, test::samples::FullTextureView(), viewError);
-		EXPECT_FALSE(view.IsValid()) << "a whole-texture view of a multi-planar format was allowed with no conversion";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, test::samples::FullTextureView(), viewError);
+		EXPECT_FALSE(view.is_valid()) << "a whole-texture view of a multi-planar format was allowed with no conversion";
 		EXPECT_EQ(viewError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesAYcbcrConversionWhereTheBackendHasNoSuchObject)
@@ -514,8 +514,8 @@ namespace
 		samplerDesc.ycbcrConversion	 = &conversion;
 
 		rhi::Error error{};
-		const rhi::SamplerHandle sampler = Dev().CreateSampler(samplerDesc, error);
-		EXPECT_FALSE(sampler.IsValid()) << "a backend with no conversion object accepted one";
+		const rhi::SamplerHandle sampler = Dev().create_sampler(samplerDesc, error);
+		EXPECT_FALSE(sampler.is_valid()) << "a backend with no conversion object accepted one";
 		EXPECT_EQ(error.code, rhi::ErrorCode::eUnsupportedFeature);
 	}
 
@@ -538,8 +538,8 @@ namespace
 			}
 
 			rhi::Error error{};
-			const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-			EXPECT_FALSE(texture.IsValid()) << "a texture with a zero " << axis << " was accepted";
+			const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+			EXPECT_FALSE(texture.is_valid()) << "a texture with a zero " << axis << " was accepted";
 			EXPECT_EQ(error.code, rhi::ErrorCode::eInvalidArgument) << "zero " << axis;
 		}
 	}
@@ -551,8 +551,8 @@ namespace
 		desc.mipLevels = 6;
 
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(desc, error);
-		EXPECT_FALSE(texture.IsValid()) << "a 16x16 texture was given a sixth mip level";
+		const rhi::TextureHandle texture = Dev().create_texture(desc, error);
+		EXPECT_FALSE(texture.is_valid()) << "a 16x16 texture was given a sixth mip level";
 		EXPECT_EQ(error.code, rhi::ErrorCode::eInvalidArgument);
 	}
 
@@ -561,7 +561,7 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(
+		const rhi::TextureViewHandle view = Dev().create_texture_view(
 			rhi::TextureHandle{
 				.index		= 9999,
 				.generation = 3,
@@ -569,7 +569,7 @@ namespace
 			test::samples::FullTextureView(),
 			error);
 
-		EXPECT_FALSE(view.IsValid()) << "a view was created over a texture handle the device never issued";
+		EXPECT_FALSE(view.is_valid()) << "a view was created over a texture handle the device never issued";
 	}
 
 	TEST_P(TextureTest, RefusesToViewADestroyedTexture)
@@ -577,33 +577,33 @@ namespace
 		AZO_RHI_REQUIRE_HANDLE_VALIDATION();
 
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
-		ASSERT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
+		ASSERT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 
 		rhi::Error viewError{};
-		const rhi::TextureViewHandle view = Dev().CreateTextureView(texture, test::samples::FullTextureView(), viewError);
-		EXPECT_FALSE(view.IsValid()) << "a view was created over a destroyed texture";
+		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, test::samples::FullTextureView(), viewError);
+		EXPECT_FALSE(view.is_valid()) << "a view was created over a destroyed texture";
 	}
 
 	TEST_P(TextureTest, RefusesAViewRangePastTheEndOfTheTexture)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc pastLastMip = test::samples::FullTextureView();
 		pastLastMip.range.baseMip		 = 4;
 
 		rhi::Error mipError{};
-		EXPECT_FALSE(Dev().CreateTextureView(texture, pastLastMip, mipError).IsValid()) << "a view based past the last mip was accepted";
+		EXPECT_FALSE(Dev().create_texture_view(texture, pastLastMip, mipError).is_valid()) << "a view based past the last mip was accepted";
 		EXPECT_EQ(mipError.code, rhi::ErrorCode::eInvalidArgument);
 
 		rhi::TextureViewDesc pastLastLayer = test::samples::FullTextureView();
 		pastLastLayer.range.baseLayer	   = 1;
 
 		rhi::Error layerError{};
-		EXPECT_FALSE(Dev().CreateTextureView(texture, pastLastLayer, layerError).IsValid()) << "a view based past the last layer was accepted";
+		EXPECT_FALSE(Dev().create_texture_view(texture, pastLastLayer, layerError).is_valid()) << "a view based past the last layer was accepted";
 		EXPECT_EQ(layerError.code, rhi::ErrorCode::eInvalidArgument);
 
 		rhi::TextureViewDesc pastTheCount = test::samples::FullTextureView();
@@ -611,42 +611,42 @@ namespace
 		pastTheCount.range.mipCount		  = 2;
 
 		rhi::Error countError{};
-		EXPECT_FALSE(Dev().CreateTextureView(texture, pastTheCount, countError).IsValid()) << "a view taking more mips than remain was accepted";
+		EXPECT_FALSE(Dev().create_texture_view(texture, pastTheCount, countError).is_valid()) << "a view taking more mips than remain was accepted";
 		EXPECT_EQ(countError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, RefusesTheWholeRangeSentinelsInAView)
 	{
 		rhi::Error error{};
-		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::MippedTexture2D(), error);
-		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+		const rhi::TextureHandle texture = Dev().create_texture(test::samples::MippedTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc everyMip = test::samples::FullTextureView();
 		everyMip.range.mipCount		  = rhi::kAllMips;
 
 		rhi::Error mipError{};
-		EXPECT_FALSE(Dev().CreateTextureView(texture, everyMip, mipError).IsValid()) << "kAllMips was accepted in a texture view";
+		EXPECT_FALSE(Dev().create_texture_view(texture, everyMip, mipError).is_valid()) << "kAllMips was accepted in a texture view";
 		EXPECT_EQ(mipError.code, rhi::ErrorCode::eInvalidArgument);
 
 		rhi::TextureViewDesc everyLayer = test::samples::FullTextureView();
 		everyLayer.range.layerCount		= rhi::kAllLayers;
 
 		rhi::Error layerError{};
-		EXPECT_FALSE(Dev().CreateTextureView(texture, everyLayer, layerError).IsValid()) << "kAllLayers was accepted in a texture view";
+		EXPECT_FALSE(Dev().create_texture_view(texture, everyLayer, layerError).is_valid()) << "kAllLayers was accepted in a texture view";
 		EXPECT_EQ(layerError.code, rhi::ErrorCode::eInvalidArgument);
 
-		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
 	}
 
 	TEST_P(TextureTest, CreatesAndDestroysASampler)
 	{
 		rhi::Error error{};
-		const rhi::SamplerHandle sampler = Dev().CreateSampler(test::samples::LinearSampler(), error);
+		const rhi::SamplerHandle sampler = Dev().create_sampler(test::samples::LinearSampler(), error);
 
-		ASSERT_TRUE(test::Ok(sampler.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(sampler, {}, error), error));
+		ASSERT_TRUE(test::Ok(sampler.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(sampler, {}, error), error));
 	}
 
 	TEST_P(TextureTest, CreatesAComparisonSamplerForShadowLookups)
@@ -659,9 +659,9 @@ namespace
 		shadow.addressU			= rhi::AddressMode::eClampToEdge;
 		shadow.addressV			= rhi::AddressMode::eClampToEdge;
 
-		const rhi::SamplerHandle sampler = Dev().CreateSampler(shadow, error);
-		ASSERT_TRUE(test::Ok(sampler.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(sampler, {}, error), error));
+		const rhi::SamplerHandle sampler = Dev().create_sampler(shadow, error);
+		ASSERT_TRUE(test::Ok(sampler.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(sampler, {}, error), error));
 	}
 
 	TEST_P(TextureTest, HonoursAnisotropyOnlyWhenTheDeviceReportsIt)
@@ -673,9 +673,9 @@ namespace
 		desc.anisotropyEnable = true;
 		desc.maxAnisotropy	  = 4.0f;
 
-		const rhi::SamplerHandle sampler = Dev().CreateSampler(desc, error);
-		ASSERT_TRUE(test::Ok(sampler.IsValid(), error));
-		EXPECT_TRUE(test::Ok(Dev().Destroy(sampler, {}, error), error));
+		const rhi::SamplerHandle sampler = Dev().create_sampler(desc, error);
+		ASSERT_TRUE(test::Ok(sampler.is_valid(), error));
+		EXPECT_TRUE(test::Ok(Dev().destroy(sampler, {}, error), error));
 	}
 
 	TEST_P(TextureTest, ReportsAMemoryFootprintForATextureDesc)
@@ -683,7 +683,7 @@ namespace
 		rhi::Error error{};
 		rhi::MemoryInfo info{};
 
-		if (!Dev().GetTextureMemoryInfo(test::samples::SampledTexture2D(), info, error))
+		if (!Dev().get_texture_memory_info(test::samples::SampledTexture2D(), info, error))
 		{
 			GTEST_SKIP() << "this backend does not report texture memory info: " << test::Describe(error);
 		}

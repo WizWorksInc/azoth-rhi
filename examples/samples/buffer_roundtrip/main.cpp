@@ -86,7 +86,7 @@ namespace
 
 		std::memcpy(mapped.data, values.data(), values.size_bytes());
 
-		if (!mapped.coherent && !dev.FlushMappedRange(buffer, 0, values.size_bytes(), error))
+		if (!mapped.coherent && !dev.flush_mapped_range(buffer, 0, values.size_bytes(), error))
 		{
 			fw::ReportError("failed to flush the upload buffer", error);
 			return MapOutcome::eFailed;
@@ -111,7 +111,7 @@ namespace
 			return false;
 		}
 
-		if (!mapped.coherent && !dev.InvalidateMappedRange(buffer, 0, expected.size_bytes(), error))
+		if (!mapped.coherent && !dev.invalidate_mapped_range(buffer, 0, expected.size_bytes(), error))
 		{
 			fw::ReportError("failed to invalidate the readback buffer", error);
 			return false;
@@ -134,37 +134,37 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder().DebugName("buffer_roundtrip").Headless().GraphicsQueue().Build(backends.Registry(), backends.PreferredApis());
+		rhi::DeviceBuilder().debug_name("buffer_roundtrip").headless().graphics_queue().build(backends.registry(), backends.preferred_apis());
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}", dev.GetGraphicsApiName());
+	LOG_INFO(fw::Log(), "backend: {}", dev.get_graphics_api_name());
 
 	rhi::Error error{};
 
 	rhi::BufferBuilder uploadDesc;
 	uploadDesc.Size(kBufferBytes).Usage(rhi::BufferUsage::eCopySrc).CpuUpload().DebugName("example.upload");
-	const rhi::BufferHandle upload = dev.CreateBuffer(uploadDesc.Build(), error);
+	const rhi::BufferHandle upload = dev.create_buffer(uploadDesc.build(), error);
 
 	rhi::BufferBuilder storageDesc;
 	storageDesc.Size(kBufferBytes).GpuOnly().DebugName("example.storage");
 	storageDesc.Usage(rhi::Flags(rhi::BufferUsage::eStorage) | rhi::BufferUsage::eCopyDst | rhi::BufferUsage::eCopySrc);
-	const rhi::BufferHandle storage = dev.CreateBuffer(storageDesc.Build(), error);
+	const rhi::BufferHandle storage = dev.create_buffer(storageDesc.build(), error);
 
 	rhi::BufferBuilder readbackDesc;
 	readbackDesc.Size(kBufferBytes).Usage(rhi::BufferUsage::eCopyDst).CpuReadback().DebugName("example.readback");
-	const rhi::BufferHandle readback = dev.CreateBuffer(readbackDesc.Build(), error);
+	const rhi::BufferHandle readback = dev.create_buffer(readbackDesc.build(), error);
 
-	if (!upload.IsValid() || !storage.IsValid() || !readback.IsValid())
+	if (!upload.is_valid() || !storage.is_valid() || !readback.is_valid())
 	{
 		fw::ReportError("failed to create the buffers", error);
 		return 1;
@@ -181,17 +181,17 @@ int main(int argc, char ** argv)
 		LOG_INFO(fw::Log(), "note: this backend exposes no mappable memory, so nothing is verified");
 	}
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "example.timeline" }, error);
-	rhi::Queue queue				   = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	rhi::CommandPool pool			   = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "example.pool" }, error);
-	if (!timeline.IsValid() || !queue.IsValid() || !pool.IsValid())
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "example.timeline" }, error);
+	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "example.pool" }, error);
+	if (!timeline.is_valid() || !queue.is_valid() || !pool.is_valid())
 	{
 		fw::ReportError("failed to create the submission objects", error);
 		return 1;
 	}
 
 	rhi::CommandList list = pool.Allocate("example.copies", error);
-	if (!list.IsValid() || !list.Begin(error))
+	if (!list.is_valid() || !list.Begin(error))
 	{
 		fw::ReportError("failed to begin recording", error);
 		return 1;
@@ -213,8 +213,8 @@ int main(int argc, char ** argv)
 		},
 	};
 
-	const bool recorded = list.Barriers(rhi::BarrierBatch{ .buffers = intoStorage }, error) && list.CopyBuffer(storage, 0, upload, 0, kBufferBytes, error) &&
-						  list.Barriers(rhi::BarrierBatch{ .buffers = outOfStorage }, error) && list.CopyBuffer(readback, 0, storage, 0, kBufferBytes, error) &&
+	const bool recorded = list.barriers(rhi::BarrierBatch{ .buffers = intoStorage }, error) && list.copy_buffer(storage, 0, upload, 0, kBufferBytes, error) &&
+						  list.barriers(rhi::BarrierBatch{ .buffers = outOfStorage }, error) && list.copy_buffer(readback, 0, storage, 0, kBufferBytes, error) &&
 						  list.End(error);
 	if (!recorded)
 	{
@@ -231,7 +231,7 @@ int main(int argc, char ** argv)
 	};
 
 	constexpr std::uint64_t kNoTimeout = std::numeric_limits<std::uint64_t>::max();
-	if (!queue.Submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
+	if (!queue.submit(submit, error) || !queue.Wait(timeline, 1, kNoTimeout, error))
 	{
 		fw::ReportError("failed to submit the copies", error);
 		return 1;
@@ -250,11 +250,11 @@ int main(int argc, char ** argv)
 		.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 1 },
 	};
 
-	dev.Destroy(readback, retired, error);
-	dev.Destroy(storage, retired, error);
-	dev.Destroy(upload, retired, error);
-	dev.CollectGarbage(timeline, 1, error);
-	dev.Destroy(timeline, {}, error);
+	dev.destroy(readback, retired, error);
+	dev.destroy(storage, retired, error);
+	dev.destroy(upload, retired, error);
+	dev.collect_garbage(timeline, 1, error);
+	dev.destroy(timeline, {}, error);
 
 	return status;
 }

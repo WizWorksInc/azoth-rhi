@@ -24,27 +24,27 @@ namespace
 
 	TEST(FormatInfo, UncompressedFormatsAreOneTexelBlocks)
 	{
-		EXPECT_EQ(rhi::detail::BlockInfoOf(rhi::Format::eR8UNorm).bytesPerBlock, 1u);
-		EXPECT_EQ(rhi::detail::BlockInfoOf(rhi::Format::eD16UNorm).bytesPerBlock, 2u);
-		EXPECT_EQ(rhi::detail::BlockInfoOf(rhi::Format::eRGBA8UNorm).bytesPerBlock, 4u);
-		EXPECT_EQ(rhi::detail::BlockInfoOf(rhi::Format::eRGBA16Float).bytesPerBlock, 8u);
-		EXPECT_EQ(rhi::detail::BlockInfoOf(rhi::Format::eRGBA32Float).bytesPerBlock, 16u);
-		EXPECT_FALSE(rhi::detail::IsCompressedFormat(rhi::Format::eRGBA8UNorm));
+		EXPECT_EQ(rhi::detail::block_info_of(rhi::Format::eR8UNorm).bytesPerBlock, 1u);
+		EXPECT_EQ(rhi::detail::block_info_of(rhi::Format::eD16UNorm).bytesPerBlock, 2u);
+		EXPECT_EQ(rhi::detail::block_info_of(rhi::Format::eRGBA8UNorm).bytesPerBlock, 4u);
+		EXPECT_EQ(rhi::detail::block_info_of(rhi::Format::eRGBA16Float).bytesPerBlock, 8u);
+		EXPECT_EQ(rhi::detail::block_info_of(rhi::Format::eRGBA32Float).bytesPerBlock, 16u);
+		EXPECT_FALSE(rhi::detail::is_compressed_format(rhi::Format::eRGBA8UNorm));
 	}
 
 	TEST(FormatInfo, ThreeChannelFloatIsTwelveBytesNotFour)
 	{
-		EXPECT_EQ(rhi::detail::BlockInfoOf(rhi::Format::eRGB32Float).bytesPerBlock, 12u);
+		EXPECT_EQ(rhi::detail::block_info_of(rhi::Format::eRGB32Float).bytesPerBlock, 12u);
 	}
 
 	TEST(FormatInfo, BlockCompressedFormatsCarryTheirBlockShape)
 	{
 		for (const rhi::Format format : { rhi::Format::eBC1RGBAUNorm, rhi::Format::eBC3UNorm, rhi::Format::eBC7Srgb, rhi::Format::eBC6HSFloat })
 		{
-			const rhi::detail::FormatBlockInfo info = rhi::detail::BlockInfoOf(format);
+			const rhi::detail::FormatBlockInfo info = rhi::detail::block_info_of(format);
 			EXPECT_EQ(info.blockWidth, 4u);
 			EXPECT_EQ(info.blockHeight, 4u);
-			EXPECT_TRUE(rhi::detail::IsCompressedFormat(format));
+			EXPECT_TRUE(rhi::detail::is_compressed_format(format));
 		}
 	}
 
@@ -52,29 +52,29 @@ namespace
 	{
 		constexpr std::uint32_t width = 64;
 
-		EXPECT_EQ(rhi::detail::TightRowPitch(rhi::Format::eBC1RGBAUNorm, width), 128u) << "16 blocks of 8 bytes";
-		EXPECT_EQ(rhi::detail::TightRowPitch(rhi::Format::eBC7UNorm, width), 256u) << "16 blocks of 16 bytes";
-		EXPECT_EQ(rhi::detail::TightRowPitch(rhi::Format::eRGBA8UNorm, width), 256u) << "the coincidence BC7 shares";
+		EXPECT_EQ(rhi::detail::tight_row_pitch(rhi::Format::eBC1RGBAUNorm, width), 128u) << "16 blocks of 8 bytes";
+		EXPECT_EQ(rhi::detail::tight_row_pitch(rhi::Format::eBC7UNorm, width), 256u) << "16 blocks of 16 bytes";
+		EXPECT_EQ(rhi::detail::tight_row_pitch(rhi::Format::eRGBA8UNorm, width), 256u) << "the coincidence BC7 shares";
 	}
 
 	TEST(FormatInfo, PartialBlocksRoundUp)
 	{
-		EXPECT_EQ(rhi::detail::BlockColumns(rhi::Format::eBC1RGBAUNorm, 1), 1u);
-		EXPECT_EQ(rhi::detail::BlockColumns(rhi::Format::eBC1RGBAUNorm, 5), 2u);
-		EXPECT_EQ(rhi::detail::BlockRows(rhi::Format::eBC1RGBAUNorm, 5), 2u);
+		EXPECT_EQ(rhi::detail::block_columns(rhi::Format::eBC1RGBAUNorm, 1), 1u);
+		EXPECT_EQ(rhi::detail::block_columns(rhi::Format::eBC1RGBAUNorm, 5), 2u);
+		EXPECT_EQ(rhi::detail::block_rows(rhi::Format::eBC1RGBAUNorm, 5), 2u);
 	}
 
 	TEST(FormatInfo, SlicePitchCountsBlockRowsNotTexelRows)
 	{
-		EXPECT_EQ(rhi::detail::TightSlicePitch(rhi::Format::eBC1RGBAUNorm, 64, 64), 128u * 16u);
-		EXPECT_EQ(rhi::detail::TightSlicePitch(rhi::Format::eRGBA8UNorm, 64, 64), 256u * 64u);
+		EXPECT_EQ(rhi::detail::tight_slice_pitch(rhi::Format::eBC1RGBAUNorm, 64, 64), 128u * 16u);
+		EXPECT_EQ(rhi::detail::tight_slice_pitch(rhi::Format::eRGBA8UNorm, 64, 64), 256u * 64u);
 	}
 
 	TEST(FormatInfo, CombinedDepthStencilHasNoSingleLinearLayout)
 	{
-		EXPECT_FALSE(rhi::detail::HasLinearLayout(rhi::Format::eD24UNormS8UInt));
-		EXPECT_FALSE(rhi::detail::HasLinearLayout(rhi::Format::eD32FloatS8UInt));
-		EXPECT_TRUE(rhi::detail::HasLinearLayout(rhi::Format::eD32Float)) << "depth only is a plain linear format";
+		EXPECT_FALSE(rhi::detail::has_linear_layout(rhi::Format::eD24UNormS8UInt));
+		EXPECT_FALSE(rhi::detail::has_linear_layout(rhi::Format::eD32FloatS8UInt));
+		EXPECT_TRUE(rhi::detail::has_linear_layout(rhi::Format::eD32Float)) << "depth only is a plain linear format";
 	}
 
 	TEST(Subresource, CountSentinelsResolveAgainstTheResource)
@@ -85,11 +85,11 @@ namespace
 			.baseLayer	= 0,
 			.layerCount = rhi::kAllLayers,
 		};
-		const rhi::detail::ResolvedSubresourceRange resolved = rhi::detail::ResolveSubresourceRange(range, 8, 6);
+		const rhi::detail::ResolvedSubresourceRange resolved = rhi::detail::resolve_subresource_range(range, 8, 6);
 
 		EXPECT_EQ(resolved.mipCount, 8u);
 		EXPECT_EQ(resolved.layerCount, 6u);
-		EXPECT_TRUE(rhi::detail::CoversWholeTexture(resolved, 8, 6));
+		EXPECT_TRUE(rhi::detail::covers_whole_texture(resolved, 8, 6));
 	}
 
 	TEST(Subresource, ASentinelOnASubrangeResolvesToWhatRemains)
@@ -100,11 +100,11 @@ namespace
 			.baseLayer	= 3,
 			.layerCount = 1,
 		};
-		const rhi::detail::ResolvedSubresourceRange resolved = rhi::detail::ResolveSubresourceRange(range, 8, 6);
+		const rhi::detail::ResolvedSubresourceRange resolved = rhi::detail::resolve_subresource_range(range, 8, 6);
 
 		EXPECT_EQ(resolved.mipCount, 6u) << "8 mips less the 2 skipped";
 		EXPECT_EQ(resolved.layerCount, 1u);
-		EXPECT_FALSE(rhi::detail::CoversWholeTexture(resolved, 8, 6));
+		EXPECT_FALSE(rhi::detail::covers_whole_texture(resolved, 8, 6));
 	}
 
 	TEST(Subresource, AnOverlongExplicitCountIsClamped)
@@ -115,7 +115,7 @@ namespace
 			.baseLayer	= 0,
 			.layerCount = 99,
 		};
-		const rhi::detail::ResolvedSubresourceRange resolved = rhi::detail::ResolveSubresourceRange(range, 4, 2);
+		const rhi::detail::ResolvedSubresourceRange resolved = rhi::detail::resolve_subresource_range(range, 4, 2);
 
 		EXPECT_EQ(resolved.mipCount, 3u);
 		EXPECT_EQ(resolved.layerCount, 2u);
@@ -129,7 +129,7 @@ namespace
 			.baseLayer	= 0,
 			.layerCount = 1,
 		};
-		EXPECT_TRUE(rhi::detail::ResolveSubresourceRange(range, 8, 6).IsEmpty());
+		EXPECT_TRUE(rhi::detail::resolve_subresource_range(range, 8, 6).is_empty());
 	}
 
 }

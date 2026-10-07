@@ -25,7 +25,7 @@ namespace
 	{
 		static constexpr std::string_view canonicalName = "studio.rhi.objectlib";
 		static constexpr std::string_view displayName	= "Studio Object Library";
-		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::MakeGraphicsApiId(canonicalName);
+		static constexpr azo::rhi::GraphicsApiId id		= azo::rhi::make_graphics_api_id(canonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<ObjectLibraryApi>);

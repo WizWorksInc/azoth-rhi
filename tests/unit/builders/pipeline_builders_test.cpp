@@ -76,10 +76,10 @@ namespace
 
 	TEST(GraphicsPipelineBuilder, DefaultsToAnEmptyDescRatherThanAUsableOne)
 	{
-		const auto empty					 = rhi::GraphicsPipelineBuilder{}.Build();
-		const rhi::GraphicsPipelineDesc desc = empty.Desc();
+		const auto empty					 = rhi::GraphicsPipelineBuilder{}.build();
+		const rhi::GraphicsPipelineDesc desc = empty.desc();
 
-		EXPECT_FALSE(desc.layout.IsValid());
+		EXPECT_FALSE(desc.layout.is_valid());
 		EXPECT_TRUE(desc.shaders.empty());
 		ASSERT_NE(desc.vertexInput, nullptr) << "a builder that was not told otherwise still sources vertices";
 		EXPECT_TRUE(desc.vertexInput->bindings.empty());
@@ -92,7 +92,7 @@ namespace
 		EXPECT_EQ(desc.renderTarget.samples, rhi::SampleCount::e1);
 		EXPECT_EQ(desc.renderTarget.sampleMask, 0xffffffffu);
 		EXPECT_FALSE(desc.renderTarget.alphaToCoverageEnable);
-		EXPECT_TRUE(desc.dynamicStates.Empty());
+		EXPECT_TRUE(desc.dynamicStates.empty());
 		EXPECT_EQ(desc.debugName, nullptr);
 	}
 
@@ -102,39 +102,39 @@ namespace
 		const std::array<std::uint32_t, 4> fragmentCode{ 5, 6, 7, 8 };
 
 		const auto vertexHeld			 = MakeShader(rhi::ShaderStage::eVertex, vertexCode.data(), sizeof(vertexCode));
-		const rhi::ShaderBinary vertex	 = vertexHeld.Desc();
+		const rhi::ShaderBinary vertex	 = vertexHeld.desc();
 		const auto fragmentHeld			 = MakeShader(rhi::ShaderStage::eFragment, fragmentCode.data(), sizeof(fragmentCode));
-		const rhi::ShaderBinary fragment = fragmentHeld.Desc();
+		const rhi::ShaderBinary fragment = fragmentHeld.desc();
 
 		const rhi::VertexBindingDesc binding	= rhi::VertexBindingBuilder{}.Binding(0).Stride(32).Build();
-		const rhi::VertexAttributeDesc position = rhi::VertexAttributeBuilder{}.Location(0).Binding(0).Format(rhi::Format::eRGB32Float).Offset(0).Build();
-		const rhi::VertexAttributeDesc normal	= rhi::VertexAttributeBuilder{}.Location(1).Binding(0).Format(rhi::Format::eRGB32Float).Offset(12).Build();
+		const rhi::VertexAttributeDesc position = rhi::VertexAttributeBuilder{}.location(0).Binding(0).Format(rhi::Format::eRGB32Float).Offset(0).Build();
+		const rhi::VertexAttributeDesc normal	= rhi::VertexAttributeBuilder{}.location(1).Binding(0).Format(rhi::Format::eRGB32Float).Offset(12).Build();
 
-		const rhi::RasterStateDesc raster = rhi::RasterStateBuilder{}.Fill(rhi::FillMode::eSolid).Cull(rhi::CullMode::eBack).DepthBias(1.0f, 2.0f).Build();
-		const rhi::DepthStencilStateDesc depthStencil = rhi::DepthStencilStateBuilder{}.DepthTest().DepthWrite().DepthCompare(rhi::CompareOp::eLess).Build();
-		const rhi::BlendStateDesc blend				  = rhi::BlendStateBuilder{}.Attachment(rhi::ColorBlendAttachmentBuilder{}.Enable().Build()).Build();
+		const rhi::RasterStateDesc raster = rhi::RasterStateBuilder{}.fill(rhi::FillMode::eSolid).cull(rhi::CullMode::eBack).depth_bias(1.0f, 2.0f).build();
+		const rhi::DepthStencilStateDesc depthStencil = rhi::DepthStencilStateBuilder{}.depth_test().depth_write().depth_compare(rhi::CompareOp::eLess).build();
+		const rhi::BlendStateDesc blend				  = rhi::BlendStateBuilder{}.attachment(rhi::ColorBlendAttachmentBuilder{}.enable().build()).build();
 
 		const std::array<rhi::ShaderBinary, 2> shaders{ vertex, fragment };
 		const std::array<rhi::VertexBindingDesc, 1> bindings{ binding };
 		const std::array<rhi::VertexAttributeDesc, 2> attributes{ position, normal };
 
 		const rhi::GraphicsPipelineBuilder builder = rhi::GraphicsPipelineBuilder{}
-														 .Shaders(shaders)
-														 .VertexBindings(bindings)
-														 .VertexAttributes(attributes)
-														 .Topology(rhi::PrimitiveTopology::eTriangleStrip)
-														 .PrimitiveRestart()
-														 .Raster(raster)
-														 .DepthStencil(depthStencil)
-														 .Blend(blend)
-														 .ColorFormat(rhi::Format::eRGBA8UNorm)
-														 .DepthStencilFormat(rhi::Format::eD32Float)
+														 .shaders(shaders)
+														 .vertex_bindings(bindings)
+														 .vertex_attributes(attributes)
+														 .topology(rhi::PrimitiveTopology::eTriangleStrip)
+														 .primitive_restart()
+														 .raster(raster)
+														 .depth_stencil(depthStencil)
+														 .blend(blend)
+														 .color_format(rhi::Format::eRGBA8UNorm)
+														 .depth_stencil_format(rhi::Format::eD32Float)
 														 .Samples(rhi::SampleCount::e4)
 														 .SampleMask(0x0000ffffu)
 														 .AlphaToCoverage()
 														 .DynamicViewportScissor()
 														 .DebugName("gbuffer");
-		const auto held							   = builder.Build();
+		const auto held							   = builder.build();
 		const rhi::GraphicsPipelineDesc built	   = held.Desc();
 
 		rhi::GraphicsPipelineDesc direct{};
@@ -187,14 +187,14 @@ namespace
 
 	TEST(GraphicsPipelineBuilder, ColorFormatAppendsWhileTheIndexedFormOverwrites)
 	{
-		const auto appendedHeld = rhi::GraphicsPipelineBuilder{}.ColorFormat(rhi::Format::eRGBA8UNorm).ColorFormat(rhi::Format::eRG16Float).Build();
-		const rhi::GraphicsPipelineDesc appended = appendedHeld.Desc();
+		const auto appendedHeld = rhi::GraphicsPipelineBuilder{}.color_format(rhi::Format::eRGBA8UNorm).color_format(rhi::Format::eRG16Float).build();
+		const rhi::GraphicsPipelineDesc appended = appendedHeld.desc();
 		EXPECT_EQ(appended.renderTarget.colorFormatCount, 2u);
 		EXPECT_EQ(appended.renderTarget.colorFormats[0], rhi::Format::eRGBA8UNorm);
 		EXPECT_EQ(appended.renderTarget.colorFormats[1], rhi::Format::eRG16Float);
 
-		const auto placedHeld = rhi::GraphicsPipelineBuilder{}.ColorFormat(rhi::Format::eRGBA8UNorm).ColorFormat(0, rhi::Format::eRG16Float).Build();
-		const rhi::GraphicsPipelineDesc placed = placedHeld.Desc();
+		const auto placedHeld = rhi::GraphicsPipelineBuilder{}.color_format(rhi::Format::eRGBA8UNorm).color_format(0, rhi::Format::eRG16Float).build();
+		const rhi::GraphicsPipelineDesc placed = placedHeld.desc();
 		EXPECT_EQ(placed.renderTarget.colorFormatCount, 1u);
 		EXPECT_EQ(placed.renderTarget.colorFormats[0], rhi::Format::eRG16Float);
 	}
@@ -203,21 +203,21 @@ namespace
 	{
 		const std::array<std::uint32_t, 2> code{ 9, 10 };
 		const auto vertexHeld			 = MakeShader(rhi::ShaderStage::eVertex, code.data(), sizeof(code));
-		const rhi::ShaderBinary vertex	 = vertexHeld.Desc();
+		const rhi::ShaderBinary vertex	 = vertexHeld.desc();
 		const auto fragmentHeld			 = MakeShader(rhi::ShaderStage::eFragment, code.data(), sizeof(code));
-		const rhi::ShaderBinary fragment = fragmentHeld.Desc();
+		const rhi::ShaderBinary fragment = fragmentHeld.desc();
 
 		rhi::GraphicsPipelineBuilder appending;
-		appending.Shader(vertex).Shader(fragment);
-		const auto appended = appending.Build();
-		EXPECT_EQ(appended.Desc().shaders.size(), 2u);
+		appending.shader(vertex).shader(fragment);
+		const auto appended = appending.build();
+		EXPECT_EQ(appended.desc().shaders.size(), 2u);
 
 		const std::array<rhi::ShaderBinary, 1> only{ fragment };
 		rhi::GraphicsPipelineBuilder replacing;
-		replacing.Shader(vertex).Shaders(only);
+		replacing.shader(vertex).shaders(only);
 
-		const auto replacedHeld					 = replacing.Build();
-		const rhi::GraphicsPipelineDesc replaced = replacedHeld.Desc();
+		const auto replacedHeld					 = replacing.build();
+		const rhi::GraphicsPipelineDesc replaced = replacedHeld.desc();
 		ASSERT_EQ(replaced.shaders.size(), 1u);
 		EXPECT_EQ(replaced.shaders[0].stage, rhi::ShaderStage::eFragment);
 	}
@@ -226,22 +226,22 @@ namespace
 	{
 		const std::array<std::uint32_t, 2> code{ 16, 17 };
 		const auto vertexHeld			 = MakeShader(rhi::ShaderStage::eVertex, code.data(), sizeof(code));
-		const rhi::ShaderBinary vertex	 = vertexHeld.Desc();
+		const rhi::ShaderBinary vertex	 = vertexHeld.desc();
 		const auto fragmentHeld			 = MakeShader(rhi::ShaderStage::eFragment, code.data(), sizeof(code));
-		const rhi::ShaderBinary fragment = fragmentHeld.Desc();
+		const rhi::ShaderBinary fragment = fragmentHeld.desc();
 
 		rhi::GraphicsPipelineBuilder builder;
-		builder.Shader(vertex);
+		builder.shader(vertex);
 
-		const auto beforeHeld				   = builder.Build();
-		const rhi::GraphicsPipelineDesc before = beforeHeld.Desc();
+		const auto beforeHeld				   = builder.build();
+		const rhi::GraphicsPipelineDesc before = beforeHeld.desc();
 		ASSERT_EQ(before.shaders.size(), 1u);
 		EXPECT_EQ(before.shaders[0].stage, rhi::ShaderStage::eVertex);
 
-		builder.Shader(fragment);
+		builder.shader(fragment);
 
-		const auto afterHeld				  = builder.Build();
-		const rhi::GraphicsPipelineDesc after = afterHeld.Desc();
+		const auto afterHeld				  = builder.build();
+		const rhi::GraphicsPipelineDesc after = afterHeld.desc();
 		ASSERT_EQ(after.shaders.size(), 2u);
 		EXPECT_EQ(after.shaders[1].stage, rhi::ShaderStage::eFragment);
 	}
@@ -249,49 +249,49 @@ namespace
 	TEST(GraphicsPipelineBuilder, AddDynamicStateAccumulatesWhileDynamicStatesReplaces)
 	{
 		const auto accumulatedHeld =
-			rhi::GraphicsPipelineBuilder{}.AddDynamicState(rhi::DynamicState::eViewport).AddDynamicState(rhi::DynamicState::eDepthBias).Build();
-		const rhi::GraphicsPipelineDesc accumulated = accumulatedHeld.Desc();
-		EXPECT_TRUE(accumulated.dynamicStates.Contains(rhi::DynamicState::eViewport));
-		EXPECT_TRUE(accumulated.dynamicStates.Contains(rhi::DynamicState::eDepthBias));
+			rhi::GraphicsPipelineBuilder{}.add_dynamic_state(rhi::DynamicState::eViewport).add_dynamic_state(rhi::DynamicState::eDepthBias).build();
+		const rhi::GraphicsPipelineDesc accumulated = accumulatedHeld.desc();
+		EXPECT_TRUE(accumulated.dynamicStates.contains(rhi::DynamicState::eViewport));
+		EXPECT_TRUE(accumulated.dynamicStates.contains(rhi::DynamicState::eDepthBias));
 
 		const auto replacedHeld					 = rhi::GraphicsPipelineBuilder{}
-													   .AddDynamicState(rhi::DynamicState::eViewport)
-													   .DynamicStates(rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eStencilReference))
-													   .Build();
-		const rhi::GraphicsPipelineDesc replaced = replacedHeld.Desc();
-		EXPECT_FALSE(replaced.dynamicStates.Contains(rhi::DynamicState::eViewport));
-		EXPECT_TRUE(replaced.dynamicStates.Contains(rhi::DynamicState::eStencilReference));
+													   .add_dynamic_state(rhi::DynamicState::eViewport)
+													   .dynamic_states(rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eStencilReference))
+													   .build();
+		const rhi::GraphicsPipelineDesc replaced = replacedHeld.desc();
+		EXPECT_FALSE(replaced.dynamicStates.contains(rhi::DynamicState::eViewport));
+		EXPECT_TRUE(replaced.dynamicStates.contains(rhi::DynamicState::eStencilReference));
 	}
 
 	TEST(GraphicsPipelineBuilder, DynamicViewportScissorNamesBothAndNothingElse)
 	{
-		const auto held						 = rhi::GraphicsPipelineBuilder{}.DynamicViewportScissor().Build();
-		const rhi::GraphicsPipelineDesc desc = held.Desc();
+		const auto held						 = rhi::GraphicsPipelineBuilder{}.dynamic_viewport_scissor().build();
+		const rhi::GraphicsPipelineDesc desc = held.desc();
 
 		EXPECT_EQ(desc.dynamicStates, rhi::Flags<rhi::DynamicState>(rhi::DynamicState::eViewport) | rhi::DynamicState::eScissor);
 	}
 
 	TEST(GraphicsPipelineBuilder, AnEmptyDebugNameStaysNullRatherThanPointingAtAnEmptyString)
 	{
-		const auto unnamed = rhi::GraphicsPipelineBuilder{}.Build();
-		EXPECT_EQ(unnamed.Desc().debugName, nullptr);
+		const auto unnamed = rhi::GraphicsPipelineBuilder{}.build();
+		EXPECT_EQ(unnamed.desc().debugName, nullptr);
 
-		const auto emptyName = rhi::GraphicsPipelineBuilder{}.DebugName("").Build();
-		EXPECT_EQ(emptyName.Desc().debugName, nullptr);
+		const auto emptyName = rhi::GraphicsPipelineBuilder{}.debug_name("").build();
+		EXPECT_EQ(emptyName.desc().debugName, nullptr);
 
-		const auto named = rhi::GraphicsPipelineBuilder{}.DebugName("shadow").Build();
-		EXPECT_STREQ(named.Desc().debugName, "shadow");
+		const auto named = rhi::GraphicsPipelineBuilder{}.debug_name("shadow").build();
+		EXPECT_STREQ(named.desc().debugName, "shadow");
 	}
 
 	TEST(ComputePipelineBuilder, ProducesTheSameDescriptionAsWritingOneDirectly)
 	{
 		const std::array<std::uint32_t, 3> code{ 11, 12, 13 };
 		const auto shaderHeld		   = MakeShader(rhi::ShaderStage::eCompute, code.data(), sizeof(code));
-		const rhi::ShaderBinary shader = shaderHeld.Desc();
+		const rhi::ShaderBinary shader = shaderHeld.desc();
 
-		const rhi::ComputePipelineBuilder builder = rhi::ComputePipelineBuilder{}.Shader(shader).DebugName("cull");
-		const auto held							  = builder.Build();
-		const rhi::ComputePipelineDesc built	  = held.Desc();
+		const rhi::ComputePipelineBuilder builder = rhi::ComputePipelineBuilder{}.shader(shader).debug_name("cull");
+		const auto held							  = builder.build();
+		const rhi::ComputePipelineDesc built	  = held.desc();
 
 		rhi::ComputePipelineDesc direct{};
 		direct.shader	 = shader;
@@ -307,9 +307,9 @@ namespace
 	{
 		const std::array<std::uint32_t, 2> code{ 14, 15 };
 		const auto raygenHeld		   = MakeShader(rhi::ShaderStage::eRayGeneration, code.data(), sizeof(code));
-		const rhi::ShaderBinary raygen = raygenHeld.Desc();
+		const rhi::ShaderBinary raygen = raygenHeld.desc();
 		const auto missHeld			   = MakeShader(rhi::ShaderStage::eMiss, code.data(), sizeof(code));
-		const rhi::ShaderBinary miss   = missHeld.Desc();
+		const rhi::ShaderBinary miss   = missHeld.desc();
 
 		rhi::RayTracingShaderGroupDesc rayGenGroup{};
 		rayGenGroup.type		  = rhi::RayTracingShaderGroupType::eRayGeneration;
@@ -319,10 +319,10 @@ namespace
 		const std::array<rhi::RayTracingShaderGroupDesc, 1> groups{ rayGenGroup };
 
 		const rhi::RayTracingPipelineBuilder builder =
-			rhi::RayTracingPipelineBuilder{}.Shaders(shaders).Groups(groups).MaxRayRecursionDepth(3).MaxPayloadBytes(32).MaxAttributeBytes(8).DebugName(
+			rhi::RayTracingPipelineBuilder{}.shaders(shaders).groups(groups).max_ray_recursion_depth(3).max_payload_bytes(32).max_attribute_bytes(8).debug_name(
 				"primary rays");
-		const auto held							= builder.Build();
-		const rhi::RayTracingPipelineDesc built = held.Desc();
+		const auto held							= builder.build();
+		const rhi::RayTracingPipelineDesc built = held.desc();
 
 		rhi::RayTracingPipelineDesc direct{};
 		direct.shaders				= shaders;
@@ -346,8 +346,8 @@ namespace
 	TEST(PipelineCacheBuilder, ReferencesInitialDataRatherThanCopyingIt)
 	{
 		const std::array<std::byte, 4> blob{};
-		const auto held					  = rhi::PipelineCacheBuilder{}.InitialData(blob.data(), blob.size()).DebugName("cache").Build();
-		const rhi::PipelineCacheDesc desc = held.Desc();
+		const auto held					  = rhi::PipelineCacheBuilder{}.initial_data(blob.data(), blob.size()).debug_name("cache").build();
+		const rhi::PipelineCacheDesc desc = held.desc();
 
 		EXPECT_EQ(desc.initialData, blob.data());
 		EXPECT_EQ(desc.initialSize, blob.size());
@@ -356,11 +356,11 @@ namespace
 
 	TEST(ShaderBinaryBuilder, FormatShorthandsMatchTheEnumeratorsTheyName)
 	{
-		const auto spirv = rhi::ShaderBinaryBuilder{}.SpirV().Build();
-		const auto dxil	 = rhi::ShaderBinaryBuilder{}.Dxil().Build();
+		const auto spirv = rhi::ShaderBinaryBuilder{}.spir_v().build();
+		const auto dxil	 = rhi::ShaderBinaryBuilder{}.dxil().build();
 
-		EXPECT_EQ(spirv.Desc().format, rhi::ShaderBinaryFormat::eSpirV);
-		EXPECT_EQ(dxil.Desc().format, rhi::ShaderBinaryFormat::eDxil);
+		EXPECT_EQ(spirv.desc().format, rhi::ShaderBinaryFormat::eSpirV);
+		EXPECT_EQ(dxil.desc().format, rhi::ShaderBinaryFormat::eDxil);
 	}
 
 }

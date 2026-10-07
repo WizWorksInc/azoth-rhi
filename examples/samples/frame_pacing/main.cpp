@@ -68,31 +68,31 @@ int main(int argc, char ** argv)
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
-	if (requested != nullptr && !backends.HonoredRequest())
+	if (requested != nullptr && !backends.honored_request())
 	{
 		LOG_INFO(fw::Log(), "note: this build has no {} backend, using what it does have", requested);
 	}
 
 	const rhi::Result<rhi::UniqueDevice> device =
-		rhi::DeviceBuilder().DebugName("frame_pacing").Headless().GraphicsQueue().Build(backends.Registry(), backends.PreferredApis());
+		rhi::DeviceBuilder().debug_name("frame_pacing").headless().graphics_queue().build(backends.registry(), backends.preferred_apis());
 	if (!device)
 	{
-		return fw::ReportNoDevice(device.GetError());
+		return fw::ReportNoDevice(device.get_error());
 	}
 
 	rhi::Device dev = device.Value().Get();
-	LOG_INFO(fw::Log(), "backend: {}, timeline sync: {}", dev.GetGraphicsApiName(), Yes(dev.GetCaps().supportsTimelineSync));
+	LOG_INFO(fw::Log(), "backend: {}, timeline sync: {}", dev.get_graphics_api_name(), Yes(dev.get_caps().supportsTimelineSync));
 
 	rhi::Error error{};
-	rhi::Queue queue = dev.GetQueue(rhi::QueueType::eGraphics, 0, error);
-	if (!queue.IsValid())
+	rhi::Queue queue = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
+	if (!queue.is_valid())
 	{
 		fw::ReportError("failed to get the graphics queue", error);
 		return 1;
 	}
 
-	const rhi::TimelineHandle timeline = dev.CreateTimeline(rhi::TimelineDesc{ .debugName = "example.frameTimeline" }, error);
-	if (!timeline.IsValid())
+	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "example.frameTimeline" }, error);
+	if (!timeline.is_valid())
 	{
 		fw::ReportError("failed to create the frame timeline", error);
 		return 1;
@@ -101,8 +101,8 @@ int main(int argc, char ** argv)
 	std::array<FrameSlot, kFramesInFlight> slots;
 	for (FrameSlot & slot : slots)
 	{
-		slot.pool = dev.CreateCommandPool(rhi::CommandPoolDesc{ .debugName = "example.framePool" }, error);
-		if (!slot.pool.IsValid())
+		slot.pool = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "example.framePool" }, error);
+		if (!slot.pool.is_valid())
 		{
 			fw::ReportError("failed to create a frame command pool", error);
 			return 1;
@@ -127,7 +127,7 @@ int main(int argc, char ** argv)
 		}
 
 		std::uint64_t completed = 0;
-		static_cast<void>(queue.GetCompletedValue(timeline, completed, error));
+		static_cast<void>(queue.get_completed_value(timeline, completed, error));
 
 		if (slot.submitted != 0 && !slot.pool.Reset(rhi::RetirePoint{ .timeline = timeline, .value = slot.submitted }, error))
 		{
@@ -135,21 +135,21 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 
-		const rhi::BufferHandle scratch = dev.CreateBuffer(scratchDesc, error);
+		const rhi::BufferHandle scratch = dev.create_buffer(scratchDesc, error);
 		rhi::CommandList list			= slot.pool.Allocate("example.frameList", error);
-		if (!scratch.IsValid() || !list.IsValid() || !list.Begin(error))
+		if (!scratch.is_valid() || !list.is_valid() || !list.Begin(error))
 		{
 			fw::ReportError("failed to start recording a frame", error);
 			return 1;
 		}
 
-		list.BeginDebugLabel("example.frame");
-		if (!list.ClearBuffer(scratch, 0, kScratchBytes, static_cast<std::uint32_t>(frame), error))
+		list.begin_debug_label("example.frame");
+		if (!list.clear_buffer(scratch, 0, kScratchBytes, static_cast<std::uint32_t>(frame), error))
 		{
 			fw::ReportError("failed to record the frame's work", error);
 			return 1;
 		}
-		list.EndDebugLabel();
+		list.end_debug_label();
 
 		if (!list.End(error))
 		{
@@ -165,7 +165,7 @@ int main(int argc, char ** argv)
 			.debugName	  = "example.frameSubmit",
 		};
 
-		if (!queue.Submit(submit, error))
+		if (!queue.submit(submit, error))
 		{
 			fw::ReportError("failed to submit a frame", error);
 			return 1;
@@ -177,20 +177,20 @@ int main(int argc, char ** argv)
 			.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
 			.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = frame },
 		};
-		dev.Destroy(scratch, retired, error);
-		dev.CollectGarbage(timeline, completed, error);
+		dev.destroy(scratch, retired, error);
+		dev.collect_garbage(timeline, completed, error);
 
 		LOG_INFO(fw::Log(), "frame {} on slot {}, retired through {}", frame, ((frame - 1) % kFramesInFlight), completed);
 	}
 
-	if (!queue.WaitIdle(error))
+	if (!queue.wait_idle(error))
 	{
 		fw::ReportError("failed to drain the queue", error);
 		return 1;
 	}
 
-	dev.CollectGarbage(timeline, kFrameCount, error);
-	dev.Destroy(timeline, {}, error);
+	dev.collect_garbage(timeline, kFrameCount, error);
+	dev.destroy(timeline, {}, error);
 
 	LOG_INFO(fw::Log(), "{} frames through {} slots", kFrameCount, kFramesInFlight);
 	return 0;

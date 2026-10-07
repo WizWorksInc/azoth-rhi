@@ -64,26 +64,26 @@ namespace
 			}
 		};
 
-		check("CreateTextureView(texture)", device.CreateTextureView(Unissued<rhi::TextureHandle>(), test::samples::FullTextureView(), error).IsValid());
+		check("CreateTextureView(texture)", device.create_texture_view(Unissued<rhi::TextureHandle>(), test::samples::FullTextureView(), error).is_valid());
 
 		rhi::PlacedBufferDesc placedBuffer{};
 		placedBuffer.buffer = test::samples::StorageBuffer();
 		placedBuffer.heap	= Unissued<rhi::HeapHandle>();
-		check("CreatePlacedBuffer(desc.heap)", device.CreatePlacedBuffer(placedBuffer, error).IsValid());
+		check("CreatePlacedBuffer(desc.heap)", device.create_placed_buffer(placedBuffer, error).is_valid());
 
 		rhi::PlacedTextureDesc placedTexture{};
 		placedTexture.texture = test::samples::SampledTexture2D();
 		placedTexture.heap	  = Unissued<rhi::HeapHandle>();
-		check("CreatePlacedTexture(desc.heap)", device.CreatePlacedTexture(placedTexture, error).IsValid());
+		check("CreatePlacedTexture(desc.heap)", device.create_placed_texture(placedTexture, error).is_valid());
 
 		const std::array unissuedSets{ Unissued<rhi::DescriptorSetLayoutHandle>() };
 		rhi::PipelineLayoutDesc pipelineLayout{};
 		pipelineLayout.sets = unissuedSets;
-		check("CreatePipelineLayout(desc.sets)", device.CreatePipelineLayout(pipelineLayout, error).IsValid());
+		check("CreatePipelineLayout(desc.sets)", device.create_pipeline_layout(pipelineLayout, error).is_valid());
 
 		rhi::ComputePipelineDesc computePipeline{};
 		computePipeline.layout = Unissued<rhi::PipelineLayoutHandle>();
-		check("CreateComputePipeline(desc.layout)", device.CreateComputePipeline(computePipeline, error).IsValid());
+		check("CreateComputePipeline(desc.layout)", device.create_compute_pipeline(computePipeline, error).is_valid());
 
 		std::array<rhi::ShaderBinary, 1> shaders{};
 		shaders[0].stage = rhi::ShaderStage::eVertex;
@@ -91,15 +91,15 @@ namespace
 		rhi::GraphicsPipelineDesc graphicsPipeline{};
 		graphicsPipeline.layout	 = Unissued<rhi::PipelineLayoutHandle>();
 		graphicsPipeline.shaders = shaders;
-		check("CreateGraphicsPipeline(desc.layout)", device.CreateGraphicsPipeline(graphicsPipeline, error).IsValid());
+		check("CreateGraphicsPipeline(desc.layout)", device.create_graphics_pipeline(graphicsPipeline, error).is_valid());
 
 		rhi::AccelerationStructureDesc accelerationStructure{};
 		accelerationStructure.storage = Unissued<rhi::BufferHandle>();
 		accelerationStructure.size	  = test::samples::kBufferSize;
-		check("CreateAccelerationStructure(desc.storage)", device.CreateAccelerationStructure(accelerationStructure, error).IsValid());
+		check("CreateAccelerationStructure(desc.storage)", device.create_acceleration_structure(accelerationStructure, error).is_valid());
 
-		rhi::DescriptorArena arena = device.CreateDescriptorArena(test::samples::DescriptorArena(), error);
-		if (arena.IsValid())
+		rhi::DescriptorArena arena = device.create_descriptor_arena(test::samples::DescriptorArena(), error);
+		if (arena.is_valid())
 		{
 			rhi::DescriptorSetAllocDesc allocation{};
 			allocation.layout = Unissued<rhi::DescriptorSetLayoutHandle>();
