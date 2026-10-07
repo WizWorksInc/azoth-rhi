@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -319,18 +324,34 @@ namespace azo::rhi::d3d12
 
 	struct D3D12CommandList;
 
+	// A list and allocator that Begin replaced while their submission was still running, kept with what it references until the fence passes.
+	struct RetiredCommandRecording final
+	{
+		ComPtr<ID3D12CommandAllocator> allocator;
+		ComPtr<ID3D12GraphicsCommandList> list;
+		ComPtr<ID3D12DescriptorHeap> clearGpuHeap;
+		ComPtr<ID3D12DescriptorHeap> clearStagingHeap;
+		detail::HostVector<ComPtr<ID3D12DescriptorHeap>> clearHeaps;
+		detail::HostVector<ComPtr<ID3D12Resource>> copyScratch;
+		detail::HostVector<ComPtr<D3D12MA::Allocation>> copyAllocs;
+		ID3D12Fence * submitFence = nullptr;
+		std::uint64_t submitValue = 0;
+	};
+
 	struct D3D12CommandPool final
 	{
 		const BackendObject * object = nullptr;
 		D3D12Device * owner			 = nullptr;
-		ComPtr<ID3D12CommandAllocator> allocator;
 		D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 		QueueType queueType			 = QueueType::eGraphics;
+		bool resetsIndividualLists	 = false;
 
 		detail::HostVector<CommandSignatureEntry> commandSignatures;
 
 		detail::HostVector<D3D12CommandList *> lists;
 		std::size_t handedOut = 0;
+
+		detail::HostVector<RetiredCommandRecording> retired;
 	};
 
 	struct D3D12CommandList final
@@ -339,10 +360,10 @@ namespace azo::rhi::d3d12
 		D3D12Device * owner			 = nullptr;
 		ComPtr<ID3D12GraphicsCommandList> list;
 		ComPtr<ID3D12GraphicsCommandList7> list7;
-		ID3D12CommandAllocator * allocator = nullptr;
-		D3D12CommandPool * pool			   = nullptr;
-		D3D12_COMMAND_LIST_TYPE type	   = D3D12_COMMAND_LIST_TYPE_DIRECT;
-		QueueType queueType				   = QueueType::eGraphics;
+		ComPtr<ID3D12CommandAllocator> allocator;
+		D3D12CommandPool * pool		 = nullptr;
+		D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+		QueueType queueType			 = QueueType::eGraphics;
 
 		ListLifecycle lifecycle = ListLifecycle::eFresh;
 
@@ -427,7 +448,12 @@ namespace azo::rhi::d3d12
 
 	// Defined in device.cpp beside the info queue callback, so every message this backend raises itself takes the one route.
 	void ReportBackendMessage(
-		ValidationMessageCallback onMessage, void * userData, ValidationMessageSeverity severity, const char * source, const char * message) noexcept;
+		ValidationMessageCallback onMessage,
+		void * userData,
+		ValidationMessageSeverity severity,
+		const char * source,
+		const char * message
+	) noexcept;
 
 	struct D3D12Device final
 	{
@@ -542,11 +568,13 @@ namespace azo::rhi::d3d12
 
 		void ReportTeardownStall() const
 		{
-			ReportBackendMessage(onMessage,
+			ReportBackendMessage(
+				onMessage,
 				messageUserData,
 				ValidationMessageSeverity::eError,
 				"d3d12 teardown",
-				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed");
+				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed"
+			);
 		}
 
 		~D3D12Device()
@@ -680,6 +708,13 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12BackendOwner & Owner();
 	[[nodiscard]] BufferSlot * ResolveBuffer(D3D12Device * device, BufferHandle handle) noexcept;
 	[[nodiscard]] D3D12_HEAP_TYPE MapHeapType(MemoryUsage memory, bool & hostVisible) noexcept;
+
+	// Only Map invalidates the CPU cache, so a pointer held across GPU writes needs InvalidateMappedRange.
+	[[nodiscard]] constexpr bool HostReadsAreCoherent(const D3D12_HEAP_TYPE heap) noexcept
+	{
+		return heap != D3D12_HEAP_TYPE_READBACK;
+	}
+
 	[[nodiscard]] D3D12_RESOURCE_STATES InitialBufferState(D3D12_HEAP_TYPE heap, Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] D3D12_RESOURCE_FLAGS MapBufferResourceFlags(Flags<BufferUsage> usage) noexcept;
 	[[nodiscard]] bool BoundBufferRange(std::uint64_t bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
@@ -687,9 +722,13 @@ namespace azo::rhi::d3d12
 	MappedMemory D3D12Map(void * impl, BufferHandle handle, const MapDesc & desc, Error * error) noexcept;
 	bool D3D12Unmap(void * impl, BufferHandle handle, Error * error) noexcept;
 	bool D3D12FlushMappedRange(
-		void * impl, BufferHandle handle, [[maybe_unused]] std::uint64_t offset, [[maybe_unused]] std::uint64_t size, Error * error) noexcept;
-	bool D3D12InvalidateMappedRange(
-		void * impl, BufferHandle handle, [[maybe_unused]] std::uint64_t offset, [[maybe_unused]] std::uint64_t size, Error * error) noexcept;
+		void * impl,
+		BufferHandle handle,
+		[[maybe_unused]] std::uint64_t offset,
+		[[maybe_unused]] std::uint64_t size,
+		Error * error
+	) noexcept;
+	bool D3D12InvalidateMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
 	bool D3D12GetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
 	bool D3D12DestroyBuffer(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	[[nodiscard]] DXGI_FORMAT MapFormat(Format format) noexcept;
@@ -768,7 +807,11 @@ namespace azo::rhi::d3d12
 	const ExternalSharingApi & ExternalSharingBlock() noexcept;
 
 	[[nodiscard]] bool D3D12RefuseUnexportable(
-		Flags<ExternalHandleType> declared, Flags<ExternalHandleType> allowed, const char * what, Error * error) noexcept;
+		Flags<ExternalHandleType> declared,
+		Flags<ExternalHandleType> allowed,
+		const char * what,
+		Error * error
+	) noexcept;
 	[[nodiscard]] HostUniquePtr<D3D12Instance> BuildInstance(const InstanceDesc & desc, Error * error);
 	[[nodiscard]] ComPtr<ID3D12CommandQueue> CreateQueue(ID3D12Device * device, D3D12_COMMAND_LIST_TYPE type);
 	[[nodiscard]] D3D12Device * MakeOwnedDevice(D3D12Instance * instance, HostUniquePtr<D3D12Instance> ownedInstance, const DeviceDesc & desc, Error * error);
@@ -811,12 +854,20 @@ namespace azo::rhi::d3d12
 	bool D3D12CommandListBegin(void * impl, Error * error) noexcept;
 	bool D3D12CommandListEnd(void * impl, Error * error) noexcept;
 	bool D3D12CmdCopyBuffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept;
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept;
 	bool D3D12QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
 	bool BindSparseBuffer(D3D12Device * device, D3D12Queue * queue, const SparseBufferBind & bind, bool validate, Error * error) noexcept;
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, bool validate, Error * error) noexcept;
 	bool D3D12QueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
 	bool D3D12QueueWaitIdle(void * impl, Error * error) noexcept;
+	[[nodiscard]] bool SubmissionStillRunning(ID3D12Fence * fence, std::uint64_t value) noexcept;
 	[[nodiscard]] bool ListStillRunning(const D3D12CommandList & record) noexcept;
 	bool D3D12QueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
 	bool D3D12QueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
@@ -827,7 +878,11 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] D3D12_QUERY_HEAP_TYPE MapQueryHeapType(QueryType type) noexcept;
 	[[nodiscard]] UINT SubresourceIndex(const TextureSubresource & sub, std::uint32_t mipLevels) noexcept;
 	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(
-		D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, Error * error) noexcept;
+		D3D12CommandList * list,
+		D3D12_INDIRECT_ARGUMENT_TYPE type,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
 	QueryPoolHandle D3D12CreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
 	bool D3D12DestroyQueryPool(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	bool D3D12CmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;
@@ -836,8 +891,15 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdEndRendering(void * impl, Error * error) noexcept;
 	bool D3D12CmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
 	bool D3D12CmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
-	bool D3D12CmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data,
-		Error * error) noexcept;
+	bool D3D12CmdPushConstants(
+		void * impl,
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept;
 	bool D3D12CmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept;
 	bool D3D12CmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept;
 	bool D3D12CmdSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept;
@@ -847,18 +909,63 @@ namespace azo::rhi::d3d12
 	bool D3D12CmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
 	void FlushPendingDescriptorSets(D3D12CommandList * list) noexcept;
 	bool D3D12CmdDraw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept;
-	bool D3D12CmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept;
-	bool D3D12ExecuteIndirect(D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, BufferHandle args, std::uint64_t argsOffset,
-		std::uint32_t maxCount, BufferHandle count, std::uint64_t countOffset, bool hasCount, Error * error) noexcept;
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
+	bool D3D12CmdDrawIndexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
+	bool D3D12ExecuteIndirect(
+		D3D12CommandList * list,
+		D3D12_INDIRECT_ARGUMENT_TYPE type,
+		std::uint32_t stride,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		std::uint32_t maxCount,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		bool hasCount,
+		Error * error
+	) noexcept;
 	bool D3D12CmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
 	bool D3D12CmdDrawIndexedIndirect(
-		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool D3D12CmdDrawIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept;
-	bool D3D12CmdDrawIndexedIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept;
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	bool D3D12CmdDrawIndirectCount(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	bool D3D12CmdDrawIndexedIndirectCount(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
 	bool D3D12CmdDispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept;
 	bool D3D12CmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
 	[[nodiscard]] ID3D12Resource * AllocateCopyScratch(D3D12Device * device, D3D12CommandList * list, std::uint64_t bytes) noexcept;
@@ -874,17 +981,34 @@ namespace azo::rhi::d3d12
 	[[nodiscard]] bool IsIntegerDxgiFormat(DXGI_FORMAT format) noexcept;
 	bool D3D12CmdClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
 	bool D3D12CmdClearTexture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept;
 	bool D3D12CmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
 	bool D3D12CmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
 	bool D3D12CmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
 	bool D3D12CmdResetQueryPool(
-		void * impl, QueryPoolHandle pool, [[maybe_unused]] std::uint32_t firstQuery, [[maybe_unused]] std::uint32_t queryCount, Error * error) noexcept;
+		void * impl,
+		QueryPoolHandle pool,
+		[[maybe_unused]] std::uint32_t firstQuery,
+		[[maybe_unused]] std::uint32_t queryCount,
+		Error * error
+	) noexcept;
 	bool D3D12CmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, [[maybe_unused]] Flags<Stage> stage, Error * error) noexcept;
 	bool D3D12CmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
 	bool D3D12CmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool D3D12CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept;
+	bool D3D12CmdResolveQueryData(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept;
 	[[nodiscard]] UINT PixColor(std::uint32_t rgba) noexcept;
 	bool D3D12CmdBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept;
 	bool D3D12CmdEndDebugLabel([[maybe_unused]] void * impl, Error * error) noexcept;
@@ -904,19 +1028,33 @@ namespace azo::rhi::d3d12
 	bool D3D12DescriptorArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
 	bool D3D12DestroyDescriptorSet(D3D12Device * device, RawHandle handle, Error * error) noexcept;
 	[[nodiscard]] DescriptorType LayoutBufferType(
-		const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, DescriptorType fallback) noexcept;
+		const detail::HostVector<DescriptorBinding> & bindings,
+		std::uint32_t binding,
+		DescriptorType fallback
+	) noexcept;
 	bool D3D12UpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
 	bool D3D12UpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
 	bool D3D12UpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
-	bool D3D12CmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
+	bool D3D12CmdBindDescriptorSet(
+		void * impl,
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept;
 	[[nodiscard]] DXGI_FORMAT StripSrgbFormat(DXGI_FORMAT format) noexcept;
 	[[nodiscard]] SwapchainStatus MapPresentStatus(HRESULT hr) noexcept;
 	bool BuildSwapchainBackBuffers(D3D12Swapchain * sc, Error * error) noexcept;
 	void * D3D12CreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
 	AcquireResult D3D12SwapchainAcquire(void * impl, [[maybe_unused]] std::uint64_t timeoutNanoseconds, Error * error) noexcept;
-	PresentResult D3D12SwapchainPresent(void * impl, [[maybe_unused]] std::uint32_t imageIndex, [[maybe_unused]] BinarySemaphoreHandle renderFinished,
-		[[maybe_unused]] void * queueImpl, Error * error) noexcept;
+	PresentResult D3D12SwapchainPresent(
+		void * impl,
+		[[maybe_unused]] std::uint32_t imageIndex,
+		[[maybe_unused]] BinarySemaphoreHandle renderFinished,
+		[[maybe_unused]] void * queueImpl,
+		Error * error
+	) noexcept;
 	bool D3D12SwapchainSupportsReadback([[maybe_unused]] void * impl) noexcept;
 	bool D3D12SwapchainResize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept;
 	bool D3D12SwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept;
@@ -934,19 +1072,34 @@ namespace azo::rhi::d3d12
 	bool D3D12SetResidencyPriority(void * impl, std::span<const ResidencyPriorityDesc> priorities, Error * error) noexcept;
 	bool D3D12CollectGarbage(void * impl, ResourceType type, Error * error) noexcept;
 	bool D3D12CollectGarbageTimeline(
-		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept;
+		void * impl,
+		ResourceType type,
+		[[maybe_unused]] TimelineHandle timeline,
+		[[maybe_unused]] std::uint64_t completedValue,
+		Error * error
+	) noexcept;
 	BufferHandle D3D12AdoptBuffer(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept;
 	TextureHandle D3D12AdoptTexture(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept;
 	bool D3D12GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
 	bool D3D12GetNativeTexture(void * impl, GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept;
 	TextureViewHandle D3D12AdoptTextureView(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept;
 	SamplerHandle D3D12AdoptSampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
 	bool D3D12GetNativeTextureView(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
 	bool D3D12GetNativeSampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
 	TimelineHandle D3D12AdoptTimeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
 	BinarySemaphoreHandle D3D12AdoptBinarySemaphore(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept;
 	bool D3D12GetNativeTimeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
 	bool D3D12GetNativeBinarySemaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
 	const CoreDeviceApi & CoreDeviceBlock() noexcept;

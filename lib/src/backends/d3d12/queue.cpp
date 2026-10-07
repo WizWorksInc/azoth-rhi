@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -14,19 +19,19 @@
 namespace azo::rhi::d3d12
 {
 	// Matches vulkan's rule that an unknown completion counts as running, so both backends reporting resubmit agree on the unsafe case.
-	bool ListStillRunning(const D3D12CommandList & record) noexcept
+	bool SubmissionStillRunning(ID3D12Fence * fence, std::uint64_t value) noexcept
 	{
-		if (record.lifecycle != ListLifecycle::eSubmitted)
-		{
-			return false;
-		}
-
-		if (record.submitFence == nullptr || record.submitValue == 0)
+		if (fence == nullptr || value == 0)
 		{
 			return true;
 		}
 
-		return record.submitFence->GetCompletedValue() < record.submitValue;
+		return fence->GetCompletedValue() < value;
+	}
+
+	bool ListStillRunning(const D3D12CommandList & record) noexcept
+	{
+		return record.lifecycle == ListLifecycle::eSubmitted && SubmissionStillRunning(record.submitFence, record.submitValue);
 	}
 
 	bool D3D12QueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
@@ -36,7 +41,7 @@ namespace azo::rhi::d3d12
 		auto * queue		 = static_cast<D3D12Queue *>(impl);
 		D3D12Device * device = queue->owner;
 
-		if (const char * refusal = SubmitRefusalForLists(
+		if (const char * refusal = submit_refusal_for_lists(
 				desc.commandLists,
 				device->caps.supportsCommandListResubmit,
 				[](const CommandList & list)
@@ -46,7 +51,8 @@ namespace azo::rhi::d3d12
 				[](const D3D12CommandList & record)
 				{
 					return ListStillRunning(record);
-				});
+				}
+			);
 			refusal != nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidState, refusal);
@@ -54,7 +60,7 @@ namespace azo::rhi::d3d12
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			if (!sync.acquired.IsValid())
+			if (!sync.acquired.is_valid())
 			{
 				continue;
 			}
@@ -131,7 +137,7 @@ namespace azo::rhi::d3d12
 
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			if (!sync.renderFinished.IsValid())
+			if (!sync.renderFinished.is_valid())
 			{
 				continue;
 			}
@@ -166,7 +172,7 @@ namespace azo::rhi::d3d12
 
 	bool BindSparseBuffer(D3D12Device * device, D3D12Queue * queue, const SparseBufferBind & bind, Error * error) noexcept
 	{
-		const bool unbind = !bind.page.heap.IsValid();
+		const bool unbind = !bind.page.heap.is_valid();
 
 		if ((bind.resourceOffset % kD3D12TileSizeBytes) != 0 || (bind.page.size % kD3D12TileSizeBytes) != 0)
 		{
@@ -223,13 +229,23 @@ namespace azo::rhi::d3d12
 		UINT rangeTileCount					   = numTiles;
 
 		queue->queue->UpdateTileMappings(
-			resource.Get(), 1, &coord, &region, heapRef.Get(), 1, &rangeFlag, &heapTileOffset, &rangeTileCount, D3D12_TILE_MAPPING_FLAG_NONE);
+			resource.Get(),
+			1,
+			&coord,
+			&region,
+			heapRef.Get(),
+			1,
+			&rangeFlag,
+			&heapTileOffset,
+			&rangeTileCount,
+			D3D12_TILE_MAPPING_FLAG_NONE
+		);
 		return Succeed(error);
 	}
 
 	bool BindSparseTexture(D3D12Device * device, D3D12Queue * queue, const SparseTextureBind & bind, Error * error) noexcept
 	{
-		const bool unbind = !bind.page.heap.IsValid();
+		const bool unbind = !bind.page.heap.is_valid();
 
 		ComPtr<ID3D12Resource> resource;
 		std::uint32_t mipLevels	  = 1;
@@ -321,7 +337,17 @@ namespace azo::rhi::d3d12
 		UINT rangeTileCount					   = region.NumTiles;
 
 		queue->queue->UpdateTileMappings(
-			resource.Get(), 1, &coord, &region, heapRef.Get(), 1, &rangeFlag, &heapTileOffset, &rangeTileCount, D3D12_TILE_MAPPING_FLAG_NONE);
+			resource.Get(),
+			1,
+			&coord,
+			&region,
+			heapRef.Get(),
+			1,
+			&rangeFlag,
+			&heapTileOffset,
+			&rangeTileCount,
+			D3D12_TILE_MAPPING_FLAG_NONE
+		);
 		return Succeed(error);
 	}
 

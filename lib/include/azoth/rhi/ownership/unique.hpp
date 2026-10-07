@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -36,7 +41,7 @@ namespace azo::rhi
 		{
 			if (this != &other)
 			{
-				Reset();
+				reset();
 				m_device	   = other.m_device;
 				m_handle	   = other.m_handle;
 				m_destroy	   = other.m_destroy;
@@ -48,10 +53,10 @@ namespace azo::rhi
 
 		~Unique()
 		{
-			Reset();
+			reset();
 		}
 
-		[[nodiscard]] HandleT Get() const noexcept
+		[[nodiscard]] HandleT get() const noexcept
 		{
 			return m_handle;
 		}
@@ -61,58 +66,58 @@ namespace azo::rhi
 			return m_handle;
 		}
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
-			return m_handle.IsValid();
+			return m_handle.is_valid();
 		}
 
 		explicit operator bool() const noexcept
 		{
-			return IsValid();
+			return is_valid();
 		}
 
-		[[nodiscard]] Device Owner() const noexcept
+		[[nodiscard]] Device owner() const noexcept
 		{
 			return m_device;
 		}
 
-		void SetDestroyDesc(const DestroyDesc & destroy) noexcept
+		void set_destroy_desc(const DestroyDesc & destroy) noexcept
 		{
 			m_destroy = destroy;
 		}
 
-		[[nodiscard]] const DestroyDesc & GetDestroyDesc() const noexcept
+		[[nodiscard]] const DestroyDesc & get_destroy_desc() const noexcept
 		{
 			return m_destroy;
 		}
 
-		[[nodiscard]] HandleT Release() noexcept
+		[[nodiscard]] HandleT release() noexcept
 		{
 			const HandleT released = m_handle;
 			m_handle			   = {};
 			return released;
 		}
 
-		void Reset() noexcept
+		void reset() noexcept
 		{
-			if (m_handle.IsValid() && m_device.IsValid())
+			if (m_handle.is_valid() && m_device.is_valid())
 			{
-				static_cast<void>(m_device.Destroy(m_handle, m_destroy));
+				static_cast<void>(m_device.destroy(m_handle, m_destroy));
 			}
 
 			m_handle = {};
 		}
 
-		bool Reset(Error & error) noexcept
+		bool reset(Error & error) noexcept
 		{
 			error = {};
-			if (!m_handle.IsValid() || !m_device.IsValid())
+			if (!m_handle.is_valid() || !m_device.is_valid())
 			{
 				m_handle = {};
 				return true;
 			}
 
-			const bool destroyed = m_device.Destroy(m_handle, m_destroy, error);
+			const bool destroyed = m_device.destroy(m_handle, m_destroy, error);
 			m_handle			 = {};
 			return destroyed;
 		}

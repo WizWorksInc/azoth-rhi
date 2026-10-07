@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -83,9 +88,11 @@ namespace azo::rhi::d3d12
 		{
 			if (!binding.immutableSamplers.empty())
 			{
-				return FailValue<DescriptorSetLayoutHandle>(error,
+				return FailValue<DescriptorSetLayoutHandle>(
+					error,
 					ErrorCode::eUnsupportedFeature,
-					"Direct3D 12 does not bake samplers into a descriptor set layout here, so write the sampler into the set instead");
+					"Direct3D 12 does not bake samplers into a descriptor set layout here, so write the sampler into the set instead"
+				);
 			}
 		}
 
@@ -103,12 +110,12 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(device->descriptorSetLayoutSlots.Store(std::move(slot)), error);
+		return ReturnValue(device->descriptorSetLayoutSlots.store(std::move(slot)), error);
 	}
 
 	[[nodiscard]] DescriptorSetLayoutSlot * ResolveDescriptorSetLayout(D3D12Device * device, DescriptorSetLayoutHandle handle) noexcept
 	{
-		return device->descriptorSetLayoutSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->descriptorSetLayoutSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	PipelineLayoutHandle D3D12CreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept
@@ -166,7 +173,7 @@ namespace azo::rhi::d3d12
 			{
 				const D3D12_DESCRIPTOR_RANGE_TYPE rangeType = MapRangeType(binding.type);
 				const NativeBinding abiSlot =
-					NativeBindingFor(D3D12Api::id, device->caps.bindingTier, abiLayout, static_cast<std::uint32_t>(i), binding.binding);
+					native_binding_for(D3D12Api::kId, device->caps.bindingTier, abiLayout, static_cast<std::uint32_t>(i), binding.binding);
 
 				D3D12_DESCRIPTOR_RANGE1 range{};
 				range.RangeType							= rangeType;
@@ -226,8 +233,11 @@ namespace azo::rhi::d3d12
 			param.Constants.ShaderRegister = static_cast<UINT>(i);
 			param.Constants.RegisterSpace  = kPushConstantRegisterSpace;
 			param.Constants.Num32BitValues = (desc.pushConstants[i].size + 3u) / 4u;
-			slot.pushConstantParams.push_back(PipelineLayoutSlot::PushConstantParam{
-				.rootParam = static_cast<std::uint32_t>(params.size()), .offset = desc.pushConstants[i].offset, .size = desc.pushConstants[i].size });
+			slot.pushConstantParams.push_back(
+				PipelineLayoutSlot::PushConstantParam{ .rootParam = static_cast<std::uint32_t>(params.size()),
+					.offset										  = desc.pushConstants[i].offset,
+					.size										  = desc.pushConstants[i].size }
+			);
 			params.push_back(param);
 		}
 
@@ -251,7 +261,7 @@ namespace azo::rhi::d3d12
 			return FailValueNative<PipelineLayoutHandle>(error, created, "ID3D12Device::CreateRootSignature failed");
 		}
 
-		return ReturnValue(device->pipelineLayoutSlots.Store(std::move(slot)), error);
+		return ReturnValue(device->pipelineLayoutSlots.store(std::move(slot)), error);
 	}
 
 	bool D3D12DestroyDescriptorSetLayout(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -260,13 +270,13 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		DescriptorSetLayoutSlot * slot = device->descriptorSetLayoutSlots.Resolve(slotHandle, true);
+		DescriptorSetLayoutSlot * slot = device->descriptorSetLayoutSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid descriptor set layout handle");
 		}
 		slot->bindings.clear();
-		static_cast<void>(device->descriptorSetLayoutSlots.Retire(slotHandle, true));
+		static_cast<void>(device->descriptorSetLayoutSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -276,7 +286,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		PipelineLayoutSlot * slot = device->pipelineLayoutSlots.Resolve(slotHandle, true);
+		PipelineLayoutSlot * slot = device->pipelineLayoutSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid pipeline layout handle");
@@ -284,7 +294,7 @@ namespace azo::rhi::d3d12
 		slot->rootSignature.Reset();
 		slot->setParams.clear();
 		slot->pushConstantParams.clear();
-		static_cast<void>(device->pipelineLayoutSlots.Retire(slotHandle, true));
+		static_cast<void>(device->pipelineLayoutSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 

@@ -1,56 +1,83 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/blocks/command_list.hpp"
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/interface.hpp"
+#include "azoth/rhi/backend/support/bounded_count.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/commands/command.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/c_string.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+
 #include "backends/metal/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Metal/MTLCommandBuffer.hpp>
+#include <Metal/MTLCommandQueue.hpp>
+
+#include <cstdint>
 
 namespace azo::rhi::metal
 {
-	QueueType MetalQueueTypeOf(void * impl) noexcept
+	QueueType metal_queue_type_of(void * impl) noexcept
 	{
 		return static_cast<MetalObject *>(impl)->queueType;
 	}
 
-	bool MetalQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept
+	bool metal_queue_submit(void * impl, const SubmitDesc & desc, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.submit");
 
 		auto * queue		 = static_cast<MetalObject *>(impl);
 		MetalDevice * device = queue->owner;
 
-		MTL::CommandQueue * commandQueue = device->CommandQueueFor(queue->queueType);
+		MTL::CommandQueue * commandQueue = device->command_queue_for(queue->queueType);
 		if (commandQueue == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "submit on a queue type the device did not create");
+			return fail(error, ErrorCode::eInvalidState, "submit on a queue type the device did not create");
 		}
 
 		// This backend never resubmits, so the pending question cannot arise and is answered false.
-		if (const char * refusal = SubmitRefusalForLists(
+		if (const char * refusal = submit_refusal_for_lists(
 				desc.commandLists,
 				device->caps.supportsCommandListResubmit,
 				[](const CommandList & list)
 				{
-					return static_cast<const MetalObject *>(detail::UnwrappedImplOf(list))->list;
+					return static_cast<const MetalObject *>(detail::unwrapped_impl_of(list))->list;
 				},
 				[](const MetalCmdList &)
 				{
 					return false;
-				});
+				}
+			);
 			refusal != nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, refusal);
+			return fail(error, ErrorCode::eInvalidState, refusal);
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
 		for (const TimelinePoint & wait : desc.waits)
 		{
-			const auto * tracked = device->timelines.Resolve(wait.timeline, kHandleAlreadyChecked);
+			const auto * tracked = device->timelines.resolve(wait.timeline, kHandleAlreadyChecked);
 			if (tracked == nullptr)
 			{
 				continue;
@@ -61,7 +88,7 @@ namespace azo::rhi::metal
 		}
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			const auto * tracked = device->binarySemaphores.Resolve(sync.acquired, kHandleAlreadyChecked);
+			const auto * tracked = device->binarySemaphores.resolve(sync.acquired, kHandleAlreadyChecked);
 			if (tracked == nullptr)
 			{
 				continue;
@@ -77,7 +104,7 @@ namespace azo::rhi::metal
 			{
 				continue;
 			}
-			auto * listObject = static_cast<MetalObject *>(detail::UnwrappedImplOf(*list));
+			auto * listObject  = static_cast<MetalObject *>(detail::unwrapped_impl_of(*list));
 			MetalCmdList * rec = listObject->list;
 			if (rec == nullptr || rec->lifecycle != ListLifecycle::eEnded)
 			{
@@ -89,13 +116,13 @@ namespace azo::rhi::metal
 			if (rec->holdsListSlot)
 			{
 				rec->holdsListSlot = false;
-				device->openLists.Close(listObject->queueType);
+				device->openLists.close(listObject->queueType);
 			}
 		}
 
 		for (const TimelinePoint & signal : desc.signals)
 		{
-			const auto * tracked = device->timelines.Resolve(signal.timeline, kHandleAlreadyChecked);
+			const auto * tracked = device->timelines.resolve(signal.timeline, kHandleAlreadyChecked);
 			if (tracked == nullptr)
 			{
 				continue;
@@ -106,7 +133,7 @@ namespace azo::rhi::metal
 		}
 		for (const SwapchainSync & sync : desc.swapchains)
 		{
-			auto * tracked = device->binarySemaphores.Resolve(sync.renderFinished, kHandleAlreadyChecked);
+			auto * tracked = device->binarySemaphores.resolve(sync.renderFinished, kHandleAlreadyChecked);
 			if (tracked == nullptr)
 			{
 				continue;
@@ -118,92 +145,97 @@ namespace azo::rhi::metal
 			commandBuffer->commit();
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalQueueWaitIdle(void * impl, Error * error) noexcept
+	bool metal_queue_wait_idle(void * impl, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.waitIdle");
 
 		auto * queue					 = static_cast<MetalObject *>(impl);
 		MetalDevice * device			 = queue->owner;
-		MTL::CommandQueue * commandQueue = device->CommandQueueFor(queue->queueType);
+		MTL::CommandQueue * commandQueue = device->command_queue_for(queue->queueType);
 		if (commandQueue == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidState, "waitIdle on a queue type the device did not create");
+			return fail(error, ErrorCode::eInvalidState, "waitIdle on a queue type the device did not create");
 		}
 
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 		MTL::CommandBuffer * commandBuffer			  = commandQueue->commandBuffer();
 		commandBuffer->commit();
 		commandBuffer->waitUntilCompleted();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalQueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept
+	bool metal_queue_get_completed_value(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "completed value output pointer is null");
+			return fail(error, ErrorCode::eInvalidArgument, "completed value output pointer is null");
 		}
 
 		auto * device = static_cast<MetalObject *>(impl)->owner;
 
-		const auto * tracked = device->timelines.Resolve(timeline, kHandleAlreadyChecked);
+		const auto * tracked = device->timelines.resolve(timeline, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
 			*out = 0;
-			return Fail(error, ErrorCode::eInvalidHandle, "completed value of a timeline this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "completed value of a timeline this device never created");
 		}
 
 		*out = tracked->event->signaledValue();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalQueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept
+	bool metal_queue_signal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept
 	{
 		auto * device = static_cast<MetalObject *>(impl)->owner;
 
-		const auto * tracked = device->timelines.Resolve(timeline, kHandleAlreadyChecked);
+		const auto * tracked = device->timelines.resolve(timeline, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "signal of a timeline this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "signal of a timeline this device never created");
 		}
 
 		tracked->event->setSignaledValue(value);
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalQueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept
+	bool metal_queue_wait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept
 	{
 		auto * device = static_cast<MetalObject *>(impl)->owner;
 
 		MTL::SharedEvent * event = nullptr;
 		{
-			const auto * tracked = device->timelines.Resolve(timeline, kHandleAlreadyChecked);
+			const auto * tracked = device->timelines.resolve(timeline, kHandleAlreadyChecked);
 			if (tracked == nullptr)
 			{
-				return Fail(error, ErrorCode::eInvalidHandle, "wait on a timeline this device never created");
+				return fail(error, ErrorCode::eInvalidHandle, "wait on a timeline this device never created");
 			}
 			event = tracked->event.get();
 		}
 
-		return MetalWaitForEvent(event, value, timeoutNanoseconds, error);
+		return metal_wait_for_event(event, value, timeoutNanoseconds, error);
 	}
 
-	bool MetalQueueBeginDebugLabel([[maybe_unused]] void * impl, [[maybe_unused]] CString name, [[maybe_unused]] std::uint32_t color, Error * error) noexcept
+	bool metal_queue_begin_debug_label(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] CString name,
+		[[maybe_unused]] std::uint32_t color,
+		Error * error
+	) noexcept
 	{
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool MetalQueueEndDebugLabel([[maybe_unused]] void * impl, Error * error) noexcept
+	bool metal_queue_end_debug_label([[maybe_unused]] void * impl, Error * error) noexcept
 	{
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	namespace
 	{
-		const void * MetalCommandListQueryInterface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
+		const void * metal_command_list_query_interface(void * object, const InterfaceId id, const std::uint32_t minVersion) noexcept
 		{
 			const auto * list = static_cast<const MetalObject *>(object);
 
@@ -212,21 +244,22 @@ namespace azo::rhi::metal
 				return nullptr;
 			}
 
-			return QueryPublished<Published<RenderCommandApi, &RenderCommandBlock>,
-				Published<AliasingCommandApi, &AliasingCommandBlock>,
-				Published<QueryCommandApi, &QueryCommandBlock>,
-				Published<IndirectApi, &IndirectBlock>,
-				Published<NativeEscapeApi, &NativeEscapeBlock>>(object, id, minVersion);
+			return query_published<
+				Published<RenderCommandApi, &render_command_block>,
+				Published<AliasingCommandApi, &aliasing_command_block>,
+				Published<QueryCommandApi, &query_command_block>,
+				Published<IndirectApi, &indirect_block>,
+				Published<NativeEscapeApi, &native_escape_block>>(object, id, minVersion);
 		}
 
-		const BackendObject * CommandListObject() noexcept
+		const BackendObject * command_list_object() noexcept
 		{
-			static constexpr BackendObject object{ .queryInterface = &MetalCommandListQueryInterface };
-			return &object;
+			static constexpr BackendObject kObject{ .queryInterface = &metal_command_list_query_interface };
+			return &kObject;
 		}
 	}
 
-	void * MetalCommandPoolAllocate(void * impl, CString debugName, Error * error) noexcept
+	void * metal_command_pool_allocate(void * impl, CString debugName, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.commandPool.allocate");
 
@@ -236,39 +269,39 @@ namespace azo::rhi::metal
 
 		if (owner != nullptr && owner->handedOut < owner->lists.size())
 		{
-			MetalObject * recycled = owner->lists[owner->handedOut];
+			MetalObject * recycled = azo::rhi::detail::at(owner->lists, owner->handedOut);
 			++owner->handedOut;
 			recycled->list->debugName = debugName != nullptr ? debugName : "";
-			return ReturnValue(static_cast<void *>(recycled), error);
+			return return_value(static_cast<void *>(recycled), error);
 		}
 
-		auto * listObject = static_cast<MetalObject *>(AllocObject(device, CommandListObject(), queueType));
+		auto * listObject = static_cast<MetalObject *>(alloc_object(device, command_list_object(), queueType));
 		if (listObject == nullptr)
 		{
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list allocation failed");
 		}
 
-		listObject->list = NewCmdList(device);
+		listObject->list = new_cmd_list(device);
 		if (listObject->list == nullptr)
 		{
-			return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list allocation failed");
+			return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list allocation failed");
 		}
 
 		listObject->list->debugName = debugName != nullptr ? debugName : "";
 
 		if (owner != nullptr)
 		{
-			if (!detail::TryPushBack(owner->lists, listObject))
+			if (!detail::try_push_back(owner->lists, listObject))
 			{
-				return FailValue<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list tracking failed");
+				return fail_value<void *>(error, ErrorCode::eOutOfHostMemory, "Metal command list tracking failed");
 			}
 			++owner->handedOut;
 		}
 
-		return ReturnValue(static_cast<void *>(listObject), error);
+		return return_value(static_cast<void *>(listObject), error);
 	}
 
-	bool MetalCommandPoolReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
+	bool metal_command_pool_reset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal.commandPool.reset");
 
@@ -277,13 +310,13 @@ namespace azo::rhi::metal
 		{
 			for (MetalObject * listObject : poolObject->pool->lists)
 			{
-				ReleaseCmdBuffer(poolObject->owner, listObject->list, listObject->queueType);
+				release_cmd_buffer(poolObject->owner, listObject->list, listObject->queueType);
 			}
 
 			poolObject->pool->handedOut = 0;
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

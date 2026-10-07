@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -109,22 +114,22 @@ namespace azo::rhi
 		eAllCommands = 1ull << 31u,
 	};
 
-	[[nodiscard]] constexpr bool IsOneTimestampStage(const Flags<Stage> stage) noexcept
+	[[nodiscard]] constexpr bool is_one_timestamp_stage(const Flags<Stage> stage) noexcept
 	{
-		const std::uint64_t bits = stage.Bits();
+		const std::uint64_t bits = stage.bits();
 		return (bits & (bits - 1u)) == 0u;
 	}
 
-	[[nodiscard]] constexpr bool QueueCanNameStage(const QueueType queue, const Flags<Stage> stage) noexcept
+	[[nodiscard]] constexpr bool queue_can_name_stage(const QueueType queue, const Flags<Stage> stage) noexcept
 	{
-		constexpr Flags<Stage> everywhere = Flags<Stage>(Stage::eHost) | Stage::eAllCommands;
-		constexpr Flags<Stage> transfer	  = everywhere | Stage::eCopy | Stage::eResolve;
-		constexpr Flags<Stage> compute	  = transfer | Stage::eIndirectFetch | Stage::eCompute | Stage::eRayTracing | Stage::eAccelBuild;
+		constexpr Flags<Stage> kEverywhere = Flags<Stage>(Stage::eHost) | Stage::eAllCommands;
+		constexpr Flags<Stage> kTransfer   = kEverywhere | Stage::eCopy | Stage::eResolve;
+		constexpr Flags<Stage> kCompute	   = kTransfer | Stage::eIndirectFetch | Stage::eCompute | Stage::eRayTracing | Stage::eAccelBuild;
 
 		switch (queue)
 		{
-		case QueueType::eCompute:  return compute.Contains(stage);
-		case QueueType::eCopy:	   return transfer.Contains(stage);
+		case QueueType::eCompute:  return kCompute.contains(stage);
+		case QueueType::eCopy:	   return kTransfer.contains(stage);
 		case QueueType::eGraphics: break;
 		}
 
@@ -206,17 +211,17 @@ namespace azo::rhi
 
 	inline constexpr std::uint32_t kNoPlane = ~0u;
 
-	[[nodiscard]] constexpr std::uint32_t PlaneIndexOf(const Flags<TextureAspect> aspects) noexcept
+	[[nodiscard]] constexpr std::uint32_t plane_index_of(const Flags<TextureAspect> aspects) noexcept
 	{
-		if (aspects.Contains(TextureAspect::ePlane0))
+		if (aspects.contains(TextureAspect::ePlane0))
 		{
 			return 0;
 		}
-		if (aspects.Contains(TextureAspect::ePlane1))
+		if (aspects.contains(TextureAspect::ePlane1))
 		{
 			return 1;
 		}
-		if (aspects.Contains(TextureAspect::ePlane2))
+		if (aspects.contains(TextureAspect::ePlane2))
 		{
 			return 2;
 		}
@@ -318,36 +323,39 @@ namespace azo::rhi
 	public:
 		Queue() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_blocks != nullptr;
 		}
 
-		[[nodiscard]] QueueType GetType() const noexcept;
+		[[nodiscard]] QueueType get_type() const noexcept;
 
-		[[nodiscard]] bool Submit(const SubmitDesc & desc) noexcept;
-		[[nodiscard]] bool Submit(const SubmitDesc & desc, Error & error) noexcept;
-		[[nodiscard]] bool WaitIdle() noexcept;
-		[[nodiscard]] bool WaitIdle(Error & error) noexcept;
+		[[nodiscard]] bool submit(const SubmitDesc & desc) noexcept;
+		[[nodiscard]] bool submit(const SubmitDesc & desc, Error & error) noexcept;
+		[[nodiscard]] bool wait_idle() noexcept;
+		[[nodiscard]] bool wait_idle(Error & error) noexcept;
 
-		[[nodiscard]] bool GetCompletedValue(TimelineHandle timeline, std::uint64_t & out) const noexcept;
-		[[nodiscard]] bool GetCompletedValue(TimelineHandle timeline, std::uint64_t & out, Error & error) const noexcept;
-		[[nodiscard]] Result<std::uint64_t> GetCompletedValueWithResult(TimelineHandle timeline) const noexcept;
+		[[nodiscard]] bool get_completed_value(TimelineHandle timeline, std::uint64_t & out) const noexcept;
+		[[nodiscard]] bool get_completed_value(TimelineHandle timeline, std::uint64_t & out, Error & error) const noexcept;
+		[[nodiscard]] Result<std::uint64_t> get_completed_value_with_result(TimelineHandle timeline) const noexcept;
 
-		[[nodiscard]] bool Wait(
-			TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
-		[[nodiscard]] bool Wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error & error) noexcept;
+		[[nodiscard]] bool wait(
+			TimelineHandle timeline,
+			std::uint64_t value,
+			std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()
+		) noexcept;
+		[[nodiscard]] bool wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error & error) noexcept;
 
-		[[nodiscard]] bool Signal(TimelineHandle timeline, std::uint64_t value) noexcept;
-		[[nodiscard]] bool Signal(TimelineHandle timeline, std::uint64_t value, Error & error) noexcept;
+		[[nodiscard]] bool signal(TimelineHandle timeline, std::uint64_t value) noexcept;
+		[[nodiscard]] bool signal(TimelineHandle timeline, std::uint64_t value, Error & error) noexcept;
 
-		[[nodiscard]] bool BindSparse(const SparseBindDesc & desc) noexcept;
-		[[nodiscard]] bool BindSparse(const SparseBindDesc & desc, Error & error) noexcept;
+		[[nodiscard]] bool bind_sparse(const SparseBindDesc & desc) noexcept;
+		[[nodiscard]] bool bind_sparse(const SparseBindDesc & desc, Error & error) noexcept;
 
-		bool BeginDebugLabel(const char * name, std::uint32_t color = 0) noexcept;
-		bool BeginDebugLabel(const char * name, std::uint32_t color, Error & error) noexcept;
-		bool EndDebugLabel() noexcept;
-		bool EndDebugLabel(Error & error) noexcept;
+		bool begin_debug_label(const char * name, std::uint32_t color = 0) noexcept;
+		bool begin_debug_label(const char * name, std::uint32_t color, Error & error) noexcept;
+		bool end_debug_label() noexcept;
+		bool end_debug_label(Error & error) noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;

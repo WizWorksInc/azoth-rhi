@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -17,7 +22,7 @@
 
 namespace azo::rhi::detail
 {
-	[[nodiscard]] constexpr std::uint32_t MaxMipLevels(const std::uint32_t width, const std::uint32_t height, const std::uint32_t depth) noexcept
+	[[nodiscard]] constexpr std::uint32_t max_mip_levels(const std::uint32_t width, const std::uint32_t height, const std::uint32_t depth) noexcept
 	{
 		const std::uint32_t largest = width > height ? (width > depth ? width : depth) : (height > depth ? height : depth);
 		return static_cast<std::uint32_t>(std::bit_width(largest));
@@ -30,14 +35,17 @@ namespace azo::rhi::detail
 		std::uint32_t baseLayer	 = 0;
 		std::uint32_t layerCount = 0;
 
-		[[nodiscard]] constexpr bool IsEmpty() const noexcept
+		[[nodiscard]] constexpr bool is_empty() const noexcept
 		{
 			return mipCount == 0 || layerCount == 0;
 		}
 	};
 
-	[[nodiscard]] constexpr ResolvedSubresourceRange ResolveSubresourceRange(
-		const TextureSubresourceRange & range, std::uint32_t mipLevels, std::uint32_t arrayLayers) noexcept
+	[[nodiscard]] constexpr ResolvedSubresourceRange resolve_subresource_range(
+		const TextureSubresourceRange & range,
+		std::uint32_t mipLevels,
+		std::uint32_t arrayLayers
+	) noexcept
 	{
 		ResolvedSubresourceRange out{};
 		out.baseMip	  = range.baseMip;
@@ -59,7 +67,7 @@ namespace azo::rhi::detail
 		return out;
 	}
 
-	[[nodiscard]] constexpr bool CoversWholeTexture(const ResolvedSubresourceRange & range, std::uint32_t mipLevels, std::uint32_t arrayLayers) noexcept
+	[[nodiscard]] constexpr bool covers_whole_texture(const ResolvedSubresourceRange & range, std::uint32_t mipLevels, std::uint32_t arrayLayers) noexcept
 	{
 		return range.baseMip == 0 && range.baseLayer == 0 && range.mipCount == mipLevels && range.layerCount == arrayLayers;
 	}

@@ -1,15 +1,22 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
+#include "azoth/rhi/commands/command.hpp"
 #include "azoth/rhi/core/api.hpp"
+#include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/core/result.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/device.hpp"
@@ -28,7 +35,7 @@ struct IDXGIAdapter4;
 struct IDXGIFactory6;
 struct IDXGISwapChain3;
 
-namespace D3D12MA
+namespace D3D12MA // NOLINT(readability-identifier-naming)
 {
 	class Allocator;
 }
@@ -59,7 +66,7 @@ namespace azo::rhi
 		D3D12MA::Allocator * allocator	   = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<D3D12NativeDevice> GetD3D12NativeDevice(Device device);
+	[[nodiscard]] AZO_RHI_API Result<D3D12NativeDevice> get_d3_d12_native_device(Device device);
 
 	struct D3D12NativeSwapchain final
 	{
@@ -70,11 +77,12 @@ namespace azo::rhi
 		std::uint32_t imageCount	= 0;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<D3D12NativeSwapchain> GetD3D12NativeSwapchain(Swapchain swapchain);
+	[[nodiscard]] AZO_RHI_API Result<D3D12NativeSwapchain> get_d3_d12_native_swapchain(Swapchain swapchain);
 
-	[[nodiscard]] AZO_RHI_API ID3D12GraphicsCommandList * GetD3D12CommandList(CommandList commandList);
+	// Begin over a list whose submission is still running swaps in a fresh native list and allocator, so fetch these after Begin.
+	[[nodiscard]] AZO_RHI_API ID3D12GraphicsCommandList * get_d3_d12_command_list(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * GetD3D12CommandAllocator(CommandPool commandPool);
+	[[nodiscard]] AZO_RHI_API ID3D12CommandAllocator * get_d3_d12_command_allocator(CommandList commandList);
 
 	template <>
 	struct NativeTimeline<D3D12Api> final
@@ -109,7 +117,7 @@ namespace azo::rhi::native
 		using QueueView		  = D3D12QueueView;
 		using CommandListView = D3D12CommandListView;
 
-		[[nodiscard]] static AZO_RHI_API D3D12CommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API D3D12CommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
 }
@@ -117,6 +125,6 @@ namespace azo::rhi::native
 namespace azo::rhi
 {
 
-	[[nodiscard]] AZO_RHI_API Result<native::D3D12QueueView> GetD3D12QueueView(Queue queue);
+	[[nodiscard]] AZO_RHI_API Result<native::D3D12QueueView> get_d3_d12_queue_view(Queue queue);
 
 }

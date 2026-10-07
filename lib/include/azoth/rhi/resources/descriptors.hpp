@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -130,7 +135,7 @@ namespace azo::rhi
 	{
 		eFrameTransient,
 
-		ePersistent
+		ePersistent,
 	};
 
 	struct DescriptorArenaDesc final
@@ -199,16 +204,16 @@ namespace azo::rhi
 	public:
 		DescriptorArena() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_dispatch != nullptr;
 		}
 
-		[[nodiscard]] DescriptorSetHandle Allocate(const DescriptorSetAllocDesc & desc) noexcept;
-		[[nodiscard]] DescriptorSetHandle Allocate(const DescriptorSetAllocDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<DescriptorSetHandle> AllocateWithResult(const DescriptorSetAllocDesc & desc) noexcept;
-		[[nodiscard]] bool Reset(RetirePoint safeAfter) noexcept;
-		[[nodiscard]] bool Reset(RetirePoint safeAfter, Error & error) noexcept;
+		[[nodiscard]] DescriptorSetHandle allocate(const DescriptorSetAllocDesc & desc) noexcept;
+		[[nodiscard]] DescriptorSetHandle allocate(const DescriptorSetAllocDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<DescriptorSetHandle> allocate_with_result(const DescriptorSetAllocDesc & desc) noexcept;
+		[[nodiscard]] bool reset(RetirePoint safeAfter) noexcept;
+		[[nodiscard]] bool reset(RetirePoint safeAfter, Error & error) noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;

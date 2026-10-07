@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -75,9 +80,9 @@ namespace azo::rhi
 		const vk::detail::DispatchLoaderDynamic * dispatch = nullptr;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<VulkanNativeDevice> GetVulkanNativeDevice(Device device);
+	[[nodiscard]] AZO_RHI_API Result<VulkanNativeDevice> get_vulkan_native_device(Device device);
 
-	[[nodiscard]] Result<void> SetVulkanDeviceSurface(Device device, vk::SurfaceKHR surface);
+	[[nodiscard]] Result<void> set_vulkan_device_surface(Device device, vk::SurfaceKHR surface);
 
 	struct VulkanNativeSwapchain final
 	{
@@ -93,13 +98,13 @@ namespace azo::rhi
 		bool captureCapable			   = false;
 	};
 
-	[[nodiscard]] AZO_RHI_API Result<VulkanNativeSwapchain> GetVulkanNativeSwapchain(Swapchain swapchain);
+	[[nodiscard]] AZO_RHI_API Result<VulkanNativeSwapchain> get_vulkan_native_swapchain(Swapchain swapchain);
 
-	[[nodiscard]] AZO_RHI_API Result<vk::Semaphore> GetVulkanSemaphore(Swapchain swapchain, BinarySemaphoreHandle semaphore);
+	[[nodiscard]] AZO_RHI_API Result<vk::Semaphore> get_vulkan_semaphore(Swapchain swapchain, BinarySemaphoreHandle semaphore);
 
-	[[nodiscard]] AZO_RHI_API vk::CommandBuffer GetVulkanCommandBuffer(CommandList commandList);
+	[[nodiscard]] AZO_RHI_API vk::CommandBuffer get_vulkan_command_buffer(CommandList commandList);
 
-	[[nodiscard]] AZO_RHI_API vk::CommandPool GetVulkanCommandPool(CommandPool commandPool);
+	[[nodiscard]] AZO_RHI_API vk::CommandPool get_vulkan_command_pool(CommandPool commandPool);
 
 }
 
@@ -123,7 +128,7 @@ namespace azo::rhi::native
 		using QueueView		  = VulkanQueueView;
 		using CommandListView = VulkanCommandListView;
 
-		[[nodiscard]] static AZO_RHI_API VulkanCommandListView MakeCommandListView(void * commandListImpl) noexcept;
+		[[nodiscard]] static AZO_RHI_API VulkanCommandListView make_command_list_view(void * commandListImpl) noexcept;
 	};
 
 }
@@ -131,6 +136,6 @@ namespace azo::rhi::native
 namespace azo::rhi
 {
 
-	[[nodiscard]] AZO_RHI_API Result<native::VulkanQueueView> GetVulkanQueueView(Queue queue);
+	[[nodiscard]] AZO_RHI_API Result<native::VulkanQueueView> get_vulkan_queue_view(Queue queue);
 
 }

@@ -1,74 +1,105 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/resources/descriptors.hpp"
+#include "azoth/rhi/resources/pipeline.hpp"
+#include "azoth/rhi/resources/resources.hpp"
+#include "azoth/rhi/resources/texture_view.hpp"
+
 #include "backends/vulkan/internal.hpp"
+#include "backends/vulkan/swapchain_bundle.hpp"
+#include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan_core.h>
+
+#include <vulkan/vulkan.hpp>
+
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <span>
+#include <utility>
 
 namespace azo::rhi::vulkan
 {
-	[[nodiscard]] vk::BufferUsageFlags MapBufferUsage(Flags<BufferUsage> usage) noexcept
+	[[nodiscard]] vk::BufferUsageFlags map_buffer_usage(Flags<BufferUsage> usage) noexcept
 	{
 		vk::BufferUsageFlags out{};
-		if (usage.Contains(BufferUsage::eCopySrc))
+		if (usage.contains(BufferUsage::eCopySrc))
 		{
 			out |= vk::BufferUsageFlagBits::eTransferSrc;
 		}
 
-		if (usage.Contains(BufferUsage::eCopyDst))
+		if (usage.contains(BufferUsage::eCopyDst))
 		{
 			out |= vk::BufferUsageFlagBits::eTransferDst;
 		}
 
-		if (usage.Contains(BufferUsage::eVertex))
+		if (usage.contains(BufferUsage::eVertex))
 		{
 			out |= vk::BufferUsageFlagBits::eVertexBuffer;
 		}
 
-		if (usage.Contains(BufferUsage::eIndex))
+		if (usage.contains(BufferUsage::eIndex))
 		{
 			out |= vk::BufferUsageFlagBits::eIndexBuffer;
 		}
 
-		if (usage.Contains(BufferUsage::eUniform))
+		if (usage.contains(BufferUsage::eUniform))
 		{
 			out |= vk::BufferUsageFlagBits::eUniformBuffer;
 		}
 
-		if (usage.Contains(BufferUsage::eStorage))
+		if (usage.contains(BufferUsage::eStorage))
 		{
 			out |= vk::BufferUsageFlagBits::eStorageBuffer;
 		}
 
-		if (usage.Contains(BufferUsage::eIndirect))
+		if (usage.contains(BufferUsage::eIndirect))
 		{
 			out |= vk::BufferUsageFlagBits::eIndirectBuffer;
 		}
 		return out;
 	}
 
-	bool VulkanRefuseRayTracingUsage(const Flags<BufferUsage> usage, const bool supportsRayTracing, Error * error) noexcept
+	bool vulkan_refuse_ray_tracing_usage(const Flags<BufferUsage> usage, const bool supportsRayTracing, Error * error) noexcept
 	{
 		if (supportsRayTracing)
 		{
 			return true;
 		}
 
-		if (usage.Contains(BufferUsage::eShaderBindingTable) || usage.Contains(BufferUsage::eAccelerationStructureInput) ||
-			usage.Contains(BufferUsage::eAccelerationStructureStorage))
+		if (usage.contains(BufferUsage::eShaderBindingTable) || usage.contains(BufferUsage::eAccelerationStructureInput) ||
+			usage.contains(BufferUsage::eAccelerationStructureStorage))
 		{
-			return Fail(
-				error, ErrorCode::eUnsupportedFeature, "a shader binding table or acceleration structure buffer needs ray tracing, which this device declines");
+			return fail(
+				error,
+				ErrorCode::eUnsupportedFeature,
+				"a shader binding table or acceleration structure buffer needs ray tracing, which this device declines"
+			);
 		}
 
 		return true;
 	}
 
-	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept
+	[[nodiscard]] VmaMemoryUsage map_memory_usage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept
 	{
 		outFlags = 0;
 		switch (memory)
@@ -85,9 +116,9 @@ namespace azo::rhi::vulkan
 		return VMA_MEMORY_USAGE_AUTO;
 	}
 
-	[[nodiscard]] VmaMemoryUsage MapBufferMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept
+	[[nodiscard]] VmaMemoryUsage map_buffer_memory_usage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept
 	{
-		const VmaMemoryUsage usage = MapMemoryUsage(memory, outFlags);
+		const VmaMemoryUsage usage = map_memory_usage(memory, outFlags);
 
 		// A mappable buffer stays mapped so Map only counts, which keeps VMA's 255-map ceiling out of reach.
 		if (outFlags != 0)
@@ -97,7 +128,7 @@ namespace azo::rhi::vulkan
 		return usage;
 	}
 
-	[[nodiscard]] vk::Format MapFormat(Format format) noexcept
+	[[nodiscard]] vk::Format map_format(Format format) noexcept
 	{
 		switch (format)
 		{
@@ -147,40 +178,40 @@ namespace azo::rhi::vulkan
 		return vk::Format::eUndefined;
 	}
 
-	[[nodiscard]] vk::ImageUsageFlags MapTextureUsage(Flags<TextureUsage> usage) noexcept
+	[[nodiscard]] vk::ImageUsageFlags map_texture_usage(Flags<TextureUsage> usage) noexcept
 	{
 		vk::ImageUsageFlags out{};
-		if (usage.Contains(TextureUsage::eCopySrc))
+		if (usage.contains(TextureUsage::eCopySrc))
 		{
 			out |= vk::ImageUsageFlagBits::eTransferSrc;
 		}
 
-		if (usage.Contains(TextureUsage::eCopyDst))
+		if (usage.contains(TextureUsage::eCopyDst))
 		{
 			out |= vk::ImageUsageFlagBits::eTransferDst;
 		}
 
-		if (usage.Contains(TextureUsage::eSampled))
+		if (usage.contains(TextureUsage::eSampled))
 		{
 			out |= vk::ImageUsageFlagBits::eSampled;
 		}
 
-		if (usage.Contains(TextureUsage::eStorage))
+		if (usage.contains(TextureUsage::eStorage))
 		{
 			out |= vk::ImageUsageFlagBits::eStorage;
 		}
 
-		if (usage.Contains(TextureUsage::eColorAttachment))
+		if (usage.contains(TextureUsage::eColorAttachment))
 		{
 			out |= vk::ImageUsageFlagBits::eColorAttachment;
 		}
 
-		if (usage.Contains(TextureUsage::eDepthStencilAttachment))
+		if (usage.contains(TextureUsage::eDepthStencilAttachment))
 		{
 			out |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
 		}
 
-		if (usage.Contains(TextureUsage::eTransientAttachment))
+		if (usage.contains(TextureUsage::eTransientAttachment))
 		{
 			out |= vk::ImageUsageFlagBits::eTransientAttachment;
 		}
@@ -188,7 +219,7 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	[[nodiscard]] vk::ImageType MapImageType(TextureType type) noexcept
+	[[nodiscard]] vk::ImageType map_image_type(TextureType type) noexcept
 	{
 		switch (type)
 		{
@@ -201,7 +232,7 @@ namespace azo::rhi::vulkan
 		return vk::ImageType::e2D;
 	}
 
-	[[nodiscard]] vk::ImageViewType MapViewType(TextureType type) noexcept
+	[[nodiscard]] vk::ImageViewType map_view_type(TextureType type) noexcept
 	{
 		switch (type)
 		{
@@ -214,7 +245,7 @@ namespace azo::rhi::vulkan
 		return vk::ImageViewType::e2D;
 	}
 
-	[[nodiscard]] vk::SampleCountFlagBits MapSampleCount(SampleCount samples) noexcept
+	[[nodiscard]] vk::SampleCountFlagBits map_sample_count(SampleCount samples) noexcept
 	{
 		switch (samples)
 		{
@@ -228,7 +259,7 @@ namespace azo::rhi::vulkan
 		return vk::SampleCountFlagBits::e1;
 	}
 
-	[[nodiscard]] vk::PresentModeKHR MapPresentMode(PresentMode mode) noexcept
+	[[nodiscard]] vk::PresentModeKHR map_present_mode(PresentMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -241,7 +272,7 @@ namespace azo::rhi::vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	[[nodiscard]] PresentMode MapVkPresentMode(vk::PresentModeKHR mode) noexcept
+	[[nodiscard]] PresentMode map_vk_present_mode(vk::PresentModeKHR mode) noexcept
 	{
 		switch (mode)
 		{
@@ -252,7 +283,7 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	[[nodiscard]] Format MapVkFormat(vk::Format format) noexcept
+	[[nodiscard]] Format map_vk_format(vk::Format format) noexcept
 	{
 		switch (format)
 		{
@@ -273,7 +304,7 @@ namespace azo::rhi::vulkan
 
 	namespace
 	{
-		[[nodiscard]] vk::ComponentSwizzle MapComponentSwizzle(ComponentSwizzle swizzle) noexcept
+		[[nodiscard]] vk::ComponentSwizzle map_component_swizzle(ComponentSwizzle swizzle) noexcept
 		{
 			switch (swizzle)
 			{
@@ -290,14 +321,19 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	vk::ComponentMapping MapComponentMapping(const ComponentMapping mapping) noexcept
+	vk::ComponentMapping map_component_mapping(const ComponentMapping mapping) noexcept
 	{
-		return vk::ComponentMapping{
-			MapComponentSwizzle(mapping.r), MapComponentSwizzle(mapping.g), MapComponentSwizzle(mapping.b), MapComponentSwizzle(mapping.a)
-		};
+		return vk::ComponentMapping{ map_component_swizzle(mapping.r),
+			map_component_swizzle(mapping.g),
+			map_component_swizzle(mapping.b),
+			map_component_swizzle(mapping.a) };
 	}
 
-	bool QueryPortabilitySubsetFeatures(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, PortabilitySubsetFeatures & out) noexcept
+	bool query_portability_subset_features(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		PortabilitySubsetFeatures & out
+	) noexcept
 	{
 		auto * const physical  = static_cast<VkPhysicalDevice>(phys);
 		std::uint32_t extCount = 0;
@@ -312,11 +348,13 @@ namespace azo::rhi::vulkan
 			return false;
 		}
 
-		const bool portability = std::ranges::any_of(exts,
+		const bool portability = std::ranges::any_of(
+			exts,
 			[](const VkExtensionProperties & ep) noexcept
 			{
 				return std::strcmp(ep.extensionName, "VK_KHR_portability_subset") == 0;
-			});
+			}
+		);
 		if (!portability)
 		{
 			return false;
@@ -332,10 +370,10 @@ namespace azo::rhi::vulkan
 		return true;
 	}
 
-	[[nodiscard]] bool AdapterSupportsViewSwizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
+	[[nodiscard]] bool adapter_supports_view_swizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
 	{
 		PortabilitySubsetFeatures portabilityFeatures{};
-		if (!QueryPortabilitySubsetFeatures(phys, dispatch, portabilityFeatures))
+		if (!query_portability_subset_features(phys, dispatch, portabilityFeatures))
 		{
 			return true;
 		}
@@ -345,7 +383,7 @@ namespace azo::rhi::vulkan
 
 	namespace
 	{
-		[[nodiscard]] vk::SamplerYcbcrModelConversion MapYcbcrModel(YcbcrModel model) noexcept
+		[[nodiscard]] vk::SamplerYcbcrModelConversion map_ycbcr_model(YcbcrModel model) noexcept
 		{
 			switch (model)
 			{
@@ -359,18 +397,18 @@ namespace azo::rhi::vulkan
 			return vk::SamplerYcbcrModelConversion::eYcbcr601;
 		}
 
-		[[nodiscard]] vk::SamplerYcbcrRange MapYcbcrRange(YcbcrRange range) noexcept
+		[[nodiscard]] vk::SamplerYcbcrRange map_ycbcr_range(YcbcrRange range) noexcept
 		{
 			return range == YcbcrRange::eFull ? vk::SamplerYcbcrRange::eItuFull : vk::SamplerYcbcrRange::eItuNarrow;
 		}
 
-		[[nodiscard]] vk::ChromaLocation MapChromaLocation(ChromaLocation location) noexcept
+		[[nodiscard]] vk::ChromaLocation map_chroma_location(ChromaLocation location) noexcept
 		{
 			return location == ChromaLocation::eCositedEven ? vk::ChromaLocation::eCositedEven : vk::ChromaLocation::eMidpoint;
 		}
 	}
 
-	vk::SamplerYcbcrConversion AcquireYcbcrConversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept
+	vk::SamplerYcbcrConversion acquire_ycbcr_conversion(VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept
 	{
 		outResult = vk::Result::eSuccess;
 		for (const auto & [cached, conversion] : device->ycbcrConversions)
@@ -382,13 +420,13 @@ namespace azo::rhi::vulkan
 		}
 
 		vk::SamplerYcbcrConversionCreateInfo info{};
-		info.format						 = MapFormat(desc.format);
-		info.ycbcrModel					 = MapYcbcrModel(desc.model);
-		info.ycbcrRange					 = MapYcbcrRange(desc.range);
-		info.components					 = MapComponentMapping(desc.components);
-		info.xChromaOffset				 = MapChromaLocation(desc.xChromaOffset);
-		info.yChromaOffset				 = MapChromaLocation(desc.yChromaOffset);
-		info.chromaFilter				 = MapFilter(desc.chromaFilter);
+		info.format						 = map_format(desc.format);
+		info.ycbcrModel					 = map_ycbcr_model(desc.model);
+		info.ycbcrRange					 = map_ycbcr_range(desc.range);
+		info.components					 = map_component_mapping(desc.components);
+		info.xChromaOffset				 = map_chroma_location(desc.xChromaOffset);
+		info.yChromaOffset				 = map_chroma_location(desc.yChromaOffset);
+		info.chromaFilter				 = map_filter(desc.chromaFilter);
 		info.forceExplicitReconstruction = VK_FALSE;
 
 		const auto created = device->device.createSamplerYcbcrConversion(info, nullptr, device->dispatch);
@@ -398,7 +436,7 @@ namespace azo::rhi::vulkan
 			return {};
 		}
 
-		if (!detail::TryPushBack(device->ycbcrConversions, std::pair{ desc, created.value }))
+		if (!detail::try_push_back(device->ycbcrConversions, std::pair{ desc, created.value }))
 		{
 			device->device.destroySamplerYcbcrConversion(created.value, nullptr, device->dispatch);
 			return {};
@@ -407,7 +445,7 @@ namespace azo::rhi::vulkan
 		return created.value;
 	}
 
-	[[nodiscard]] bool AdapterSupportsMultiPlanarFormats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
+	[[nodiscard]] bool adapter_supports_multi_planar_formats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept
 	{
 		VkFormatProperties props{};
 		dispatch.vkGetPhysicalDeviceFormatProperties(static_cast<VkPhysicalDevice>(phys), static_cast<VkFormat>(vk::Format::eG8B8R82Plane420Unorm), &props);
@@ -418,7 +456,7 @@ namespace azo::rhi::vulkan
 		}
 
 		PortabilitySubsetFeatures portabilityFeatures{};
-		if (!QueryPortabilitySubsetFeatures(phys, dispatch, portabilityFeatures))
+		if (!query_portability_subset_features(phys, dispatch, portabilityFeatures))
 		{
 			return true;
 		}
@@ -426,7 +464,7 @@ namespace azo::rhi::vulkan
 		return portabilityFeatures.imageViewFormatReinterpretation == VK_TRUE;
 	}
 
-	[[nodiscard]] bool AdapterSupportsFeature(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, DeviceFeature feature) noexcept
+	[[nodiscard]] bool adapter_supports_feature(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, DeviceFeature feature) noexcept
 	{
 		const vk::PhysicalDeviceFeatures feats = phys.getFeatures(dispatch);
 		switch (feature)
@@ -447,12 +485,12 @@ namespace azo::rhi::vulkan
 		case DeviceFeature::eSparseBuffers:		 return static_cast<bool>(feats.sparseResidencyBuffer);
 		case DeviceFeature::eSparseTextures:	 return static_cast<bool>(feats.sparseResidencyImage2D);
 		case DeviceFeature::eSparseVolumes:		 return static_cast<bool>(feats.sparseResidencyImage3D);
-		case DeviceFeature::eTextureViewSwizzle: return AdapterSupportsViewSwizzle(phys, dispatch);
-		case DeviceFeature::eMultiPlanarFormats: return AdapterSupportsMultiPlanarFormats(phys, dispatch);
+		case DeviceFeature::eTextureViewSwizzle: return adapter_supports_view_swizzle(phys, dispatch);
+		case DeviceFeature::eMultiPlanarFormats: return adapter_supports_multi_planar_formats(phys, dispatch);
 		case DeviceFeature::eSamplerYcbcrConversion:
 		{
 			const auto chain = phys.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features>(dispatch);
-			return AdapterSupportsMultiPlanarFormats(phys, dispatch) &&
+			return adapter_supports_multi_planar_formats(phys, dispatch) &&
 				   static_cast<bool>(chain.get<vk::PhysicalDeviceVulkan11Features>().samplerYcbcrConversion);
 		}
 		}
@@ -460,17 +498,22 @@ namespace azo::rhi::vulkan
 		return false;
 	}
 
-	[[nodiscard]] bool AdapterSupportsAllFeatures(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, std::span<const DeviceFeature> features) noexcept
+	[[nodiscard]] bool adapter_supports_all_features(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		std::span<const DeviceFeature> features
+	) noexcept
 	{
-		return std::ranges::all_of(features,
+		return std::ranges::all_of(
+			features,
 			[phys, &dispatch](const DeviceFeature feature) noexcept
 			{
-				return AdapterSupportsFeature(phys, dispatch, feature);
-			});
+				return adapter_supports_feature(phys, dispatch, feature);
+			}
+		);
 	}
 
-	void EnableFeatureBit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept
+	void enable_feature_bit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept
 	{
 		switch (feature)
 		{
@@ -493,7 +536,7 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	[[nodiscard]] const char * RequiredFeatureMessage(DeviceFeature feature) noexcept
+	[[nodiscard]] const char * required_feature_message(DeviceFeature feature) noexcept
 	{
 		switch (feature)
 		{
@@ -517,80 +560,80 @@ namespace azo::rhi::vulkan
 		return "no Vulkan adapter supports a required device feature";
 	}
 
-	[[nodiscard]] vk::ShaderStageFlags MapShaderStages(Flags<ShaderStage> stages) noexcept
+	[[nodiscard]] vk::ShaderStageFlags map_shader_stages(Flags<ShaderStage> stages) noexcept
 	{
-		if (stages.Contains(ShaderStage::eAll))
+		if (stages.contains(ShaderStage::eAll))
 		{
 			return vk::ShaderStageFlagBits::eAll;
 		}
 
 		vk::ShaderStageFlags out{};
-		if (stages.Contains(ShaderStage::eVertex))
+		if (stages.contains(ShaderStage::eVertex))
 		{
 			out |= vk::ShaderStageFlagBits::eVertex;
 		}
 
-		if (stages.Contains(ShaderStage::eTessellationControl))
+		if (stages.contains(ShaderStage::eTessellationControl))
 		{
 			out |= vk::ShaderStageFlagBits::eTessellationControl;
 		}
 
-		if (stages.Contains(ShaderStage::eTessellationEvaluation))
+		if (stages.contains(ShaderStage::eTessellationEvaluation))
 		{
 			out |= vk::ShaderStageFlagBits::eTessellationEvaluation;
 		}
 
-		if (stages.Contains(ShaderStage::eGeometry))
+		if (stages.contains(ShaderStage::eGeometry))
 		{
 			out |= vk::ShaderStageFlagBits::eGeometry;
 		}
 
-		if (stages.Contains(ShaderStage::eFragment))
+		if (stages.contains(ShaderStage::eFragment))
 		{
 			out |= vk::ShaderStageFlagBits::eFragment;
 		}
 
-		if (stages.Contains(ShaderStage::eCompute))
+		if (stages.contains(ShaderStage::eCompute))
 		{
 			out |= vk::ShaderStageFlagBits::eCompute;
 		}
 
-		if (stages.Contains(ShaderStage::eAllGraphics))
+		if (stages.contains(ShaderStage::eAllGraphics))
 		{
 			out |= vk::ShaderStageFlagBits::eAllGraphics;
 		}
 
-		if (stages.Contains(ShaderStage::eRayGeneration))
+		if (stages.contains(ShaderStage::eRayGeneration))
 		{
 			out |= vk::ShaderStageFlagBits::eRaygenKHR;
 		}
 
-		if (stages.Contains(ShaderStage::eAnyHit))
+		if (stages.contains(ShaderStage::eAnyHit))
 		{
 			out |= vk::ShaderStageFlagBits::eAnyHitKHR;
 		}
 
-		if (stages.Contains(ShaderStage::eClosestHit))
+		if (stages.contains(ShaderStage::eClosestHit))
 		{
 			out |= vk::ShaderStageFlagBits::eClosestHitKHR;
 		}
 
-		if (stages.Contains(ShaderStage::eMiss))
+		if (stages.contains(ShaderStage::eMiss))
 		{
 			out |= vk::ShaderStageFlagBits::eMissKHR;
 		}
 
-		if (stages.Contains(ShaderStage::eIntersection))
+		if (stages.contains(ShaderStage::eIntersection))
 		{
 			out |= vk::ShaderStageFlagBits::eIntersectionKHR;
 		}
 
-		if (stages.Contains(ShaderStage::eCallable))
+		if (stages.contains(ShaderStage::eCallable))
 		{
 			out |= vk::ShaderStageFlagBits::eCallableKHR;
 		}
 
-		if (stages.Contains(ShaderStage::eAllRayTracing))
+		if (stages.contains(ShaderStage::eAllRayTracing))
 		{
 			out |= vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR | vk::ShaderStageFlagBits::eClosestHitKHR |
 				   vk::ShaderStageFlagBits::eMissKHR | vk::ShaderStageFlagBits::eIntersectionKHR | vk::ShaderStageFlagBits::eCallableKHR;
@@ -599,7 +642,7 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	[[nodiscard]] vk::ShaderStageFlagBits MapShaderStageBit(ShaderStage stage) noexcept
+	[[nodiscard]] vk::ShaderStageFlagBits map_shader_stage_bit(ShaderStage stage) noexcept
 	{
 		switch (stage)
 		{
@@ -619,7 +662,7 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	[[nodiscard]] vk::PrimitiveTopology MapTopology(PrimitiveTopology topology) noexcept
+	[[nodiscard]] vk::PrimitiveTopology map_topology(PrimitiveTopology topology) noexcept
 	{
 		switch (topology)
 		{
@@ -634,7 +677,7 @@ namespace azo::rhi::vulkan
 		return vk::PrimitiveTopology::eTriangleList;
 	}
 
-	[[nodiscard]] vk::PolygonMode MapFillMode(FillMode mode) noexcept
+	[[nodiscard]] vk::PolygonMode map_fill_mode(FillMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -645,7 +688,7 @@ namespace azo::rhi::vulkan
 		return vk::PolygonMode::eFill;
 	}
 
-	[[nodiscard]] vk::CullModeFlags MapCullMode(CullMode mode) noexcept
+	[[nodiscard]] vk::CullModeFlags map_cull_mode(CullMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -657,12 +700,12 @@ namespace azo::rhi::vulkan
 		return vk::CullModeFlagBits::eNone;
 	}
 
-	[[nodiscard]] vk::FrontFace MapFrontFace(FrontFace face) noexcept
+	[[nodiscard]] vk::FrontFace map_front_face(FrontFace face) noexcept
 	{
 		return face == FrontFace::eClockwise ? vk::FrontFace::eClockwise : vk::FrontFace::eCounterClockwise;
 	}
 
-	[[nodiscard]] vk::CompareOp MapCompareOp(CompareOp op) noexcept
+	[[nodiscard]] vk::CompareOp map_compare_op(CompareOp op) noexcept
 	{
 		switch (op)
 		{
@@ -679,7 +722,7 @@ namespace azo::rhi::vulkan
 		return vk::CompareOp::eAlways;
 	}
 
-	[[nodiscard]] vk::StencilOp MapStencilOp(StencilOp op) noexcept
+	[[nodiscard]] vk::StencilOp map_stencil_op(StencilOp op) noexcept
 	{
 		switch (op)
 		{
@@ -696,18 +739,18 @@ namespace azo::rhi::vulkan
 		return vk::StencilOp::eKeep;
 	}
 
-	[[nodiscard]] vk::StencilOpState MapStencilFace(const StencilFaceDesc & face) noexcept
+	[[nodiscard]] vk::StencilOpState map_stencil_face(const StencilFaceDesc & face) noexcept
 	{
-		return { MapStencilOp(face.failOp),
-			MapStencilOp(face.passOp),
-			MapStencilOp(face.depthFailOp),
-			MapCompareOp(face.compareOp),
+		return { map_stencil_op(face.failOp),
+			map_stencil_op(face.passOp),
+			map_stencil_op(face.depthFailOp),
+			map_compare_op(face.compareOp),
 			face.compareMask,
 			face.writeMask,
 			face.reference };
 	}
 
-	[[nodiscard]] vk::BlendFactor MapBlendFactor(BlendFactor factor) noexcept
+	[[nodiscard]] vk::BlendFactor map_blend_factor(BlendFactor factor) noexcept
 	{
 		switch (factor)
 		{
@@ -730,7 +773,7 @@ namespace azo::rhi::vulkan
 		return vk::BlendFactor::eZero;
 	}
 
-	[[nodiscard]] vk::BlendOp MapBlendOp(BlendOp op) noexcept
+	[[nodiscard]] vk::BlendOp map_blend_op(BlendOp op) noexcept
 	{
 		switch (op)
 		{
@@ -744,49 +787,49 @@ namespace azo::rhi::vulkan
 		return vk::BlendOp::eAdd;
 	}
 
-	[[nodiscard]] vk::ColorComponentFlags MapColorWriteMask(Flags<ColorWrite> mask) noexcept
+	[[nodiscard]] vk::ColorComponentFlags map_color_write_mask(Flags<ColorWrite> mask) noexcept
 	{
 		vk::ColorComponentFlags out{};
-		if (mask.Contains(ColorWrite::eR))
+		if (mask.contains(ColorWrite::eR))
 		{
 			out |= vk::ColorComponentFlagBits::eR;
 		}
 
-		if (mask.Contains(ColorWrite::eG))
+		if (mask.contains(ColorWrite::eG))
 		{
 			out |= vk::ColorComponentFlagBits::eG;
 		}
 
-		if (mask.Contains(ColorWrite::eB))
+		if (mask.contains(ColorWrite::eB))
 		{
 			out |= vk::ColorComponentFlagBits::eB;
 		}
 
-		if (mask.Contains(ColorWrite::eA))
+		if (mask.contains(ColorWrite::eA))
 		{
 			out |= vk::ColorComponentFlagBits::eA;
 		}
 		return out;
 	}
 
-	[[nodiscard]] detail::HostVector<vk::DynamicState> MapDynamicStates(Flags<DynamicState> states)
+	[[nodiscard]] detail::HostVector<vk::DynamicState> map_dynamic_states(Flags<DynamicState> states)
 	{
 		detail::HostVector<vk::DynamicState> out;
 
 		out.push_back(vk::DynamicState::eViewport);
 		out.push_back(vk::DynamicState::eScissor);
 
-		if (states.Contains(DynamicState::eBlendConstants))
+		if (states.contains(DynamicState::eBlendConstants))
 		{
 			out.push_back(vk::DynamicState::eBlendConstants);
 		}
 
-		if (states.Contains(DynamicState::eStencilReference))
+		if (states.contains(DynamicState::eStencilReference))
 		{
 			out.push_back(vk::DynamicState::eStencilReference);
 		}
 
-		if (states.Contains(DynamicState::eDepthBias))
+		if (states.contains(DynamicState::eDepthBias))
 		{
 			out.push_back(vk::DynamicState::eDepthBias);
 		}
@@ -794,12 +837,12 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	[[nodiscard]] bool HasStencilAspect(Format format) noexcept
+	[[nodiscard]] bool has_stencil_aspect(Format format) noexcept
 	{
 		return format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
 	}
 
-	[[nodiscard]] vk::ImageViewType MapImageViewType(TextureViewType type) noexcept
+	[[nodiscard]] vk::ImageViewType map_image_view_type(TextureViewType type) noexcept
 	{
 		switch (type)
 		{
@@ -815,42 +858,42 @@ namespace azo::rhi::vulkan
 		return vk::ImageViewType::e2D;
 	}
 
-	[[nodiscard]] vk::ImageAspectFlags MapAspect(Flags<TextureAspect> aspects) noexcept
+	[[nodiscard]] vk::ImageAspectFlags map_aspect(Flags<TextureAspect> aspects) noexcept
 	{
 		vk::ImageAspectFlags out{};
-		if (aspects.Contains(TextureAspect::eColor))
+		if (aspects.contains(TextureAspect::eColor))
 		{
 			out |= vk::ImageAspectFlagBits::eColor;
 		}
 
-		if (aspects.Contains(TextureAspect::eDepth))
+		if (aspects.contains(TextureAspect::eDepth))
 		{
 			out |= vk::ImageAspectFlagBits::eDepth;
 		}
 
-		if (aspects.Contains(TextureAspect::eStencil))
+		if (aspects.contains(TextureAspect::eStencil))
 		{
 			out |= vk::ImageAspectFlagBits::eStencil;
 		}
 
-		if (aspects.Contains(TextureAspect::ePlane0))
+		if (aspects.contains(TextureAspect::ePlane0))
 		{
 			out |= vk::ImageAspectFlagBits::ePlane0;
 		}
 
-		if (aspects.Contains(TextureAspect::ePlane1))
+		if (aspects.contains(TextureAspect::ePlane1))
 		{
 			out |= vk::ImageAspectFlagBits::ePlane1;
 		}
 
-		if (aspects.Contains(TextureAspect::ePlane2))
+		if (aspects.contains(TextureAspect::ePlane2))
 		{
 			out |= vk::ImageAspectFlagBits::ePlane2;
 		}
 		return out;
 	}
 
-	[[nodiscard]] vk::AttachmentLoadOp MapLoadOp(LoadOp op) noexcept
+	[[nodiscard]] vk::AttachmentLoadOp map_load_op(LoadOp op) noexcept
 	{
 		switch (op)
 		{
@@ -861,7 +904,7 @@ namespace azo::rhi::vulkan
 		return vk::AttachmentLoadOp::eLoad;
 	}
 
-	[[nodiscard]] vk::AttachmentStoreOp MapStoreOp(StoreOp op) noexcept
+	[[nodiscard]] vk::AttachmentStoreOp map_store_op(StoreOp op) noexcept
 	{
 		switch (op)
 		{
@@ -871,12 +914,12 @@ namespace azo::rhi::vulkan
 		return vk::AttachmentStoreOp::eStore;
 	}
 
-	[[nodiscard]] vk::ImageSubresourceRange MapSubresourceRange(const TextureSubresourceRange & range) noexcept
+	[[nodiscard]] vk::ImageSubresourceRange map_subresource_range(const TextureSubresourceRange & range) noexcept
 	{
-		return { MapAspect(range.aspects), range.baseMip, range.mipCount, range.baseLayer, range.layerCount };
+		return { map_aspect(range.aspects), range.baseMip, range.mipCount, range.baseLayer, range.layerCount };
 	}
 
-	[[nodiscard]] vk::ImageAspectFlags AspectForViewFormat(vk::Format format) noexcept
+	[[nodiscard]] vk::ImageAspectFlags aspect_for_view_format(vk::Format format) noexcept
 	{
 		switch (format)
 		{
@@ -891,7 +934,7 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	[[nodiscard]] AdapterType MapAdapterType(vk::PhysicalDeviceType type) noexcept
+	[[nodiscard]] AdapterType map_adapter_type(vk::PhysicalDeviceType type) noexcept
 	{
 		switch (type)
 		{
@@ -903,12 +946,12 @@ namespace azo::rhi::vulkan
 		}
 	}
 
-	[[nodiscard]] DriverId MapDriverId(const vk::DriverId id) noexcept
+	[[nodiscard]] DriverId map_driver_id(const vk::DriverId id) noexcept
 	{
 		return static_cast<DriverId>(static_cast<std::uint32_t>(id));
 	}
 
-	void FillAdapterIdentity(AdapterInfo & adapter, const vk::PhysicalDeviceIDProperties & id) noexcept
+	void fill_adapter_identity(AdapterInfo & adapter, const vk::PhysicalDeviceIDProperties & id) noexcept
 	{
 		std::ranges::copy(id.deviceUUID, adapter.deviceUUID.begin());
 		std::ranges::copy(id.driverUUID, adapter.driverUUID.begin());

@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -95,7 +100,7 @@ namespace azo::rhi
 
 	inline constexpr std::size_t kFormatCount = static_cast<std::size_t>(Format::eG10B10R10Biplanar420UNorm) + 1;
 
-	[[nodiscard]] constexpr std::uint32_t PlaneCountOf(const Format format) noexcept
+	[[nodiscard]] constexpr std::uint32_t plane_count_of(const Format format) noexcept
 	{
 		switch (format)
 		{
@@ -106,14 +111,14 @@ namespace azo::rhi
 		}
 	}
 
-	[[nodiscard]] constexpr bool IsMultiPlanarFormat(const Format format) noexcept
+	[[nodiscard]] constexpr bool is_multi_planar_format(const Format format) noexcept
 	{
-		return PlaneCountOf(format) > 1;
+		return plane_count_of(format) > 1;
 	}
 
-	[[nodiscard]] constexpr Format PlaneFormatOf(const Format format, const std::uint32_t plane) noexcept
+	[[nodiscard]] constexpr Format plane_format_of(const Format format, const std::uint32_t plane) noexcept
 	{
-		if (plane >= PlaneCountOf(format))
+		if (plane >= plane_count_of(format))
 		{
 			return Format::eUndefined;
 		}
@@ -127,9 +132,9 @@ namespace azo::rhi
 		}
 	}
 
-	[[nodiscard]] constexpr std::uint32_t PlaneExtentDivisorOf(const Format format, const std::uint32_t plane) noexcept
+	[[nodiscard]] constexpr std::uint32_t plane_extent_divisor_of(const Format format, const std::uint32_t plane) noexcept
 	{
-		if (plane == 0 || plane >= PlaneCountOf(format))
+		if (plane == 0 || plane >= plane_count_of(format))
 		{
 			return 1;
 		}
@@ -143,7 +148,7 @@ namespace azo::rhi
 		}
 	}
 
-	[[nodiscard]] constexpr bool IsDepthFormat(Format format) noexcept
+	[[nodiscard]] constexpr bool is_depth_format(Format format) noexcept
 	{
 		return format == Format::eD16UNorm || format == Format::eD24UNormS8UInt || format == Format::eD32Float || format == Format::eD32FloatS8UInt ||
 			   format == Format::eX8D24UNorm;

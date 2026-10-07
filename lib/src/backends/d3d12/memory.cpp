@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -103,7 +108,7 @@ namespace azo::rhi::d3d12
 		for (const ResidencyPriorityDesc & desc : priorities)
 		{
 			ID3D12Resource * resource = nullptr;
-			if (desc.buffer.IsValid())
+			if (desc.buffer.is_valid())
 			{
 				BufferSlot * slot = ResolveBuffer(device, desc.buffer);
 				if (slot == nullptr)
@@ -112,7 +117,7 @@ namespace azo::rhi::d3d12
 				}
 				resource = slot->resource.Get();
 			}
-			else if (desc.texture.IsValid())
+			else if (desc.texture.is_valid())
 			{
 				TextureSlot * slot = ResolveTexture(device, desc.texture);
 				if (slot == nullptr)
@@ -152,7 +157,12 @@ namespace azo::rhi::d3d12
 	}
 
 	bool D3D12CollectGarbageTimeline(
-		void * impl, ResourceType type, [[maybe_unused]] TimelineHandle timeline, [[maybe_unused]] std::uint64_t completedValue, Error * error) noexcept
+		void * impl,
+		ResourceType type,
+		[[maybe_unused]] TimelineHandle timeline,
+		[[maybe_unused]] std::uint64_t completedValue,
+		Error * error
+	) noexcept
 	{
 		return D3D12CollectGarbage(impl, type, error);
 	}

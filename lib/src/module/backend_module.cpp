@@ -1,17 +1,29 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "azoth/rhi/module/backend_module.hpp"
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/spin_lock.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/selection.hpp"
+#include "azoth/rhi/module/abi_stamp.hpp"
+#include "azoth/rhi/module/entry_point.hpp"
 
+#include <cstddef>
 #include <mutex>
+#include <string_view>
 #include <utility>
 
 #ifdef _WIN32
@@ -26,13 +38,13 @@ namespace azo::rhi
 	namespace
 	{
 
-		[[nodiscard]] SpinLock & ModuleGuard() noexcept
+		[[nodiscard]] SpinLock & module_guard() noexcept
 		{
-			static SpinLock guard;
-			return guard;
+			static SpinLock s_Guard;
+			return s_Guard;
 		}
 
-		[[nodiscard]] void * OpenLibrary(const char * path) noexcept
+		[[nodiscard]] void * open_library(const char * path) noexcept
 		{
 #ifdef _WIN32
 			return static_cast<void *>(::LoadLibraryA(path));
@@ -41,7 +53,7 @@ namespace azo::rhi
 #endif
 		}
 
-		void CloseLibrary(void * handle) noexcept
+		void close_library(void * handle) noexcept
 		{
 			if (handle == nullptr)
 			{
@@ -55,7 +67,7 @@ namespace azo::rhi
 #endif
 		}
 
-		[[nodiscard]] void * FindSymbol(void * handle, const char * name) noexcept
+		[[nodiscard]] void * find_symbol(void * handle, const char * name) noexcept
 		{
 #ifdef _WIN32
 			return reinterpret_cast<void *>(::GetProcAddress(static_cast<HMODULE>(handle), name));
@@ -75,7 +87,7 @@ namespace azo::rhi
 	{
 		if (this != &other)
 		{
-			static_cast<void>(Unload());
+			static_cast<void>(unload());
 			Adopt(std::move(other));
 		}
 
@@ -97,15 +109,15 @@ namespace azo::rhi
 
 	BackendModule::~BackendModule()
 	{
-		static_cast<void>(Unload());
+		static_cast<void>(unload());
 	}
 
-	std::size_t BackendModule::LiveObjects() const noexcept
+	std::size_t BackendModule::live_objects() const noexcept
 	{
 		return m_liveObjectCount != nullptr ? m_liveObjectCount() : 0;
 	}
 
-	Result<BackendModule> BackendModule::Load(const std::string_view path)
+	Result<BackendModule> BackendModule::load(const std::string_view path)
 	{
 		detail::HostString terminated(path);
 
@@ -113,9 +125,9 @@ namespace azo::rhi
 		ModuleDescription description{};
 
 		{
-			const std::scoped_lock guard(ModuleGuard());
+			const std::scoped_lock guard(module_guard());
 
-			handle = OpenLibrary(terminated.c_str());
+			handle = open_library(terminated.c_str());
 			if (handle == nullptr)
 			{
 				return Error{
@@ -124,10 +136,10 @@ namespace azo::rhi
 				};
 			}
 
-			auto * describe = reinterpret_cast<ModuleEntryPoint>(FindSymbol(handle, kModuleEntryPointName));
+			auto * describe = reinterpret_cast<ModuleEntryPoint>(find_symbol(handle, kModuleEntryPointName));
 			if (describe == nullptr)
 			{
-				CloseLibrary(handle);
+				close_library(handle);
 				return Error{
 					.code	 = ErrorCode::eInvalidArgument,
 					.message = "the module exports no azoRhiDescribeModule entry point",
@@ -136,16 +148,16 @@ namespace azo::rhi
 
 			if (!describe(&description))
 			{
-				CloseLibrary(handle);
+				close_library(handle);
 				return Error{
 					.code	 = ErrorCode::eInvalidState,
 					.message = "the module declined to describe itself",
 				};
 			}
 
-			if (!(description.stamp == CurrentAbiStamp()))
+			if (!(description.stamp == current_abi_stamp()))
 			{
-				CloseLibrary(handle);
+				close_library(handle);
 				return Error{
 					.code	 = ErrorCode::eIncompatibleAbi,
 					.message = "the module was built against a different ABI, so nothing in it was called",
@@ -154,7 +166,7 @@ namespace azo::rhi
 
 			if (description.entries == nullptr || description.entryCount == 0)
 			{
-				CloseLibrary(handle);
+				close_library(handle);
 				return Error{
 					.code	 = ErrorCode::eInvalidState,
 					.message = "the module described no backends",
@@ -184,24 +196,24 @@ namespace azo::rhi
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): a count and a pointer is what crosses the boundary.
 			BackendEntry mine = description.entries[index];
 
-			mine.canonicalName = loaded.m_names[index * 2];
-			mine.displayName   = loaded.m_names[(index * 2) + 1];
+			mine.canonicalName = azo::rhi::detail::at(loaded.m_names, index * 2);
+			mine.displayName   = azo::rhi::detail::at(loaded.m_names, (index * 2) + 1);
 			loaded.m_entries.push_back(mine);
 		}
 
 		return loaded;
 	}
 
-	Result<void> BackendModule::Unload()
+	Result<void> BackendModule::unload()
 	{
-		const std::scoped_lock guard(ModuleGuard());
+		const std::scoped_lock guard(module_guard());
 
 		if (m_handle == nullptr)
 		{
 			return {};
 		}
 
-		if (LiveObjects() != 0)
+		if (live_objects() != 0)
 		{
 			return Error{
 				.code	 = ErrorCode::eInvalidState,
@@ -213,7 +225,7 @@ namespace azo::rhi
 		m_names.clear();
 		m_liveObjectCount = nullptr;
 
-		CloseLibrary(std::exchange(m_handle, nullptr));
+		close_library(std::exchange(m_handle, nullptr));
 		return {};
 	}
 

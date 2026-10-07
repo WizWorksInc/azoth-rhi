@@ -1,14 +1,20 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/core/enums.hpp"
 #include "azoth/rhi/device/api_tags.hpp"
 #include "azoth/rhi/device/device.hpp"
@@ -30,17 +36,17 @@ namespace azo::rhi
 
 	namespace detail
 	{
-		[[nodiscard]] constexpr bool AbiUsesResourceHeap(const DescriptorType type) noexcept
+		[[nodiscard]] constexpr bool abi_uses_resource_heap(const DescriptorType type) noexcept
 		{
 			return type != DescriptorType::eSampler;
 		}
 
-		[[nodiscard]] constexpr bool AbiUsesSamplerHeap(const DescriptorType type) noexcept
+		[[nodiscard]] constexpr bool abi_uses_sampler_heap(const DescriptorType type) noexcept
 		{
 			return type == DescriptorType::eSampler || type == DescriptorType::eCombinedImageSampler;
 		}
 
-		[[nodiscard]] constexpr NativeSlotClass AbiD3D12Class(const DescriptorType type) noexcept
+		[[nodiscard]] constexpr NativeSlotClass abi_d3_d12_class(const DescriptorType type) noexcept
 		{
 			switch (type)
 			{
@@ -62,7 +68,7 @@ namespace azo::rhi
 			return NativeSlotClass::eShaderResource;
 		}
 
-		[[nodiscard]] constexpr NativeSlotClass AbiMetalClass(const DescriptorType type) noexcept
+		[[nodiscard]] constexpr NativeSlotClass abi_metal_class(const DescriptorType type) noexcept
 		{
 			switch (type)
 			{
@@ -85,17 +91,22 @@ namespace azo::rhi
 		}
 	}
 
-	[[nodiscard]] inline NativeBinding NativeBindingFor(
-		const GraphicsApiId api, const BindingTier tier, const ShaderAbiLayout & layout, const std::uint32_t set, const std::uint32_t binding) noexcept
+	[[nodiscard]] inline NativeBinding native_binding_for(
+		const GraphicsApiId api,
+		const BindingTier tier,
+		const ShaderAbiLayout & layout,
+		const std::uint32_t set,
+		const std::uint32_t binding
+	) noexcept
 	{
 		if (set >= layout.sets.size())
 		{
 			return {};
 		}
 
-		if (api == VulkanApi::id)
+		if (api == VulkanApi::kId)
 		{
-			for (const DescriptorBinding & entry : layout.sets[set].bindings)
+			for (const DescriptorBinding & entry : azo::rhi::detail::at(layout.sets, set).bindings)
 			{
 				if (entry.binding == binding)
 				{
@@ -109,23 +120,23 @@ namespace azo::rhi
 			return {};
 		}
 
-		if (IsMetalFamily(api) && tier >= BindingTier::eUnbounded)
+		if (is_metal_family(api) && tier >= BindingTier::eUnbounded)
 		{
 			std::uint32_t member = 0;
-			for (const DescriptorBinding & entry : layout.sets[set].bindings)
+			for (const DescriptorBinding & entry : azo::rhi::detail::at(layout.sets, set).bindings)
 			{
 				if (entry.binding == binding)
 				{
 					NativeBinding result{
 						.resource =
-							NativeSlot{ .space = MetalArgumentBufferIndexForSet(set), .index = member, .klass = NativeSlotClass::eArgumentBufferMember },
+							NativeSlot{ .space = metal_argument_buffer_index_for_set(set), .index = member, .klass = NativeSlotClass::eArgumentBufferMember },
 						.exists = true,
 					};
 
 					if (entry.type == DescriptorType::eCombinedImageSampler)
 					{
 						result.sampler = NativeSlot{
-							.space = MetalArgumentBufferIndexForSet(set),
+							.space = metal_argument_buffer_index_for_set(set),
 							.index = member + 1,
 							.klass = NativeSlotClass::eArgumentBufferMember,
 						};
@@ -141,18 +152,18 @@ namespace azo::rhi
 			return {};
 		}
 
-		if (IsMetalFamily(api))
+		if (is_metal_family(api))
 		{
 			if (set != 0)
 			{
 				return {};
 			}
 
-			for (const DescriptorBinding & entry : layout.sets[set].bindings)
+			for (const DescriptorBinding & entry : azo::rhi::detail::at(layout.sets, set).bindings)
 			{
 				if (entry.binding == binding)
 				{
-					const NativeSlotClass klass = detail::AbiMetalClass(entry.type);
+					const NativeSlotClass klass = detail::abi_metal_class(entry.type);
 					NativeBinding result{
 						.resource = NativeSlot{ .space = 0, .index = binding, .klass = klass },
 						.exists	  = true,
@@ -171,7 +182,7 @@ namespace azo::rhi
 			return {};
 		}
 
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return {};
 		}
@@ -185,12 +196,12 @@ namespace azo::rhi
 			std::uint32_t unorderedAccessRegister = 0;
 			std::uint32_t samplerRegister		  = 0;
 
-			for (const DescriptorBinding & entry : layout.sets[setIndex].bindings)
+			for (const DescriptorBinding & entry : azo::rhi::detail::at(layout.sets, setIndex).bindings)
 			{
 				const bool wanted			= setIndex == set && entry.binding == binding;
-				const NativeSlotClass klass = detail::AbiD3D12Class(entry.type);
+				const NativeSlotClass klass = detail::abi_d3_d12_class(entry.type);
 
-				if (entry.flags.Contains(DescriptorBindingFlag::eBindless))
+				if (entry.flags.contains(DescriptorBindingFlag::eBindless))
 				{
 					const std::uint32_t space = bindlessSpace;
 					++bindlessSpace;
@@ -228,7 +239,7 @@ namespace azo::rhi
 
 				if (wanted)
 				{
-					const std::uint32_t space = D3D12RegisterSpaceForSet(static_cast<std::uint32_t>(setIndex));
+					const std::uint32_t space = d3_d12_register_space_for_set(static_cast<std::uint32_t>(setIndex));
 					NativeBinding result{
 						.resource = NativeSlot{ .space = space, .index = taken, .klass = klass },
 						.exists	  = true,
@@ -263,8 +274,12 @@ namespace azo::rhi
 		bool wrongAbiVersion = false;
 	};
 
-	[[nodiscard]] inline ShaderBindingDisagreement CheckShaderBindingMap(
-		const GraphicsApiId api, const BindingTier tier, const ShaderAbiLayout & layout, const ShaderBindingMap & map) noexcept
+	[[nodiscard]] inline ShaderBindingDisagreement check_shader_binding_map(
+		const GraphicsApiId api,
+		const BindingTier tier,
+		const ShaderAbiLayout & layout,
+		const ShaderBindingMap & map
+	) noexcept
 	{
 		if (map.bindings.empty())
 		{
@@ -273,7 +288,7 @@ namespace azo::rhi
 
 		for (const ShaderBindingEntry & entry : map.bindings)
 		{
-			const NativeBinding expected = NativeBindingFor(api, tier, layout, entry.set, entry.binding);
+			const NativeBinding expected = native_binding_for(api, tier, layout, entry.set, entry.binding);
 			if (!expected.exists)
 			{
 				return ShaderBindingDisagreement{

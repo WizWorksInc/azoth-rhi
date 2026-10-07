@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -90,36 +95,38 @@ namespace azo::rhi
 	public:
 		Swapchain() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_dispatch != nullptr;
 		}
 
-		[[nodiscard]] AcquireResult AcquireNextImage(std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
-		[[nodiscard]] AcquireResult AcquireNextImage(std::uint64_t timeoutNanoseconds, Error & error) noexcept;
-		[[nodiscard]] Result<AcquireResult> AcquireNextImageWithResult(std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
-		[[nodiscard]] PresentResult Present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept;
-		[[nodiscard]] PresentResult Present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, Error & error) noexcept;
-		[[nodiscard]] Result<PresentResult> PresentWithResult(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept;
+		[[nodiscard]] AcquireResult acquire_next_image(std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()) noexcept;
+		[[nodiscard]] AcquireResult acquire_next_image(std::uint64_t timeoutNanoseconds, Error & error) noexcept;
+		[[nodiscard]] Result<AcquireResult> acquire_next_image_with_result(
+			std::uint64_t timeoutNanoseconds = std::numeric_limits<std::uint64_t>::max()
+		) noexcept;
+		[[nodiscard]] PresentResult present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept;
+		[[nodiscard]] PresentResult present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, Error & error) noexcept;
+		[[nodiscard]] Result<PresentResult> present_with_result(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept;
 
-		[[nodiscard]] TextureHandle GetBackBuffer(std::uint32_t imageIndex) const noexcept;
-		[[nodiscard]] TextureViewHandle GetBackBufferView(std::uint32_t imageIndex) const noexcept;
+		[[nodiscard]] TextureHandle get_back_buffer(std::uint32_t imageIndex) const noexcept;
+		[[nodiscard]] TextureViewHandle get_back_buffer_view(std::uint32_t imageIndex) const noexcept;
 
-		[[nodiscard]] BinarySemaphoreHandle GetPerImagePresentSemaphore(std::uint32_t imageIndex) const noexcept;
+		[[nodiscard]] BinarySemaphoreHandle get_per_image_present_semaphore(std::uint32_t imageIndex) const noexcept;
 
-		[[nodiscard]] Format GetFormat() const noexcept;
-		[[nodiscard]] std::uint32_t GetImageCount() const noexcept;
-		[[nodiscard]] std::uint32_t GetWidth() const noexcept;
-		[[nodiscard]] std::uint32_t GetHeight() const noexcept;
+		[[nodiscard]] Format get_format() const noexcept;
+		[[nodiscard]] std::uint32_t get_image_count() const noexcept;
+		[[nodiscard]] std::uint32_t get_width() const noexcept;
+		[[nodiscard]] std::uint32_t get_height() const noexcept;
 
-		[[nodiscard]] bool Resize(std::uint32_t width, std::uint32_t height) noexcept;
-		[[nodiscard]] bool Resize(std::uint32_t width, std::uint32_t height, Error & error) noexcept;
+		[[nodiscard]] bool resize(std::uint32_t width, std::uint32_t height) noexcept;
+		[[nodiscard]] bool resize(std::uint32_t width, std::uint32_t height, Error & error) noexcept;
 
-		[[nodiscard]] bool SetPresentMode(PresentMode mode) noexcept;
+		[[nodiscard]] bool set_present_mode(PresentMode mode) noexcept;
 
-		[[nodiscard]] PresentMode GetPresentMode() const noexcept;
+		[[nodiscard]] PresentMode get_present_mode() const noexcept;
 
-		[[nodiscard]] bool SupportsReadback() const noexcept;
+		[[nodiscard]] bool supports_readback() const noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;

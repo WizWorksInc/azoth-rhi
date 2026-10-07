@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -38,40 +43,40 @@ namespace azo::rhi
 		HostAllocator & operator=(HostAllocator &&)		 = delete;
 		virtual ~HostAllocator()						 = default;
 
-		[[nodiscard]] virtual void * Allocate(std::size_t size, std::size_t alignment) = 0;
+		[[nodiscard]] virtual void * allocate(std::size_t size, std::size_t alignment) = 0;
 
-		virtual void Free(void * memory, std::size_t size, std::size_t alignment) = 0;
+		virtual void free(void * memory, std::size_t size, std::size_t alignment) = 0;
 	};
 
 	namespace detail
 	{
-		[[nodiscard]] AZO_RHI_API std::atomic<HostAllocator *> & HostAllocatorSlot() noexcept;
+		[[nodiscard]] AZO_RHI_API std::atomic<HostAllocator *> & host_allocator_slot() noexcept;
 	}
 
-	inline void SetHostAllocator(HostAllocator * allocator) noexcept
+	inline void set_host_allocator(HostAllocator * allocator) noexcept
 	{
-		detail::HostAllocatorSlot().store(allocator, std::memory_order_release);
+		detail::host_allocator_slot().store(allocator, std::memory_order_release);
 	}
 
-	[[nodiscard]] inline HostAllocator * GetHostAllocator() noexcept
+	[[nodiscard]] inline HostAllocator * get_host_allocator() noexcept
 	{
-		return detail::HostAllocatorSlot().load(std::memory_order_acquire);
+		return detail::host_allocator_slot().load(std::memory_order_acquire);
 	}
 
-	[[nodiscard]] inline void * HostAllocate(std::size_t size, std::size_t alignment)
+	[[nodiscard]] inline void * host_allocate(std::size_t size, std::size_t alignment)
 	{
-		if (HostAllocator * allocator = GetHostAllocator(); allocator != nullptr)
+		if (HostAllocator * allocator = get_host_allocator(); allocator != nullptr)
 		{
-			return allocator->Allocate(size, alignment);
+			return allocator->allocate(size, alignment);
 		}
 		return ::operator new(size, std::align_val_t{ alignment });
 	}
 
-	inline void HostFree(void * memory, std::size_t size, std::size_t alignment) noexcept
+	inline void host_free(void * memory, std::size_t size, std::size_t alignment) noexcept
 	{
-		if (HostAllocator * allocator = GetHostAllocator(); allocator != nullptr)
+		if (HostAllocator * allocator = get_host_allocator(); allocator != nullptr)
 		{
-			allocator->Free(memory, size, alignment);
+			allocator->free(memory, size, alignment);
 			return;
 		}
 		::operator delete(memory, std::align_val_t{ alignment });
@@ -88,7 +93,7 @@ namespace azo::rhi
 			if (object != nullptr)
 			{
 				std::destroy_at(object);
-				HostFree(object, size, alignment);
+				host_free(object, size, alignment);
 			}
 		}
 	};
@@ -97,9 +102,9 @@ namespace azo::rhi
 	using HostUniquePtr = std::unique_ptr<T, HostDeleter>;
 
 	template <class T, class... Args>
-	[[nodiscard]] HostUniquePtr<T> HostNew(Args &&... args)
+	[[nodiscard]] HostUniquePtr<T> host_new(Args &&... args)
 	{
-		void * storage = HostAllocate(sizeof(T), alignof(T));
+		void * storage = host_allocate(sizeof(T), alignof(T));
 		if (storage == nullptr)
 		{
 			return HostUniquePtr<T>{};
@@ -111,12 +116,14 @@ namespace azo::rhi
 #else
 		try
 		{
-			return HostUniquePtr<T>{ std::construct_at(static_cast<T *>(storage), std::forward<Args>(args)...),
-				HostDeleter{ .size = sizeof(T), .alignment = alignof(T) } };
+			return HostUniquePtr<T>{
+				std::construct_at(static_cast<T *>(storage), std::forward<Args>(args)...),
+				HostDeleter{ .size = sizeof(T), .alignment = alignof(T) },
+			};
 		}
 		catch (...)
 		{
-			HostFree(storage, sizeof(T), alignof(T));
+			host_free(storage, sizeof(T), alignof(T));
 			throw;
 		}
 #endif
@@ -131,11 +138,11 @@ namespace azo::rhi
 		HostAllocatorAdapter() noexcept = default;
 
 		template <class U>
-		explicit constexpr HostAllocatorAdapter(const HostAllocatorAdapter<U> &) noexcept
+		explicit constexpr HostAllocatorAdapter(const HostAllocatorAdapter<U> & /*unused*/) noexcept
 		{
 		}
 
-		[[noreturn]] static void RefuseAllocation()
+		[[noreturn]] static void refuse_allocation()
 		{
 #ifdef AZOTH_RHI_NO_EXCEPTIONS
 			std::abort();
@@ -148,23 +155,23 @@ namespace azo::rhi
 		{
 			if (count > std::numeric_limits<std::size_t>::max() / sizeof(T))
 			{
-				RefuseAllocation();
+				refuse_allocation();
 			}
-			void * memory = HostAllocate(count * sizeof(T), alignof(T));
+			void * memory = host_allocate(count * sizeof(T), alignof(T));
 			if (memory == nullptr)
 			{
-				RefuseAllocation();
+				refuse_allocation();
 			}
 			return static_cast<T *>(memory);
 		}
 
 		void deallocate(T * memory, std::size_t count) noexcept
 		{
-			HostFree(static_cast<void *>(memory), count * sizeof(T), alignof(T));
+			host_free(static_cast<void *>(memory), count * sizeof(T), alignof(T));
 		}
 
 		template <class U>
-		friend constexpr bool operator==(const HostAllocatorAdapter &, const HostAllocatorAdapter<U> &) noexcept
+		friend constexpr bool operator==(const HostAllocatorAdapter & /*unused*/, const HostAllocatorAdapter<U> & /*unused*/) noexcept
 		{
 			return true;
 		}
@@ -193,9 +200,9 @@ namespace azo::rhi
 
 		void * userData = nullptr;
 
-		[[nodiscard]] constexpr bool IsValid() const noexcept
+		[[nodiscard]] constexpr bool is_valid() const noexcept
 		{
-			return heap.IsValid();
+			return heap.is_valid();
 		}
 	};
 
@@ -217,11 +224,11 @@ namespace azo::rhi
 		DeviceMemoryAllocator & operator=(DeviceMemoryAllocator &&)		 = delete;
 		virtual ~DeviceMemoryAllocator()								 = default;
 
-		[[nodiscard]] virtual bool Allocate(Device device, const MemoryRequest & request, MemorySpan & out) = 0;
+		[[nodiscard]] virtual bool allocate(Device device, const MemoryRequest & request, MemorySpan & out) = 0;
 
-		virtual void Free(Device device, const MemorySpan & span) = 0;
+		virtual void free(Device device, const MemorySpan & span) = 0;
 
-		[[nodiscard]] virtual MemoryStats Stats() const
+		[[nodiscard]] virtual MemoryStats stats() const
 		{
 			return {};
 		}
@@ -229,20 +236,20 @@ namespace azo::rhi
 
 	namespace detail
 	{
-		[[nodiscard]] AZO_RHI_API std::atomic<DeviceMemoryAllocator *> & DeviceAllocatorSlot() noexcept;
+		[[nodiscard]] AZO_RHI_API std::atomic<DeviceMemoryAllocator *> & device_allocator_slot() noexcept;
 	}
 
-	inline void SetDeviceMemoryAllocator(DeviceMemoryAllocator * allocator) noexcept
+	inline void set_device_memory_allocator(DeviceMemoryAllocator * allocator) noexcept
 	{
-		detail::DeviceAllocatorSlot().store(allocator, std::memory_order_release);
+		detail::device_allocator_slot().store(allocator, std::memory_order_release);
 	}
 
-	[[nodiscard]] inline DeviceMemoryAllocator * GetDeviceMemoryAllocator() noexcept
+	[[nodiscard]] inline DeviceMemoryAllocator * get_device_memory_allocator() noexcept
 	{
-		return detail::DeviceAllocatorSlot().load(std::memory_order_acquire);
+		return detail::device_allocator_slot().load(std::memory_order_acquire);
 	}
 
-	[[nodiscard]] constexpr HeapType HeapTypeForUsage(MemoryUsage usage) noexcept
+	[[nodiscard]] constexpr HeapType heap_type_for_usage(MemoryUsage usage) noexcept
 	{
 		switch (usage)
 		{

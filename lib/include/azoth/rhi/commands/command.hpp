@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -79,16 +84,16 @@ namespace azo::rhi
 	public:
 		CommandPool() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_dispatch != nullptr;
 		}
 
-		[[nodiscard]] CommandList Allocate(const char * debugName = nullptr) noexcept;
-		[[nodiscard]] CommandList Allocate(const char * debugName, Error & error) noexcept;
-		[[nodiscard]] Result<CommandList> AllocateWithResult(const char * debugName = nullptr) noexcept;
-		[[nodiscard]] bool Reset(RetirePoint safeAfter) noexcept;
-		[[nodiscard]] bool Reset(RetirePoint safeAfter, Error & error) noexcept;
+		[[nodiscard]] CommandList allocate(const char * debugName = nullptr) noexcept;
+		[[nodiscard]] CommandList allocate(const char * debugName, Error & error) noexcept;
+		[[nodiscard]] Result<CommandList> allocate_with_result(const char * debugName = nullptr) noexcept;
+		[[nodiscard]] bool reset(RetirePoint safeAfter) noexcept;
+		[[nodiscard]] bool reset(RetirePoint safeAfter, Error & error) noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;
@@ -106,151 +111,209 @@ namespace azo::rhi
 	public:
 		CommandList() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_blocks != nullptr;
 		}
 
-		[[nodiscard]] bool Begin() noexcept;
-		[[nodiscard]] bool Begin(Error & error) noexcept;
-		[[nodiscard]] bool End() noexcept;
-		[[nodiscard]] bool End(Error & error) noexcept;
+		[[nodiscard]] bool begin() noexcept;
+		[[nodiscard]] bool begin(Error & error) noexcept;
+		[[nodiscard]] bool end() noexcept;
+		[[nodiscard]] bool end(Error & error) noexcept;
 
-		bool Barriers(const BarrierBatch & barriers) noexcept;
-		bool Barriers(const BarrierBatch & barriers, Error & error) noexcept;
-		bool AliasBarriers(std::span<const AliasBarrier> barriers) noexcept;
-		bool AliasBarriers(std::span<const AliasBarrier> barriers, Error & error) noexcept;
+		bool barriers(const BarrierBatch & barriers) noexcept;
+		bool barriers(const BarrierBatch & barriers, Error & error) noexcept;
+		bool alias_barriers(std::span<const AliasBarrier> barriers) noexcept;
+		bool alias_barriers(std::span<const AliasBarrier> barriers, Error & error) noexcept;
 
-		bool Transition(TextureHandle texture, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse) noexcept;
-		bool Transition(TextureHandle texture, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse, Error & error) noexcept;
-		bool Transition(BufferHandle buffer, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse) noexcept;
-		bool Transition(BufferHandle buffer, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse, Error & error) noexcept;
+		bool transition(TextureHandle texture, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse) noexcept;
+		bool transition(TextureHandle texture, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse, Error & error) noexcept;
+		bool transition(BufferHandle buffer, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse) noexcept;
+		bool transition(BufferHandle buffer, Flags<ResourceUse> fromUse, Flags<ResourceUse> toUse, Error & error) noexcept;
 
-		bool BeginRendering(const BeginRenderingDesc & desc) noexcept;
-		bool BeginRendering(const BeginRenderingDesc & desc, Error & error) noexcept;
-		bool EndRendering() noexcept;
-		bool EndRendering(Error & error) noexcept;
+		bool begin_rendering(const BeginRenderingDesc & desc) noexcept;
+		bool begin_rendering(const BeginRenderingDesc & desc, Error & error) noexcept;
+		bool end_rendering() noexcept;
+		bool end_rendering(Error & error) noexcept;
 
-		bool SetGraphicsPipeline(GraphicsPipelineHandle pipeline) noexcept;
-		bool SetGraphicsPipeline(GraphicsPipelineHandle pipeline, Error & error) noexcept;
-		bool SetComputePipeline(ComputePipelineHandle pipeline) noexcept;
-		bool SetComputePipeline(ComputePipelineHandle pipeline, Error & error) noexcept;
-		bool SetRayTracingPipeline(RayTracingPipelineHandle pipeline) noexcept;
-		bool SetRayTracingPipeline(RayTracingPipelineHandle pipeline, Error & error) noexcept;
+		bool set_graphics_pipeline(GraphicsPipelineHandle pipeline) noexcept;
+		bool set_graphics_pipeline(GraphicsPipelineHandle pipeline, Error & error) noexcept;
+		bool set_compute_pipeline(ComputePipelineHandle pipeline) noexcept;
+		bool set_compute_pipeline(ComputePipelineHandle pipeline, Error & error) noexcept;
+		bool set_ray_tracing_pipeline(RayTracingPipelineHandle pipeline) noexcept;
+		bool set_ray_tracing_pipeline(RayTracingPipelineHandle pipeline, Error & error) noexcept;
 
-		bool BindDescriptorSet(PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-			std::span<const DynamicDescriptorOffset> dynamicOffsets = {}) noexcept;
-		bool BindDescriptorSet(PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-			std::span<const DynamicDescriptorOffset> dynamicOffsets, Error & error) noexcept;
+		bool bind_descriptor_set(
+			PipelineLayoutHandle layout,
+			std::uint32_t setIndex,
+			DescriptorSetHandle set,
+			std::span<const DynamicDescriptorOffset> dynamicOffsets = {}
+		) noexcept;
+		bool bind_descriptor_set(
+			PipelineLayoutHandle layout,
+			std::uint32_t setIndex,
+			DescriptorSetHandle set,
+			std::span<const DynamicDescriptorOffset> dynamicOffsets,
+			Error & error
+		) noexcept;
 
-		bool PushConstants(PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data) noexcept;
-		bool PushConstants(
-			PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data, Error & error) noexcept;
+		bool push_constants(PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data) noexcept;
+		bool push_constants(
+			PipelineLayoutHandle layout,
+			Flags<ShaderStage> stages,
+			std::uint32_t offset,
+			std::uint32_t size,
+			const void * data,
+			Error & error
+		) noexcept;
 
-		bool SetViewport(const Viewport & viewport) noexcept;
-		bool SetViewport(const Viewport & viewport, Error & error) noexcept;
-		bool SetScissor(const Rect2D & scissor) noexcept;
-		bool SetScissor(const Rect2D & scissor, Error & error) noexcept;
-		bool SetBlendConstants(float r, float g, float b, float a) noexcept;
-		bool SetBlendConstants(float r, float g, float b, float a, Error & error) noexcept;
-		bool SetStencilReference(std::uint32_t reference) noexcept;
-		bool SetStencilReference(std::uint32_t reference, Error & error) noexcept;
+		bool set_viewport(const Viewport & viewport) noexcept;
+		bool set_viewport(const Viewport & viewport, Error & error) noexcept;
+		bool set_scissor(const Rect2D & scissor) noexcept;
+		bool set_scissor(const Rect2D & scissor, Error & error) noexcept;
+		bool set_blend_constants(float r, float g, float b, float a) noexcept;
+		bool set_blend_constants(float r, float g, float b, float a, Error & error) noexcept;
+		bool set_stencil_reference(std::uint32_t reference) noexcept;
+		bool set_stencil_reference(std::uint32_t reference, Error & error) noexcept;
 
-		bool SetDepthBias(float constantFactor, float clamp, float slopeFactor) noexcept;
-		bool SetDepthBias(float constantFactor, float clamp, float slopeFactor, Error & error) noexcept;
+		bool set_depth_bias(float constantFactor, float clamp, float slopeFactor) noexcept;
+		bool set_depth_bias(float constantFactor, float clamp, float slopeFactor, Error & error) noexcept;
 
-		bool SetVertexBuffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset) noexcept;
-		bool SetVertexBuffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error & error) noexcept;
+		bool set_vertex_buffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset) noexcept;
+		bool set_vertex_buffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error & error) noexcept;
 
-		bool SetIndexBuffer(BufferHandle buffer, std::uint64_t offset, bool index32) noexcept;
-		bool SetIndexBuffer(BufferHandle buffer, std::uint64_t offset, bool index32, Error & error) noexcept;
+		bool set_index_buffer(BufferHandle buffer, std::uint64_t offset, bool index32) noexcept;
+		bool set_index_buffer(BufferHandle buffer, std::uint64_t offset, bool index32, Error & error) noexcept;
 
-		bool Draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance) noexcept;
-		bool Draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error & error) noexcept;
-		bool DrawIndexed(
-			std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset, std::uint32_t firstInstance) noexcept;
-		bool DrawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-			std::uint32_t firstInstance, Error & error) noexcept;
+		bool draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance) noexcept;
+		bool draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error & error) noexcept;
+		bool draw_indexed(
+			std::uint32_t indexCount,
+			std::uint32_t instanceCount,
+			std::uint32_t firstIndex,
+			std::int32_t vertexOffset,
+			std::uint32_t firstInstance
+		) noexcept;
+		bool draw_indexed(
+			std::uint32_t indexCount,
+			std::uint32_t instanceCount,
+			std::uint32_t firstIndex,
+			std::int32_t vertexOffset,
+			std::uint32_t firstInstance,
+			Error & error
+		) noexcept;
 
-		bool DrawIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept;
-		bool DrawIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept;
+		bool draw_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept;
+		bool draw_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept;
 
-		bool DrawIndexedIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept;
-		bool DrawIndexedIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept;
+		bool draw_indexed_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept;
+		bool draw_indexed_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept;
 
-		bool DrawIndirectCount(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride) noexcept;
-		bool DrawIndirectCount(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride, Error & error) noexcept;
+		bool draw_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride
+		) noexcept;
+		bool draw_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride,
+			Error & error
+		) noexcept;
 
-		bool DrawIndexedIndirectCount(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride) noexcept;
-		bool DrawIndexedIndirectCount(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-			std::uint32_t stride, Error & error) noexcept;
+		bool draw_indexed_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride
+		) noexcept;
+		bool draw_indexed_indirect_count(
+			BufferHandle args,
+			std::uint64_t argsOffset,
+			BufferHandle count,
+			std::uint64_t countOffset,
+			std::uint32_t maxDrawCount,
+			std::uint32_t stride,
+			Error & error
+		) noexcept;
 
-		bool Dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ) noexcept;
-		bool Dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error & error) noexcept;
+		bool dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ) noexcept;
+		bool dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error & error) noexcept;
 
-		bool DispatchIndirect(BufferHandle args, std::uint64_t offset) noexcept;
-		bool DispatchIndirect(BufferHandle args, std::uint64_t offset, Error & error) noexcept;
+		bool dispatch_indirect(BufferHandle args, std::uint64_t offset) noexcept;
+		bool dispatch_indirect(BufferHandle args, std::uint64_t offset, Error & error) noexcept;
 
-		bool BuildAccelerationStructures(std::span<const AccelerationStructureBuildDesc> builds) noexcept;
-		bool BuildAccelerationStructures(std::span<const AccelerationStructureBuildDesc> builds, Error & error) noexcept;
-		bool CopyAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept;
-		bool CopyAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept;
-		bool CompactAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept;
-		bool CompactAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept;
+		bool build_acceleration_structures(std::span<const AccelerationStructureBuildDesc> builds) noexcept;
+		bool build_acceleration_structures(std::span<const AccelerationStructureBuildDesc> builds, Error & error) noexcept;
+		bool copy_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept;
+		bool copy_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept;
+		bool compact_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept;
+		bool compact_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept;
 
-		bool TraceRays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth) noexcept;
-		bool TraceRays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth, Error & error) noexcept;
+		bool trace_rays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth) noexcept;
+		bool trace_rays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth, Error & error) noexcept;
 
-		bool CopyBuffer(BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size) noexcept;
-		bool CopyBuffer(BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error & error) noexcept;
+		bool copy_buffer(BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size) noexcept;
+		bool copy_buffer(BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error & error) noexcept;
 
-		bool CopyBufferToTexture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions) noexcept;
-		bool CopyBufferToTexture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept;
-		bool CopyTextureToBuffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions) noexcept;
-		bool CopyTextureToBuffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept;
-		bool CopyTexture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions) noexcept;
-		bool CopyTexture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error & error) noexcept;
+		bool copy_buffer_to_texture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions) noexcept;
+		bool copy_buffer_to_texture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept;
+		bool copy_texture_to_buffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions) noexcept;
+		bool copy_texture_to_buffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept;
+		bool copy_texture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions) noexcept;
+		bool copy_texture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error & error) noexcept;
 
-		bool ClearBuffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value) noexcept;
-		bool ClearBuffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error & error) noexcept;
+		bool clear_buffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value) noexcept;
+		bool clear_buffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error & error) noexcept;
 
-		bool ClearTexture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges) noexcept;
-		bool ClearTexture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error & error) noexcept;
-		bool ResolveTexture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions) noexcept;
-		bool ResolveTexture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error & error) noexcept;
+		bool clear_texture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges) noexcept;
+		bool clear_texture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error & error) noexcept;
+		bool resolve_texture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions) noexcept;
+		bool resolve_texture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error & error) noexcept;
 
-		bool Blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter) noexcept;
-		bool Blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error & error) noexcept;
+		bool blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter) noexcept;
+		bool blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error & error) noexcept;
 
-		bool GenerateMips(TextureHandle texture) noexcept;
-		bool GenerateMips(TextureHandle texture, Error & error) noexcept;
+		bool generate_mips(TextureHandle texture) noexcept;
+		bool generate_mips(TextureHandle texture, Error & error) noexcept;
 
-		bool ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount) noexcept;
-		bool ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error & error) noexcept;
-		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept;
-		bool WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept;
-		bool BeginQuery(QueryPoolHandle pool, std::uint32_t query) noexcept;
-		bool BeginQuery(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept;
-		bool EndQuery(QueryPoolHandle pool, std::uint32_t query) noexcept;
-		bool EndQuery(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept;
+		bool reset_query_pool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount) noexcept;
+		bool reset_query_pool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error & error) noexcept;
+		bool write_timestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept;
+		bool write_timestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept;
+		bool begin_query(QueryPoolHandle pool, std::uint32_t query) noexcept;
+		bool begin_query(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept;
+		bool end_query(QueryPoolHandle pool, std::uint32_t query) noexcept;
+		bool end_query(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept;
 
-		bool ResolveQueryData(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset) noexcept;
-		bool ResolveQueryData(
-			QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset, Error & error) noexcept;
+		bool resolve_query_data(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset) noexcept;
+		bool resolve_query_data(
+			QueryPoolHandle pool,
+			std::uint32_t firstQuery,
+			std::uint32_t queryCount,
+			BufferHandle dst,
+			std::uint64_t dstOffset,
+			Error & error
+		) noexcept;
 
-		bool BeginDebugLabel(const char * name, std::uint32_t color = 0) noexcept;
-		bool BeginDebugLabel(const char * name, std::uint32_t color, Error & error) noexcept;
-		bool EndDebugLabel() noexcept;
-		bool EndDebugLabel(Error & error) noexcept;
+		bool begin_debug_label(const char * name, std::uint32_t color = 0) noexcept;
+		bool begin_debug_label(const char * name, std::uint32_t color, Error & error) noexcept;
+		bool end_debug_label() noexcept;
+		bool end_debug_label(Error & error) noexcept;
 
 		template <GraphicsApiTag Api, class Fn>
-		bool ModifyNative(const NativeMutationDesc & desc, Fn && fn) noexcept;
+		bool modify_native(const NativeMutationDesc & desc, Fn && fn) noexcept;
 
 		template <GraphicsApiTag Api, class Fn>
-		bool ModifyNative(const NativeMutationDesc & desc, Fn && fn, Error & error) noexcept;
+		bool modify_native(const NativeMutationDesc & desc, Fn && fn, Error & error) noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;
@@ -265,32 +328,32 @@ namespace azo::rhi
 	};
 
 	template <GraphicsApiTag Api, class Fn>
-	bool CommandList::ModifyNative(const NativeMutationDesc & desc, Fn && fn) noexcept
+	bool CommandList::modify_native(const NativeMutationDesc & desc, Fn && fn) noexcept
 	{
 		static_assert(native::HasNativeAccess<Api>, "include azoth/rhi/native/<backend>.hpp for this backend before calling ModifyNative");
 
-		if (!BeginNativeMutation(Api::id, desc, nullptr))
+		if (!BeginNativeMutation(Api::kId, desc, nullptr))
 		{
 			return false;
 		}
 
-		std::forward<Fn>(fn)(native::NativeAccess<Api>::MakeCommandListView(m_impl));
+		std::forward<Fn>(fn)(native::NativeAccess<Api>::make_command_list_view(m_impl));
 
 		return EndNativeMutation(desc, nullptr);
 	}
 
 	template <GraphicsApiTag Api, class Fn>
-	bool CommandList::ModifyNative(const NativeMutationDesc & desc, Fn && fn, Error & error) noexcept
+	bool CommandList::modify_native(const NativeMutationDesc & desc, Fn && fn, Error & error) noexcept
 	{
 		static_assert(native::HasNativeAccess<Api>, "include azoth/rhi/native/<backend>.hpp for this backend before calling ModifyNative");
 
 		error = {};
-		if (!BeginNativeMutation(Api::id, desc, &error))
+		if (!BeginNativeMutation(Api::kId, desc, &error))
 		{
 			return false;
 		}
 
-		std::forward<Fn>(fn)(native::NativeAccess<Api>::MakeCommandListView(m_impl));
+		std::forward<Fn>(fn)(native::NativeAccess<Api>::make_command_list_view(m_impl));
 		return EndNativeMutation(desc, &error);
 	}
 

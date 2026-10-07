@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -19,8 +24,10 @@
 #include "azoth/rhi/backend/blocks/native_object.hpp"	 // IWYU pragma: export
 #include "azoth/rhi/backend/blocks/queue.hpp"			 // IWYU pragma: export
 #include "azoth/rhi/backend/blocks/swapchain.hpp"		 // IWYU pragma: export
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/spin_lock.hpp"
 #include "azoth/rhi/core/api.hpp"
+#include "azoth/rhi/core/debug_break.hpp"
 #include "azoth/rhi/core/profiling.hpp"
 
 #include <algorithm>
@@ -46,7 +53,7 @@ namespace azo::rhi
 		bool copyDedicated			= false;
 	};
 
-	[[nodiscard]] inline QueuePlan PlanQueues(std::span<const QueueRequest> queues) noexcept
+	[[nodiscard]] inline QueuePlan plan_queues(std::span<const QueueRequest> queues) noexcept
 	{
 		if (queues.empty())
 		{
@@ -78,7 +85,7 @@ namespace azo::rhi
 		return plan;
 	}
 
-	[[nodiscard]] inline std::uint32_t QueueCountForType(const DeviceCaps & caps, QueueType type) noexcept
+	[[nodiscard]] inline std::uint32_t queue_count_for_type(const DeviceCaps & caps, QueueType type) noexcept
 	{
 		switch (type)
 		{
@@ -96,182 +103,182 @@ namespace azo::rhi
 	template <>
 	struct InterfaceTraits<NativeObjectApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.nativeObject");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.nativeObject");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<InstanceApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.instance");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.instance");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<CoreDeviceApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.core");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.core");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<PresentApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.present");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.present");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<PlacedMemoryApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.placedMemory");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.placedMemory");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<RayTracingApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.rayTracing");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.rayTracing");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<QueryApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.query");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.query");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<PipelineCacheApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.pipelineCache");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.pipelineCache");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<ResidencyApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.residency");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.residency");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<ResourceIntrospectionApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.resourceIntrospection");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.resourceIntrospection");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<AdoptionApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.adoption");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.adoption");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<ExternalSharingApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.externalSharing");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.externalSharing");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<ExternalCapabilityApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.externalCapability");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.externalCapability");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<QueueApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.queue");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.queue");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<SparseApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.sparse");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.sparse");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<CommandPoolApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.commandPool");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.commandPool");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<DescriptorArenaApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.descriptorArena");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.descriptorArena");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<RenderCommandApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.render");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.render");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<AliasingCommandApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.aliasing");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.aliasing");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<RayTracingCommandApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.rayTracingCommand");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.rayTracingCommand");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<QueryCommandApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.queryCommand");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.queryCommand");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<IndirectApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.indirect");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.indirect");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<IndirectCountApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.indirectCount");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.indirectCount");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<NativeEscapeApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.nativeEscape");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.nativeEscape");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <>
 	struct InterfaceTraits<SwapchainApi> final
 	{
-		static constexpr InterfaceId kId		= MakeInterfaceId("azoth.rhi.block.swapchain");
+		static constexpr InterfaceId kId		= make_interface_id("azoth.rhi.block.swapchain");
 		static constexpr std::uint32_t kVersion = 1;
 	};
 
 	template <typename Block, const Block & (*Table)() noexcept>
 	struct Published final
 	{
-		[[nodiscard]] static const void * Match(const InterfaceId id, const std::uint32_t minVersion) noexcept
+		[[nodiscard]] static const void * match(const InterfaceId id, const std::uint32_t minVersion) noexcept
 		{
 			if (id != InterfaceTraits<Block>::kId || minVersion > InterfaceTraits<Block>::kVersion)
 			{
@@ -283,47 +290,47 @@ namespace azo::rhi
 	};
 
 	template <class... Blocks>
-	[[nodiscard]] const void * QueryPublished(void *, const InterfaceId id, const std::uint32_t minVersion) noexcept
+	[[nodiscard]] const void * query_published(void * /*unused*/, const InterfaceId id, const std::uint32_t minVersion) noexcept
 	{
 		const void * found = nullptr;
-		((found = found != nullptr ? found : Blocks::Match(id, minVersion)), ...);
+		((found = found != nullptr ? found : Blocks::match(id, minVersion)), ...);
 		return found;
 	}
 
 	template <class... Blocks>
-	[[nodiscard]] const BackendObject * PublishingObject() noexcept
+	[[nodiscard]] const BackendObject * publishing_object() noexcept
 	{
-		static constexpr BackendObject object{ .queryInterface = &QueryPublished<Blocks...> };
-		return &object;
+		static constexpr BackendObject kObject{ .queryInterface = &query_published<Blocks...> };
+		return &kObject;
 	}
 
 	namespace detail
 	{
 
-		[[nodiscard]] AZO_RHI_API int & GuardsHeld() noexcept;
+		[[nodiscard]] AZO_RHI_API int & guards_held() noexcept;
 
-		[[nodiscard]] AZO_RHI_API std::atomic<std::uint64_t> & ReentrancyViolationCount() noexcept;
+		[[nodiscard]] AZO_RHI_API std::atomic<std::uint64_t> & reentrancy_violation_count() noexcept;
 
-		[[nodiscard]] inline std::uint64_t ReentrancyViolations() noexcept
+		[[nodiscard]] inline std::uint64_t reentrancy_violations() noexcept
 		{
-			return ReentrancyViolationCount().load(std::memory_order_relaxed);
+			return reentrancy_violation_count().load(std::memory_order_relaxed);
 		}
 
-		inline void CheckNoGuardHeld() noexcept
+		inline void check_no_guard_held() noexcept
 		{
-			if (GuardsHeld() == 0)
+			if (guards_held() == 0)
 			{
 				return;
 			}
 
-			ReentrancyViolationCount().fetch_add(1, std::memory_order_relaxed);
+			reentrancy_violation_count().fetch_add(1, std::memory_order_relaxed);
 			AZO_RHI_DEBUG_BREAK();
 		}
 
-		[[nodiscard]] inline SpinLock & LifetimeGuard() noexcept
+		[[nodiscard]] inline SpinLock & lifetime_guard() noexcept
 		{
-			static SpinLock guard;
-			return guard;
+			static SpinLock s_Guard;
+			return s_Guard;
 		}
 
 		class LifetimeLock final
@@ -331,14 +338,14 @@ namespace azo::rhi
 		public:
 			LifetimeLock() noexcept
 			{
-				++GuardsHeld();
-				LifetimeGuard().lock();
+				++guards_held();
+				lifetime_guard().lock();
 			}
 
 			~LifetimeLock() noexcept
 			{
-				LifetimeGuard().unlock();
-				--GuardsHeld();
+				lifetime_guard().unlock();
+				--guards_held();
 			}
 
 			LifetimeLock(const LifetimeLock &)			   = delete;
@@ -360,7 +367,7 @@ namespace azo::rhi
 		DeviceLock & operator=(DeviceLock &&)	   = delete;
 		~DeviceLock()							   = default;
 
-		[[nodiscard]] bool Bind(const ThreadingMode mode, const SyncOps * sync, Profiler * const * deviceProfiler) noexcept
+		[[nodiscard]] bool bind(const ThreadingMode mode, const SyncOps * sync, Profiler * const * deviceProfiler) noexcept
 		{
 			m_mode			 = mode;
 			m_deviceProfiler = deviceProfiler;
@@ -374,7 +381,7 @@ namespace azo::rhi
 			return m_host != nullptr;
 		}
 
-		void Release() noexcept
+		void release() noexcept
 		{
 			if (m_host != nullptr)
 			{
@@ -388,7 +395,7 @@ namespace azo::rhi
 			// A cooperative holder is a fiber that may release on another thread, which a thread-local count cannot follow.
 			if (m_mode != ThreadingMode::eCooperative)
 			{
-				++detail::GuardsHeld();
+				++detail::guards_held();
 			}
 
 			switch (m_mode)
@@ -408,7 +415,7 @@ namespace azo::rhi
 		{
 			if (m_mode != ThreadingMode::eCooperative)
 			{
-				--detail::GuardsHeld();
+				--detail::guards_held();
 			}
 
 			switch (m_mode)
@@ -461,15 +468,15 @@ namespace azo::rhi
 	namespace detail
 	{
 
-		[[nodiscard]] inline const BackendObject * ObjectOf(void * impl) noexcept
+		[[nodiscard]] inline const BackendObject * object_of(void * impl) noexcept
 		{
 			return static_cast<const BackendObject *>(*static_cast<const void * const *>(impl));
 		}
 
 		template <typename Block>
-		[[nodiscard]] inline const Block * QueryBlock(void * impl) noexcept
+		[[nodiscard]] const Block * query_block(void * impl) noexcept
 		{
-			const BackendObject * object = ObjectOf(impl);
+			const BackendObject * object = object_of(impl);
 			if (object == nullptr || object->queryInterface == nullptr)
 			{
 				return nullptr;
@@ -484,13 +491,13 @@ namespace azo::rhi
 			return block;
 		}
 
-		[[nodiscard]] inline void * NativeImplOf(void * impl) noexcept
+		[[nodiscard]] inline void * native_impl_of(void * impl) noexcept
 		{
 			constexpr int kMaxLayers = 8;
 
 			for (int layer = 0; layer < kMaxLayers && impl != nullptr; ++layer)
 			{
-				const NativeObjectApi * block = QueryBlock<NativeObjectApi>(impl);
+				const auto * block = query_block<NativeObjectApi>(impl);
 				if (block == nullptr || block->inner == nullptr)
 				{
 					return impl;
@@ -509,13 +516,13 @@ namespace azo::rhi
 		}
 
 		template <typename Block>
-		[[nodiscard]] inline void * NativeImplOf(void * impl, const Block & expected) noexcept
+		[[nodiscard]] void * native_impl_of(void * impl, const Block & expected) noexcept
 		{
-			void * native = NativeImplOf(impl);
-			return native != nullptr && QueryBlock<Block>(native) == &expected ? native : nullptr;
+			void * native = native_impl_of(impl);
+			return native != nullptr && query_block<Block>(native) == &expected ? native : nullptr;
 		}
 
-	}
+	} // namespace detail
 
 	class BackendBlockSet final
 	{
@@ -523,19 +530,19 @@ namespace azo::rhi
 		BackendBlockSet(void * deviceImpl, const DeviceDesc & desc) noexcept
 			: m_threading(desc.threading),
 			  m_sync(desc.sync),
-			  m_allocator(desc.allocator != nullptr ? desc.allocator : GetDeviceMemoryAllocator()),
+			  m_allocator(desc.allocator != nullptr ? desc.allocator : get_device_memory_allocator()),
 			  m_profiler(desc.profiler)
 		{
-			m_device.core			 = detail::QueryBlock<CoreDeviceApi>(deviceImpl);
-			m_device.present		 = detail::QueryBlock<PresentApi>(deviceImpl);
-			m_device.placedMemory	 = detail::QueryBlock<PlacedMemoryApi>(deviceImpl);
-			m_device.rayTracing		 = detail::QueryBlock<RayTracingApi>(deviceImpl);
-			m_device.query			 = detail::QueryBlock<QueryApi>(deviceImpl);
-			m_device.pipelineCache	 = detail::QueryBlock<PipelineCacheApi>(deviceImpl);
-			m_device.residency		 = detail::QueryBlock<ResidencyApi>(deviceImpl);
-			m_device.introspection	 = detail::QueryBlock<ResourceIntrospectionApi>(deviceImpl);
-			m_device.adoption		 = detail::QueryBlock<AdoptionApi>(deviceImpl);
-			m_device.externalSharing = detail::QueryBlock<ExternalSharingApi>(deviceImpl);
+			m_device.core			 = detail::query_block<CoreDeviceApi>(deviceImpl);
+			m_device.present		 = detail::query_block<PresentApi>(deviceImpl);
+			m_device.placedMemory	 = detail::query_block<PlacedMemoryApi>(deviceImpl);
+			m_device.rayTracing		 = detail::query_block<RayTracingApi>(deviceImpl);
+			m_device.query			 = detail::query_block<QueryApi>(deviceImpl);
+			m_device.pipelineCache	 = detail::query_block<PipelineCacheApi>(deviceImpl);
+			m_device.residency		 = detail::query_block<ResidencyApi>(deviceImpl);
+			m_device.introspection	 = detail::query_block<ResourceIntrospectionApi>(deviceImpl);
+			m_device.adoption		 = detail::query_block<AdoptionApi>(deviceImpl);
+			m_device.externalSharing = detail::query_block<ExternalSharingApi>(deviceImpl);
 
 			BindLocks();
 			ProbeChildren(deviceImpl);
@@ -546,7 +553,7 @@ namespace azo::rhi
 		{
 			for (DeviceLock & lock : m_locks)
 			{
-				lock.Release();
+				lock.release();
 			}
 		}
 
@@ -555,86 +562,86 @@ namespace azo::rhi
 		BackendBlockSet(BackendBlockSet &&)					 = delete;
 		BackendBlockSet & operator=(BackendBlockSet &&)		 = delete;
 
-		[[nodiscard]] const DeviceBlocks & Device() const noexcept
+		[[nodiscard]] const DeviceBlocks & device() const noexcept
 		{
 			return m_device;
 		}
 
-		[[nodiscard]] const QueueBlocks * Queue(void * queueImpl) noexcept
+		[[nodiscard]] const QueueBlocks * queue(void * queueImpl) noexcept
 		{
 			const std::scoped_lock lock(m_mutex);
 			if (m_queue.core == nullptr)
 			{
-				m_queue.core   = detail::QueryBlock<QueueApi>(queueImpl);
-				m_queue.sparse = detail::QueryBlock<SparseApi>(queueImpl);
+				m_queue.core   = detail::query_block<QueueApi>(queueImpl);
+				m_queue.sparse = detail::query_block<SparseApi>(queueImpl);
 			}
 
 			return m_queue.core != nullptr ? &m_queue : nullptr;
 		}
 
-		[[nodiscard]] const CommandListBlocks * CommandList(void * listImpl) noexcept
+		[[nodiscard]] const CommandListBlocks * command_list(void * listImpl) noexcept
 		{
 			const std::scoped_lock lock(m_mutex);
 			if (m_commandList.render == nullptr)
 			{
-				m_commandList.render		= detail::QueryBlock<RenderCommandApi>(listImpl);
-				m_commandList.aliasing		= detail::QueryBlock<AliasingCommandApi>(listImpl);
-				m_commandList.rayTracing	= detail::QueryBlock<RayTracingCommandApi>(listImpl);
-				m_commandList.query			= detail::QueryBlock<QueryCommandApi>(listImpl);
-				m_commandList.indirect		= detail::QueryBlock<IndirectApi>(listImpl);
-				m_commandList.indirectCount = detail::QueryBlock<IndirectCountApi>(listImpl);
-				m_commandList.nativeEscape	= detail::QueryBlock<NativeEscapeApi>(listImpl);
+				m_commandList.render		= detail::query_block<RenderCommandApi>(listImpl);
+				m_commandList.aliasing		= detail::query_block<AliasingCommandApi>(listImpl);
+				m_commandList.rayTracing	= detail::query_block<RayTracingCommandApi>(listImpl);
+				m_commandList.query			= detail::query_block<QueryCommandApi>(listImpl);
+				m_commandList.indirect		= detail::query_block<IndirectApi>(listImpl);
+				m_commandList.indirectCount = detail::query_block<IndirectCountApi>(listImpl);
+				m_commandList.nativeEscape	= detail::query_block<NativeEscapeApi>(listImpl);
 			}
 
 			return m_commandList.render != nullptr ? &m_commandList : nullptr;
 		}
 
-		[[nodiscard]] const DeviceCaps & Caps() const noexcept
+		[[nodiscard]] const DeviceCaps & caps() const noexcept
 		{
 			return m_caps;
 		}
 
-		[[nodiscard]] ThreadingMode Threading() const noexcept
+		[[nodiscard]] ThreadingMode threading() const noexcept
 		{
 			return m_threading;
 		}
 
-		[[nodiscard]] const SyncOps & Sync() const noexcept
+		[[nodiscard]] const SyncOps & sync() const noexcept
 		{
 			return m_sync;
 		}
 
-		[[nodiscard]] DeviceMemoryAllocator * Allocator() const noexcept
+		[[nodiscard]] DeviceMemoryAllocator * allocator() const noexcept
 		{
 			return m_allocator;
 		}
 
-		[[nodiscard]] Profiler * Profiling() const noexcept
+		[[nodiscard]] Profiler * profiling() const noexcept
 		{
 			return m_profiler;
 		}
 
-		[[nodiscard]] bool AllocatesPlaced() const noexcept
+		[[nodiscard]] bool allocates_placed() const noexcept
 		{
 			return m_allocator != nullptr && m_device.placedMemory != nullptr;
 		}
 
-		[[nodiscard]] detail::AllocationTracker & Tracker() noexcept
+		[[nodiscard]] detail::AllocationTracker & tracker() noexcept
 		{
 			return m_tracker;
 		}
 
-		[[nodiscard]] DeviceLock & Guard(const ResourceType type) noexcept
+		[[nodiscard]] DeviceLock & guard(const ResourceType type) noexcept
 		{
-			return m_locks[static_cast<std::size_t>(type)];
+			return azo::rhi::detail::at(m_locks, static_cast<std::size_t>(type));
 		}
 
-		[[nodiscard]] DeviceLock & ObjectGuard() noexcept
+		[[nodiscard]] DeviceLock & object_guard() noexcept
 		{
-			return m_locks[kObjectLock];
+			return azo::rhi::detail::at(m_locks, kObjectLock);
 		}
 
-		[[nodiscard]] bool Unguarded() const noexcept
+		[[nodiscard]] bool unguarded() const noexcept
 		{
 			return m_threading == ThreadingMode::eSingleThreaded;
 		}
@@ -644,7 +651,7 @@ namespace azo::rhi
 		{
 			for (DeviceLock & lock : m_locks)
 			{
-				static_cast<void>(lock.Bind(m_threading, &m_sync, &m_profiler));
+				static_cast<void>(lock.bind(m_threading, &m_sync, &m_profiler));
 			}
 		}
 
@@ -659,7 +666,7 @@ namespace azo::rhi
 
 			if (void * queueImpl = m_device.core->getQueue(deviceImpl, QueueType::eGraphics, 0, &ignored); queueImpl != nullptr)
 			{
-				static_cast<void>(Queue(queueImpl));
+				static_cast<void>(queue(queueImpl));
 			}
 
 			void * poolImpl = m_device.core->createCommandPool(deviceImpl, CommandPoolDesc{}, &ignored);
@@ -668,7 +675,7 @@ namespace azo::rhi
 				return;
 			}
 
-			const CommandPoolApi * pool = detail::QueryBlock<CommandPoolApi>(poolImpl);
+			const auto * pool = detail::query_block<CommandPoolApi>(poolImpl);
 			if (pool == nullptr || pool->allocate == nullptr)
 			{
 				return;
@@ -676,7 +683,7 @@ namespace azo::rhi
 
 			if (void * listImpl = pool->allocate(poolImpl, nullptr, &ignored); listImpl != nullptr)
 			{
-				static_cast<void>(CommandList(listImpl));
+				static_cast<void>(command_list(listImpl));
 			}
 		}
 
@@ -699,15 +706,17 @@ namespace azo::rhi
 			m_caps.supportsMultiPlanarFormats		 = m_caps.supportsMultiPlanarFormats && declared(DeviceFeature::eMultiPlanarFormats);
 			m_caps.supportsSamplerYcbcrConversion	 = m_caps.supportsSamplerYcbcrConversion && declared(DeviceFeature::eSamplerYcbcrConversion);
 
-			SparseTier granted = SparseTier::eNone;
+			auto granted = SparseTier::eNone;
 			if (declared(DeviceFeature::eSparseResources) || declared(DeviceFeature::eSparseBuffers))
 			{
 				granted = SparseTier::eBuffers;
 			}
+
 			if (declared(DeviceFeature::eSparseTextures))
 			{
 				granted = SparseTier::eResidentTextures;
 			}
+
 			if (declared(DeviceFeature::eSparseVolumes))
 			{
 				granted = SparseTier::eResidentVolumes;
@@ -780,87 +789,87 @@ namespace azo::rhi
 
 		struct FacadeBuilder final
 		{
-			[[nodiscard]] static Instance MakeInstance(void * impl, const InstanceApi * dispatch)
+			[[nodiscard]] static Instance make_instance(void * impl, const InstanceApi * dispatch)
 			{
 				return Instance{ impl, dispatch };
 			}
 
-			[[nodiscard]] static UniqueInstance MakeUniqueInstance(void * impl, const InstanceApi * dispatch)
+			[[nodiscard]] static UniqueInstance make_unique_instance(void * impl, const InstanceApi * dispatch)
 			{
 				return UniqueInstance{ impl, dispatch };
 			}
 
-			[[nodiscard]] static Device MakeDevice(void * impl, BackendBlockSet * blocks)
+			[[nodiscard]] static Device make_device(void * impl, BackendBlockSet * blocks)
 			{
 				return Device{ impl, blocks };
 			}
 
-			[[nodiscard]] static UniqueDevice MakeUniqueDevice(void * impl, BackendBlockSet * blocks)
+			[[nodiscard]] static UniqueDevice make_unique_device(void * impl, BackendBlockSet * blocks)
 			{
 				return UniqueDevice{ impl, blocks };
 			}
 
-			[[nodiscard]] static Queue MakeQueue(void * impl, const QueueBlocks * blocks)
+			[[nodiscard]] static Queue make_queue(void * impl, const QueueBlocks * blocks)
 			{
 				return Queue{ impl, blocks };
 			}
 
-			[[nodiscard]] static CommandPool MakeCommandPool(void * impl, const CommandPoolApi * dispatch, BackendBlockSet * blocks)
+			[[nodiscard]] static CommandPool make_command_pool(void * impl, const CommandPoolApi * dispatch, BackendBlockSet * blocks)
 			{
 				return CommandPool{ impl, dispatch, blocks };
 			}
 
-			[[nodiscard]] static CommandList MakeCommandList(void * impl, const CommandListBlocks * blocks)
+			[[nodiscard]] static CommandList make_command_list(void * impl, const CommandListBlocks * blocks)
 			{
 				return CommandList{ impl, blocks };
 			}
 
-			[[nodiscard]] static Swapchain MakeSwapchain(void * impl, const SwapchainApi * dispatch)
+			[[nodiscard]] static Swapchain make_swapchain(void * impl, const SwapchainApi * dispatch)
 			{
 				return Swapchain{ impl, dispatch };
 			}
 
-			[[nodiscard]] static DescriptorArena MakeDescriptorArena(void * impl, const DescriptorArenaApi * dispatch, BackendBlockSet * blocks)
+			[[nodiscard]] static DescriptorArena make_descriptor_arena(void * impl, const DescriptorArenaApi * dispatch, BackendBlockSet * blocks)
 			{
 				return DescriptorArena{ impl, dispatch, blocks };
 			}
 
-			[[nodiscard]] static void * ImplOf(const Queue & queue) noexcept
+			[[nodiscard]] static void * impl_of(const Queue & queue) noexcept
 			{
 				return queue.m_impl;
 			}
 
-			[[nodiscard]] static void * ImplOf(const Instance & instance) noexcept
+			[[nodiscard]] static void * impl_of(const Instance & instance) noexcept
 			{
 				return instance.m_impl;
 			}
 
-			[[nodiscard]] static void * ImplOf(const Device & device) noexcept
+			[[nodiscard]] static void * impl_of(const Device & device) noexcept
 			{
 				return device.m_impl;
 			}
 
-			[[nodiscard]] static void * ImplOf(const Swapchain & swapchain) noexcept
+			[[nodiscard]] static void * impl_of(const Swapchain & swapchain) noexcept
 			{
 				return swapchain.m_impl;
 			}
 
-			[[nodiscard]] static void * ImplOf(const CommandList & commandList) noexcept
+			[[nodiscard]] static void * impl_of(const CommandList & commandList) noexcept
 			{
 				return commandList.m_impl;
 			}
 
-			[[nodiscard]] static void * ImplOf(const CommandPool & commandPool) noexcept
+			[[nodiscard]] static void * impl_of(const CommandPool & commandPool) noexcept
 			{
 				return commandPool.m_impl;
 			}
 
-			[[nodiscard]] static void * ImplOf(const DescriptorArena & descriptorArena) noexcept
+			[[nodiscard]] static void * impl_of(const DescriptorArena & descriptorArena) noexcept
 			{
 				return descriptorArena.m_impl;
 			}
 
-			[[nodiscard]] static BackendBlockSet * BlocksOf(const Device & device) noexcept
+			[[nodiscard]] static BackendBlockSet * blocks_of(const Device & device) noexcept
 			{
 				return device.m_blocks;
 			}
@@ -868,7 +877,7 @@ namespace azo::rhi
 
 		struct RegistryAccess final
 		{
-			[[nodiscard]] static const BackendCreateInfo * Find(const GraphicsApiRegistry & registry, GraphicsApiId id) noexcept
+			[[nodiscard]] static const BackendCreateInfo * find(const GraphicsApiRegistry & registry, GraphicsApiId id) noexcept
 			{
 				for (const BackendCreateInfo & entry : registry.m_entries)
 				{
@@ -883,11 +892,11 @@ namespace azo::rhi
 		};
 
 		template <class Facade>
-		[[nodiscard]] inline void * UnwrappedImplOf(const Facade & facade) noexcept
+		[[nodiscard]] void * unwrapped_impl_of(const Facade & facade) noexcept
 		{
-			return FacadeBuilder::ImplOf(facade);
+			return FacadeBuilder::impl_of(facade);
 		}
 
-	}
+	} // namespace detail
 
-}
+} // namespace azo::rhi

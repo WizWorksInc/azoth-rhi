@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -15,12 +20,12 @@ namespace azo::rhi::d3d12
 {
 	[[nodiscard]] SamplerSlot * ResolveSampler(D3D12Device * device, SamplerHandle handle) noexcept
 	{
-		return device->samplerSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->samplerSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] DescriptorSetSlot * ResolveDescriptorSet(D3D12Device * device, DescriptorSetHandle handle) noexcept
 	{
-		return device->descriptorSetSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->descriptorSetSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] std::uint32_t BindingOffsetInClass(const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, bool wantSampler) noexcept
@@ -87,8 +92,8 @@ namespace azo::rhi::d3d12
 
 		auto * device = static_cast<D3D12Device *>(impl);
 
-		auto arena	  = HostNew<D3D12DescriptorArena>();
-		arena->object = PublishingObject<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
+		auto arena	  = host_new<D3D12DescriptorArena>();
+		arena->object = publishing_object<Published<DescriptorArenaApi, &DescriptorArenaBlock>>();
 		arena->owner  = device;
 
 		arena->resourceHeap		 = device->globalResourceHeap;
@@ -122,7 +127,7 @@ namespace azo::rhi::d3d12
 		detail::HostVector<DescriptorBinding> bindings = layout->bindings;
 		for (DescriptorBinding & binding : bindings)
 		{
-			if (binding.flags.Contains(DescriptorBindingFlag::eVariableDescriptorCount))
+			if (binding.flags.contains(DescriptorBindingFlag::eVariableDescriptorCount))
 			{
 				binding.count = desc.variableDescriptorCount;
 			}
@@ -158,7 +163,7 @@ namespace azo::rhi::d3d12
 		device->globalResourceNext += resourceCount;
 		device->globalSamplerNext += samplerCount;
 
-		return ReturnValue(device->descriptorSetSlots.Store(std::move(slot)), error);
+		return ReturnValue(device->descriptorSetSlots.store(std::move(slot)), error);
 	}
 
 	bool D3D12DescriptorArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept
@@ -177,19 +182,22 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		DescriptorSetSlot * slot = device->descriptorSetSlots.Resolve(slotHandle, true);
+		DescriptorSetSlot * slot = device->descriptorSetSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid descriptor set handle");
 		}
 		slot->bindings.clear();
 		slot->arena = nullptr;
-		static_cast<void>(device->descriptorSetSlots.Retire(slotHandle, true));
+		static_cast<void>(device->descriptorSetSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
 	[[nodiscard]] DescriptorType LayoutBufferType(
-		const detail::HostVector<DescriptorBinding> & bindings, std::uint32_t binding, DescriptorType fallback) noexcept
+		const detail::HostVector<DescriptorBinding> & bindings,
+		std::uint32_t binding,
+		DescriptorType fallback
+	) noexcept
 	{
 		for (const DescriptorBinding & b : bindings)
 		{
@@ -262,7 +270,11 @@ namespace azo::rhi::d3d12
 			}
 
 			device->device->CopyDescriptorsSimple(
-				1, CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				1,
+				CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index),
+				cpu,
+				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+			);
 		}
 		return Succeed(error);
 	}
@@ -370,7 +382,11 @@ namespace azo::rhi::d3d12
 			}
 
 			device->device->CopyDescriptorsSimple(
-				1, CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				1,
+				CpuHandleAt(arena->resourceHeap.Get(), arena->resourceIncrement, index),
+				cpu,
+				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+			);
 
 			if (write.type == DescriptorType::eCombinedImageSampler)
 			{
@@ -390,7 +406,11 @@ namespace azo::rhi::d3d12
 				const D3D12_CPU_DESCRIPTOR_HANDLE samplerCpu = CpuHandleAt(arena->samplerStaging.Get(), arena->samplerIncrement, samplerIndex);
 				device->device->CreateSampler(&sampler->desc, samplerCpu);
 				device->device->CopyDescriptorsSimple(
-					1, CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, samplerIndex), samplerCpu, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+					1,
+					CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, samplerIndex),
+					samplerCpu,
+					D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER
+				);
 			}
 		}
 		return Succeed(error);
@@ -418,14 +438,20 @@ namespace azo::rhi::d3d12
 			const std::uint32_t index			  = set->samplerBase + inClass + write.arrayIndex;
 			const D3D12_CPU_DESCRIPTOR_HANDLE cpu = CpuHandleAt(arena->samplerStaging.Get(), arena->samplerIncrement, index);
 			device->device->CreateSampler(&sampler->desc, cpu);
-			device->device->CopyDescriptorsSimple(
-				1, CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+			device->device
+				->CopyDescriptorsSimple(1, CpuHandleAt(arena->samplerHeap.Get(), arena->samplerIncrement, index), cpu, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 		}
 		return Succeed(error);
 	}
 
-	bool D3D12CmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept
+	bool D3D12CmdBindDescriptorSet(
+		void * impl,
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.bindDescriptorSet");
 

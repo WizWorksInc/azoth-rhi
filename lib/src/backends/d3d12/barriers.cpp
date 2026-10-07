@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -19,12 +24,12 @@ namespace azo::rhi::d3d12
 
 	[[nodiscard]] TextureViewSlot * ResolveTextureView(D3D12Device * device, TextureViewHandle handle) noexcept
 	{
-		return device->textureViewSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->textureViewSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(D3D12Device * device, QueryPoolHandle handle) noexcept
 	{
-		return device->queryPoolSlots.Resolve(handle, kHandleAlreadyChecked);
+		return device->queryPoolSlots.resolve(handle, kHandleAlreadyChecked);
 	}
 
 	[[nodiscard]] D3D12_QUERY_TYPE MapQueryType(QueryType type) noexcept
@@ -55,7 +60,11 @@ namespace azo::rhi::d3d12
 	}
 
 	[[nodiscard]] ID3D12CommandSignature * GetCommandSignature(
-		D3D12CommandList * list, D3D12_INDIRECT_ARGUMENT_TYPE type, std::uint32_t stride, Error * error) noexcept
+		D3D12CommandList * list,
+		D3D12_INDIRECT_ARGUMENT_TYPE type,
+		std::uint32_t stride,
+		Error * error
+	) noexcept
 	{
 		D3D12CommandPool * pool = list->pool;
 		if (pool == nullptr)
@@ -87,12 +96,14 @@ namespace azo::rhi::d3d12
 			return nullptr;
 		}
 
-		if (!detail::TryPushBack(pool->commandSignatures,
+		if (!detail::try_push_back(
+				pool->commandSignatures,
 				CommandSignatureEntry{
 					.type	   = type,
 					.stride	   = stride,
 					.signature = signature,
-				}))
+				}
+			))
 		{
 			Fail(error, ErrorCode::eOutOfHostMemory, "the command pool could not store another indirect command signature");
 			return nullptr;
@@ -134,13 +145,17 @@ namespace azo::rhi::d3d12
 			}
 		}
 
-		return ReturnValue(device->queryPoolSlots.Store(QueryPoolSlot{
-							   .heap	   = std::move(heap),
-							   .copyHeap   = std::move(copyHeap),
-							   .type	   = desc.type,
-							   .queryCount = desc.queryCount,
-						   }),
-			error);
+		return ReturnValue(
+			device->queryPoolSlots.store(
+				QueryPoolSlot{
+					.heap		= std::move(heap),
+					.copyHeap	= std::move(copyHeap),
+					.type		= desc.type,
+					.queryCount = desc.queryCount,
+				}
+			),
+			error
+		);
 	}
 
 	bool D3D12DestroyQueryPool(D3D12Device * device, RawHandle handle, Error * error) noexcept
@@ -149,7 +164,7 @@ namespace azo::rhi::d3d12
 			.index		= handle.index,
 			.generation = handle.generation,
 		};
-		QueryPoolSlot * slot = device->queryPoolSlots.Resolve(slotHandle, true);
+		QueryPoolSlot * slot = device->queryPoolSlots.resolve(slotHandle, true);
 		if (slot == nullptr)
 		{
 			return Fail(error, ErrorCode::eInvalidHandle, "destroy of an invalid query pool handle");
@@ -157,7 +172,7 @@ namespace azo::rhi::d3d12
 
 		slot->heap.Reset();
 		slot->copyHeap.Reset();
-		static_cast<void>(device->queryPoolSlots.Retire(slotHandle, true));
+		static_cast<void>(device->queryPoolSlots.retire(slotHandle, true));
 		return Succeed(error);
 	}
 
@@ -176,12 +191,14 @@ namespace azo::rhi::d3d12
 
 		for (const auto & m : barriers.memory)
 		{
-			globals.push_back(D3D12_GLOBAL_BARRIER{
-				.SyncBefore	  = MapBarrierSync(m.before.stages, m.before.use, queue),
-				.SyncAfter	  = MapBarrierSync(m.after.stages, m.after.use, queue),
-				.AccessBefore = MapBarrierAccess(m.before.use, queue),
-				.AccessAfter  = MapBarrierAccess(m.after.use, queue),
-			});
+			globals.push_back(
+				D3D12_GLOBAL_BARRIER{
+					.SyncBefore	  = MapBarrierSync(m.before.stages, m.before.use, queue),
+					.SyncAfter	  = MapBarrierSync(m.after.stages, m.after.use, queue),
+					.AccessBefore = MapBarrierAccess(m.before.use, queue),
+					.AccessAfter  = MapBarrierAccess(m.after.use, queue),
+				}
+			);
 		}
 
 		for (const BufferBarrier & b : barriers.buffers)
@@ -197,21 +214,23 @@ namespace azo::rhi::d3d12
 			const D3D12_BARRIER_ACCESS accessBefore = ClampAccessToHeap(MapBarrierAccess(b.before.use, queue), slot->heapType);
 			const D3D12_BARRIER_ACCESS accessAfter	= ClampAccessToHeap(MapBarrierAccess(b.after.use, queue), slot->heapType);
 
-			if (slot->desc.usage.Contains(BufferUsage::eAccelerationStructureStorage) &&
+			if (slot->desc.usage.contains(BufferUsage::eAccelerationStructureStorage) &&
 				(!AccessLegalOnAccelerationStructure(accessBefore) || !AccessLegalOnAccelerationStructure(accessAfter)))
 			{
 				return Fail(error, ErrorCode::eInvalidArgument, "a barrier on an acceleration structure buffer named a use it can never be in");
 			}
 
-			buffers.push_back(D3D12_BUFFER_BARRIER{
-				.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
-				.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
-				.AccessBefore = accessBefore,
-				.AccessAfter  = accessAfter,
-				.pResource	  = slot->resource.Get(),
-				.Offset		  = 0,
-				.Size		  = std::numeric_limits<UINT64>::max(),
-			});
+			buffers.push_back(
+				D3D12_BUFFER_BARRIER{
+					.SyncBefore	  = MapBarrierSync(b.before.stages, b.before.use, queue),
+					.SyncAfter	  = MapBarrierSync(b.after.stages, b.after.use, queue),
+					.AccessBefore = accessBefore,
+					.AccessAfter  = accessAfter,
+					.pResource	  = slot->resource.Get(),
+					.Offset		  = 0,
+					.Size		  = std::numeric_limits<UINT64>::max(),
+				}
+			);
 		}
 
 		for (const TextureBarrier & t : barriers.textures)
@@ -222,8 +241,8 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "texture barrier with an invalid texture handle");
 			}
 
-			const detail::ResolvedSubresourceRange range = detail::ResolveSubresourceRange(t.range, slot->mipLevels, slot->arrayLayers);
-			if (range.IsEmpty())
+			const detail::ResolvedSubresourceRange range = detail::resolve_subresource_range(t.range, slot->mipLevels, slot->arrayLayers);
+			if (range.is_empty())
 			{
 				continue;
 			}
@@ -249,17 +268,19 @@ namespace azo::rhi::d3d12
 
 			const D3D12_BARRIER_LAYOUT before = crossesIn ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.before.use, queue);
 			const D3D12_BARRIER_LAYOUT after  = crossesOut ? D3D12_BARRIER_LAYOUT_COMMON : MapBarrierLayout(t.after.use, queue);
-			textures.push_back(D3D12_TEXTURE_BARRIER{
-				.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
-				.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
-				.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.before.use, queue),
-				.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.after.use, queue),
-				.LayoutBefore = before,
-				.LayoutAfter  = after,
-				.pResource	  = slot->resource.Get(),
-				.Subresources = subresources,
-				.Flags		  = TextureBarrierFlags(before),
-			});
+			textures.push_back(
+				D3D12_TEXTURE_BARRIER{
+					.SyncBefore	  = MapBarrierSync(t.before.stages, t.before.use, queue),
+					.SyncAfter	  = MapBarrierSync(t.after.stages, t.after.use, queue),
+					.AccessBefore = crossesIn ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.before.use, queue),
+					.AccessAfter  = crossesOut ? D3D12_BARRIER_ACCESS_COMMON : MapBarrierAccess(t.after.use, queue),
+					.LayoutBefore = before,
+					.LayoutAfter  = after,
+					.pResource	  = slot->resource.Get(),
+					.Subresources = subresources,
+					.Flags		  = TextureBarrierFlags(before),
+				}
+			);
 		}
 
 		std::array<D3D12_BARRIER_GROUP, 3> groups{};
@@ -311,12 +332,12 @@ namespace azo::rhi::d3d12
 		// has to ask the second question too or an alias barrier naming a destroyed resource is taken in every mode that has no validation layer above it.
 		const auto liveBuffer = [device](const BufferHandle handle)
 		{
-			return !handle.IsValid() || ResolveBuffer(device, handle) != nullptr;
+			return !handle.is_valid() || ResolveBuffer(device, handle) != nullptr;
 		};
 
 		const auto liveTexture = [device](const TextureHandle handle)
 		{
-			return !handle.IsValid() || ResolveTexture(device, handle) != nullptr;
+			return !handle.is_valid() || ResolveTexture(device, handle) != nullptr;
 		};
 
 		for (const AliasBarrier & alias : barriers)
@@ -330,7 +351,7 @@ namespace azo::rhi::d3d12
 				return Fail(error, ErrorCode::eInvalidHandle, "alias barrier with an invalid texture handle");
 			}
 
-			if (!alias.afterTexture.IsValid())
+			if (!alias.afterTexture.is_valid())
 			{
 				continue;
 			}
@@ -342,17 +363,19 @@ namespace azo::rhi::d3d12
 			}
 
 			const D3D12_BARRIER_LAYOUT before = MapBarrierLayout(ResourceUse::eDiscard, queue);
-			textures.push_back(D3D12_TEXTURE_BARRIER{
-				.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
-				.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
-				.AccessBefore = D3D12_BARRIER_ACCESS_NO_ACCESS,
-				.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON,
-				.LayoutBefore = before,
-				.LayoutAfter  = MapBarrierLayout(ResourceUse::eNone, queue),
-				.pResource	  = slot->resource.Get(),
-				.Subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{ .IndexOrFirstMipLevel = kAllSubresources },
-				.Flags		  = TextureBarrierFlags(before),
-			});
+			textures.push_back(
+				D3D12_TEXTURE_BARRIER{
+					.SyncBefore	  = D3D12_BARRIER_SYNC_ALL,
+					.SyncAfter	  = D3D12_BARRIER_SYNC_ALL,
+					.AccessBefore = D3D12_BARRIER_ACCESS_NO_ACCESS,
+					.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON,
+					.LayoutBefore = before,
+					.LayoutAfter  = MapBarrierLayout(ResourceUse::eNone, queue),
+					.pResource	  = slot->resource.Get(),
+					.Subresources = D3D12_BARRIER_SUBRESOURCE_RANGE{ .IndexOrFirstMipLevel = kAllSubresources },
+					.Flags		  = TextureBarrierFlags(before),
+				}
+			);
 		}
 
 		const D3D12_GLOBAL_BARRIER global{

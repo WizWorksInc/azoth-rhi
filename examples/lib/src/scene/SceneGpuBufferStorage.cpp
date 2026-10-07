@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -259,11 +264,11 @@ namespace fw::scene
 
 		buffer.handle = m_config.device.CreateBuffer(
 			azo::rhi::BufferDesc{
-				.size		   = sizeBytes,
-				.stride		   = stride,
-				.usage		   = usage,
-				.memory		   = azo::rhi::MemoryUsage::eCpuToGpu,
-				.debugName	   = debugName,
+				.size	   = sizeBytes,
+				.stride	   = stride,
+				.usage	   = usage,
+				.memory	   = azo::rhi::MemoryUsage::eCpuToGpu,
+				.debugName = debugName,
 			},
 			error);
 

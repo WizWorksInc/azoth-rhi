@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -67,41 +72,49 @@ namespace azo::rhi::d3d12
 				}
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
 
-				const TextureHandle texture	 = device->textureSlots.Store(TextureSlot{ .resource = resource,
-					.format																		= sc->viewFormat,
-					.type																		= TextureType::eTex2D,
-					.mipLevels																	= 1,
-					.arrayLayers																= 1,
-					.usage																		= Flags<TextureUsage>(TextureUsage::eColorAttachment),
-					.lifetime																	= SlotLifetime::eSwapchainBorrowed });
-				const TextureViewHandle view = device->textureViewSlots.Store(TextureViewSlot{ .texture = texture,
-					.format																				= sc->viewFormat,
-					.type																				= TextureViewType::eTex2D,
-					.rtvIndex																			= rtvIndex,
-					.lifetime																			= SlotLifetime::eSwapchainBorrowed });
+				const TextureHandle texture = device->textureSlots.store(
+					TextureSlot{ .resource = resource,
+						.format			   = sc->viewFormat,
+						.type			   = TextureType::eTex2D,
+						.mipLevels		   = 1,
+						.arrayLayers	   = 1,
+						.usage			   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
+						.lifetime		   = SlotLifetime::eSwapchainBorrowed }
+				);
+				const TextureViewHandle view = device->textureViewSlots.store(
+					TextureViewSlot{ .texture = texture,
+						.format				  = sc->viewFormat,
+						.type				  = TextureViewType::eTex2D,
+						.rtvIndex			  = rtvIndex,
+						.lifetime			  = SlotLifetime::eSwapchainBorrowed }
+				);
 				sc->backBuffers.push_back(texture);
 				sc->backBufferViews.push_back(view);
 			}
 			else
 			{
-				static_cast<void>(device->textureSlots.Retire(sc->backBuffers[i], true));
-				sc->backBuffers[i] = device->textureSlots.Store(TextureSlot{ .resource = resource,
-					.format															   = sc->viewFormat,
-					.type															   = TextureType::eTex2D,
-					.mipLevels														   = 1,
-					.arrayLayers													   = 1,
-					.usage															   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
-					.lifetime														   = SlotLifetime::eSwapchainBorrowed });
+				static_cast<void>(device->textureSlots.retire(sc->backBuffers[i], true));
+				sc->backBuffers[i] = device->textureSlots.store(
+					TextureSlot{ .resource = resource,
+						.format			   = sc->viewFormat,
+						.type			   = TextureType::eTex2D,
+						.mipLevels		   = 1,
+						.arrayLayers	   = 1,
+						.usage			   = Flags<TextureUsage>(TextureUsage::eColorAttachment),
+						.lifetime		   = SlotLifetime::eSwapchainBorrowed }
+				);
 
-				const TextureViewSlot * const oldView = device->textureViewSlots.Resolve(sc->backBufferViews[i], true);
+				const TextureViewSlot * const oldView = device->textureViewSlots.resolve(sc->backBufferViews[i], true);
 				const std::uint32_t rtvIndex		  = oldView != nullptr ? oldView->rtvIndex : kInvalidIndex;
 				device->device->CreateRenderTargetView(resource.Get(), &rtvDesc, device->rtvHeap.Handle(rtvIndex));
-				static_cast<void>(device->textureViewSlots.Retire(sc->backBufferViews[i], true));
-				sc->backBufferViews[i] = device->textureViewSlots.Store(TextureViewSlot{ .texture = sc->backBuffers[i],
-					.format																		  = sc->viewFormat,
-					.type																		  = TextureViewType::eTex2D,
-					.rtvIndex																	  = rtvIndex,
-					.lifetime																	  = SlotLifetime::eSwapchainBorrowed });
+				static_cast<void>(device->textureViewSlots.retire(sc->backBufferViews[i], true));
+				sc->backBufferViews[i] = device->textureViewSlots.store(
+					TextureViewSlot{ .texture = sc->backBuffers[i],
+						.format				  = sc->viewFormat,
+						.type				  = TextureViewType::eTex2D,
+						.rtvIndex			  = rtvIndex,
+						.lifetime			  = SlotLifetime::eSwapchainBorrowed }
+				);
 			}
 		}
 		return Succeed(error);
@@ -117,8 +130,8 @@ namespace azo::rhi::d3d12
 			return FailValue<void *>(error, ErrorCode::eNativeApiError, "the device has no DXGI factory for swapchain creation");
 		}
 
-		auto sc				= HostNew<D3D12Swapchain>();
-		sc->object			= PublishingObject<Published<SwapchainApi, &SwapchainBlock>>();
+		auto sc				= host_new<D3D12Swapchain>();
+		sc->object			= publishing_object<Published<SwapchainApi, &SwapchainBlock>>();
 		sc->owner			= device;
 		sc->hwnd			= reinterpret_cast<HWND>(static_cast<std::uintptr_t>(desc.surface.value)); // NOLINT(performance-no-int-to-ptr)
 		sc->width			= std::max<std::uint32_t>(desc.width, 1);
@@ -192,8 +205,13 @@ namespace azo::rhi::d3d12
 		};
 	}
 
-	PresentResult D3D12SwapchainPresent(void * impl, [[maybe_unused]] std::uint32_t imageIndex, [[maybe_unused]] BinarySemaphoreHandle renderFinished,
-		[[maybe_unused]] void * queueImpl, Error * error) noexcept
+	PresentResult D3D12SwapchainPresent(
+		void * impl,
+		[[maybe_unused]] std::uint32_t imageIndex,
+		[[maybe_unused]] BinarySemaphoreHandle renderFinished,
+		[[maybe_unused]] void * queueImpl,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.present");
 
@@ -226,7 +244,7 @@ namespace azo::rhi::d3d12
 		{
 			for (const TextureHandle handle : sc->backBuffers)
 			{
-				if (TextureSlot * const slot = device->textureSlots.Resolve(handle, false); slot != nullptr)
+				if (TextureSlot * const slot = device->textureSlots.resolve(handle, false); slot != nullptr)
 				{
 					slot->resource.Reset();
 				}

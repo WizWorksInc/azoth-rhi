@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -35,107 +40,107 @@ namespace azo::rhi
 
 		DeviceBuilder() noexcept = default;
 
-		DeviceBuilder & DebugName(const std::string_view name)
+		DeviceBuilder & debug_name(const std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		DeviceBuilder & Validation(const ValidationMode mode) noexcept
+		DeviceBuilder & validation(const ValidationMode mode) noexcept
 		{
 			m_desc.validation = mode;
 			return *this;
 		}
 
 		template <GraphicsApiTag Api, class ConfigureFn>
-		DeviceBuilder & Configure(ConfigureFn && configure)
+		DeviceBuilder & configure(ConfigureFn && configure)
 		{
 			ConfigureBlock<Api, typename native::DeviceConfigFor<Api>::Config>(m_deviceConfigs, std::forward<ConfigureFn>(configure));
 			return *this;
 		}
 
 		template <GraphicsApiTag Api, class ConfigureFn>
-		DeviceBuilder & ConfigureInstance(ConfigureFn && configure)
+		DeviceBuilder & configure_instance(ConfigureFn && configure)
 		{
 			ConfigureBlock<Api, typename native::InstanceConfigFor<Api>::Config>(m_instanceConfigs, std::forward<ConfigureFn>(configure));
 			return *this;
 		}
 
-		DeviceBuilder & DebugNames(const bool enabled = true) noexcept
+		DeviceBuilder & debug_names(const bool enabled = true) noexcept
 		{
 			m_desc.enableDebugNames = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & DebugLabels(const bool enabled = true) noexcept
+		DeviceBuilder & debug_labels(const bool enabled = true) noexcept
 		{
 			m_desc.enableDebugLabels = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & PreferDiscreteGpu(const bool enabled = true) noexcept
+		DeviceBuilder & prefer_discrete_gpu(const bool enabled = true) noexcept
 		{
 			m_desc.preferDiscreteGpu = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & RequireSwapchain(const bool enabled = true) noexcept
+		DeviceBuilder & require_swapchain(const bool enabled = true) noexcept
 		{
 			m_desc.requireSwapchain = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & Headless(const bool enabled = true) noexcept
+		DeviceBuilder & headless(const bool enabled = true) noexcept
 		{
 			m_desc.requireSwapchain = !enabled;
 			return *this;
 		}
 
-		DeviceBuilder & Threading(const ThreadingMode mode) noexcept
+		DeviceBuilder & threading(const ThreadingMode mode) noexcept
 		{
 			m_desc.threading = mode;
 			return *this;
 		}
 
-		DeviceBuilder & Cooperative(const SyncOps & ops) noexcept
+		DeviceBuilder & cooperative(const SyncOps & ops) noexcept
 		{
 			m_desc.threading = ThreadingMode::eCooperative;
 			m_desc.sync		 = ops;
 			return *this;
 		}
 
-		DeviceBuilder & AllowSoftwareAdapter(const bool enabled = true) noexcept
+		DeviceBuilder & allow_software_adapter(const bool enabled = true) noexcept
 		{
 			m_desc.allowSoftwareAdapter = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & AllowedLinkedAdapters(const bool enabled = true) noexcept
+		DeviceBuilder & allowed_linked_adapters(const bool enabled = true) noexcept
 		{
 			m_desc.allowLinkedAdapters = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & PreferredAdapter(const std::uint32_t adapterIndex) noexcept
+		DeviceBuilder & preferred_adapter(const std::uint32_t adapterIndex) noexcept
 		{
 			m_desc.preferredAdapterIndex = adapterIndex;
 			return *this;
 		}
 
-		DeviceBuilder & DefaultGraphicsQueue(const bool enabled = true) noexcept
+		DeviceBuilder & default_graphics_queue(const bool enabled = true) noexcept
 		{
 			m_useDefaultGraphicsQueue = enabled;
 			return *this;
 		}
 
-		DeviceBuilder & ClearQueues() noexcept
+		DeviceBuilder & clear_queues() noexcept
 		{
 			m_queueCount	  = 0;
 			m_queueOverflowed = false;
 			return *this;
 		}
 
-		DeviceBuilder & Queue(const QueueType type, const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
+		DeviceBuilder & queue(const QueueType type, const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
 		{
 			const QueueRequest request{
 				.type				   = type,
@@ -163,45 +168,45 @@ namespace azo::rhi
 			return *this;
 		}
 
-		DeviceBuilder & GraphicsQueue(const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
+		DeviceBuilder & graphics_queue(const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
 		{
-			return Queue(QueueType::eGraphics, minCount, requireDedicatedQueue);
+			return queue(QueueType::eGraphics, minCount, requireDedicatedQueue);
 		}
 
-		DeviceBuilder & ComputeQueue(const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
+		DeviceBuilder & compute_queue(const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
 		{
-			return Queue(QueueType::eCompute, minCount, requireDedicatedQueue);
+			return queue(QueueType::eCompute, minCount, requireDedicatedQueue);
 		}
 
-		DeviceBuilder & CopyQueue(const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
+		DeviceBuilder & copy_queue(const std::uint32_t minCount = 1, const bool requireDedicatedQueue = false) noexcept
 		{
-			return Queue(QueueType::eCopy, minCount, requireDedicatedQueue);
+			return queue(QueueType::eCopy, minCount, requireDedicatedQueue);
 		}
 
-		DeviceBuilder & DedicatedComputeQueue(const std::uint32_t minCount = 1) noexcept
+		DeviceBuilder & dedicated_compute_queue(const std::uint32_t minCount = 1) noexcept
 		{
-			return ComputeQueue(minCount, true);
+			return compute_queue(minCount, true);
 		}
 
-		DeviceBuilder & DedicatedCopyQueue(const std::uint32_t minCount = 1) noexcept
+		DeviceBuilder & dedicated_copy_queue(const std::uint32_t minCount = 1) noexcept
 		{
-			return CopyQueue(minCount, true);
+			return copy_queue(minCount, true);
 		}
 
-		DeviceBuilder & RequireFeature(const DeviceFeature feature) noexcept
+		DeviceBuilder & require_feature(const DeviceFeature feature) noexcept
 		{
 			AddFeature(m_requiredFeatures, m_requiredFeatureCount, feature);
 			return *this;
 		}
 
-		DeviceBuilder & PreferFeature(const DeviceFeature feature) noexcept
+		DeviceBuilder & prefer_feature(const DeviceFeature feature) noexcept
 		{
 			AddFeature(m_preferredFeatures, m_preferredFeatureCount, feature);
 			return *this;
 		}
 
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<UniqueDevice> Build() const
+		[[nodiscard]] Result<UniqueDevice> build() const
 		{
 			std::array<QueueRequest, kMaxQueueRequests> queues{};
 			const std::size_t queueCount = MakeQueueRequests(queues);
@@ -209,7 +214,7 @@ namespace azo::rhi
 			const Result<void> validation = Validate(std::span<const QueueRequest>{ queues.data(), queueCount });
 			if (!validation)
 			{
-				return validation.GetError();
+				return validation.get_error();
 			}
 
 			const auto deviceConfigs   = MakeConfigEntries(m_deviceConfigs);
@@ -222,10 +227,10 @@ namespace azo::rhi
 			desc.backendConfigs		   = deviceConfigs;
 			desc.instanceConfigs	   = instanceConfigs;
 
-			return CreateDevice<Api>(desc);
+			return create_device<Api>(desc);
 		}
 
-		[[nodiscard]] Result<UniqueDevice> Build(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis) const
+		[[nodiscard]] Result<UniqueDevice> build(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis) const
 		{
 			if (preferredApis.empty())
 			{
@@ -241,7 +246,7 @@ namespace azo::rhi
 			const Result<void> validation = Validate(std::span<const QueueRequest>{ queues.data(), queueCount });
 			if (!validation)
 			{
-				return validation.GetError();
+				return validation.get_error();
 			}
 
 			const auto deviceConfigs   = MakeConfigEntries(m_deviceConfigs);
@@ -254,7 +259,7 @@ namespace azo::rhi
 			desc.backendConfigs		   = deviceConfigs;
 			desc.instanceConfigs	   = instanceConfigs;
 
-			return CreateDevice(registry, preferredApis, desc);
+			return create_device(registry, preferredApis, desc);
 		}
 
 	private:
@@ -267,18 +272,18 @@ namespace azo::rhi
 		template <GraphicsApiTag Api, class Config, class ConfigureFn>
 		static void ConfigureBlock(detail::HostVector<ConfiguredBlock> & blocks, ConfigureFn && configure)
 		{
-			const auto previous = std::ranges::find(blocks, Api::id, &ConfiguredBlock::api);
+			const auto previous = std::ranges::find(blocks, Api::kId, &ConfiguredBlock::api);
 			Config block		= previous != blocks.end() ? *static_cast<const Config *>(previous->config.get()) : Config{};
 			std::invoke(std::forward<ConfigureFn>(configure), block);
 			auto owned			= std::allocate_shared<Config>(HostAllocatorAdapter<Config>{}, std::move(block));
-			const auto existing = std::ranges::find(blocks, Api::id, &ConfiguredBlock::api);
+			const auto existing = std::ranges::find(blocks, Api::kId, &ConfiguredBlock::api);
 			if (existing != blocks.end())
 			{
 				existing->config = std::move(owned);
 			}
 			else
 			{
-				blocks.push_back(ConfiguredBlock{ .api = Api::id, .config = std::move(owned) });
+				blocks.push_back(ConfiguredBlock{ .api = Api::kId, .config = std::move(owned) });
 			}
 		}
 
@@ -385,7 +390,8 @@ namespace azo::rhi
 				{
 					return queueType == type;
 				},
-				&QueueRequest::type);
+				&QueueRequest::type
+			);
 		}
 
 		[[nodiscard]] std::size_t FindQueue(const QueueType type) const noexcept

@@ -11,6 +11,8 @@ AlignConsecutiveShortCaseStatements:
 AlignEscapedNewlines: Right
 AlignTrailingComments:
   Kind: Always
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortCompoundRequirementOnASingleLine: true
@@ -23,7 +25,7 @@ AlwaysBreakBeforeMultilineStrings: true
 AttributeMacros: []
 BasedOnStyle: Microsoft
 BinPackArguments: false
-BinPackParameters: BinPack
+BinPackParameters: OnePerLine
 BraceWrapping:
   AfterCaseLabel: true
   AfterClass: true
@@ -44,7 +46,9 @@ BraceWrapping:
   SplitEmptyRecord: false
 BracedInitializerIndentWidth: 4
 BreakAfterAttributes: Never
+BreakAfterOpenBracketFunction: true
 BreakBeforeBraces: Allman
+BreakBeforeCloseBracketFunction: true
 BreakBeforeConceptDeclarations: Always
 BreakTemplateDeclarations: Yes
 ColumnLimit: 160
@@ -120,7 +124,40 @@ SpaceInEmptyBraces: Never
 SpacesInParens: Never
 Standard: Latest
 StatementAttributeLikeMacros: []
-StatementMacros: []
+StatementMacros:
+  - AZO_DISABLE_CLANG_WARNING
+  - AZO_RESTORE_CLANG_WARNING
+  - AZO_ENABLE_CLANG_WARNING_AS_ERROR
+  - AZO_DISABLE_CLANG_WARNING_AS_ERROR
+  - AZO_DISABLE_GCC_WARNING
+  - AZO_RESTORE_GCC_WARNING
+  - AZO_ENABLE_GCC_WARNING_AS_ERROR
+  - AZO_DISABLE_GCC_WARNING_AS_ERROR
+  - AZO_DISABLE_VC_WARNING
+  - AZO_RESTORE_VC_WARNING
+  - AZO_ENABLE_VC_WARNING_AS_ERROR
+  - AZO_DISABLE_VC_WARNING_AS_ERROR
+  - AZO_ASSERT_WARNING_PRAGMA_PUSH
+  - AZO_ASSERT_WARNING_PRAGMA_POP
+  - AZO_ASSERT_IGNORE_CPP20_EXTENSION_WARNING
+  - AZO_ASSERT_EXPRESSION_DECOMP_WARNING_PRAGMA
 TabWidth: 4
 UseTab: Always
+WhitespaceSensitiveMacros:
+  - AZO_DISABLE_CLANG_WARNING
+  - AZO_RESTORE_CLANG_WARNING
+  - AZO_ENABLE_CLANG_WARNING_AS_ERROR
+  - AZO_DISABLE_CLANG_WARNING_AS_ERROR
+  - AZO_DISABLE_GCC_WARNING
+  - AZO_RESTORE_GCC_WARNING
+  - AZO_ENABLE_GCC_WARNING_AS_ERROR
+  - AZO_DISABLE_GCC_WARNING_AS_ERROR
+  - AZO_DISABLE_VC_WARNING
+  - AZO_RESTORE_VC_WARNING
+  - AZO_ENABLE_VC_WARNING_AS_ERROR
+  - AZO_DISABLE_VC_WARNING_AS_ERROR
+  - AZO_ASSERT_WARNING_PRAGMA_PUSH
+  - AZO_ASSERT_WARNING_PRAGMA_POP
+  - AZO_ASSERT_IGNORE_CPP20_EXTENSION_WARNING
+  - AZO_ASSERT_EXPRESSION_DECOMP_WARNING_PRAGMA
 ObjCBlockIndentWidth: 4

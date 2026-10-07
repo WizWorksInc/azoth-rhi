@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -11,6 +16,9 @@
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/spin_lock.hpp"
+#include "azoth/rhi/core/c_string.hpp"
+#include "azoth/rhi/device/threading.hpp"
+#include "azoth/rhi/host/profiler.hpp"
 
 #include <tracy/TracyC.h>
 
@@ -18,33 +26,33 @@
 
 #include <array>
 #include <charconv>
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <utility>
-#include <vector>
 
 namespace azo::rhi
 {
 	namespace
 	{
-		thread_local detail::HostVector<TracyCZoneCtx> tlZoneStack;
+		thread_local detail::HostVector<TracyCZoneCtx> g_TlZoneStack;
 
-		std::size_t Length(CString text) noexcept
+		std::size_t length(CString text) noexcept
 		{
 			return text != nullptr ? std::strlen(text) : 0;
 		}
 
 #ifdef TRACY_FIBERS
 
-		SpinLock g_fiberNameLock;
-		detail::HostMap<std::uint64_t, detail::HostString> g_fiberNames;
+		SpinLock g_FiberNameLock;
+		detail::HostMap<std::uint64_t, detail::HostString> g_FiberNames;
 
-		CString InternFiberName(const FiberId fiber, const CString name)
+		CString intern_fiber_name(const FiberId fiber, const CString name)
 		{
-			const std::scoped_lock lock(g_fiberNameLock);
+			const std::scoped_lock lock(g_FiberNameLock);
 
-			const auto existing = g_fiberNames.find(fiber.value);
-			if (existing != g_fiberNames.end())
+			const auto existing = g_FiberNames.find(fiber.value);
+			if (existing != g_FiberNames.end())
 			{
 				return existing->second.c_str();
 			}
@@ -63,7 +71,7 @@ namespace azo::rhi
 				stored.append(digits.data(), static_cast<std::size_t>(written.ptr - digits.data()));
 			}
 
-			return g_fiberNames.emplace(fiber.value, std::move(stored)).first->second.c_str();
+			return g_FiberNames.emplace(fiber.value, std::move(stored)).first->second.c_str();
 		}
 
 #endif
@@ -73,20 +81,20 @@ namespace azo::rhi
 	void TracyProfiler::BeginZone(const ZoneLocation & location)
 	{
 		const std::uint64_t srcloc =
-			___tracy_alloc_srcloc_name(location.line, location.file, Length(location.file), nullptr, 0, location.name, Length(location.name), location.color);
+			___tracy_alloc_srcloc_name(location.line, location.file, length(location.file), nullptr, 0, location.name, length(location.name), location.color);
 
-		tlZoneStack.push_back(___tracy_emit_zone_begin_alloc(srcloc, 1));
+		g_TlZoneStack.push_back(___tracy_emit_zone_begin_alloc(srcloc, 1));
 	}
 
 	void TracyProfiler::EndZone()
 	{
-		if (tlZoneStack.empty())
+		if (g_TlZoneStack.empty())
 		{
 			return;
 		}
 
-		___tracy_emit_zone_end(tlZoneStack.back());
-		tlZoneStack.pop_back();
+		___tracy_emit_zone_end(g_TlZoneStack.back());
+		g_TlZoneStack.pop_back();
 	}
 
 	void TracyProfiler::Plot(CString name, std::int64_t value)
@@ -122,7 +130,7 @@ namespace azo::rhi
 	void TracyProfiler::EnterFiber([[maybe_unused]] const FiberId fiber, [[maybe_unused]] const CString name)
 	{
 #ifdef TRACY_FIBERS
-		TracyFiberEnter(InternFiberName(fiber, name));
+		TracyFiberEnter(intern_fiber_name(fiber, name));
 #endif
 	}
 

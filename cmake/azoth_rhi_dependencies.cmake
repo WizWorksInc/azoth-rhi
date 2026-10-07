@@ -14,6 +14,7 @@
 
 include(FetchContent)
 
+set(AZOTH_RHI_BASE_TAG "f1168dd212077c21ac6e387e5960a4c3bc9d5749" CACHE STRING "azoth-base commit")
 set(AZOTH_RHI_VK_DYNAMIC_TAG "v1.4.357" CACHE STRING "vk-dynamic version (Vulkan-Hpp plus dispatcher storage)")
 set(AZOTH_RHI_VMA_TAG "v3.4.0" CACHE STRING "VulkanMemoryAllocator version")
 set(AZOTH_RHI_D3D12MA_TAG "v3.2.0" CACHE STRING "D3D12MemoryAllocator version")
@@ -23,6 +24,7 @@ set(AZOTH_RHI_D3D12MA_TAG "v3.2.0" CACHE STRING "D3D12MemoryAllocator version")
 set(AZOTH_RHI_METAL_CPP_TAG "release/metal-cpp_macOS26.4_iOS26.4" CACHE STRING "metal-cpp release, which is tagged by the SDK it targets")
 
 mark_as_advanced(
+        AZOTH_RHI_BASE_TAG
         AZOTH_RHI_VK_DYNAMIC_TAG
         AZOTH_RHI_VMA_TAG
         AZOTH_RHI_D3D12MA_TAG
@@ -99,6 +101,20 @@ endfunction()
 macro(azoth_rhi_fetch_dependencies)
     set(AZOTH_RHI_BUNDLED_TARGETS "")
     set(AZOTH_RHI_BUNDLED_INCLUDE_DIRS "")
+
+    # A consumer that already has azoth::base keeps it, so one copy of the platform macros reaches every library.
+    if(NOT TARGET azoth::base)
+        find_package(AzothBase CONFIG QUIET)
+    endif()
+    if(NOT TARGET azoth::base)
+        # Installed beside us, since our exported targets link it.
+        set(AZOTH_BASE_INSTALL ${AZOTH_RHI_INSTALL})
+        FetchContent_Declare(azoth-base
+                GIT_REPOSITORY https://github.com/WizWorksInc/azoth-base.git
+                GIT_TAG ${AZOTH_RHI_BASE_TAG}
+        )
+        FetchContent_MakeAvailable(azoth-base)
+    endif()
 
     if(AZOTH_RHI_BACKEND_VULKAN)
         FetchContent_Declare(vk-dynamic

@@ -1,15 +1,21 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #pragma once
 
 #include "azoth/rhi/backend/blocks/common.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/slot_map.hpp"
 #include "azoth/rhi/core/resource_handles.hpp"
 
@@ -62,17 +68,17 @@ namespace azo::rhi::detail
 		ResourceTables & operator=(ResourceTables &&)	   = delete;
 		~ResourceTables()								   = default;
 
-		void Rebind(const std::uint32_t deviceTag) noexcept
+		void rebind(const std::uint32_t deviceTag) noexcept
 		{
 			for (SlotMap<Tag, Payload> & table : m_tables)
 			{
-				table.Rebind(deviceTag);
+				table.rebind(deviceTag);
 			}
 		}
 
 		[[nodiscard]] SlotMap<Tag, Payload> & For(const ResourceType type) noexcept
 		{
-			return m_tables[static_cast<std::size_t>(type)];
+			return azo::rhi::detail::at(m_tables, static_cast<std::size_t>(type));
 		}
 
 		[[nodiscard]] const SlotMap<Tag, Payload> & For(const ResourceType type) const noexcept
@@ -81,29 +87,29 @@ namespace azo::rhi::detail
 		}
 
 		template <class HandleT>
-		[[nodiscard]] HandleT Store(Payload payload)
+		[[nodiscard]] HandleT store(Payload payload)
 		{
-			const Handle<Tag> slot = For(ResourceTypeOf<HandleT>::kValue).Store(std::move(payload));
+			const Handle<Tag> slot = For(ResourceTypeOf<HandleT>::kValue).store(std::move(payload));
 			return HandleT{ .index = slot.index, .generation = slot.generation };
 		}
 
 		template <class HandleT>
-		[[nodiscard]] Payload * Resolve(const HandleT handle, const bool validate) noexcept
+		[[nodiscard]] Payload * resolve(const HandleT handle, const bool validate) noexcept
 		{
-			return For(ResourceTypeOf<HandleT>::kValue).Resolve(Erase<HandleT>(handle), validate);
+			return For(ResourceTypeOf<HandleT>::kValue).resolve(Erase<HandleT>(handle), validate);
 		}
 
-		[[nodiscard]] Payload * Resolve(const ResourceType type, const RawHandle handle, const bool validate) noexcept
+		[[nodiscard]] Payload * resolve(const ResourceType type, const RawHandle handle, const bool validate) noexcept
 		{
-			return For(type).Resolve(Handle<Tag>{ .index = handle.index, .generation = handle.generation }, validate);
+			return For(type).resolve(Handle<Tag>{ .index = handle.index, .generation = handle.generation }, validate);
 		}
 
-		[[nodiscard]] bool Retire(const ResourceType type, const RawHandle handle, const bool validate) noexcept
+		[[nodiscard]] bool retire(const ResourceType type, const RawHandle handle, const bool validate) noexcept
 		{
-			return For(type).Retire(Handle<Tag>{ .index = handle.index, .generation = handle.generation }, validate);
+			return For(type).retire(Handle<Tag>{ .index = handle.index, .generation = handle.generation }, validate);
 		}
 
-		void Reset() noexcept
+		void reset() noexcept
 		{
 			for (SlotMap<Tag, Payload> & table : m_tables)
 			{
@@ -111,7 +117,7 @@ namespace azo::rhi::detail
 			}
 		}
 
-		[[nodiscard]] std::size_t LiveCount() const noexcept
+		[[nodiscard]] std::size_t live_count() const noexcept
 		{
 			std::size_t live = 0;
 			for (const SlotMap<Tag, Payload> & table : m_tables)

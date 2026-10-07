@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -219,7 +224,7 @@ namespace azo::rhi
 		const char * debugName = nullptr;
 	};
 
-	[[nodiscard]] constexpr InstanceDesc InstanceDescForDevice(const DeviceDesc & desc) noexcept
+	[[nodiscard]] constexpr InstanceDesc instance_desc_for_device(const DeviceDesc & desc) noexcept
 	{
 		InstanceDesc instance{};
 		instance.validation		  = desc.validation;
@@ -372,7 +377,7 @@ namespace azo::rhi
 
 		bool supportsScalarBlockLayout = false;
 
-		[[nodiscard]] bool Supports(const DeviceFeature feature) const noexcept
+		[[nodiscard]] bool supports(const DeviceFeature feature) const noexcept
 		{
 			switch (feature)
 			{
@@ -487,7 +492,7 @@ namespace azo::rhi
 		inline constexpr std::array<char, 16> kHexDigits{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
 	}
 
-	[[nodiscard]] constexpr AdapterUuidString FormatAdapterUuid(const std::array<std::uint8_t, 16> & uuid) noexcept
+	[[nodiscard]] constexpr AdapterUuidString format_adapter_uuid(const std::array<std::uint8_t, 16> & uuid) noexcept
 	{
 		AdapterUuidString text{};
 		std::size_t at = 0;
@@ -508,7 +513,7 @@ namespace azo::rhi
 		return text;
 	}
 
-	[[nodiscard]] constexpr AdapterLuidString FormatAdapterLuid(const std::array<std::uint8_t, 8> & luid) noexcept
+	[[nodiscard]] constexpr AdapterLuidString format_adapter_luid(const std::array<std::uint8_t, 8> & luid) noexcept
 	{
 		AdapterLuidString text{};
 		std::size_t at = 0;
@@ -567,15 +572,15 @@ namespace azo::rhi
 	public:
 		Instance() = default;
 
-		[[nodiscard]] GraphicsApiId GetGraphicsApiId() const noexcept;
+		[[nodiscard]] GraphicsApiId get_graphics_api_id() const noexcept;
 
-		[[nodiscard]] bool EnumerateAdapters(std::span<AdapterInfo> adapters, std::uint32_t & out) const noexcept;
-		[[nodiscard]] bool EnumerateAdapters(std::span<AdapterInfo> adapters, std::uint32_t & out, Error & error) const noexcept;
-		[[nodiscard]] Result<std::uint32_t> EnumerateAdaptersWithResult(std::span<AdapterInfo> adapters) const noexcept;
+		[[nodiscard]] bool enumerate_adapters(std::span<AdapterInfo> adapters, std::uint32_t & out) const noexcept;
+		[[nodiscard]] bool enumerate_adapters(std::span<AdapterInfo> adapters, std::uint32_t & out, Error & error) const noexcept;
+		[[nodiscard]] Result<std::uint32_t> enumerate_adapters_with_result(std::span<AdapterInfo> adapters) const noexcept;
 
-		[[nodiscard]] bool QueryExternalHandleSupport(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out) const noexcept;
-		[[nodiscard]] bool QueryExternalHandleSupport(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out, Error & error) const noexcept;
-		[[nodiscard]] Result<ExternalHandleSupport> QueryExternalHandleSupportWithResult(const ExternalHandleSupportDesc & desc) const noexcept;
+		[[nodiscard]] bool query_external_handle_support(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out) const noexcept;
+		[[nodiscard]] bool query_external_handle_support(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out, Error & error) const noexcept;
+		[[nodiscard]] Result<ExternalHandleSupport> query_external_handle_support_with_result(const ExternalHandleSupportDesc & desc) const noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;
@@ -619,12 +624,12 @@ namespace azo::rhi
 			Reset();
 		}
 
-		[[nodiscard]] Instance Get() const noexcept
+		[[nodiscard]] Instance get() const noexcept
 		{
 			return Instance{ m_impl, m_dispatch };
 		}
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr;
 		}
@@ -651,286 +656,294 @@ namespace azo::rhi
 	public:
 		Device() = default;
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr && m_blocks != nullptr;
 		}
 
-		[[nodiscard]] GraphicsApiId GetGraphicsApiId() const noexcept;
-		[[nodiscard]] std::string_view GetGraphicsApiName() const noexcept;
+		[[nodiscard]] GraphicsApiId get_graphics_api_id() const noexcept;
+		[[nodiscard]] std::string_view get_graphics_api_name() const noexcept;
 
-		[[nodiscard]] BufferHandle CreateBuffer(const BufferDesc & desc) noexcept;
-		[[nodiscard]] BufferHandle CreateBuffer(const BufferDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<BufferHandle> CreateBufferWithResult(const BufferDesc & desc) noexcept;
-		[[nodiscard]] TextureHandle CreateTexture(const TextureDesc & desc) noexcept;
-		[[nodiscard]] TextureHandle CreateTexture(const TextureDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<TextureHandle> CreateTextureWithResult(const TextureDesc & desc) noexcept;
-		[[nodiscard]] TextureViewHandle CreateTextureView(TextureHandle texture, const TextureViewDesc & desc) noexcept;
-		[[nodiscard]] TextureViewHandle CreateTextureView(TextureHandle texture, const TextureViewDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<TextureViewHandle> CreateTextureViewWithResult(TextureHandle texture, const TextureViewDesc & desc) noexcept;
-		[[nodiscard]] SamplerHandle CreateSampler(const SamplerDesc & desc) noexcept;
-		[[nodiscard]] SamplerHandle CreateSampler(const SamplerDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<SamplerHandle> CreateSamplerWithResult(const SamplerDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle create_buffer(const BufferDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle create_buffer(const BufferDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<BufferHandle> create_buffer_with_result(const BufferDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle create_texture(const TextureDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle create_texture(const TextureDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<TextureHandle> create_texture_with_result(const TextureDesc & desc) noexcept;
+		[[nodiscard]] TextureViewHandle create_texture_view(TextureHandle texture, const TextureViewDesc & desc) noexcept;
+		[[nodiscard]] TextureViewHandle create_texture_view(TextureHandle texture, const TextureViewDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<TextureViewHandle> create_texture_view_with_result(TextureHandle texture, const TextureViewDesc & desc) noexcept;
+		[[nodiscard]] SamplerHandle create_sampler(const SamplerDesc & desc) noexcept;
+		[[nodiscard]] SamplerHandle create_sampler(const SamplerDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<SamplerHandle> create_sampler_with_result(const SamplerDesc & desc) noexcept;
 
-		[[nodiscard]] HeapHandle CreateHeap(const HeapDesc & desc) noexcept;
-		[[nodiscard]] HeapHandle CreateHeap(const HeapDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<HeapHandle> CreateHeapWithResult(const HeapDesc & desc) noexcept;
-		[[nodiscard]] BufferHandle CreatePlacedBuffer(const PlacedBufferDesc & desc) noexcept;
-		[[nodiscard]] BufferHandle CreatePlacedBuffer(const PlacedBufferDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<BufferHandle> CreatePlacedBufferWithResult(const PlacedBufferDesc & desc) noexcept;
-		[[nodiscard]] TextureHandle CreatePlacedTexture(const PlacedTextureDesc & desc) noexcept;
-		[[nodiscard]] TextureHandle CreatePlacedTexture(const PlacedTextureDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<TextureHandle> CreatePlacedTextureWithResult(const PlacedTextureDesc & desc) noexcept;
+		[[nodiscard]] HeapHandle create_heap(const HeapDesc & desc) noexcept;
+		[[nodiscard]] HeapHandle create_heap(const HeapDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<HeapHandle> create_heap_with_result(const HeapDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle create_placed_buffer(const PlacedBufferDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle create_placed_buffer(const PlacedBufferDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<BufferHandle> create_placed_buffer_with_result(const PlacedBufferDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle create_placed_texture(const PlacedTextureDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle create_placed_texture(const PlacedTextureDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<TextureHandle> create_placed_texture_with_result(const PlacedTextureDesc & desc) noexcept;
 
-		[[nodiscard]] bool GetTextureMemoryInfo(const TextureDesc & desc, MemoryInfo & out) const noexcept;
-		[[nodiscard]] bool GetTextureMemoryInfo(const TextureDesc & desc, MemoryInfo & out, Error & error) const noexcept;
-		[[nodiscard]] Result<MemoryInfo> GetTextureMemoryInfoWithResult(const TextureDesc & desc) const noexcept;
-		[[nodiscard]] bool GetBufferMemoryInfo(const BufferDesc & desc, MemoryInfo & out) const noexcept;
-		[[nodiscard]] bool GetBufferMemoryInfo(const BufferDesc & desc, MemoryInfo & out, Error & error) const noexcept;
-		[[nodiscard]] Result<MemoryInfo> GetBufferMemoryInfoWithResult(const BufferDesc & desc) const noexcept;
+		[[nodiscard]] bool get_texture_memory_info(const TextureDesc & desc, MemoryInfo & out) const noexcept;
+		[[nodiscard]] bool get_texture_memory_info(const TextureDesc & desc, MemoryInfo & out, Error & error) const noexcept;
+		[[nodiscard]] Result<MemoryInfo> get_texture_memory_info_with_result(const TextureDesc & desc) const noexcept;
+		[[nodiscard]] bool get_buffer_memory_info(const BufferDesc & desc, MemoryInfo & out) const noexcept;
+		[[nodiscard]] bool get_buffer_memory_info(const BufferDesc & desc, MemoryInfo & out, Error & error) const noexcept;
+		[[nodiscard]] Result<MemoryInfo> get_buffer_memory_info_with_result(const BufferDesc & desc) const noexcept;
 
-		[[nodiscard]] DescriptorSetLayoutHandle CreateDescriptorSetLayout(const DescriptorSetLayoutDesc & desc) noexcept;
-		[[nodiscard]] DescriptorSetLayoutHandle CreateDescriptorSetLayout(const DescriptorSetLayoutDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<DescriptorSetLayoutHandle> CreateDescriptorSetLayoutWithResult(const DescriptorSetLayoutDesc & desc) noexcept;
-		[[nodiscard]] PipelineLayoutHandle CreatePipelineLayout(const PipelineLayoutDesc & desc) noexcept;
-		[[nodiscard]] PipelineLayoutHandle CreatePipelineLayout(const PipelineLayoutDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<PipelineLayoutHandle> CreatePipelineLayoutWithResult(const PipelineLayoutDesc & desc) noexcept;
-		[[nodiscard]] DescriptorArena CreateDescriptorArena(const DescriptorArenaDesc & desc) noexcept;
-		[[nodiscard]] DescriptorArena CreateDescriptorArena(const DescriptorArenaDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<DescriptorArena> CreateDescriptorArenaWithResult(const DescriptorArenaDesc & desc) noexcept;
+		[[nodiscard]] DescriptorSetLayoutHandle create_descriptor_set_layout(const DescriptorSetLayoutDesc & desc) noexcept;
+		[[nodiscard]] DescriptorSetLayoutHandle create_descriptor_set_layout(const DescriptorSetLayoutDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<DescriptorSetLayoutHandle> create_descriptor_set_layout_with_result(const DescriptorSetLayoutDesc & desc) noexcept;
+		[[nodiscard]] PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDesc & desc) noexcept;
+		[[nodiscard]] PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<PipelineLayoutHandle> create_pipeline_layout_with_result(const PipelineLayoutDesc & desc) noexcept;
+		[[nodiscard]] DescriptorArena create_descriptor_arena(const DescriptorArenaDesc & desc) noexcept;
+		[[nodiscard]] DescriptorArena create_descriptor_arena(const DescriptorArenaDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<DescriptorArena> create_descriptor_arena_with_result(const DescriptorArenaDesc & desc) noexcept;
 
-		[[nodiscard]] GraphicsPipelineHandle CreateGraphicsPipeline(const GraphicsPipelineDesc & desc) noexcept;
-		[[nodiscard]] GraphicsPipelineHandle CreateGraphicsPipeline(const GraphicsPipelineDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<GraphicsPipelineHandle> CreateGraphicsPipelineWithResult(const GraphicsPipelineDesc & desc) noexcept;
-		[[nodiscard]] ComputePipelineHandle CreateComputePipeline(const ComputePipelineDesc & desc) noexcept;
-		[[nodiscard]] ComputePipelineHandle CreateComputePipeline(const ComputePipelineDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<ComputePipelineHandle> CreateComputePipelineWithResult(const ComputePipelineDesc & desc) noexcept;
-		[[nodiscard]] RayTracingPipelineHandle CreateRayTracingPipeline(const RayTracingPipelineDesc & desc) noexcept;
-		[[nodiscard]] RayTracingPipelineHandle CreateRayTracingPipeline(const RayTracingPipelineDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<RayTracingPipelineHandle> CreateRayTracingPipelineWithResult(const RayTracingPipelineDesc & desc) noexcept;
-		[[nodiscard]] PipelineCacheHandle CreatePipelineCache(const PipelineCacheDesc & desc) noexcept;
-		[[nodiscard]] PipelineCacheHandle CreatePipelineCache(const PipelineCacheDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<PipelineCacheHandle> CreatePipelineCacheWithResult(const PipelineCacheDesc & desc) noexcept;
+		[[nodiscard]] GraphicsPipelineHandle create_graphics_pipeline(const GraphicsPipelineDesc & desc) noexcept;
+		[[nodiscard]] GraphicsPipelineHandle create_graphics_pipeline(const GraphicsPipelineDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<GraphicsPipelineHandle> create_graphics_pipeline_with_result(const GraphicsPipelineDesc & desc) noexcept;
+		[[nodiscard]] ComputePipelineHandle create_compute_pipeline(const ComputePipelineDesc & desc) noexcept;
+		[[nodiscard]] ComputePipelineHandle create_compute_pipeline(const ComputePipelineDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<ComputePipelineHandle> create_compute_pipeline_with_result(const ComputePipelineDesc & desc) noexcept;
+		[[nodiscard]] RayTracingPipelineHandle create_ray_tracing_pipeline(const RayTracingPipelineDesc & desc) noexcept;
+		[[nodiscard]] RayTracingPipelineHandle create_ray_tracing_pipeline(const RayTracingPipelineDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<RayTracingPipelineHandle> create_ray_tracing_pipeline_with_result(const RayTracingPipelineDesc & desc) noexcept;
+		[[nodiscard]] PipelineCacheHandle create_pipeline_cache(const PipelineCacheDesc & desc) noexcept;
+		[[nodiscard]] PipelineCacheHandle create_pipeline_cache(const PipelineCacheDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<PipelineCacheHandle> create_pipeline_cache_with_result(const PipelineCacheDesc & desc) noexcept;
 
-		[[nodiscard]] bool GetPipelineCacheData(PipelineCacheHandle cache, PipelineCacheData & out) noexcept;
-		[[nodiscard]] bool GetPipelineCacheData(PipelineCacheHandle cache, PipelineCacheData & out, Error & error) noexcept;
-		[[nodiscard]] Result<PipelineCacheData> GetPipelineCacheDataWithResult(PipelineCacheHandle cache) noexcept;
+		[[nodiscard]] bool get_pipeline_cache_data(PipelineCacheHandle cache, PipelineCacheData & out) noexcept;
+		[[nodiscard]] bool get_pipeline_cache_data(PipelineCacheHandle cache, PipelineCacheData & out, Error & error) noexcept;
+		[[nodiscard]] Result<PipelineCacheData> get_pipeline_cache_data_with_result(PipelineCacheHandle cache) noexcept;
 
-		[[nodiscard]] AccelerationStructureHandle CreateAccelerationStructure(const AccelerationStructureDesc & desc) noexcept;
-		[[nodiscard]] AccelerationStructureHandle CreateAccelerationStructure(const AccelerationStructureDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<AccelerationStructureHandle> CreateAccelerationStructureWithResult(const AccelerationStructureDesc & desc) noexcept;
-		[[nodiscard]] QueryPoolHandle CreateQueryPool(const QueryPoolDesc & desc) noexcept;
-		[[nodiscard]] QueryPoolHandle CreateQueryPool(const QueryPoolDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<QueryPoolHandle> CreateQueryPoolWithResult(const QueryPoolDesc & desc) noexcept;
-		[[nodiscard]] TimelineHandle CreateTimeline(const TimelineDesc & desc) noexcept;
-		[[nodiscard]] TimelineHandle CreateTimeline(const TimelineDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<TimelineHandle> CreateTimelineWithResult(const TimelineDesc & desc) noexcept;
-		[[nodiscard]] BinarySemaphoreHandle CreateBinarySemaphore(const BinarySemaphoreDesc & desc) noexcept;
-		[[nodiscard]] BinarySemaphoreHandle CreateBinarySemaphore(const BinarySemaphoreDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<BinarySemaphoreHandle> CreateBinarySemaphoreWithResult(const BinarySemaphoreDesc & desc) noexcept;
-		[[nodiscard]] CommandPool CreateCommandPool(const CommandPoolDesc & desc) noexcept;
-		[[nodiscard]] CommandPool CreateCommandPool(const CommandPoolDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<CommandPool> CreateCommandPoolWithResult(const CommandPoolDesc & desc) noexcept;
-		[[nodiscard]] Swapchain CreateSwapchain(const SwapchainDesc & desc) noexcept;
-		[[nodiscard]] Swapchain CreateSwapchain(const SwapchainDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<Swapchain> CreateSwapchainWithResult(const SwapchainDesc & desc) noexcept;
+		[[nodiscard]] AccelerationStructureHandle create_acceleration_structure(const AccelerationStructureDesc & desc) noexcept;
+		[[nodiscard]] AccelerationStructureHandle create_acceleration_structure(const AccelerationStructureDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<AccelerationStructureHandle> create_acceleration_structure_with_result(const AccelerationStructureDesc & desc) noexcept;
+		[[nodiscard]] QueryPoolHandle create_query_pool(const QueryPoolDesc & desc) noexcept;
+		[[nodiscard]] QueryPoolHandle create_query_pool(const QueryPoolDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<QueryPoolHandle> create_query_pool_with_result(const QueryPoolDesc & desc) noexcept;
+		[[nodiscard]] TimelineHandle create_timeline(const TimelineDesc & desc) noexcept;
+		[[nodiscard]] TimelineHandle create_timeline(const TimelineDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<TimelineHandle> create_timeline_with_result(const TimelineDesc & desc) noexcept;
+		[[nodiscard]] BinarySemaphoreHandle create_binary_semaphore(const BinarySemaphoreDesc & desc) noexcept;
+		[[nodiscard]] BinarySemaphoreHandle create_binary_semaphore(const BinarySemaphoreDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<BinarySemaphoreHandle> create_binary_semaphore_with_result(const BinarySemaphoreDesc & desc) noexcept;
+		[[nodiscard]] CommandPool create_command_pool(const CommandPoolDesc & desc) noexcept;
+		[[nodiscard]] CommandPool create_command_pool(const CommandPoolDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<CommandPool> create_command_pool_with_result(const CommandPoolDesc & desc) noexcept;
+		[[nodiscard]] Swapchain create_swapchain(const SwapchainDesc & desc) noexcept;
+		[[nodiscard]] Swapchain create_swapchain(const SwapchainDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<Swapchain> create_swapchain_with_result(const SwapchainDesc & desc) noexcept;
 
-		[[nodiscard]] Queue GetQueue(QueueType type, std::uint32_t index = 0) noexcept;
-		[[nodiscard]] Queue GetQueue(QueueType type, std::uint32_t index, Error & error) noexcept;
-		[[nodiscard]] Result<Queue> GetQueueWithResult(QueueType type, std::uint32_t index = 0) noexcept;
+		[[nodiscard]] Queue get_queue(QueueType type, std::uint32_t index = 0) noexcept;
+		[[nodiscard]] Queue get_queue(QueueType type, std::uint32_t index, Error & error) noexcept;
+		[[nodiscard]] Result<Queue> get_queue_with_result(QueueType type, std::uint32_t index = 0) noexcept;
 
-		[[nodiscard]] std::uint32_t GetQueueCount(QueueType type) const noexcept;
+		[[nodiscard]] std::uint32_t get_queue_count(QueueType type) const noexcept;
 
-		[[nodiscard]] MappedMemory Map(BufferHandle buffer, const MapDesc & desc) noexcept;
-		[[nodiscard]] MappedMemory Map(BufferHandle buffer, const MapDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<MappedMemory> MapWithResult(BufferHandle buffer, const MapDesc & desc) noexcept;
-		[[nodiscard]] bool Unmap(BufferHandle buffer) noexcept;
-		[[nodiscard]] bool Unmap(BufferHandle buffer, Error & error) noexcept;
-		[[nodiscard]] bool FlushMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept;
-		[[nodiscard]] bool FlushMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept;
-		[[nodiscard]] bool InvalidateMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept;
-		[[nodiscard]] bool InvalidateMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept;
+		[[nodiscard]] MappedMemory map(BufferHandle buffer, const MapDesc & desc) noexcept;
+		[[nodiscard]] MappedMemory map(BufferHandle buffer, const MapDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<MappedMemory> map_with_result(BufferHandle buffer, const MapDesc & desc) noexcept;
+		[[nodiscard]] bool unmap(BufferHandle buffer) noexcept;
+		[[nodiscard]] bool unmap(BufferHandle buffer, Error & error) noexcept;
+		[[nodiscard]] bool flush_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept;
+		[[nodiscard]] bool flush_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept;
+		[[nodiscard]] bool invalidate_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept;
+		[[nodiscard]] bool invalidate_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept;
 
-		bool UpdateDescriptors(std::span<const DescriptorWriteBuffer> writes) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteBuffer> writes, Error & error) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteTexture> writes) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteTexture> writes, Error & error) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteSampler> writes) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteSampler> writes, Error & error) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes) noexcept;
-		bool UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes, Error & error) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteBuffer> writes) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteBuffer> writes, Error & error) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteTexture> writes) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteTexture> writes, Error & error) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteSampler> writes) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteSampler> writes, Error & error) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteAccelerationStructure> writes) noexcept;
+		bool update_descriptors(std::span<const DescriptorWriteAccelerationStructure> writes, Error & error) noexcept;
 
-		[[nodiscard]] bool QueryMemoryBudget(HeapType heap, MemoryBudgetInfo & out) const noexcept;
-		[[nodiscard]] bool QueryMemoryBudget(HeapType heap, MemoryBudgetInfo & out, Error & error) const noexcept;
-		[[nodiscard]] Result<MemoryBudgetInfo> QueryMemoryBudgetWithResult(HeapType heap) const noexcept;
-		bool SetResidencyPriority(std::span<const ResidencyPriorityDesc> priorities) noexcept;
-		bool SetResidencyPriority(std::span<const ResidencyPriorityDesc> priorities, Error & error) noexcept;
+		[[nodiscard]] bool query_memory_budget(HeapType heap, MemoryBudgetInfo & out) const noexcept;
+		[[nodiscard]] bool query_memory_budget(HeapType heap, MemoryBudgetInfo & out, Error & error) const noexcept;
+		[[nodiscard]] Result<MemoryBudgetInfo> query_memory_budget_with_result(HeapType heap) const noexcept;
+		bool set_residency_priority(std::span<const ResidencyPriorityDesc> priorities) noexcept;
+		bool set_residency_priority(std::span<const ResidencyPriorityDesc> priorities, Error & error) noexcept;
 
-		[[nodiscard]] bool CalibrateTimestamp(QueueType queueType, TimestampCalibration & out) const noexcept;
-		[[nodiscard]] bool CalibrateTimestamp(QueueType queueType, TimestampCalibration & out, Error & error) const noexcept;
-		[[nodiscard]] Result<TimestampCalibration> CalibrateTimestampWithResult(QueueType queueType) const noexcept;
+		[[nodiscard]] bool calibrate_timestamp(QueueType queueType, TimestampCalibration & out) const noexcept;
+		[[nodiscard]] bool calibrate_timestamp(QueueType queueType, TimestampCalibration & out, Error & error) const noexcept;
+		[[nodiscard]] Result<TimestampCalibration> calibrate_timestamp_with_result(QueueType queueType) const noexcept;
 
-		[[nodiscard]] const DeviceCaps & GetCaps() const noexcept;
-		[[nodiscard]] FormatSupport GetFormatSupport(Format format) const noexcept;
-		[[nodiscard]] const AdapterInfo & GetAdapterInfo() const noexcept;
+		[[nodiscard]] const DeviceCaps & get_caps() const noexcept;
+		[[nodiscard]] FormatSupport get_format_support(Format format) const noexcept;
+		[[nodiscard]] const AdapterInfo & get_adapter_info() const noexcept;
 
-		[[nodiscard]] bool GetTextureInfo(TextureHandle texture, TextureInfo & out) const noexcept;
-		[[nodiscard]] bool GetTextureInfo(TextureHandle texture, TextureInfo & out, Error & error) const noexcept;
-		[[nodiscard]] Result<TextureInfo> GetTextureInfoWithResult(TextureHandle texture) const noexcept;
+		[[nodiscard]] bool get_texture_info(TextureHandle texture, TextureInfo & out) const noexcept;
+		[[nodiscard]] bool get_texture_info(TextureHandle texture, TextureInfo & out, Error & error) const noexcept;
+		[[nodiscard]] Result<TextureInfo> get_texture_info_with_result(TextureHandle texture) const noexcept;
 
-		[[nodiscard]] bool GetBufferInfo(BufferHandle buffer, BufferInfo & out) const noexcept;
-		[[nodiscard]] bool GetBufferInfo(BufferHandle buffer, BufferInfo & out, Error & error) const noexcept;
-		[[nodiscard]] Result<BufferInfo> GetBufferInfoWithResult(BufferHandle buffer) const noexcept;
+		[[nodiscard]] bool get_buffer_info(BufferHandle buffer, BufferInfo & out) const noexcept;
+		[[nodiscard]] bool get_buffer_info(BufferHandle buffer, BufferInfo & out, Error & error) const noexcept;
+		[[nodiscard]] Result<BufferInfo> get_buffer_info_with_result(BufferHandle buffer) const noexcept;
 
-		[[nodiscard]] ValidationMessageCounts GetValidationMessageCounts() const noexcept;
+		[[nodiscard]] ValidationMessageCounts get_validation_message_counts() const noexcept;
 
-		bool Destroy(BufferHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(BufferHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(TextureHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(TextureHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(TextureViewHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(TextureViewHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(SamplerHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(SamplerHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(HeapHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(HeapHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(DescriptorSetHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(DescriptorSetHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(PipelineLayoutHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(PipelineLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(ComputePipelineHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(ComputePipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(PipelineCacheHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(PipelineCacheHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(AccelerationStructureHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(AccelerationStructureHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(QueryPoolHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(QueryPoolHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(TimelineHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(TimelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
-		bool Destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc = {}) noexcept;
-		bool Destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(BufferHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(BufferHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(TextureHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(TextureHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(TextureViewHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(TextureViewHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(SamplerHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(SamplerHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(HeapHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(HeapHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(DescriptorSetHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(DescriptorSetHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(PipelineLayoutHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(PipelineLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(ComputePipelineHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(ComputePipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(PipelineCacheHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(PipelineCacheHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(AccelerationStructureHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(AccelerationStructureHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(QueryPoolHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(QueryPoolHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(TimelineHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(TimelineHandle handle, const DestroyDesc & desc, Error & error) noexcept;
+		bool destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc = {}) noexcept;
+		bool destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc, Error & error) noexcept;
 
-		bool CollectGarbage() noexcept;
-		bool CollectGarbage(Error & error) noexcept;
-		bool CollectGarbage(TimelineHandle timeline, std::uint64_t completedValue) noexcept;
-		bool CollectGarbage(TimelineHandle timeline, std::uint64_t completedValue, Error & error) noexcept;
+		bool collect_garbage() noexcept;
+		bool collect_garbage(Error & error) noexcept;
+		bool collect_garbage(TimelineHandle timeline, std::uint64_t completedValue) noexcept;
+		bool collect_garbage(TimelineHandle timeline, std::uint64_t completedValue, Error & error) noexcept;
 
 		template <GraphicsApiTag Api>
-		[[nodiscard]] BufferHandle AdoptBuffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle adopt_buffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] BufferHandle AdoptBuffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc, Error & error) noexcept;
+		[[nodiscard]] BufferHandle adopt_buffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<BufferHandle> AdoptBufferWithResult(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept;
+		[[nodiscard]] Result<BufferHandle> adopt_buffer_with_result(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] TextureHandle AdoptTexture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle adopt_texture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] TextureHandle AdoptTexture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc, Error & error) noexcept;
+		[[nodiscard]] TextureHandle adopt_texture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<TextureHandle> AdoptTextureWithResult(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept;
+		[[nodiscard]] Result<TextureHandle> adopt_texture_with_result(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeBuffer(BufferHandle buffer, NativeBuffer<Api> & out) noexcept;
+		[[nodiscard]] bool get_native_buffer(BufferHandle buffer, NativeBuffer<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeBuffer(BufferHandle buffer, NativeBuffer<Api> & out, Error & error) noexcept;
+		[[nodiscard]] bool get_native_buffer(BufferHandle buffer, NativeBuffer<Api> & out, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<NativeBuffer<Api>> GetNativeBufferWithResult(BufferHandle buffer) noexcept;
+		[[nodiscard]] Result<NativeBuffer<Api>> get_native_buffer_with_result(BufferHandle buffer) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeTexture(TextureHandle texture, NativeTexture<Api> & out) noexcept;
+		[[nodiscard]] bool get_native_texture(TextureHandle texture, NativeTexture<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeTexture(TextureHandle texture, NativeTexture<Api> & out, Error & error) noexcept;
+		[[nodiscard]] bool get_native_texture(TextureHandle texture, NativeTexture<Api> & out, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<NativeTexture<Api>> GetNativeTextureWithResult(TextureHandle texture) noexcept;
+		[[nodiscard]] Result<NativeTexture<Api>> get_native_texture_with_result(TextureHandle texture) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] TextureViewHandle AdoptTextureView(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept;
+		[[nodiscard]] TextureViewHandle adopt_texture_view(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] TextureViewHandle AdoptTextureView(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc, Error & error) noexcept;
+		[[nodiscard]] TextureViewHandle adopt_texture_view(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<TextureViewHandle> AdoptTextureViewWithResult(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept;
+		[[nodiscard]] Result<TextureViewHandle> adopt_texture_view_with_result(
+			const NativeTextureView<Api> & native,
+			const AdoptedTextureViewDesc & desc
+		) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] SamplerHandle AdoptSampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept;
+		[[nodiscard]] SamplerHandle adopt_sampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] SamplerHandle AdoptSampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc, Error & error) noexcept;
+		[[nodiscard]] SamplerHandle adopt_sampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<SamplerHandle> AdoptSamplerWithResult(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept;
+		[[nodiscard]] Result<SamplerHandle> adopt_sampler_with_result(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeTextureView(TextureViewHandle view, NativeTextureView<Api> & out) noexcept;
+		[[nodiscard]] bool get_native_texture_view(TextureViewHandle view, NativeTextureView<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeTextureView(TextureViewHandle view, NativeTextureView<Api> & out, Error & error) noexcept;
+		[[nodiscard]] bool get_native_texture_view(TextureViewHandle view, NativeTextureView<Api> & out, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<NativeTextureView<Api>> GetNativeTextureViewWithResult(TextureViewHandle view) noexcept;
+		[[nodiscard]] Result<NativeTextureView<Api>> get_native_texture_view_with_result(TextureViewHandle view) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeSampler(SamplerHandle sampler, NativeSampler<Api> & out) noexcept;
+		[[nodiscard]] bool get_native_sampler(SamplerHandle sampler, NativeSampler<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeSampler(SamplerHandle sampler, NativeSampler<Api> & out, Error & error) noexcept;
+		[[nodiscard]] bool get_native_sampler(SamplerHandle sampler, NativeSampler<Api> & out, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<NativeSampler<Api>> GetNativeSamplerWithResult(SamplerHandle sampler) noexcept;
+		[[nodiscard]] Result<NativeSampler<Api>> get_native_sampler_with_result(SamplerHandle sampler) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] TimelineHandle AdoptTimeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept;
+		[[nodiscard]] TimelineHandle adopt_timeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] TimelineHandle AdoptTimeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc, Error & error) noexcept;
+		[[nodiscard]] TimelineHandle adopt_timeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<TimelineHandle> AdoptTimelineWithResult(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept;
+		[[nodiscard]] Result<TimelineHandle> adopt_timeline_with_result(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] BinarySemaphoreHandle AdoptBinarySemaphore(const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept;
+		[[nodiscard]] BinarySemaphoreHandle adopt_binary_semaphore(const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] BinarySemaphoreHandle AdoptBinarySemaphore(
-			const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc, Error & error) noexcept;
+		[[nodiscard]] BinarySemaphoreHandle adopt_binary_semaphore(
+			const NativeBinarySemaphore<Api> & native,
+			const AdoptedBinarySemaphoreDesc & desc,
+			Error & error
+		) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<BinarySemaphoreHandle> AdoptBinarySemaphoreWithResult(
-			const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept;
+		[[nodiscard]] Result<BinarySemaphoreHandle> adopt_binary_semaphore_with_result(
+			const NativeBinarySemaphore<Api> & native,
+			const AdoptedBinarySemaphoreDesc & desc
+		) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeTimeline(TimelineHandle timeline, NativeTimeline<Api> & out) noexcept;
+		[[nodiscard]] bool get_native_timeline(TimelineHandle timeline, NativeTimeline<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeTimeline(TimelineHandle timeline, NativeTimeline<Api> & out, Error & error) noexcept;
+		[[nodiscard]] bool get_native_timeline(TimelineHandle timeline, NativeTimeline<Api> & out, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<NativeTimeline<Api>> GetNativeTimelineWithResult(TimelineHandle timeline) noexcept;
+		[[nodiscard]] Result<NativeTimeline<Api>> get_native_timeline_with_result(TimelineHandle timeline) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeBinarySemaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out) noexcept;
+		[[nodiscard]] bool get_native_binary_semaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] bool GetNativeBinarySemaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out, Error & error) noexcept;
+		[[nodiscard]] bool get_native_binary_semaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out, Error & error) noexcept;
 		template <GraphicsApiTag Api>
-		[[nodiscard]] Result<NativeBinarySemaphore<Api>> GetNativeBinarySemaphoreWithResult(BinarySemaphoreHandle semaphore) noexcept;
+		[[nodiscard]] Result<NativeBinarySemaphore<Api>> get_native_binary_semaphore_with_result(BinarySemaphoreHandle semaphore) noexcept;
 
-		[[nodiscard]] bool ExportBuffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out) noexcept;
-		[[nodiscard]] bool ExportBuffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
-		[[nodiscard]] Result<ExternalHandle> ExportBufferWithResult(BufferHandle buffer, ExternalHandleType type) noexcept;
-		[[nodiscard]] bool ExportHeap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out) noexcept;
-		[[nodiscard]] bool ExportHeap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
-		[[nodiscard]] Result<ExternalHandle> ExportHeapWithResult(HeapHandle heap, ExternalHandleType type) noexcept;
-		[[nodiscard]] bool ExportTexture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out) noexcept;
-		[[nodiscard]] bool ExportTexture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
-		[[nodiscard]] Result<ExternalHandle> ExportTextureWithResult(TextureHandle texture, ExternalHandleType type) noexcept;
-		[[nodiscard]] bool ExportTimeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out) noexcept;
-		[[nodiscard]] bool ExportTimeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
-		[[nodiscard]] Result<ExternalHandle> ExportTimelineWithResult(TimelineHandle timeline, ExternalHandleType type) noexcept;
-		[[nodiscard]] bool ExportBinarySemaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out) noexcept;
-		[[nodiscard]] bool ExportBinarySemaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
-		[[nodiscard]] Result<ExternalHandle> ExportBinarySemaphoreWithResult(BinarySemaphoreHandle semaphore, ExternalHandleType type) noexcept;
+		[[nodiscard]] bool export_buffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out) noexcept;
+		[[nodiscard]] bool export_buffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
+		[[nodiscard]] Result<ExternalHandle> export_buffer_with_result(BufferHandle buffer, ExternalHandleType type) noexcept;
+		[[nodiscard]] bool export_heap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out) noexcept;
+		[[nodiscard]] bool export_heap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
+		[[nodiscard]] Result<ExternalHandle> export_heap_with_result(HeapHandle heap, ExternalHandleType type) noexcept;
+		[[nodiscard]] bool export_texture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out) noexcept;
+		[[nodiscard]] bool export_texture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
+		[[nodiscard]] Result<ExternalHandle> export_texture_with_result(TextureHandle texture, ExternalHandleType type) noexcept;
+		[[nodiscard]] bool export_timeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out) noexcept;
+		[[nodiscard]] bool export_timeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
+		[[nodiscard]] Result<ExternalHandle> export_timeline_with_result(TimelineHandle timeline, ExternalHandleType type) noexcept;
+		[[nodiscard]] bool export_binary_semaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out) noexcept;
+		[[nodiscard]] bool export_binary_semaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept;
+		[[nodiscard]] Result<ExternalHandle> export_binary_semaphore_with_result(BinarySemaphoreHandle semaphore, ExternalHandleType type) noexcept;
 
-		[[nodiscard]] BufferHandle ImportBuffer(const ExternalBufferImportDesc & desc) noexcept;
-		[[nodiscard]] BufferHandle ImportBuffer(const ExternalBufferImportDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<BufferHandle> ImportBufferWithResult(const ExternalBufferImportDesc & desc) noexcept;
-		[[nodiscard]] HeapHandle ImportHeap(const ExternalHeapImportDesc & desc) noexcept;
-		[[nodiscard]] HeapHandle ImportHeap(const ExternalHeapImportDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<HeapHandle> ImportHeapWithResult(const ExternalHeapImportDesc & desc) noexcept;
-		[[nodiscard]] TextureHandle ImportTexture(const ExternalTextureImportDesc & desc) noexcept;
-		[[nodiscard]] TextureHandle ImportTexture(const ExternalTextureImportDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<TextureHandle> ImportTextureWithResult(const ExternalTextureImportDesc & desc) noexcept;
-		[[nodiscard]] TimelineHandle ImportTimeline(const ExternalTimelineImportDesc & desc) noexcept;
-		[[nodiscard]] TimelineHandle ImportTimeline(const ExternalTimelineImportDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<TimelineHandle> ImportTimelineWithResult(const ExternalTimelineImportDesc & desc) noexcept;
-		[[nodiscard]] BinarySemaphoreHandle ImportBinarySemaphore(const ExternalBinarySemaphoreImportDesc & desc) noexcept;
-		[[nodiscard]] BinarySemaphoreHandle ImportBinarySemaphore(const ExternalBinarySemaphoreImportDesc & desc, Error & error) noexcept;
-		[[nodiscard]] Result<BinarySemaphoreHandle> ImportBinarySemaphoreWithResult(const ExternalBinarySemaphoreImportDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle import_buffer(const ExternalBufferImportDesc & desc) noexcept;
+		[[nodiscard]] BufferHandle import_buffer(const ExternalBufferImportDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<BufferHandle> import_buffer_with_result(const ExternalBufferImportDesc & desc) noexcept;
+		[[nodiscard]] HeapHandle import_heap(const ExternalHeapImportDesc & desc) noexcept;
+		[[nodiscard]] HeapHandle import_heap(const ExternalHeapImportDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<HeapHandle> import_heap_with_result(const ExternalHeapImportDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle import_texture(const ExternalTextureImportDesc & desc) noexcept;
+		[[nodiscard]] TextureHandle import_texture(const ExternalTextureImportDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<TextureHandle> import_texture_with_result(const ExternalTextureImportDesc & desc) noexcept;
+		[[nodiscard]] TimelineHandle import_timeline(const ExternalTimelineImportDesc & desc) noexcept;
+		[[nodiscard]] TimelineHandle import_timeline(const ExternalTimelineImportDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<TimelineHandle> import_timeline_with_result(const ExternalTimelineImportDesc & desc) noexcept;
+		[[nodiscard]] BinarySemaphoreHandle import_binary_semaphore(const ExternalBinarySemaphoreImportDesc & desc) noexcept;
+		[[nodiscard]] BinarySemaphoreHandle import_binary_semaphore(const ExternalBinarySemaphoreImportDesc & desc, Error & error) noexcept;
+		[[nodiscard]] Result<BinarySemaphoreHandle> import_binary_semaphore_with_result(const ExternalBinarySemaphoreImportDesc & desc) noexcept;
 
-		bool CloseExportedHandle(const ExternalHandle & handle) noexcept;
-		bool CloseExportedHandle(const ExternalHandle & handle, Error & error) noexcept;
+		bool close_exported_handle(const ExternalHandle & handle) noexcept;
+		bool close_exported_handle(const ExternalHandle & handle, Error & error) noexcept;
 
 	private:
 		friend struct detail::FacadeBuilder;
@@ -951,7 +964,11 @@ namespace azo::rhi
 		bool GetNativeSamplerRaw(GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
 		TimelineHandle AdoptTimelineRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
 		BinarySemaphoreHandle AdoptBinarySemaphoreRaw(
-			GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
+			GraphicsApiId api,
+			const void * nativeImport,
+			const AdoptedBinarySemaphoreDesc & desc,
+			Error * error
+		) noexcept;
 		bool GetNativeTimelineRaw(GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
 		bool GetNativeBinarySemaphoreRaw(GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
 
@@ -960,91 +977,91 @@ namespace azo::rhi
 	};
 
 	template <GraphicsApiTag Api>
-	BufferHandle Device::AdoptBuffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept
+	BufferHandle Device::adopt_buffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept
 	{
-		return AdoptBufferRaw(Api::id, &native, desc, nullptr);
+		return AdoptBufferRaw(Api::kId, &native, desc, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	BufferHandle Device::AdoptBuffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc, Error & error) noexcept
-	{
-		error = {};
-		return AdoptBufferRaw(Api::id, &native, desc, &error);
-	}
-
-	template <GraphicsApiTag Api>
-	Result<BufferHandle> Device::AdoptBufferWithResult(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept
-	{
-		Error error{};
-		const BufferHandle handle = AdoptBufferRaw(Api::id, &native, desc, &error);
-		return handle.IsValid() ? Result<BufferHandle>{ handle } : Result<BufferHandle>{ error };
-	}
-
-	template <GraphicsApiTag Api>
-	TextureHandle Device::AdoptTexture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept
-	{
-		return AdoptTextureRaw(Api::id, &native, desc, nullptr);
-	}
-
-	template <GraphicsApiTag Api>
-	TextureHandle Device::AdoptTexture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc, Error & error) noexcept
+	BufferHandle Device::adopt_buffer(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		return AdoptTextureRaw(Api::id, &native, desc, &error);
+		return AdoptBufferRaw(Api::kId, &native, desc, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<TextureHandle> Device::AdoptTextureWithResult(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept
+	Result<BufferHandle> Device::adopt_buffer_with_result(const NativeBuffer<Api> & native, const AdoptedBufferDesc & desc) noexcept
 	{
 		Error error{};
-		const TextureHandle handle = AdoptTextureRaw(Api::id, &native, desc, &error);
-		return handle.IsValid() ? Result<TextureHandle>{ handle } : Result<TextureHandle>{ error };
+		const BufferHandle handle = AdoptBufferRaw(Api::kId, &native, desc, &error);
+		return handle.is_valid() ? Result<BufferHandle>{ handle } : Result<BufferHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeBuffer(BufferHandle buffer, NativeBuffer<Api> & out) noexcept
+	TextureHandle Device::adopt_texture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept
+	{
+		return AdoptTextureRaw(Api::kId, &native, desc, nullptr);
+	}
+
+	template <GraphicsApiTag Api>
+	TextureHandle Device::adopt_texture(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc, Error & error) noexcept
+	{
+		error = {};
+		return AdoptTextureRaw(Api::kId, &native, desc, &error);
+	}
+
+	template <GraphicsApiTag Api>
+	Result<TextureHandle> Device::adopt_texture_with_result(const NativeTexture<Api> & native, const AdoptedTextureDesc & desc) noexcept
+	{
+		Error error{};
+		const TextureHandle handle = AdoptTextureRaw(Api::kId, &native, desc, &error);
+		return handle.is_valid() ? Result<TextureHandle>{ handle } : Result<TextureHandle>{ error };
+	}
+
+	template <GraphicsApiTag Api>
+	bool Device::get_native_buffer(BufferHandle buffer, NativeBuffer<Api> & out) noexcept
 	{
 		out = {};
-		return GetNativeBufferRaw(Api::id, buffer, &out, nullptr);
+		return GetNativeBufferRaw(Api::kId, buffer, &out, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeBuffer(BufferHandle buffer, NativeBuffer<Api> & out, Error & error) noexcept
+	bool Device::get_native_buffer(BufferHandle buffer, NativeBuffer<Api> & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		return GetNativeBufferRaw(Api::id, buffer, &out, &error);
+		return GetNativeBufferRaw(Api::kId, buffer, &out, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<NativeBuffer<Api>> Device::GetNativeBufferWithResult(BufferHandle buffer) noexcept
+	Result<NativeBuffer<Api>> Device::get_native_buffer_with_result(BufferHandle buffer) noexcept
 	{
 		Error error{};
 		NativeBuffer<Api> out{};
-		return GetNativeBufferRaw(Api::id, buffer, &out, &error) ? Result<NativeBuffer<Api>>{ out } : Result<NativeBuffer<Api>>{ error };
+		return GetNativeBufferRaw(Api::kId, buffer, &out, &error) ? Result<NativeBuffer<Api>>{ out } : Result<NativeBuffer<Api>>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeTexture(TextureHandle texture, NativeTexture<Api> & out) noexcept
+	bool Device::get_native_texture(TextureHandle texture, NativeTexture<Api> & out) noexcept
 	{
 		out = {};
-		return GetNativeTextureRaw(Api::id, texture, &out, nullptr);
+		return GetNativeTextureRaw(Api::kId, texture, &out, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeTexture(TextureHandle texture, NativeTexture<Api> & out, Error & error) noexcept
+	bool Device::get_native_texture(TextureHandle texture, NativeTexture<Api> & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		return GetNativeTextureRaw(Api::id, texture, &out, &error);
+		return GetNativeTextureRaw(Api::kId, texture, &out, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<NativeTexture<Api>> Device::GetNativeTextureWithResult(TextureHandle texture) noexcept
+	Result<NativeTexture<Api>> Device::get_native_texture_with_result(TextureHandle texture) noexcept
 	{
 		Error error{};
 		NativeTexture<Api> out{};
-		return GetNativeTextureRaw(Api::id, texture, &out, &error) ? Result<NativeTexture<Api>>{ out } : Result<NativeTexture<Api>>{ error };
+		return GetNativeTextureRaw(Api::kId, texture, &out, &error) ? Result<NativeTexture<Api>>{ out } : Result<NativeTexture<Api>>{ error };
 	}
 
 	class AZO_RHI_API UniqueDevice final
@@ -1079,12 +1096,12 @@ namespace azo::rhi
 			Reset();
 		}
 
-		[[nodiscard]] Device Get() const noexcept
+		[[nodiscard]] Device get() const noexcept
 		{
 			return Device{ m_impl, m_blocks };
 		}
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
 			return m_impl != nullptr;
 		}
@@ -1106,7 +1123,7 @@ namespace azo::rhi
 		template <GraphicsApiTag Api>
 		Result<void> Register(const BackendCreateInfo & createInfo)
 		{
-			if (IsRegistered(Api::id))
+			if (is_registered(Api::kId))
 			{
 				return Error{
 					.code	 = ErrorCode::eInvalidState,
@@ -1115,9 +1132,9 @@ namespace azo::rhi
 			}
 
 			BackendCreateInfo entry = createInfo;
-			entry.info.id			= Api::id;
+			entry.info.id			= Api::kId;
 
-			if (!detail::TryPushBack(m_entries, entry))
+			if (!detail::try_push_back(m_entries, entry))
 			{
 				return Error{
 					.code	 = ErrorCode::eOutOfHostMemory,
@@ -1125,7 +1142,7 @@ namespace azo::rhi
 				};
 			}
 
-			if (!detail::TryPushBack(m_infos, entry.info))
+			if (!detail::try_push_back(m_infos, entry.info))
 			{
 				m_entries.pop_back();
 				return Error{
@@ -1137,28 +1154,30 @@ namespace azo::rhi
 			return {};
 		}
 
-		[[nodiscard]] const BackendInfo * Find(GraphicsApiId id) const noexcept
+		[[nodiscard]] const BackendInfo * find(GraphicsApiId id) const noexcept
 		{
 			const auto found = std::ranges::find(m_infos, id, &BackendInfo::id);
 			return found != m_infos.end() ? &*found : nullptr;
 		}
 
-		[[nodiscard]] const BackendInfo * Find(const std::string_view name) const noexcept
+		[[nodiscard]] const BackendInfo * find(const std::string_view name) const noexcept
 		{
-			const auto found = std::ranges::find_if(m_infos,
+			const auto found = std::ranges::find_if(
+				m_infos,
 				[name](const BackendInfo & info)
 				{
-					return name == info.canonicalName || name == ShortApiName(info.canonicalName);
-				});
+					return name == info.canonicalName || name == short_api_name(info.canonicalName);
+				}
+			);
 			return found != m_infos.end() ? &*found : nullptr;
 		}
 
-		[[nodiscard]] bool IsRegistered(GraphicsApiId id) const noexcept
+		[[nodiscard]] bool is_registered(GraphicsApiId id) const noexcept
 		{
-			return Find(id) != nullptr;
+			return find(id) != nullptr;
 		}
 
-		[[nodiscard]] std::span<const BackendInfo> EnumerateBackends() const noexcept
+		[[nodiscard]] std::span<const BackendInfo> enumerate_backends() const noexcept
 		{
 			return m_infos;
 		}
@@ -1170,193 +1189,198 @@ namespace azo::rhi
 		detail::HostVector<BackendInfo> m_infos;
 	};
 
-	AZO_RHI_API Result<UniqueInstance> CreateInstance(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc);
+	AZO_RHI_API Result<UniqueInstance> create_instance(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc);
 
-	AZO_RHI_API Result<UniqueDevice> CreateDevice(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const DeviceDesc & desc);
-
-	template <GraphicsApiTag Api>
-	Result<UniqueDevice> CreateDevice(const DeviceDesc & desc);
-
-	template <>
-	AZO_RHI_API Result<UniqueDevice> CreateDevice<VulkanApi>(const DeviceDesc & desc);
-	template <>
-	AZO_RHI_API Result<UniqueDevice> CreateDevice<D3D12Api>(const DeviceDesc & desc);
-	template <>
-	AZO_RHI_API Result<UniqueDevice> CreateDevice<MetalApi>(const DeviceDesc & desc);
-	template <>
-	AZO_RHI_API Result<UniqueDevice> CreateDevice<Metal4Api>(const DeviceDesc & desc);
-	template <>
-	AZO_RHI_API Result<UniqueDevice> CreateDevice<NullApi>(const DeviceDesc & desc);
+	AZO_RHI_API Result<UniqueDevice> create_device(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const DeviceDesc & desc);
 
 	template <GraphicsApiTag Api>
-	TextureViewHandle Device::AdoptTextureView(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept
+	Result<UniqueDevice> create_device(const DeviceDesc & desc);
+
+	template <>
+	AZO_RHI_API Result<UniqueDevice> create_device<VulkanApi>(const DeviceDesc & desc);
+	template <>
+	AZO_RHI_API Result<UniqueDevice> create_device<D3D12Api>(const DeviceDesc & desc);
+	template <>
+	AZO_RHI_API Result<UniqueDevice> create_device<MetalApi>(const DeviceDesc & desc);
+	template <>
+	AZO_RHI_API Result<UniqueDevice> create_device<Metal4Api>(const DeviceDesc & desc);
+	template <>
+	AZO_RHI_API Result<UniqueDevice> create_device<NullApi>(const DeviceDesc & desc);
+
+	template <GraphicsApiTag Api>
+	TextureViewHandle Device::adopt_texture_view(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept
 	{
-		return AdoptTextureViewRaw(Api::id, &native, desc, nullptr);
+		return AdoptTextureViewRaw(Api::kId, &native, desc, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	TextureViewHandle Device::AdoptTextureView(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc, Error & error) noexcept
+	TextureViewHandle Device::adopt_texture_view(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		return AdoptTextureViewRaw(Api::id, &native, desc, &error);
+		return AdoptTextureViewRaw(Api::kId, &native, desc, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<TextureViewHandle> Device::AdoptTextureViewWithResult(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept
+	Result<TextureViewHandle> Device::adopt_texture_view_with_result(const NativeTextureView<Api> & native, const AdoptedTextureViewDesc & desc) noexcept
 	{
 		Error error{};
-		const TextureViewHandle handle = AdoptTextureViewRaw(Api::id, &native, desc, &error);
-		return handle.IsValid() ? Result<TextureViewHandle>{ handle } : Result<TextureViewHandle>{ error };
+		const TextureViewHandle handle = AdoptTextureViewRaw(Api::kId, &native, desc, &error);
+		return handle.is_valid() ? Result<TextureViewHandle>{ handle } : Result<TextureViewHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	SamplerHandle Device::AdoptSampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept
+	SamplerHandle Device::adopt_sampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept
 	{
-		return AdoptSamplerRaw(Api::id, &native, desc, nullptr);
+		return AdoptSamplerRaw(Api::kId, &native, desc, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	SamplerHandle Device::AdoptSampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc, Error & error) noexcept
+	SamplerHandle Device::adopt_sampler(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		return AdoptSamplerRaw(Api::id, &native, desc, &error);
+		return AdoptSamplerRaw(Api::kId, &native, desc, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<SamplerHandle> Device::AdoptSamplerWithResult(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept
+	Result<SamplerHandle> Device::adopt_sampler_with_result(const NativeSampler<Api> & native, const AdoptedSamplerDesc & desc) noexcept
 	{
 		Error error{};
-		const SamplerHandle handle = AdoptSamplerRaw(Api::id, &native, desc, &error);
-		return handle.IsValid() ? Result<SamplerHandle>{ handle } : Result<SamplerHandle>{ error };
+		const SamplerHandle handle = AdoptSamplerRaw(Api::kId, &native, desc, &error);
+		return handle.is_valid() ? Result<SamplerHandle>{ handle } : Result<SamplerHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeTextureView(TextureViewHandle view, NativeTextureView<Api> & out) noexcept
+	bool Device::get_native_texture_view(TextureViewHandle view, NativeTextureView<Api> & out) noexcept
 	{
-		return GetNativeTextureViewRaw(Api::id, view, &out, nullptr);
+		return GetNativeTextureViewRaw(Api::kId, view, &out, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeTextureView(TextureViewHandle view, NativeTextureView<Api> & out, Error & error) noexcept
+	bool Device::get_native_texture_view(TextureViewHandle view, NativeTextureView<Api> & out, Error & error) noexcept
 	{
 		error = {};
-		return GetNativeTextureViewRaw(Api::id, view, &out, &error);
+		return GetNativeTextureViewRaw(Api::kId, view, &out, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<NativeTextureView<Api>> Device::GetNativeTextureViewWithResult(TextureViewHandle view) noexcept
+	Result<NativeTextureView<Api>> Device::get_native_texture_view_with_result(TextureViewHandle view) noexcept
 	{
 		Error error{};
 		NativeTextureView<Api> out{};
-		return GetNativeTextureViewRaw(Api::id, view, &out, &error) ? Result<NativeTextureView<Api>>{ out } : Result<NativeTextureView<Api>>{ error };
+		return GetNativeTextureViewRaw(Api::kId, view, &out, &error) ? Result<NativeTextureView<Api>>{ out } : Result<NativeTextureView<Api>>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeSampler(SamplerHandle sampler, NativeSampler<Api> & out) noexcept
+	bool Device::get_native_sampler(SamplerHandle sampler, NativeSampler<Api> & out) noexcept
 	{
-		return GetNativeSamplerRaw(Api::id, sampler, &out, nullptr);
+		return GetNativeSamplerRaw(Api::kId, sampler, &out, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeSampler(SamplerHandle sampler, NativeSampler<Api> & out, Error & error) noexcept
+	bool Device::get_native_sampler(SamplerHandle sampler, NativeSampler<Api> & out, Error & error) noexcept
 	{
 		error = {};
-		return GetNativeSamplerRaw(Api::id, sampler, &out, &error);
+		return GetNativeSamplerRaw(Api::kId, sampler, &out, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<NativeSampler<Api>> Device::GetNativeSamplerWithResult(SamplerHandle sampler) noexcept
+	Result<NativeSampler<Api>> Device::get_native_sampler_with_result(SamplerHandle sampler) noexcept
 	{
 		Error error{};
 		NativeSampler<Api> out{};
-		return GetNativeSamplerRaw(Api::id, sampler, &out, &error) ? Result<NativeSampler<Api>>{ out } : Result<NativeSampler<Api>>{ error };
+		return GetNativeSamplerRaw(Api::kId, sampler, &out, &error) ? Result<NativeSampler<Api>>{ out } : Result<NativeSampler<Api>>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	TimelineHandle Device::AdoptTimeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept
+	TimelineHandle Device::adopt_timeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept
 	{
-		return AdoptTimelineRaw(Api::id, &native, desc, nullptr);
+		return AdoptTimelineRaw(Api::kId, &native, desc, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	TimelineHandle Device::AdoptTimeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc, Error & error) noexcept
+	TimelineHandle Device::adopt_timeline(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		return AdoptTimelineRaw(Api::id, &native, desc, &error);
+		return AdoptTimelineRaw(Api::kId, &native, desc, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<TimelineHandle> Device::AdoptTimelineWithResult(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept
+	Result<TimelineHandle> Device::adopt_timeline_with_result(const NativeTimeline<Api> & native, const AdoptedTimelineDesc & desc) noexcept
 	{
 		Error error{};
-		const TimelineHandle handle = AdoptTimelineRaw(Api::id, &native, desc, &error);
-		return handle.IsValid() ? Result<TimelineHandle>{ handle } : Result<TimelineHandle>{ error };
+		const TimelineHandle handle = AdoptTimelineRaw(Api::kId, &native, desc, &error);
+		return handle.is_valid() ? Result<TimelineHandle>{ handle } : Result<TimelineHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	BinarySemaphoreHandle Device::AdoptBinarySemaphore(const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept
+	BinarySemaphoreHandle Device::adopt_binary_semaphore(const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept
 	{
-		return AdoptBinarySemaphoreRaw(Api::id, &native, desc, nullptr);
+		return AdoptBinarySemaphoreRaw(Api::kId, &native, desc, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	BinarySemaphoreHandle Device::AdoptBinarySemaphore(
-		const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc, Error & error) noexcept
+	BinarySemaphoreHandle Device::adopt_binary_semaphore(
+		const NativeBinarySemaphore<Api> & native,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error & error
+	) noexcept
 	{
 		error = {};
-		return AdoptBinarySemaphoreRaw(Api::id, &native, desc, &error);
+		return AdoptBinarySemaphoreRaw(Api::kId, &native, desc, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<BinarySemaphoreHandle> Device::AdoptBinarySemaphoreWithResult(
-		const NativeBinarySemaphore<Api> & native, const AdoptedBinarySemaphoreDesc & desc) noexcept
+	Result<BinarySemaphoreHandle> Device::adopt_binary_semaphore_with_result(
+		const NativeBinarySemaphore<Api> & native,
+		const AdoptedBinarySemaphoreDesc & desc
+	) noexcept
 	{
 		Error error{};
-		const BinarySemaphoreHandle handle = AdoptBinarySemaphoreRaw(Api::id, &native, desc, &error);
-		return handle.IsValid() ? Result<BinarySemaphoreHandle>{ handle } : Result<BinarySemaphoreHandle>{ error };
+		const BinarySemaphoreHandle handle = AdoptBinarySemaphoreRaw(Api::kId, &native, desc, &error);
+		return handle.is_valid() ? Result<BinarySemaphoreHandle>{ handle } : Result<BinarySemaphoreHandle>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeTimeline(TimelineHandle timeline, NativeTimeline<Api> & out) noexcept
+	bool Device::get_native_timeline(TimelineHandle timeline, NativeTimeline<Api> & out) noexcept
 	{
-		return GetNativeTimelineRaw(Api::id, timeline, &out, nullptr);
+		return GetNativeTimelineRaw(Api::kId, timeline, &out, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeTimeline(TimelineHandle timeline, NativeTimeline<Api> & out, Error & error) noexcept
+	bool Device::get_native_timeline(TimelineHandle timeline, NativeTimeline<Api> & out, Error & error) noexcept
 	{
 		error = {};
-		return GetNativeTimelineRaw(Api::id, timeline, &out, &error);
+		return GetNativeTimelineRaw(Api::kId, timeline, &out, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<NativeTimeline<Api>> Device::GetNativeTimelineWithResult(TimelineHandle timeline) noexcept
+	Result<NativeTimeline<Api>> Device::get_native_timeline_with_result(TimelineHandle timeline) noexcept
 	{
 		Error error{};
 		NativeTimeline<Api> out{};
-		return GetNativeTimelineRaw(Api::id, timeline, &out, &error) ? Result<NativeTimeline<Api>>{ out } : Result<NativeTimeline<Api>>{ error };
+		return GetNativeTimelineRaw(Api::kId, timeline, &out, &error) ? Result<NativeTimeline<Api>>{ out } : Result<NativeTimeline<Api>>{ error };
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeBinarySemaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out) noexcept
+	bool Device::get_native_binary_semaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out) noexcept
 	{
-		return GetNativeBinarySemaphoreRaw(Api::id, semaphore, &out, nullptr);
+		return GetNativeBinarySemaphoreRaw(Api::kId, semaphore, &out, nullptr);
 	}
 
 	template <GraphicsApiTag Api>
-	bool Device::GetNativeBinarySemaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out, Error & error) noexcept
+	bool Device::get_native_binary_semaphore(BinarySemaphoreHandle semaphore, NativeBinarySemaphore<Api> & out, Error & error) noexcept
 	{
 		error = {};
-		return GetNativeBinarySemaphoreRaw(Api::id, semaphore, &out, &error);
+		return GetNativeBinarySemaphoreRaw(Api::kId, semaphore, &out, &error);
 	}
 
 	template <GraphicsApiTag Api>
-	Result<NativeBinarySemaphore<Api>> Device::GetNativeBinarySemaphoreWithResult(BinarySemaphoreHandle semaphore) noexcept
+	Result<NativeBinarySemaphore<Api>> Device::get_native_binary_semaphore_with_result(BinarySemaphoreHandle semaphore) noexcept
 	{
 		Error error{};
 		NativeBinarySemaphore<Api> out{};
-		return GetNativeBinarySemaphoreRaw(Api::id, semaphore, &out, &error) ? Result<NativeBinarySemaphore<Api>>{ out }
-																			 : Result<NativeBinarySemaphore<Api>>{ error };
+		return GetNativeBinarySemaphoreRaw(Api::kId, semaphore, &out, &error) ? Result<NativeBinarySemaphore<Api>>{ out }
+																			  : Result<NativeBinarySemaphore<Api>>{ error };
 	}
 
 }

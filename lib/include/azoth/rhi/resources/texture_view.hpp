@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -51,7 +56,7 @@ namespace azo::rhi
 		ComponentSwizzle b = ComponentSwizzle::eIdentity;
 		ComponentSwizzle a = ComponentSwizzle::eIdentity;
 
-		[[nodiscard]] constexpr bool IsIdentity() const noexcept
+		[[nodiscard]] constexpr bool is_identity() const noexcept
 		{
 			const auto channelIsIdentity = [](const ComponentSwizzle swizzle, const ComponentSwizzle self) noexcept
 			{
@@ -65,15 +70,15 @@ namespace azo::rhi
 		[[nodiscard]] friend constexpr bool operator==(ComponentMapping lhs, ComponentMapping rhs) noexcept = default;
 	};
 
-	[[nodiscard]] constexpr bool UsageForbidsSwizzle(const Flags<TextureUsage> usage) noexcept
+	[[nodiscard]] constexpr bool usage_forbids_swizzle(const Flags<TextureUsage> usage) noexcept
 	{
-		return usage.Contains(TextureUsage::eStorage) || usage.Contains(TextureUsage::eColorAttachment) ||
-			   usage.Contains(TextureUsage::eDepthStencilAttachment) || usage.Contains(TextureUsage::eTransientAttachment);
+		return usage.contains(TextureUsage::eStorage) || usage.contains(TextureUsage::eColorAttachment) ||
+			   usage.contains(TextureUsage::eDepthStencilAttachment) || usage.contains(TextureUsage::eTransientAttachment);
 	}
 
-	[[nodiscard]] constexpr Flags<TextureUsage> ResolveViewUsage(const Flags<TextureUsage> viewUsage, const Flags<TextureUsage> textureUsage) noexcept
+	[[nodiscard]] constexpr Flags<TextureUsage> resolve_view_usage(const Flags<TextureUsage> viewUsage, const Flags<TextureUsage> textureUsage) noexcept
 	{
-		return viewUsage.Empty() ? textureUsage : viewUsage;
+		return viewUsage.empty() ? textureUsage : viewUsage;
 	}
 
 	struct TextureViewDesc final

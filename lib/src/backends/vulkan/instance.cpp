@@ -1,26 +1,48 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/support/host_containers.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/external.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/host/allocator.hpp"
+
 #include "backends/vulkan/internal.hpp"
+#include "support/driver_version.hpp"
+#include "vulkan/vulkan.hpp"
+
+#include <vulkan/vulkan.hpp>
+
+#include <cstdint>
+#include <optional>
+#include <span>
 
 namespace azo::rhi::vulkan
 {
-	GraphicsApiId VulkanInstanceApiId([[maybe_unused]] void * impl) noexcept
+	GraphicsApiId vulkan_instance_api_id([[maybe_unused]] void * impl) noexcept
 	{
-		return VulkanApi::id;
+		return VulkanApi::kId;
 	}
 
-	bool VulkanEnumerateAdapters(void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
+	bool vulkan_enumerate_adapters(void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "adapter count output pointer is null");
+			return fail(error, ErrorCode::eInvalidArgument, "adapter count output pointer is null");
 		}
 
 		*out			= 0;
@@ -29,30 +51,30 @@ namespace azo::rhi::vulkan
 		const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 		if (enumerated.result != vk::Result::eSuccess)
 		{
-			return FailNative(error, "Vulkan adapter enumeration failed", enumerated.result);
+			return fail_native(error, "Vulkan adapter enumeration failed", enumerated.result);
 		}
 
 		const detail::HostVector<vk::PhysicalDevice> & physicals = enumerated.value;
 		instance->adapterNames.clear();
 		instance->driverInfos.clear();
 		instance->driverVersions.clear();
-		if (!detail::TryReserve(instance->adapterNames, physicals.size()) || !detail::TryReserve(instance->driverInfos, physicals.size()) ||
-			!detail::TryReserve(instance->driverVersions, physicals.size()))
+		if (!detail::try_reserve(instance->adapterNames, physicals.size()) || !detail::try_reserve(instance->driverInfos, physicals.size()) ||
+			!detail::try_reserve(instance->driverVersions, physicals.size()))
 		{
-			return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan adapter name storage allocation failed");
+			return fail(error, ErrorCode::eOutOfHostMemory, "Vulkan adapter name storage allocation failed");
 		}
 
 		for (const vk::PhysicalDevice & phys : physicals)
 		{
 			const auto chain = phys.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties>(instance->dispatch);
-			const vk::PhysicalDeviceProperties & props			   = chain.get<vk::PhysicalDeviceProperties2>().properties;
-			const vk::PhysicalDeviceDriverProperties & driverProps = chain.get<vk::PhysicalDeviceDriverProperties>();
+			const vk::PhysicalDeviceProperties & props = chain.get<vk::PhysicalDeviceProperties2>().properties;
+			const auto & driverProps				   = chain.get<vk::PhysicalDeviceDriverProperties>();
 
-			if (!detail::TryPushBack(instance->adapterNames, props.deviceName.data()) ||
-				!detail::TryPushBack(instance->driverInfos, driverProps.driverInfo.data()) ||
-				!detail::TryPushBack(instance->driverVersions, FormatVulkanDriverVersion(MapDriverId(driverProps.driverID), props.driverVersion)))
+			if (!detail::try_push_back(instance->adapterNames, props.deviceName.data()) ||
+				!detail::try_push_back(instance->driverInfos, driverProps.driverInfo.data()) ||
+				!detail::try_push_back(instance->driverVersions, format_vulkan_driver_version(map_driver_id(driverProps.driverID), props.driverVersion)))
 			{
-				return Fail(error, ErrorCode::eOutOfHostMemory, "Vulkan adapter name storage allocation failed");
+				return fail(error, ErrorCode::eOutOfHostMemory, "Vulkan adapter name storage allocation failed");
 			}
 		}
 
@@ -60,7 +82,7 @@ namespace azo::rhi::vulkan
 		for (std::uint32_t i = 0; i < physicals.size(); ++i)
 		{
 			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			if (VulkanAdapterRefusal(physicals[i], instance->dispatch) != nullptr)
+			if (vulkan_adapter_refusal(physicals[i], instance->dispatch) != nullptr)
 			{
 				continue;
 			}
@@ -73,28 +95,31 @@ namespace azo::rhi::vulkan
 			}
 
 			const auto chain = physicals[i].getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceIDProperties>(
-				instance->dispatch);
-			const vk::PhysicalDeviceProperties & props			   = chain.get<vk::PhysicalDeviceProperties2>().properties;
-			const vk::PhysicalDeviceDriverProperties & driverProps = chain.get<vk::PhysicalDeviceDriverProperties>();
-			adapters[slot]										   = AdapterInfo{ .type = MapAdapterType(props.deviceType),
-				.apiId							= VulkanApi::id,
-				.adapterIndex					= i,
-				.vendorId						= props.vendorID,
-				.deviceId						= props.deviceID,
+				instance->dispatch
+			);
+			const vk::PhysicalDeviceProperties & props = chain.get<vk::PhysicalDeviceProperties2>().properties;
+			const auto & driverProps				   = chain.get<vk::PhysicalDeviceDriverProperties>();
+			adapters[slot]							   = AdapterInfo{
+				.type					   = map_adapter_type(props.deviceType),
+				.apiId					   = VulkanApi::kId,
+				.adapterIndex			   = i,
+				.vendorId				   = props.vendorID,
+				.deviceId				   = props.deviceID,
 				.unifiedMemoryArchitecture = props.deviceType == vk::PhysicalDeviceType::eIntegratedGpu || props.deviceType == vk::PhysicalDeviceType::eCpu,
 				.name					   = instance->adapterNames[i].c_str(),
-				.driverId				   = MapDriverId(driverProps.driverID),
+				.driverId				   = map_driver_id(driverProps.driverID),
 				.driverVersionRaw		   = props.driverVersion,
 				.driverVersion			   = instance->driverVersions[i].c_str(),
-				.driverInfo				   = instance->driverInfos[i].c_str() };
-			FillAdapterIdentity(adapters[slot], chain.get<vk::PhysicalDeviceIDProperties>());
+				.driverInfo				   = instance->driverInfos[i].c_str(),
+			};
+			fill_adapter_identity(adapters[slot], chain.get<vk::PhysicalDeviceIDProperties>());
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 		}
 
-		return Store(out, usable, error);
+		return store(out, usable, error);
 	}
 
-	std::optional<vk::ExternalMemoryHandleTypeFlagBits> MapMemoryHandleType(const ExternalHandleType type) noexcept
+	std::optional<vk::ExternalMemoryHandleTypeFlagBits> map_memory_handle_type(const ExternalHandleType type) noexcept
 	{
 		switch (type)
 		{
@@ -112,7 +137,7 @@ namespace azo::rhi::vulkan
 		return std::nullopt;
 	}
 
-	std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> MapSemaphoreHandleType(const ExternalHandleType type) noexcept
+	std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> map_semaphore_handle_type(const ExternalHandleType type) noexcept
 	{
 		switch (type)
 		{
@@ -130,12 +155,12 @@ namespace azo::rhi::vulkan
 		return std::nullopt;
 	}
 
-	vk::ExternalMemoryHandleTypeFlags MapMemoryHandleTypes(const Flags<ExternalHandleType> types) noexcept
+	vk::ExternalMemoryHandleTypeFlags map_memory_handle_types(const Flags<ExternalHandleType> types) noexcept
 	{
 		vk::ExternalMemoryHandleTypeFlags out{};
 		for (const ExternalHandleType type : kAllExternalHandleTypes)
 		{
-			if (const std::optional<vk::ExternalMemoryHandleTypeFlagBits> bit = MapMemoryHandleType(type); bit && types.Contains(type))
+			if (const std::optional<vk::ExternalMemoryHandleTypeFlagBits> bit = map_memory_handle_type(type); bit && types.contains(type))
 			{
 				out |= *bit;
 			}
@@ -144,12 +169,12 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	vk::ExternalSemaphoreHandleTypeFlags MapSemaphoreHandleTypes(const Flags<ExternalHandleType> types) noexcept
+	vk::ExternalSemaphoreHandleTypeFlags map_semaphore_handle_types(const Flags<ExternalHandleType> types) noexcept
 	{
 		vk::ExternalSemaphoreHandleTypeFlags out{};
 		for (const ExternalHandleType type : kAllExternalHandleTypes)
 		{
-			if (const std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> bit = MapSemaphoreHandleType(type); bit && types.Contains(type))
+			if (const std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> bit = map_semaphore_handle_type(type); bit && types.contains(type))
 			{
 				out |= *bit;
 			}
@@ -160,12 +185,12 @@ namespace azo::rhi::vulkan
 
 	namespace
 	{
-		[[nodiscard]] Flags<ExternalHandleType> MapMemoryHandleMask(const vk::ExternalMemoryHandleTypeFlags mask) noexcept
+		[[nodiscard]] Flags<ExternalHandleType> map_memory_handle_mask(const vk::ExternalMemoryHandleTypeFlags mask) noexcept
 		{
 			Flags<ExternalHandleType> out;
 			for (const ExternalHandleType type : kAllExternalHandleTypes)
 			{
-				if (const std::optional<vk::ExternalMemoryHandleTypeFlagBits> bit = MapMemoryHandleType(type); bit && (mask & *bit))
+				if (const std::optional<vk::ExternalMemoryHandleTypeFlagBits> bit = map_memory_handle_type(type); bit && (mask & *bit))
 				{
 					out |= type;
 				}
@@ -174,12 +199,12 @@ namespace azo::rhi::vulkan
 			return out;
 		}
 
-		[[nodiscard]] Flags<ExternalHandleType> MapSemaphoreHandleMask(const vk::ExternalSemaphoreHandleTypeFlags mask) noexcept
+		[[nodiscard]] Flags<ExternalHandleType> map_semaphore_handle_mask(const vk::ExternalSemaphoreHandleTypeFlags mask) noexcept
 		{
 			Flags<ExternalHandleType> out;
 			for (const ExternalHandleType type : kAllExternalHandleTypes)
 			{
-				if (const std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> bit = MapSemaphoreHandleType(type); bit && (mask & *bit))
+				if (const std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> bit = map_semaphore_handle_type(type); bit && (mask & *bit))
 				{
 					out |= type;
 				}
@@ -188,16 +213,20 @@ namespace azo::rhi::vulkan
 			return out;
 		}
 
-		void FillFromMemoryProperties(ExternalHandleSupport & out, const vk::ExternalMemoryProperties & props) noexcept
+		void fill_from_memory_properties(ExternalHandleSupport & out, const vk::ExternalMemoryProperties & props) noexcept
 		{
 			out.exportable		= static_cast<bool>(props.externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eExportable);
 			out.importable		= static_cast<bool>(props.externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eImportable);
-			out.compatibleTypes = MapMemoryHandleMask(props.compatibleHandleTypes);
+			out.compatibleTypes = map_memory_handle_mask(props.compatibleHandleTypes);
 		}
 	}
 
-	ExternalHandleSupport VulkanExternalSupportOf(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch,
-		const ExternalHandleSupportDesc & desc, const vk::BufferUsageFlags bufferUsage) noexcept
+	ExternalHandleSupport vulkan_external_support_of(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		const ExternalHandleSupportDesc & desc,
+		const vk::BufferUsageFlags bufferUsage
+	) noexcept
 	{
 		ExternalHandleSupport support{};
 
@@ -206,7 +235,7 @@ namespace azo::rhi::vulkan
 		case ExternalObjectKind::eHeap:
 		case ExternalObjectKind::eBuffer:
 		{
-			const std::optional<vk::ExternalMemoryHandleTypeFlagBits> handleType = MapMemoryHandleType(desc.handleType);
+			const std::optional<vk::ExternalMemoryHandleTypeFlagBits> handleType = map_memory_handle_type(desc.handleType);
 			if (!handleType)
 			{
 				break;
@@ -216,20 +245,20 @@ namespace azo::rhi::vulkan
 			info.handleType = *handleType;
 
 			info.usage = bufferUsage;
-			FillFromMemoryProperties(support, phys.getExternalBufferProperties(info, dispatch).externalMemoryProperties);
+			fill_from_memory_properties(support, phys.getExternalBufferProperties(info, dispatch).externalMemoryProperties);
 			break;
 		}
 
 		case ExternalObjectKind::eTexture:
 		{
-			const std::optional<vk::ExternalMemoryHandleTypeFlagBits> handleType = MapMemoryHandleType(desc.handleType);
+			const std::optional<vk::ExternalMemoryHandleTypeFlagBits> handleType = map_memory_handle_type(desc.handleType);
 			if (!handleType || desc.format == Format::eUndefined)
 			{
 				break;
 			}
 
 			vk::PhysicalDeviceImageFormatInfo2 formatInfo;
-			formatInfo.format = MapFormat(desc.format);
+			formatInfo.format = map_format(desc.format);
 			formatInfo.type	  = vk::ImageType::e2D;
 			formatInfo.tiling = vk::ImageTiling::eOptimal;
 			formatInfo.usage  = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
@@ -247,14 +276,14 @@ namespace azo::rhi::vulkan
 				break;
 			}
 
-			FillFromMemoryProperties(support, externalProperties.externalMemoryProperties);
+			fill_from_memory_properties(support, externalProperties.externalMemoryProperties);
 			break;
 		}
 
 		case ExternalObjectKind::eTimeline:
 		case ExternalObjectKind::eBinarySemaphore:
 		{
-			const std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> handleType = MapSemaphoreHandleType(desc.handleType);
+			const std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> handleType = map_semaphore_handle_type(desc.handleType);
 			if (!handleType)
 			{
 				break;
@@ -270,7 +299,7 @@ namespace azo::rhi::vulkan
 			const vk::ExternalSemaphoreProperties props = phys.getExternalSemaphoreProperties(info, dispatch);
 			support.exportable		= static_cast<bool>(props.externalSemaphoreFeatures & vk::ExternalSemaphoreFeatureFlagBits::eExportable);
 			support.importable		= static_cast<bool>(props.externalSemaphoreFeatures & vk::ExternalSemaphoreFeatureFlagBits::eImportable);
-			support.compatibleTypes = MapSemaphoreHandleMask(props.compatibleHandleTypes);
+			support.compatibleTypes = map_semaphore_handle_mask(props.compatibleHandleTypes);
 			break;
 		}
 		}
@@ -278,11 +307,11 @@ namespace azo::rhi::vulkan
 		return support;
 	}
 
-	bool VulkanQueryExternalHandleSupport(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
+	bool vulkan_query_external_handle_support(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external handle support needs somewhere to write the result");
+			return fail(error, ErrorCode::eInvalidArgument, "external handle support needs somewhere to write the result");
 		}
 
 		*out			= {};
@@ -291,47 +320,54 @@ namespace azo::rhi::vulkan
 		const auto enumerated = instance->instance.enumeratePhysicalDevices<HostAllocatorAdapter<vk::PhysicalDevice>>(instance->dispatch);
 		if (enumerated.result != vk::Result::eSuccess)
 		{
-			return FailNative(error, "Vulkan adapter enumeration failed", enumerated.result);
+			return fail_native(error, "Vulkan adapter enumeration failed", enumerated.result);
 		}
 		if (desc.adapterIndex >= enumerated.value.size())
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "external handle support asked about an adapter index this instance does not have");
+			return fail(error, ErrorCode::eInvalidArgument, "external handle support asked about an adapter index this instance does not have");
 		}
 
 		// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-		*out = VulkanExternalSupportOf(enumerated.value[desc.adapterIndex], instance->dispatch, desc, kExternalQueryBufferUsage);
+		*out = vulkan_external_support_of(enumerated.value[desc.adapterIndex], instance->dispatch, desc, kExternalQueryBufferUsage);
 		// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool VulkanRefuseUnexportable(const VulkanDevice * device, const Flags<ExternalHandleType> declared, const ExternalObjectKind kind, const Format format,
-		const vk::BufferUsageFlags bufferUsage, const char * what, Error * error) noexcept
+	bool vulkan_refuse_unexportable(
+		const VulkanDevice * device,
+		const Flags<ExternalHandleType> declared,
+		const ExternalObjectKind kind,
+		const Format format,
+		const vk::BufferUsageFlags bufferUsage,
+		const char * what,
+		Error * error
+	) noexcept
 	{
-		if (declared.Empty())
+		if (declared.empty())
 		{
 			return true;
 		}
 
 		for (const ExternalHandleType type : kAllExternalHandleTypes)
 		{
-			if (!declared.Contains(type))
+			if (!declared.contains(type))
 			{
 				continue;
 			}
 
 			const ExternalHandleSupportDesc query{ .adapterIndex = 0, .kind = kind, .handleType = type, .format = format };
-			if (!VulkanExternalSupportOf(device->phys, device->dispatch, query, bufferUsage).exportable)
+			if (!vulkan_external_support_of(device->phys, device->dispatch, query, bufferUsage).exportable)
 			{
-				return Fail(error, ErrorCode::eUnsupportedFeature, what);
+				return fail(error, ErrorCode::eUnsupportedFeature, what);
 			}
 		}
 
 		return true;
 	}
 
-	void * VulkanInstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept
+	void * vulkan_instance_create_device(void * impl, const DeviceDesc & desc, Error * error) noexcept
 	{
-		void * out = MakeOwnedDevice(static_cast<VulkanInstance *>(impl), desc, error);
+		void * out = make_owned_device(static_cast<VulkanInstance *>(impl), desc, error);
 		if (out != nullptr && error != nullptr)
 		{
 			*error = {};
@@ -340,9 +376,9 @@ namespace azo::rhi::vulkan
 		return out;
 	}
 
-	void * VulkanCreateInstance(const void * instanceDesc, Error * error) noexcept
+	void * vulkan_create_instance(const void * instanceDesc, Error * error) noexcept
 	{
-		void * out = MakeOwnedInstance(*static_cast<const InstanceDesc *>(instanceDesc), error);
+		void * out = make_owned_instance(*static_cast<const InstanceDesc *>(instanceDesc), error);
 		if (out != nullptr && error != nullptr)
 		{
 			*error = {};

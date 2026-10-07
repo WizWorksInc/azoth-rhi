@@ -1,22 +1,30 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "azoth/rhi/host/presentation_backend.hpp"
 
 #include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/host/allocator.hpp"
+#include "azoth/rhi/host/surface_source.hpp"
 #include "azoth/rhi/native/surface_payloads.hpp"
+#include "azoth/rhi/present/swapchain.hpp"
 
 #include <bit>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 
 namespace azo::rhi
 {
@@ -26,12 +34,12 @@ namespace azo::rhi
 		class HandlePassthroughBackend final : public PresentationBackend
 		{
 		public:
-			bool InitInstanceLoader(SurfaceSource &) override
+			bool init_instance_loader(SurfaceSource & /*source*/) override
 			{
 				return true;
 			}
 
-			SurfaceHandle CreateSurface(SurfaceSource & source, Device) override
+			SurfaceHandle create_surface(SurfaceSource & source, Device /*device*/) override
 			{
 				Payload payload{};
 				const SurfaceRequest request{
@@ -40,7 +48,7 @@ namespace azo::rhi
 					.payload  = &payload,
 				};
 
-				if (!source.Provide(request) || payload.*Member == nullptr)
+				if (!source.provide(request) || payload.*Member == nullptr)
 				{
 					return {};
 				}
@@ -52,7 +60,7 @@ namespace azo::rhi
 	}
 
 #ifdef AZOTH_RHI_BACKEND_VULKAN
-	HostUniquePtr<PresentationBackend> MakeVulkanPresentationBackend();
+	HostUniquePtr<PresentationBackend> make_vulkan_presentation_backend();
 #else
 	namespace native
 	{
@@ -65,7 +73,7 @@ namespace azo::rhi
 	}
 #endif
 
-	GraphicsApiId SelectGraphicsApi(const char * requestedOverride)
+	GraphicsApiId select_graphics_api(const char * requestedOverride)
 	{
 		// An explicit override (a --backend flag, say) wins, otherwise the env var overrides the compile-time default. NOLINTNEXTLINE(concurrency-mt-unsafe):
 		const char * requested = requestedOverride != nullptr ? requestedOverride : std::getenv("AZOTH_RHI_BACKEND");
@@ -73,52 +81,52 @@ namespace azo::rhi
 
 		if (std::strcmp(name, "vulkan") == 0)
 		{
-			return VulkanApi::id;
+			return VulkanApi::kId;
 		}
 
 		if (std::strcmp(name, "d3d12") == 0)
 		{
-			return D3D12Api::id;
+			return D3D12Api::kId;
 		}
 
 		if (std::strcmp(name, "metal") == 0)
 		{
-			return MetalApi::id;
+			return MetalApi::kId;
 		}
 
 		if (std::strcmp(name, "metal4") == 0)
 		{
-			return Metal4Api::id;
+			return Metal4Api::kId;
 		}
 
 		if (std::strcmp(name, "null") == 0)
 		{
-			return NullApi::id;
+			return NullApi::kId;
 		}
 
-		return VulkanApi::id;
+		return VulkanApi::kId;
 	}
 
-	HostUniquePtr<PresentationBackend> MakePresentationBackend(GraphicsApiId api)
+	HostUniquePtr<PresentationBackend> make_presentation_backend(GraphicsApiId api)
 	{
 #ifdef AZOTH_RHI_BACKEND_VULKAN
-		if (api == VulkanApi::id)
+		if (api == VulkanApi::kId)
 		{
-			return MakeVulkanPresentationBackend();
+			return make_vulkan_presentation_backend();
 		}
 #endif
 
 #if defined(AZOTH_RHI_BACKEND_METAL) || defined(AZOTH_RHI_BACKEND_METAL4)
-		if (IsMetalFamily(api))
+		if (is_metal_family(api))
 		{
-			return HostNew<HandlePassthroughBackend<native::MetalSurfacePayload, &native::MetalSurfacePayload::layer>>();
+			return host_new<HandlePassthroughBackend<native::MetalSurfacePayload, &native::MetalSurfacePayload::layer>>();
 		}
 #endif
 
 #ifdef AZOTH_RHI_BACKEND_D3D12
-		if (api == D3D12Api::id)
+		if (api == D3D12Api::kId)
 		{
-			return HostNew<HandlePassthroughBackend<native::Win32SurfacePayload, &native::Win32SurfacePayload::window>>();
+			return host_new<HandlePassthroughBackend<native::Win32SurfacePayload, &native::Win32SurfacePayload::window>>();
 		}
 #endif
 

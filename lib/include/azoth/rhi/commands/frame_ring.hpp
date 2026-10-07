@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -43,7 +48,7 @@ namespace azo::rhi
 		FrameRing & operator=(FrameRing &&) noexcept = default;
 		~FrameRing()								 = default;
 
-		[[nodiscard]] static FrameRing Create(Device dev, Queue queue, const FrameRingDesc & desc, Error & error) noexcept
+		[[nodiscard]] static FrameRing create(Device dev, Queue queue, const FrameRingDesc & desc, Error & error) noexcept
 		{
 			error = {};
 
@@ -57,8 +62,8 @@ namespace azo::rhi
 			ring.m_queue	 = queue;
 			ring.m_depth	 = desc.framesInFlight;
 			ring.m_debugName = desc.debugName;
-			ring.m_timeline	 = UniqueTimeline{ dev, dev.CreateTimeline(TimelineDesc{ .debugName = desc.debugName }, error) };
-			if (!ring.m_timeline.IsValid())
+			ring.m_timeline	 = UniqueTimeline{ dev, dev.create_timeline(TimelineDesc{ .debugName = desc.debugName }, error) };
+			if (!ring.m_timeline.is_valid())
 			{
 				return {};
 			}
@@ -66,8 +71,8 @@ namespace azo::rhi
 			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			for (std::uint32_t slot = 0; slot < desc.framesInFlight; ++slot)
 			{
-				ring.m_pools[slot] = dev.CreateCommandPool(CommandPoolDesc{ .queueType = desc.queueType, .debugName = desc.debugName }, error);
-				if (!ring.m_pools[slot].IsValid())
+				ring.m_pools[slot] = dev.create_command_pool(CommandPoolDesc{ .queueType = desc.queueType, .debugName = desc.debugName }, error);
+				if (!ring.m_pools[slot].is_valid())
 				{
 					return {};
 				}
@@ -77,21 +82,21 @@ namespace azo::rhi
 			return ring;
 		}
 
-		[[nodiscard]] bool IsValid() const noexcept
+		[[nodiscard]] bool is_valid() const noexcept
 		{
-			return m_timeline.IsValid() && m_depth != 0;
+			return m_timeline.is_valid() && m_depth != 0;
 		}
 
-		[[nodiscard]] CommandList Begin(Error & error) noexcept
+		[[nodiscard]] CommandList begin(Error & error) noexcept
 		{
-			return Begin(std::numeric_limits<std::uint64_t>::max(), error);
+			return begin(std::numeric_limits<std::uint64_t>::max(), error);
 		}
 
-		[[nodiscard]] CommandList Begin(const std::uint64_t timeoutNanoseconds, Error & error) noexcept
+		[[nodiscard]] CommandList begin(const std::uint64_t timeoutNanoseconds, Error & error) noexcept
 		{
 			error = {};
 
-			if (!IsValid())
+			if (!is_valid())
 			{
 				error = Error{ .code = ErrorCode::eInvalidState, .message = "Begin on a frame ring that was never created or was moved from" };
 				return {};
@@ -100,7 +105,7 @@ namespace azo::rhi
 			const std::uint64_t next	 = m_frame + 1;
 			const std::uint64_t retiring = next > m_depth ? next - m_depth : 0;
 
-			if (retiring != 0 && !m_queue.Wait(m_timeline.Get(), retiring, timeoutNanoseconds, error))
+			if (retiring != 0 && !m_queue.wait(m_timeline.get(), retiring, timeoutNanoseconds, error))
 			{
 				return {};
 			}
@@ -108,13 +113,13 @@ namespace azo::rhi
 			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 			CommandPool & pool = m_pools[next % m_depth];
 			// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-			if (!pool.Reset(RetirePoint{ .timeline = m_timeline.Get(), .value = retiring }, error))
+			if (!pool.reset(RetirePoint{ .timeline = m_timeline.get(), .value = retiring }, error))
 			{
 				return {};
 			}
 
-			CommandList list = pool.Allocate(m_debugName, error);
-			if (!list.IsValid())
+			CommandList list = pool.allocate(m_debugName, error);
+			if (!list.is_valid())
 			{
 				return {};
 			}
@@ -123,32 +128,32 @@ namespace azo::rhi
 			return list;
 		}
 
-		[[nodiscard]] TimelinePoint Signal() const noexcept
+		[[nodiscard]] TimelinePoint signal() const noexcept
 		{
-			return TimelinePoint{ .timeline = m_timeline.Get(), .value = m_frame };
+			return TimelinePoint{ .timeline = m_timeline.get(), .value = m_frame };
 		}
 
-		[[nodiscard]] RetirePoint Retire() const noexcept
+		[[nodiscard]] RetirePoint retire() const noexcept
 		{
-			return RetirePoint{ .timeline = m_timeline.Get(), .value = m_frame };
+			return RetirePoint{ .timeline = m_timeline.get(), .value = m_frame };
 		}
 
-		[[nodiscard]] TimelineHandle Timeline() const noexcept
+		[[nodiscard]] TimelineHandle timeline() const noexcept
 		{
-			return m_timeline.Get();
+			return m_timeline.get();
 		}
 
-		[[nodiscard]] std::uint64_t FrameIndex() const noexcept
+		[[nodiscard]] std::uint64_t frame_index() const noexcept
 		{
 			return m_frame;
 		}
 
-		[[nodiscard]] std::uint32_t SlotIndex() const noexcept
+		[[nodiscard]] std::uint32_t slot_index() const noexcept
 		{
 			return m_depth != 0 ? static_cast<std::uint32_t>(m_frame % m_depth) : 0;
 		}
 
-		[[nodiscard]] std::uint32_t FramesInFlight() const noexcept
+		[[nodiscard]] std::uint32_t frames_in_flight() const noexcept
 		{
 			return m_depth;
 		}

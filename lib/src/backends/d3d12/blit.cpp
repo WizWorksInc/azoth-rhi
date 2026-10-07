@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -79,12 +84,23 @@ namespace azo::rhi::d3d12
 
 		const std::array<UINT, 4> values{ value, value, value, value };
 		list->list->ClearUnorderedAccessViewUint(
-			GpuHandleAt(list->clearGpuHeap.Get(), list->clearHeapIncrement, index), stagingCpu, slot->resource.Get(), values.data(), 0, nullptr);
+			GpuHandleAt(list->clearGpuHeap.Get(), list->clearHeapIncrement, index),
+			stagingCpu,
+			slot->resource.Get(),
+			values.data(),
+			0,
+			nullptr
+		);
 		return Succeed(error);
 	}
 
 	bool D3D12CmdClearTexture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		D3D12Device * device = list->owner;
@@ -98,10 +114,13 @@ namespace azo::rhi::d3d12
 			return Fail(error, ErrorCode::eInvalidArgument, "clearTexture clears color textures; clear depth via BeginRendering");
 		}
 
-		if (!slot->usage.Contains(TextureUsage::eColorAttachment))
+		if (!slot->usage.contains(TextureUsage::eColorAttachment))
 		{
 			return Fail(
-				error, ErrorCode::eInvalidArgument, "clearTexture needs a texture usable as a color attachment, which is what Direct3D 12 clears through");
+				error,
+				ErrorCode::eInvalidArgument,
+				"clearTexture needs a texture usable as a color attachment, which is what Direct3D 12 clears through"
+			);
 		}
 
 		const std::array<float, 4> rgba{ color.r, color.g, color.b, color.a };
@@ -174,7 +193,8 @@ namespace azo::rhi::d3d12
 					.top						= region.srcOffset.y,
 					.right						= region.srcOffset.x + static_cast<LONG>(region.extent.width),
 					.bottom						= region.srcOffset.y + static_cast<LONG>(region.extent.height) };
-				list1->ResolveSubresourceRegion(dstSlot->resource.Get(),
+				list1->ResolveSubresourceRegion(
+					dstSlot->resource.Get(),
 					SubresourceIndex(region.dstSubresource, dstSlot->mipLevels),
 					static_cast<UINT>(region.dstOffset.x),
 					static_cast<UINT>(region.dstOffset.y),
@@ -182,22 +202,31 @@ namespace azo::rhi::d3d12
 					SubresourceIndex(region.srcSubresource, srcSlot->mipLevels),
 					const_cast<D3D12_RECT *>(&srcRect),
 					dstSlot->format,
-					D3D12_RESOLVE_MODE_AVERAGE);
+					D3D12_RESOLVE_MODE_AVERAGE
+				);
 			}
 			else
 			{
-				list->list->ResolveSubresource(dstSlot->resource.Get(),
+				list->list->ResolveSubresource(
+					dstSlot->resource.Get(),
 					SubresourceIndex(region.dstSubresource, dstSlot->mipLevels),
 					srcSlot->resource.Get(),
 					SubresourceIndex(region.srcSubresource, srcSlot->mipLevels),
-					dstSlot->format);
+					dstSlot->format
+				);
 			}
 		}
 		return Succeed(error);
 	}
 
-	bool D3D12CmdBlit(void * impl, [[maybe_unused]] TextureHandle dst, [[maybe_unused]] TextureHandle src,
-		[[maybe_unused]] std::span<const TextureBlit> regions, [[maybe_unused]] Filter filter, Error * error) noexcept
+	bool D3D12CmdBlit(
+		void * impl,
+		[[maybe_unused]] TextureHandle dst,
+		[[maybe_unused]] TextureHandle src,
+		[[maybe_unused]] std::span<const TextureBlit> regions,
+		[[maybe_unused]] Filter filter,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.d3d12.blit");
 		static_cast<void>(impl);

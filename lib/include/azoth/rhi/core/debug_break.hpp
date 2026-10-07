@@ -12,27 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "FW/utility/Log.hpp"
+#pragma once
 
-#include <quill/Backend.h>
-#include <quill/Frontend.h>
-#include <quill/sinks/ConsoleSink.h>
+#include "azoth/base/config/platform.hpp"
 
-#include <utility>
-
-namespace fw
-{
-	quill::Logger * Log()
-	{
-		static quill::Logger * const logger = []
-		{
-			quill::Backend::start();
-
-			auto sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>("console");
-			return quill::Frontend::create_or_get_logger(
-				"sample", std::move(sink), quill::PatternFormatterOptions{ "%(time) %(log_level:<8) %(message)", "%H:%M:%S" });
-		}();
-
-		return logger;
-	}
-}
+#if AZOTH_COMPILER_MSVC
+	#define AZO_RHI_DEBUG_BREAK() __debugbreak()
+#elif defined(__has_builtin) && __has_builtin(__builtin_debugtrap)
+	#define AZO_RHI_DEBUG_BREAK() __builtin_debugtrap()
+#else
+	#define AZO_RHI_DEBUG_BREAK() ((void)0)
+#endif

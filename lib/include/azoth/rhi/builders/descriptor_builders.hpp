@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -22,43 +27,43 @@ namespace azo::rhi
 	class DescriptorBindingBuilder final
 	{
 	public:
-		DescriptorBindingBuilder & Binding(std::uint32_t binding) noexcept
+		DescriptorBindingBuilder & binding(std::uint32_t binding) noexcept
 		{
 			m_desc.binding = binding;
 			return *this;
 		}
 
-		DescriptorBindingBuilder & Type(DescriptorType type) noexcept
+		DescriptorBindingBuilder & type(DescriptorType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		DescriptorBindingBuilder & Count(std::uint32_t count) noexcept
+		DescriptorBindingBuilder & count(std::uint32_t count) noexcept
 		{
 			m_desc.count = count;
 			return *this;
 		}
 
-		DescriptorBindingBuilder & Stages(Flags<ShaderStage> stages) noexcept
+		DescriptorBindingBuilder & stages(Flags<ShaderStage> stages) noexcept
 		{
 			m_desc.stages = stages;
 			return *this;
 		}
 
-		DescriptorBindingBuilder & Flags(Flags<DescriptorBindingFlag> flags) noexcept
+		DescriptorBindingBuilder & flags(Flags<DescriptorBindingFlag> flags) noexcept
 		{
 			m_desc.flags = flags;
 			return *this;
 		}
 
-		DescriptorBindingBuilder & AddFlag(DescriptorBindingFlag flag) noexcept
+		DescriptorBindingBuilder & add_flag(DescriptorBindingFlag flag) noexcept
 		{
 			m_desc.flags = m_desc.flags | flag;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr DescriptorBinding Build() const noexcept
+		[[nodiscard]] constexpr DescriptorBinding build() const noexcept
 		{
 			return m_desc;
 		}
@@ -70,34 +75,36 @@ namespace azo::rhi
 	class DescriptorSetLayoutBuilder final
 	{
 	public:
-		DescriptorSetLayoutBuilder & Binding(DescriptorBinding binding)
+		DescriptorSetLayoutBuilder & binding(DescriptorBinding binding)
 		{
 			m_bindings.push_back(binding);
 			return *this;
 		}
 
-		DescriptorSetLayoutBuilder & Bindings(std::span<const DescriptorBinding> bindings)
+		DescriptorSetLayoutBuilder & bindings(std::span<const DescriptorBinding> bindings)
 		{
 			m_bindings.assign(bindings.begin(), bindings.end());
 			return *this;
 		}
 
-		DescriptorSetLayoutBuilder & ClearBindings() noexcept
+		DescriptorSetLayoutBuilder & clear_bindings() noexcept
 		{
 			m_bindings.clear();
 			return *this;
 		}
 
-		DescriptorSetLayoutBuilder & DebugName(std::string_view name)
+		DescriptorSetLayoutBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] DescriptorSetLayoutDesc Build() const noexcept
+		[[nodiscard]] DescriptorSetLayoutDesc build() const noexcept
 		{
-			return DescriptorSetLayoutDesc{ .bindings = std::span<const DescriptorBinding>{ m_bindings.data(), m_bindings.size() },
-				.debugName							  = m_debugName.empty() ? nullptr : m_debugName.c_str() };
+			return DescriptorSetLayoutDesc{
+				.bindings  = std::span<const DescriptorBinding>{ m_bindings.data(), m_bindings.size() },
+				.debugName = m_debugName.empty() ? nullptr : m_debugName.c_str(),
+			};
 		}
 
 	private:
@@ -108,63 +115,67 @@ namespace azo::rhi
 	class PipelineLayoutBuilder final
 	{
 	public:
-		PipelineLayoutBuilder & Set(DescriptorSetLayoutHandle set)
+		PipelineLayoutBuilder & set(DescriptorSetLayoutHandle set)
 		{
 			m_sets.push_back(set);
 			return *this;
 		}
 
-		PipelineLayoutBuilder & Sets(std::span<const DescriptorSetLayoutHandle> sets)
+		PipelineLayoutBuilder & sets(std::span<const DescriptorSetLayoutHandle> sets)
 		{
 			m_sets.assign(sets.begin(), sets.end());
 			return *this;
 		}
 
-		PipelineLayoutBuilder & PushConstant(PushConstantRange range)
+		PipelineLayoutBuilder & push_constant(PushConstantRange range)
 		{
 			m_pushConstants.push_back(range);
 			return *this;
 		}
 
-		PipelineLayoutBuilder & PushConstant(Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size)
+		PipelineLayoutBuilder & push_constant(Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size)
 		{
-			m_pushConstants.push_back(PushConstantRange{
-				.stages = stages,
-				.offset = offset,
-				.size	= size,
-			});
+			m_pushConstants.push_back(
+				PushConstantRange{
+					.stages = stages,
+					.offset = offset,
+					.size	= size,
+				}
+			);
 			return *this;
 		}
 
-		PipelineLayoutBuilder & PushConstants(std::span<const PushConstantRange> ranges)
+		PipelineLayoutBuilder & push_constants(std::span<const PushConstantRange> ranges)
 		{
 			m_pushConstants.assign(ranges.begin(), ranges.end());
 			return *this;
 		}
 
-		PipelineLayoutBuilder & ClearSets() noexcept
+		PipelineLayoutBuilder & clear_sets() noexcept
 		{
 			m_sets.clear();
 			return *this;
 		}
 
-		PipelineLayoutBuilder & ClearPushConstants() noexcept
+		PipelineLayoutBuilder & clear_push_constants() noexcept
 		{
 			m_pushConstants.clear();
 			return *this;
 		}
 
-		PipelineLayoutBuilder & DebugName(std::string_view name)
+		PipelineLayoutBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] PipelineLayoutDesc Build() const noexcept
+		[[nodiscard]] PipelineLayoutDesc build() const noexcept
 		{
-			return PipelineLayoutDesc{ .sets = std::span<const DescriptorSetLayoutHandle>{ m_sets.data(), m_sets.size() },
-				.pushConstants				 = std::span<const PushConstantRange>{ m_pushConstants.data(), m_pushConstants.size() },
-				.debugName					 = m_debugName.empty() ? nullptr : m_debugName.c_str() };
+			return PipelineLayoutDesc{
+				.sets		   = std::span<const DescriptorSetLayoutHandle>{ m_sets.data(), m_sets.size() },
+				.pushConstants = std::span<const PushConstantRange>{ m_pushConstants.data(), m_pushConstants.size() },
+				.debugName	   = m_debugName.empty() ? nullptr : m_debugName.c_str(),
+			};
 		}
 
 	private:
@@ -176,47 +187,47 @@ namespace azo::rhi
 	class DescriptorArenaBuilder final
 	{
 	public:
-		DescriptorArenaBuilder & Type(DescriptorArenaType type) noexcept
+		DescriptorArenaBuilder & type(DescriptorArenaType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		DescriptorArenaBuilder & FrameTransient() noexcept
+		DescriptorArenaBuilder & frame_transient() noexcept
 		{
-			return Type(DescriptorArenaType::eFrameTransient);
+			return type(DescriptorArenaType::eFrameTransient);
 		}
 
-		DescriptorArenaBuilder & Persistent() noexcept
+		DescriptorArenaBuilder & persistent() noexcept
 		{
-			return Type(DescriptorArenaType::ePersistent);
+			return type(DescriptorArenaType::ePersistent);
 		}
 
-		DescriptorArenaBuilder & MaxSets(std::uint32_t maxSets) noexcept
+		DescriptorArenaBuilder & max_sets(std::uint32_t maxSets) noexcept
 		{
 			m_desc.maxSets = maxSets;
 			return *this;
 		}
 
-		DescriptorArenaBuilder & MaxDescriptors(std::uint32_t maxDescriptors) noexcept
+		DescriptorArenaBuilder & max_descriptors(std::uint32_t maxDescriptors) noexcept
 		{
 			m_desc.maxDescriptors = maxDescriptors;
 			return *this;
 		}
 
-		DescriptorArenaBuilder & ShaderVisible(bool enabled = true) noexcept
+		DescriptorArenaBuilder & shader_visible(bool enabled = true) noexcept
 		{
 			m_desc.shaderVisible = enabled;
 			return *this;
 		}
 
-		DescriptorArenaBuilder & DebugName(std::string_view name)
+		DescriptorArenaBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] DescriptorArenaDesc Build() const noexcept
+		[[nodiscard]] DescriptorArenaDesc build() const noexcept
 		{
 			DescriptorArenaDesc desc = m_desc;
 			desc.debugName			 = m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -231,25 +242,25 @@ namespace azo::rhi
 	class DescriptorSetAllocBuilder final
 	{
 	public:
-		DescriptorSetAllocBuilder & Layout(DescriptorSetLayoutHandle layout) noexcept
+		DescriptorSetAllocBuilder & layout(DescriptorSetLayoutHandle layout) noexcept
 		{
 			m_desc.layout = layout;
 			return *this;
 		}
 
-		DescriptorSetAllocBuilder & VariableDescriptorCount(std::uint32_t count) noexcept
+		DescriptorSetAllocBuilder & variable_descriptor_count(std::uint32_t count) noexcept
 		{
 			m_desc.variableDescriptorCount = count;
 			return *this;
 		}
 
-		DescriptorSetAllocBuilder & DebugName(std::string_view name)
+		DescriptorSetAllocBuilder & debug_name(std::string_view name)
 		{
 			m_debugName.assign(name.data(), name.size());
 			return *this;
 		}
 
-		[[nodiscard]] DescriptorSetAllocDesc Build() const noexcept
+		[[nodiscard]] DescriptorSetAllocDesc build() const noexcept
 		{
 			DescriptorSetAllocDesc desc = m_desc;
 			desc.debugName				= m_debugName.empty() ? nullptr : m_debugName.c_str();
@@ -264,39 +275,39 @@ namespace azo::rhi
 	class DescriptorWriteBufferBuilder final
 	{
 	public:
-		DescriptorWriteBufferBuilder & Set(DescriptorSetHandle set) noexcept
+		DescriptorWriteBufferBuilder & set(DescriptorSetHandle set) noexcept
 		{
 			m_desc.set = set;
 			return *this;
 		}
 
-		DescriptorWriteBufferBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
+		DescriptorWriteBufferBuilder & binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
 			m_desc.arrayIndex = arrayIndex;
 			return *this;
 		}
 
-		DescriptorWriteBufferBuilder & Type(DescriptorType type) noexcept
+		DescriptorWriteBufferBuilder & type(DescriptorType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		DescriptorWriteBufferBuilder & Buffer(BufferHandle buffer) noexcept
+		DescriptorWriteBufferBuilder & buffer(BufferHandle buffer) noexcept
 		{
 			m_desc.buffer = buffer;
 			return *this;
 		}
 
-		DescriptorWriteBufferBuilder & Range(std::uint64_t offset, std::uint64_t range) noexcept
+		DescriptorWriteBufferBuilder & range(std::uint64_t offset, std::uint64_t range) noexcept
 		{
 			m_desc.offset = offset;
 			m_desc.range  = range;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr DescriptorWriteBuffer Build() const noexcept
+		[[nodiscard]] constexpr DescriptorWriteBuffer build() const noexcept
 		{
 			return m_desc;
 		}
@@ -308,44 +319,44 @@ namespace azo::rhi
 	class DescriptorWriteTextureBuilder final
 	{
 	public:
-		DescriptorWriteTextureBuilder & Set(DescriptorSetHandle set) noexcept
+		DescriptorWriteTextureBuilder & set(DescriptorSetHandle set) noexcept
 		{
 			m_desc.set = set;
 			return *this;
 		}
 
-		DescriptorWriteTextureBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
+		DescriptorWriteTextureBuilder & binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
 			m_desc.arrayIndex = arrayIndex;
 			return *this;
 		}
 
-		DescriptorWriteTextureBuilder & Type(DescriptorType type) noexcept
+		DescriptorWriteTextureBuilder & type(DescriptorType type) noexcept
 		{
 			m_desc.type = type;
 			return *this;
 		}
 
-		DescriptorWriteTextureBuilder & View(TextureViewHandle view) noexcept
+		DescriptorWriteTextureBuilder & view(TextureViewHandle view) noexcept
 		{
 			m_desc.view = view;
 			return *this;
 		}
 
-		DescriptorWriteTextureBuilder & Sampler(SamplerHandle sampler) noexcept
+		DescriptorWriteTextureBuilder & sampler(SamplerHandle sampler) noexcept
 		{
 			m_desc.sampler = sampler;
 			return *this;
 		}
 
-		DescriptorWriteTextureBuilder & ExpectedUse(Flags<ResourceUse> use) noexcept
+		DescriptorWriteTextureBuilder & expected_use(Flags<ResourceUse> use) noexcept
 		{
 			m_desc.expectedUse = use;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr DescriptorWriteTexture Build() const noexcept
+		[[nodiscard]] constexpr DescriptorWriteTexture build() const noexcept
 		{
 			return m_desc;
 		}
@@ -357,26 +368,26 @@ namespace azo::rhi
 	class DescriptorWriteSamplerBuilder final
 	{
 	public:
-		DescriptorWriteSamplerBuilder & Set(DescriptorSetHandle set) noexcept
+		DescriptorWriteSamplerBuilder & set(DescriptorSetHandle set) noexcept
 		{
 			m_desc.set = set;
 			return *this;
 		}
 
-		DescriptorWriteSamplerBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
+		DescriptorWriteSamplerBuilder & binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
 			m_desc.arrayIndex = arrayIndex;
 			return *this;
 		}
 
-		DescriptorWriteSamplerBuilder & Sampler(SamplerHandle sampler) noexcept
+		DescriptorWriteSamplerBuilder & sampler(SamplerHandle sampler) noexcept
 		{
 			m_desc.sampler = sampler;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr DescriptorWriteSampler Build() const noexcept
+		[[nodiscard]] constexpr DescriptorWriteSampler build() const noexcept
 		{
 			return m_desc;
 		}
@@ -388,26 +399,26 @@ namespace azo::rhi
 	class DescriptorWriteAccelerationStructureBuilder final
 	{
 	public:
-		DescriptorWriteAccelerationStructureBuilder & Set(DescriptorSetHandle set) noexcept
+		DescriptorWriteAccelerationStructureBuilder & set(DescriptorSetHandle set) noexcept
 		{
 			m_desc.set = set;
 			return *this;
 		}
 
-		DescriptorWriteAccelerationStructureBuilder & Binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
+		DescriptorWriteAccelerationStructureBuilder & binding(std::uint32_t binding, std::uint32_t arrayIndex = 0) noexcept
 		{
 			m_desc.binding	  = binding;
 			m_desc.arrayIndex = arrayIndex;
 			return *this;
 		}
 
-		DescriptorWriteAccelerationStructureBuilder & AccelerationStructure(AccelerationStructureHandle accelerationStructure) noexcept
+		DescriptorWriteAccelerationStructureBuilder & acceleration_structure(AccelerationStructureHandle accelerationStructure) noexcept
 		{
 			m_desc.accelerationStructure = accelerationStructure;
 			return *this;
 		}
 
-		[[nodiscard]] constexpr DescriptorWriteAccelerationStructure Build() const noexcept
+		[[nodiscard]] constexpr DescriptorWriteAccelerationStructure build() const noexcept
 		{
 			return m_desc;
 		}

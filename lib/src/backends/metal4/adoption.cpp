@@ -1,272 +1,337 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/resource_record.hpp"
+#include "azoth/rhi/core/profiling.hpp"
+#include "azoth/rhi/core/resource_handles.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/api_tags.hpp"
+#include "azoth/rhi/native/metal_native.hpp"
+#include "azoth/rhi/native/native_access.hpp"
+#include "azoth/rhi/resources/pipeline.hpp"
+
 #include "backends/metal4/internal.hpp"
+#include "backends/metal_common/conversions.hpp"
+
+#include <Foundation/NSSharedPtr.hpp>
+#include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLEvent.hpp>
+#include <Metal/MTLSampler.hpp>
+#include <Metal/MTLTexture.hpp>
+
+#include <utility>
 
 namespace azo::rhi::metal4
 {
-	BufferHandle Metal4AdoptBuffer(
-		void * impl, GraphicsApiId api, const void * nativeImport, [[maybe_unused]] const AdoptedBufferDesc & desc, Error * error) noexcept
+	BufferHandle metal4_adopt_buffer(
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		[[maybe_unused]] const AdoptedBufferDesc & desc,
+		Error * error
+	) noexcept
 	{
 		AZO_RHI_PROFILE_ZONE("rhi.metal4.adoptBuffer");
 
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
+			return fail_value<BufferHandle>(error, ErrorCode::eUnsupportedApi, "import payload API does not match the device backend");
 		}
 
 		MTL::Buffer * external = static_cast<const NativeBuffer<Metal4Api> *>(nativeImport)->buffer;
 		if (external == nullptr)
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eInvalidArgument, "import payload has a null Metal buffer");
+			return fail_value<BufferHandle>(error, ErrorCode::eInvalidArgument, "import payload has a null Metal buffer");
 		}
 
 		auto * device					  = static_cast<Metal4Device *>(impl);
 		NS::SharedPtr<MTL::Buffer> buffer = NS::RetainPtr(external);
 
-		const BufferHandle handle = device->buffers.Store(Metal4BufferSlot{ .buffer = std::move(buffer), .desc = detail::Recorded(desc.desc) });
-		if (!handle.IsValid())
+		const BufferHandle handle = device->buffers.store(Metal4BufferSlot{ .buffer = std::move(buffer), .desc = detail::recorded(desc.desc) });
+		if (!handle.is_valid())
 		{
-			return FailValue<BufferHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported buffer tracking failed");
+			return fail_value<BufferHandle>(error, ErrorCode::eOutOfHostMemory, "Metal imported buffer tracking failed");
 		}
 
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	TextureHandle Metal4AdoptTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] const void * nativeImport,
-		[[maybe_unused]] const AdoptedTextureDesc & desc, Error * error) noexcept
+	TextureHandle metal4_adopt_texture(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] const void * nativeImport,
+		[[maybe_unused]] const AdoptedTextureDesc & desc,
+		Error * error
+	) noexcept
 	{
-		return FailValue<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal texture import is not implemented yet");
+		return fail_value<TextureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal texture import is not implemented yet");
 	}
 
-	bool Metal4GetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
+	bool metal4_get_native_buffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "export payload API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "export payload API does not match the device backend");
 		}
 
 		auto * device = static_cast<Metal4Device *>(impl);
 
-		const auto * tracked = device->buffers.Resolve(buffer, kHandleAlreadyChecked);
+		const auto * tracked = device->buffers.resolve(buffer, kHandleAlreadyChecked);
 		if (tracked == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "export of a buffer this device never created");
+			return fail(error, ErrorCode::eInvalidHandle, "export of a buffer this device never created");
 		}
 
 		static_cast<NativeBuffer<Metal4Api> *>(outNativeImport)->buffer = tracked->buffer.get();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool Metal4GetNativeTexture([[maybe_unused]] void * impl, [[maybe_unused]] GraphicsApiId api, [[maybe_unused]] TextureHandle texture,
-		[[maybe_unused]] void * outNativeImport, Error * error) noexcept
+	bool metal4_get_native_texture(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] GraphicsApiId api,
+		[[maybe_unused]] TextureHandle texture,
+		[[maybe_unused]] void * outNativeImport,
+		Error * error
+	) noexcept
 	{
-		return Fail(error, ErrorCode::eUnsupportedFeature, "Metal texture export is not implemented yet");
+		return fail(error, ErrorCode::eUnsupportedFeature, "Metal texture export is not implemented yet");
 	}
 
-	AccelerationStructureHandle Metal4CreateAccelerationStructure(
-		[[maybe_unused]] void * impl, [[maybe_unused]] const AccelerationStructureDesc & desc, Error * error) noexcept
+	AccelerationStructureHandle metal4_create_acceleration_structure(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] const AccelerationStructureDesc & desc,
+		Error * error
+	) noexcept
 	{
-		return FailValue<AccelerationStructureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
+		return fail_value<AccelerationStructureHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
 	}
 
-	RayTracingPipelineHandle Metal4CreateRayTracingPipeline(
-		[[maybe_unused]] void * impl, [[maybe_unused]] const RayTracingPipelineDesc & desc, Error * error) noexcept
+	RayTracingPipelineHandle metal4_create_ray_tracing_pipeline(
+		[[maybe_unused]] void * impl,
+		[[maybe_unused]] const RayTracingPipelineDesc & desc,
+		Error * error
+	) noexcept
 	{
-		return FailValue<RayTracingPipelineHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
+		return fail_value<RayTracingPipelineHandle>(error, ErrorCode::eUnsupportedFeature, "Metal RHI backend does not support ray tracing");
 	}
 
-	bool Metal4BeginNativeMutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
+	bool metal4_begin_native_mutation([[maybe_unused]] void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "native mutation API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "native mutation API does not match the device backend");
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	TextureViewHandle Metal4AdoptTextureView(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
+	TextureViewHandle metal4_adopt_texture_view(
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
 		}
 
 		MTL::Texture * adopted = static_cast<const NativeTextureView<Metal4Api> *>(nativeImport)->texture;
 		if (adopted == nullptr)
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLTexture");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLTexture");
 		}
 
 		auto * device = static_cast<Metal4Device *>(impl);
-		if (device->textures.Resolve(desc.texture, kHandleAlreadyChecked) == nullptr)
+		if (device->textures.resolve(desc.texture, kHandleAlreadyChecked) == nullptr)
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "an adopted texture view names a texture this device never handed out");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eInvalidHandle, "an adopted texture view names a texture this device never handed out");
 		}
 
-		const TextureViewHandle handle = device->textureViews.Store(Metal4TextureViewSlot{ .texture = NS::RetainPtr(adopted) });
-		if (!handle.IsValid())
+		const TextureViewHandle handle = device->textureViews.store(Metal4TextureViewSlot{ .texture = NS::RetainPtr(adopted) });
+		if (!handle.is_valid())
 		{
-			return FailValue<TextureViewHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted texture view tracking failed");
+			return fail_value<TextureViewHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted texture view tracking failed");
 		}
 
-		SetMetalLabel(adopted, desc.debugName);
-		return ReturnValue(handle, error);
+		set_metal_label(adopted, desc.debugName);
+		return return_value(handle, error);
 	}
 
-	SamplerHandle Metal4AdoptSampler(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
+	SamplerHandle metal4_adopt_sampler(void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return FailValue<SamplerHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
+			return fail_value<SamplerHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
 		}
 
 		MTL::SamplerState * adopted = static_cast<const NativeSampler<Metal4Api> *>(nativeImport)->sampler;
 		if (adopted == nullptr)
 		{
-			return FailValue<SamplerHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLSamplerState");
+			return fail_value<SamplerHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLSamplerState");
 		}
 
 		auto * device			   = static_cast<Metal4Device *>(impl);
-		const SamplerHandle handle = device->samplers.Store(NS::RetainPtr(adopted));
-		if (!handle.IsValid())
+		const SamplerHandle handle = device->samplers.store(NS::RetainPtr(adopted));
+		if (!handle.is_valid())
 		{
-			return FailValue<SamplerHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted sampler tracking failed");
+			return fail_value<SamplerHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted sampler tracking failed");
 		}
 
 		static_cast<void>(desc);
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	bool Metal4GetNativeTextureView(void * impl, const GraphicsApiId api, const TextureViewHandle view, void * outNativeImport, Error * error) noexcept
+	bool metal4_get_native_texture_view(void * impl, const GraphicsApiId api, const TextureViewHandle view, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
 		}
 
 		auto * device	  = static_cast<Metal4Device *>(impl);
-		const auto * slot = device->textureViews.Resolve(view, kHandleAlreadyChecked);
+		const auto * slot = device->textureViews.resolve(view, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid texture view handle");
+			return fail(error, ErrorCode::eInvalidHandle, "native read of an invalid texture view handle");
 		}
 
 		static_cast<NativeTextureView<Metal4Api> *>(outNativeImport)->texture = slot->texture.get();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool Metal4GetNativeSampler(void * impl, const GraphicsApiId api, const SamplerHandle sampler, void * outNativeImport, Error * error) noexcept
+	bool metal4_get_native_sampler(void * impl, const GraphicsApiId api, const SamplerHandle sampler, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
 		}
 
 		auto * device	  = static_cast<Metal4Device *>(impl);
-		const auto * slot = device->samplers.Resolve(sampler, kHandleAlreadyChecked);
+		const auto * slot = device->samplers.resolve(sampler, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid sampler handle");
+			return fail(error, ErrorCode::eInvalidHandle, "native read of an invalid sampler handle");
 		}
 
 		static_cast<NativeSampler<Metal4Api> *>(outNativeImport)->sampler = slot->get();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	TimelineHandle Metal4AdoptTimeline(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
+	TimelineHandle metal4_adopt_timeline(
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTimelineDesc & desc,
+		Error * error
+	) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
+			return fail_value<TimelineHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
 		}
 
 		MTL::SharedEvent * adopted = static_cast<const NativeTimeline<Metal4Api> *>(nativeImport)->event;
 		if (adopted == nullptr)
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLSharedEvent");
+			return fail_value<TimelineHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLSharedEvent");
 		}
 
 		auto * device				= static_cast<Metal4Device *>(impl);
-		const TimelineHandle handle = device->timelines.Store(Metal4Timeline{ .event = NS::RetainPtr(adopted) });
-		if (!handle.IsValid())
+		const TimelineHandle handle = device->timelines.store(Metal4Timeline{ .event = NS::RetainPtr(adopted) });
+		if (!handle.is_valid())
 		{
-			return FailValue<TimelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted timeline tracking failed");
+			return fail_value<TimelineHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted timeline tracking failed");
 		}
 
 		static_cast<void>(desc);
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	BinarySemaphoreHandle Metal4AdoptBinarySemaphore(
-		void * impl, const GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+	BinarySemaphoreHandle metal4_adopt_binary_semaphore(
+		void * impl,
+		const GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eUnsupportedApi, "adoption payload API does not match the device backend");
 		}
 
 		MTL::SharedEvent * adopted = static_cast<const NativeBinarySemaphore<Metal4Api> *>(nativeImport)->event;
 		if (adopted == nullptr)
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLSharedEvent");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eInvalidArgument, "adoption payload has a null MTLSharedEvent");
 		}
 
 		auto * device					   = static_cast<Metal4Device *>(impl);
-		const BinarySemaphoreHandle handle = device->binarySemaphores.Store(Metal4BinarySemaphore{ .event = NS::RetainPtr(adopted), .value = 0 });
-		if (!handle.IsValid())
+		const BinarySemaphoreHandle handle = device->binarySemaphores.store(Metal4BinarySemaphore{ .event = NS::RetainPtr(adopted), .value = 0 });
+		if (!handle.is_valid())
 		{
-			return FailValue<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted binary semaphore tracking failed");
+			return fail_value<BinarySemaphoreHandle>(error, ErrorCode::eOutOfHostMemory, "Metal adopted binary semaphore tracking failed");
 		}
 
 		static_cast<void>(desc);
-		return ReturnValue(handle, error);
+		return return_value(handle, error);
 	}
 
-	bool Metal4GetNativeTimeline(void * impl, const GraphicsApiId api, const TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
+	bool metal4_get_native_timeline(void * impl, const GraphicsApiId api, const TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
 		}
 
 		auto * device	  = static_cast<Metal4Device *>(impl);
-		const auto * slot = device->timelines.Resolve(timeline, kHandleAlreadyChecked);
+		const auto * slot = device->timelines.resolve(timeline, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid timeline handle");
+			return fail(error, ErrorCode::eInvalidHandle, "native read of an invalid timeline handle");
 		}
 
 		static_cast<NativeTimeline<Metal4Api> *>(outNativeImport)->event = slot->event.get();
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	bool Metal4GetNativeBinarySemaphore(
-		void * impl, const GraphicsApiId api, const BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
+	bool metal4_get_native_binary_semaphore(
+		void * impl,
+		const GraphicsApiId api,
+		const BinarySemaphoreHandle semaphore,
+		void * outNativeImport,
+		Error * error
+	) noexcept
 	{
-		if (api != Metal4Api::id)
+		if (api != Metal4Api::kId)
 		{
-			return Fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
+			return fail(error, ErrorCode::eUnsupportedApi, "native payload API does not match the device backend");
 		}
 
 		auto * device	  = static_cast<Metal4Device *>(impl);
-		const auto * slot = device->binarySemaphores.Resolve(semaphore, kHandleAlreadyChecked);
+		const auto * slot = device->binarySemaphores.resolve(semaphore, kHandleAlreadyChecked);
 		if (slot == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidHandle, "native read of an invalid binary semaphore handle");
+			return fail(error, ErrorCode::eInvalidHandle, "native read of an invalid binary semaphore handle");
 		}
 
 		static_cast<NativeBinarySemaphore<Metal4Api> *>(outNativeImport)->event = slot->event.get();
-		return Succeed(error);
+		return succeed(error);
 	}
 
 }

@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -35,26 +40,26 @@ namespace azo::rhi
 
 		AZO_RHI_API ~BackendModule();
 
-		[[nodiscard]] AZO_RHI_API static Result<BackendModule> Load(std::string_view path);
+		[[nodiscard]] AZO_RHI_API static Result<BackendModule> load(std::string_view path);
 
-		[[nodiscard]] std::span<const BackendEntry> Entries() const noexcept
+		[[nodiscard]] std::span<const BackendEntry> entries() const noexcept
 		{
 			return std::span<const BackendEntry>{ m_entries.data(), m_entries.size() };
 		}
 
-		[[nodiscard]] AZO_RHI_API std::size_t LiveObjects() const noexcept;
+		[[nodiscard]] AZO_RHI_API std::size_t live_objects() const noexcept;
 
-		[[nodiscard]] bool IsLoaded() const noexcept
+		[[nodiscard]] bool is_loaded() const noexcept
 		{
 			return m_handle != nullptr;
 		}
 
-		[[nodiscard]] std::string_view Path() const noexcept
+		[[nodiscard]] std::string_view path() const noexcept
 		{
 			return m_path;
 		}
 
-		AZO_RHI_API Result<void> Unload();
+		AZO_RHI_API Result<void> unload();
 
 	private:
 		AZO_RHI_API void Adopt(BackendModule && other) noexcept;

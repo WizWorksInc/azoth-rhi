@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -22,7 +27,7 @@ namespace azo::rhi::detail
 		std::uint32_t bytesPerBlock = 0;
 	};
 
-	[[nodiscard]] constexpr FormatBlockInfo BlockInfoOf(Format format) noexcept
+	[[nodiscard]] constexpr FormatBlockInfo block_info_of(Format format) noexcept
 	{
 		switch (format)
 		{
@@ -80,12 +85,12 @@ namespace azo::rhi::detail
 		return {};
 	}
 
-	[[nodiscard]] constexpr bool IsCompressedFormat(Format format) noexcept
+	[[nodiscard]] constexpr bool is_compressed_format(Format format) noexcept
 	{
-		return BlockInfoOf(format).blockWidth > 1;
+		return block_info_of(format).blockWidth > 1;
 	}
 
-	[[nodiscard]] constexpr bool IsIntegerFormat(Format format) noexcept
+	[[nodiscard]] constexpr bool is_integer_format(Format format) noexcept
 	{
 		switch (format)
 		{
@@ -99,30 +104,30 @@ namespace azo::rhi::detail
 		}
 	}
 
-	[[nodiscard]] constexpr bool HasLinearLayout(Format format) noexcept
+	[[nodiscard]] constexpr bool has_linear_layout(Format format) noexcept
 	{
-		return BlockInfoOf(format).bytesPerBlock != 0;
+		return block_info_of(format).bytesPerBlock != 0;
 	}
 
-	[[nodiscard]] constexpr std::uint32_t BlockColumns(Format format, std::uint32_t widthTexels) noexcept
+	[[nodiscard]] constexpr std::uint32_t block_columns(Format format, std::uint32_t widthTexels) noexcept
 	{
-		const std::uint32_t blockWidth = BlockInfoOf(format).blockWidth;
+		const std::uint32_t blockWidth = block_info_of(format).blockWidth;
 		return (widthTexels + blockWidth - 1) / blockWidth;
 	}
 
-	[[nodiscard]] constexpr std::uint32_t BlockRows(Format format, std::uint32_t heightTexels) noexcept
+	[[nodiscard]] constexpr std::uint32_t block_rows(Format format, std::uint32_t heightTexels) noexcept
 	{
-		const std::uint32_t blockHeight = BlockInfoOf(format).blockHeight;
+		const std::uint32_t blockHeight = block_info_of(format).blockHeight;
 		return (heightTexels + blockHeight - 1) / blockHeight;
 	}
 
-	[[nodiscard]] constexpr std::uint64_t TightRowPitch(Format format, std::uint32_t widthTexels) noexcept
+	[[nodiscard]] constexpr std::uint64_t tight_row_pitch(Format format, std::uint32_t widthTexels) noexcept
 	{
-		return static_cast<std::uint64_t>(BlockColumns(format, widthTexels)) * BlockInfoOf(format).bytesPerBlock;
+		return static_cast<std::uint64_t>(block_columns(format, widthTexels)) * block_info_of(format).bytesPerBlock;
 	}
 
-	[[nodiscard]] constexpr std::uint64_t TightSlicePitch(Format format, std::uint32_t widthTexels, std::uint32_t heightTexels) noexcept
+	[[nodiscard]] constexpr std::uint64_t tight_slice_pitch(Format format, std::uint32_t widthTexels, std::uint32_t heightTexels) noexcept
 	{
-		return TightRowPitch(format, widthTexels) * BlockRows(format, heightTexels);
+		return tight_row_pitch(format, widthTexels) * block_rows(format, heightTexels);
 	}
 }

@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -11,16 +16,46 @@
 
 #include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/support/subresource.hpp"
+#include "azoth/rhi/commands/sync.hpp"
+#include "azoth/rhi/core/c_string.hpp"
+#include "azoth/rhi/core/constants.hpp"
+#include "azoth/rhi/core/enums.hpp"
+#include "azoth/rhi/core/flags.hpp"
+#include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/resources/descriptors.hpp"
+#include "azoth/rhi/resources/pipeline.hpp"
+#include "azoth/rhi/resources/resources.hpp"
+#include "azoth/rhi/resources/texture_view.hpp"
 
 #include <dispatch/dispatch.h>
 
+#include <Foundation/NSAutoreleasePool.hpp>
+#include <Foundation/NSError.hpp>
+#include <Foundation/NSSharedPtr.hpp>
+#include <Foundation/NSString.hpp>
+#include <Foundation/NSTypes.hpp>
+#include <Metal/MTLArgument.hpp>
+#include <Metal/MTLDepthStencil.hpp>
+#include <Metal/MTLDevice.hpp>
+#include <Metal/MTLEvent.hpp>
+#include <Metal/MTLLibrary.hpp>
+#include <Metal/MTLPixelFormat.hpp>
+#include <Metal/MTLRenderCommandEncoder.hpp>
+#include <Metal/MTLRenderPass.hpp>
+#include <Metal/MTLRenderPipeline.hpp>
+#include <Metal/MTLResource.hpp>
+#include <Metal/MTLSampler.hpp>
+#include <Metal/MTLTexture.hpp>
+#include <Metal/MTLVertexDescriptor.hpp>
+
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 
 namespace azo::rhi::metal_common
 {
 
-	bool Succeed(Error * error) noexcept
+	bool succeed(Error * error) noexcept
 	{
 		if (error != nullptr)
 		{
@@ -29,7 +64,7 @@ namespace azo::rhi::metal_common
 		return true;
 	}
 
-	bool Fail(Error * error, const ErrorCode code, const char * message) noexcept
+	bool fail(Error * error, const ErrorCode code, const char * message) noexcept
 	{
 		if (error != nullptr)
 		{
@@ -41,20 +76,20 @@ namespace azo::rhi::metal_common
 		return false;
 	}
 
-	bool MetalWaitForEvent(MTL::SharedEvent * event, const std::uint64_t value, const std::uint64_t timeoutNanoseconds, Error * error) noexcept
+	bool metal_wait_for_event(MTL::SharedEvent * event, const std::uint64_t value, const std::uint64_t timeoutNanoseconds, Error * error) noexcept
 	{
-		constexpr auto infinite = std::numeric_limits<std::uint64_t>::max();
+		constexpr auto kInfinite = std::numeric_limits<std::uint64_t>::max();
 		const auto timeoutMilliseconds =
-			timeoutNanoseconds == infinite ? infinite : (timeoutNanoseconds / 1'000'000) + static_cast<std::uint64_t>(timeoutNanoseconds % 1'000'000 != 0);
+			timeoutNanoseconds == kInfinite ? kInfinite : (timeoutNanoseconds / 1'000'000) + static_cast<std::uint64_t>(timeoutNanoseconds % 1'000'000 != 0);
 		if (!event->waitUntilSignaledValue(value, timeoutMilliseconds))
 		{
-			return Fail(error, ErrorCode::eTimeout, "timeline wait timed out");
+			return fail(error, ErrorCode::eTimeout, "timeline wait timed out");
 		}
 
-		return Succeed(error);
+		return succeed(error);
 	}
 
-	void SetMetalLabel(MTL::Resource * resource, const CString debugName) noexcept
+	void set_metal_label(MTL::Resource * resource, const CString debugName) noexcept
 	{
 		if (resource == nullptr || debugName == nullptr)
 		{
@@ -65,7 +100,7 @@ namespace azo::rhi::metal_common
 		resource->setLabel(NS::String::string(debugName, NS::UTF8StringEncoding));
 	}
 
-	MTL::PixelFormat MetalPixelFormat(const Format format) noexcept
+	MTL::PixelFormat metal_pixel_format(const Format format) noexcept
 	{
 		switch (format)
 		{
@@ -115,7 +150,7 @@ namespace azo::rhi::metal_common
 		return MTL::PixelFormatInvalid;
 	}
 
-	MTL::VertexFormat MetalVertexFormat(const Format format) noexcept
+	MTL::VertexFormat metal_vertex_format(const Format format) noexcept
 	{
 		switch (format)
 		{
@@ -141,7 +176,7 @@ namespace azo::rhi::metal_common
 		}
 	}
 
-	MTL::ResourceOptions MetalBufferStorage(const MemoryUsage usage) noexcept
+	MTL::ResourceOptions metal_buffer_storage(const MemoryUsage usage) noexcept
 	{
 		switch (usage)
 		{
@@ -156,7 +191,7 @@ namespace azo::rhi::metal_common
 		return MTL::ResourceStorageModeShared;
 	}
 
-	MTL::StorageMode MetalHeapStorage(const HeapType type) noexcept
+	MTL::StorageMode metal_heap_storage(const HeapType type) noexcept
 	{
 		switch (type)
 		{
@@ -168,7 +203,7 @@ namespace azo::rhi::metal_common
 		return MTL::StorageModePrivate;
 	}
 
-	MTL::ResourceOptions MetalResourceOptions(const MTL::StorageMode mode) noexcept
+	MTL::ResourceOptions metal_resource_options(const MTL::StorageMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -180,7 +215,7 @@ namespace azo::rhi::metal_common
 		return MTL::ResourceStorageModeShared;
 	}
 
-	MTL::TextureType MetalViewType(const TextureViewType type) noexcept
+	MTL::TextureType metal_view_type(const TextureViewType type) noexcept
 	{
 		switch (type)
 		{
@@ -198,7 +233,7 @@ namespace azo::rhi::metal_common
 
 	namespace
 	{
-		[[nodiscard]] MTL::TextureSwizzle MetalSwizzle(const ComponentSwizzle swizzle, const MTL::TextureSwizzle self) noexcept
+		[[nodiscard]] MTL::TextureSwizzle metal_swizzle(const ComponentSwizzle swizzle, const MTL::TextureSwizzle self) noexcept
 		{
 			switch (swizzle)
 			{
@@ -215,25 +250,25 @@ namespace azo::rhi::metal_common
 		}
 	}
 
-	MTL::TextureSwizzleChannels MetalSwizzleChannels(const ComponentMapping mapping) noexcept
+	MTL::TextureSwizzleChannels metal_swizzle_channels(const ComponentMapping mapping) noexcept
 	{
-		return MTL::TextureSwizzleChannels{ MetalSwizzle(mapping.r, MTL::TextureSwizzleRed),
-			MetalSwizzle(mapping.g, MTL::TextureSwizzleGreen),
-			MetalSwizzle(mapping.b, MTL::TextureSwizzleBlue),
-			MetalSwizzle(mapping.a, MTL::TextureSwizzleAlpha) };
+		return MTL::TextureSwizzleChannels{ metal_swizzle(mapping.r, MTL::TextureSwizzleRed),
+			metal_swizzle(mapping.g, MTL::TextureSwizzleGreen),
+			metal_swizzle(mapping.b, MTL::TextureSwizzleBlue),
+			metal_swizzle(mapping.a, MTL::TextureSwizzleAlpha) };
 	}
 
-	MTL::SamplerMinMagFilter MetalMinMagFilter(const Filter filter) noexcept
+	MTL::SamplerMinMagFilter metal_min_mag_filter(const Filter filter) noexcept
 	{
 		return filter == Filter::eLinear ? MTL::SamplerMinMagFilterLinear : MTL::SamplerMinMagFilterNearest;
 	}
 
-	MTL::SamplerMipFilter MetalMipFilter(const MipmapMode mode) noexcept
+	MTL::SamplerMipFilter metal_mip_filter(const MipmapMode mode) noexcept
 	{
 		return mode == MipmapMode::eLinear ? MTL::SamplerMipFilterLinear : MTL::SamplerMipFilterNearest;
 	}
 
-	MTL::SamplerAddressMode MetalAddressMode(const AddressMode mode) noexcept
+	MTL::SamplerAddressMode metal_address_mode(const AddressMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -247,7 +282,7 @@ namespace azo::rhi::metal_common
 		return MTL::SamplerAddressModeRepeat;
 	}
 
-	MTL::CompareFunction MetalCompareFunction(const CompareOp op) noexcept
+	MTL::CompareFunction metal_compare_function(const CompareOp op) noexcept
 	{
 		switch (op)
 		{
@@ -264,7 +299,7 @@ namespace azo::rhi::metal_common
 		return MTL::CompareFunctionAlways;
 	}
 
-	MTL::SamplerBorderColor MetalBorderColor(const BorderColor color) noexcept
+	MTL::SamplerBorderColor metal_border_color(const BorderColor color) noexcept
 	{
 		switch (color)
 		{
@@ -278,25 +313,25 @@ namespace azo::rhi::metal_common
 		return MTL::SamplerBorderColorOpaqueBlack;
 	}
 
-	NS::SharedPtr<MTL::TextureDescriptor> BuildTextureDescriptor(const TextureDesc & desc, Error * error) noexcept
+	NS::SharedPtr<MTL::TextureDescriptor> build_texture_descriptor(const TextureDesc & desc, Error * error) noexcept
 	{
-		const MTL::PixelFormat pixelFormat = MetalPixelFormat(desc.format);
+		const MTL::PixelFormat pixelFormat = metal_pixel_format(desc.format);
 		if (pixelFormat == MTL::PixelFormatInvalid)
 		{
-			Fail(error, ErrorCode::eUnsupportedFormat, "texture format is not supported by Metal");
+			fail(error, ErrorCode::eUnsupportedFormat, "texture format is not supported by Metal");
 			return {};
 		}
 
 		if (desc.width == 0 || desc.height == 0 || desc.depth == 0)
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
+			fail(error, ErrorCode::eInvalidArgument, "texture extent must be non-zero in every dimension");
 			return {};
 		}
 
 		const std::uint32_t volumeDepth = desc.type == TextureType::eTex3D ? desc.depth : 1;
-		if (desc.mipLevels > detail::MaxMipLevels(desc.width, desc.height, volumeDepth))
+		if (desc.mipLevels > detail::max_mip_levels(desc.width, desc.height, volumeDepth))
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
+			fail(error, ErrorCode::eInvalidArgument, "texture asks for more mip levels than its extent can hold");
 			return {};
 		}
 
@@ -337,16 +372,16 @@ namespace azo::rhi::metal_common
 		}
 
 		MTL::TextureUsage usage = MTL::TextureUsageUnknown;
-		if (desc.usage.Contains(TextureUsage::eSampled))
+		if (desc.usage.contains(TextureUsage::eSampled))
 		{
 			usage |= MTL::TextureUsageShaderRead;
 		}
-		if (desc.usage.Contains(TextureUsage::eStorage))
+		if (desc.usage.contains(TextureUsage::eStorage))
 		{
 			usage |= MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite;
 		}
-		if (desc.usage.Contains(TextureUsage::eColorAttachment) || desc.usage.Contains(TextureUsage::eDepthStencilAttachment) ||
-			desc.usage.Contains(TextureUsage::eTransientAttachment) || desc.usage.Contains(TextureUsage::ePresent))
+		if (desc.usage.contains(TextureUsage::eColorAttachment) || desc.usage.contains(TextureUsage::eDepthStencilAttachment) ||
+			desc.usage.contains(TextureUsage::eTransientAttachment) || desc.usage.contains(TextureUsage::ePresent))
 		{
 			usage |= MTL::TextureUsageRenderTarget;
 		}
@@ -356,7 +391,7 @@ namespace azo::rhi::metal_common
 		}
 		descriptor->setUsage(usage);
 
-		if (desc.usage.Contains(TextureUsage::eTransientAttachment))
+		if (desc.usage.contains(TextureUsage::eTransientAttachment))
 		{
 			descriptor->setStorageMode(MTL::StorageModeMemoryless);
 		}
@@ -372,13 +407,15 @@ namespace azo::rhi::metal_common
 		return descriptor;
 	}
 
-	bool ViewRangeFitsTexture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept
+	bool view_range_fits_texture(const MTL::Texture * texture, const TextureSubresourceRange & range, Error * error) noexcept
 	{
 		if (range.mipCount == kAllMips || range.layerCount == kAllLayers)
 		{
-			return Fail(error,
+			return fail(
+				error,
 				ErrorCode::eInvalidArgument,
-				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes");
+				"kAllMips and kAllLayers are barrier counts, so a texture view has to name how many levels and layers it takes"
+			);
 		}
 
 		const auto mips				= static_cast<std::uint32_t>(texture->mipmapLevelCount());
@@ -388,46 +425,46 @@ namespace azo::rhi::metal_common
 
 		if (range.baseMip >= mips || range.mipCount > mips - range.baseMip)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
+			return fail(error, ErrorCode::eInvalidArgument, "texture view mip range is outside the source texture");
 		}
 
 		if (range.baseLayer >= slices || range.layerCount > slices - range.baseLayer)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
+			return fail(error, ErrorCode::eInvalidArgument, "texture view layer range is outside the source texture");
 		}
 
 		return true;
 	}
 
-	NS::SharedPtr<MTL::SamplerDescriptor> BuildSamplerDescriptor(const SamplerDesc & desc) noexcept
+	NS::SharedPtr<MTL::SamplerDescriptor> build_sampler_descriptor(const SamplerDesc & desc) noexcept
 	{
 		NS::SharedPtr<MTL::SamplerDescriptor> descriptor = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
 
 		descriptor->setSupportArgumentBuffers(true);
-		descriptor->setMinFilter(MetalMinMagFilter(desc.minFilter));
-		descriptor->setMagFilter(MetalMinMagFilter(desc.magFilter));
-		descriptor->setMipFilter(MetalMipFilter(desc.mipmapMode));
-		descriptor->setSAddressMode(MetalAddressMode(desc.addressU));
-		descriptor->setTAddressMode(MetalAddressMode(desc.addressV));
-		descriptor->setRAddressMode(MetalAddressMode(desc.addressW));
+		descriptor->setMinFilter(metal_min_mag_filter(desc.minFilter));
+		descriptor->setMagFilter(metal_min_mag_filter(desc.magFilter));
+		descriptor->setMipFilter(metal_mip_filter(desc.mipmapMode));
+		descriptor->setSAddressMode(metal_address_mode(desc.addressU));
+		descriptor->setTAddressMode(metal_address_mode(desc.addressV));
+		descriptor->setRAddressMode(metal_address_mode(desc.addressW));
 		descriptor->setLodMinClamp(desc.minLod);
 		descriptor->setLodMaxClamp(desc.maxLod);
 		descriptor->setLodBias(desc.mipLodBias);
 		descriptor->setMaxAnisotropy(desc.anisotropyEnable ? static_cast<NS::UInteger>(std::max(1.0f, desc.maxAnisotropy)) : 1);
 		if (desc.compareEnable)
 		{
-			descriptor->setCompareFunction(MetalCompareFunction(desc.compareOp));
+			descriptor->setCompareFunction(metal_compare_function(desc.compareOp));
 		}
 		descriptor->setNormalizedCoordinates(true);
 		if (desc.addressU == AddressMode::eClampToBorder || desc.addressV == AddressMode::eClampToBorder || desc.addressW == AddressMode::eClampToBorder)
 		{
-			descriptor->setBorderColor(MetalBorderColor(desc.borderColor));
+			descriptor->setBorderColor(metal_border_color(desc.borderColor));
 		}
 
 		return descriptor;
 	}
 
-	MTL::PrimitiveType MetalPrimitiveType(const PrimitiveTopology topology) noexcept
+	MTL::PrimitiveType metal_primitive_type(const PrimitiveTopology topology) noexcept
 	{
 		switch (topology)
 		{
@@ -441,7 +478,7 @@ namespace azo::rhi::metal_common
 		return MTL::PrimitiveTypeTriangle;
 	}
 
-	MTL::CullMode MetalCullMode(const CullMode mode) noexcept
+	MTL::CullMode metal_cull_mode(const CullMode mode) noexcept
 	{
 		switch (mode)
 		{
@@ -452,17 +489,17 @@ namespace azo::rhi::metal_common
 		return MTL::CullModeBack;
 	}
 
-	MTL::Winding MetalWinding(const FrontFace face) noexcept
+	MTL::Winding metal_winding(const FrontFace face) noexcept
 	{
 		return face == FrontFace::eClockwise ? MTL::WindingClockwise : MTL::WindingCounterClockwise;
 	}
 
-	MTL::TriangleFillMode MetalFillMode(const FillMode mode) noexcept
+	MTL::TriangleFillMode metal_fill_mode(const FillMode mode) noexcept
 	{
 		return mode == FillMode::eWireframe ? MTL::TriangleFillModeLines : MTL::TriangleFillModeFill;
 	}
 
-	MTL::BlendFactor MetalBlendFactor(const BlendFactor factor) noexcept
+	MTL::BlendFactor metal_blend_factor(const BlendFactor factor) noexcept
 	{
 		switch (factor)
 		{
@@ -484,7 +521,7 @@ namespace azo::rhi::metal_common
 		return MTL::BlendFactorOne;
 	}
 
-	MTL::BlendOperation MetalBlendOp(const BlendOp op) noexcept
+	MTL::BlendOperation metal_blend_op(const BlendOp op) noexcept
 	{
 		switch (op)
 		{
@@ -497,29 +534,29 @@ namespace azo::rhi::metal_common
 		return MTL::BlendOperationAdd;
 	}
 
-	MTL::ColorWriteMask MetalColorWriteMask(const Flags<ColorWrite> mask) noexcept
+	MTL::ColorWriteMask metal_color_write_mask(const Flags<ColorWrite> mask) noexcept
 	{
 		MTL::ColorWriteMask out = MTL::ColorWriteMaskNone;
-		if (mask.Contains(ColorWrite::eR))
+		if (mask.contains(ColorWrite::eR))
 		{
 			out |= MTL::ColorWriteMaskRed;
 		}
-		if (mask.Contains(ColorWrite::eG))
+		if (mask.contains(ColorWrite::eG))
 		{
 			out |= MTL::ColorWriteMaskGreen;
 		}
-		if (mask.Contains(ColorWrite::eB))
+		if (mask.contains(ColorWrite::eB))
 		{
 			out |= MTL::ColorWriteMaskBlue;
 		}
-		if (mask.Contains(ColorWrite::eA))
+		if (mask.contains(ColorWrite::eA))
 		{
 			out |= MTL::ColorWriteMaskAlpha;
 		}
 		return out;
 	}
 
-	MTL::LoadAction MetalLoadAction(const LoadOp op) noexcept
+	MTL::LoadAction metal_load_action(const LoadOp op) noexcept
 	{
 		switch (op)
 		{
@@ -530,12 +567,12 @@ namespace azo::rhi::metal_common
 		return MTL::LoadActionLoad;
 	}
 
-	MTL::StoreAction MetalStoreAction(const StoreOp op) noexcept
+	MTL::StoreAction metal_store_action(const StoreOp op) noexcept
 	{
 		return op == StoreOp::eStore ? MTL::StoreActionStore : MTL::StoreActionDontCare;
 	}
 
-	MTL::FunctionType MetalFunctionType(const ShaderStage stage) noexcept
+	MTL::FunctionType metal_function_type(const ShaderStage stage) noexcept
 	{
 		switch (stage)
 		{
@@ -546,19 +583,19 @@ namespace azo::rhi::metal_common
 		}
 	}
 
-	MTL::IndexType MetalIndexType(const bool index32) noexcept
+	MTL::IndexType metal_index_type(const bool index32) noexcept
 	{
 		return index32 ? MTL::IndexTypeUInt32 : MTL::IndexTypeUInt16;
 	}
 
 	namespace
 	{
-		[[nodiscard]] NS::SharedPtr<MTL::Library> LoadLibrary(MTL::Device * device, const ShaderBinary & shader, Error * error)
+		[[nodiscard]] NS::SharedPtr<MTL::Library> load_library(MTL::Device * device, const ShaderBinary & shader, Error * error)
 		{
 			dispatch_data_t blob = dispatch_data_create(shader.data, shader.size, nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
 			if (blob == nullptr)
 			{
-				Fail(error, ErrorCode::eOutOfHostMemory, "could not wrap the shader bytes for Metal");
+				fail(error, ErrorCode::eOutOfHostMemory, "could not wrap the shader bytes for Metal");
 				return {};
 			}
 
@@ -568,14 +605,14 @@ namespace azo::rhi::metal_common
 
 			if (rawLibrary == nullptr)
 			{
-				Fail(error, ErrorCode::eUnsupportedFormat, "the shader bytes are not a Metal library; eBackendNative is a compiled metallib here");
+				fail(error, ErrorCode::eUnsupportedFormat, "the shader bytes are not a Metal library; eBackendNative is a compiled metallib here");
 				return {};
 			}
 
 			return NS::TransferPtr(rawLibrary);
 		}
 
-		[[nodiscard]] NS::SharedPtr<MTL::Library> CompileSource(MTL::Device * device, const ShaderBinary & shader, Error * error)
+		[[nodiscard]] NS::SharedPtr<MTL::Library> compile_source(MTL::Device * device, const ShaderBinary & shader, Error * error)
 		{
 			const detail::HostString sourceText(static_cast<const char *>(shader.data), shader.size);
 			NS::SharedPtr<NS::String> source = NS::TransferPtr(NS::String::alloc()->init(sourceText.c_str(), NS::UTF8StringEncoding));
@@ -584,7 +621,7 @@ namespace azo::rhi::metal_common
 			MTL::Library * rawLibrary = device->newLibrary(source.get(), nullptr, &compileError);
 			if (rawLibrary == nullptr)
 			{
-				Fail(error, ErrorCode::eNativeApiError, "Metal shader compilation failed");
+				fail(error, ErrorCode::eNativeApiError, "Metal shader compilation failed");
 				return {};
 			}
 
@@ -592,17 +629,17 @@ namespace azo::rhi::metal_common
 		}
 	}
 
-	NS::SharedPtr<MTL::Library> MetalCompileLibrary(MTL::Device * device, const ShaderBinary & shader, Error * error)
+	NS::SharedPtr<MTL::Library> metal_compile_library(MTL::Device * device, const ShaderBinary & shader, Error * error)
 	{
 		if (shader.data == nullptr || shader.size == 0)
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "shader binary has no bytes");
+			fail(error, ErrorCode::eInvalidArgument, "shader binary has no bytes");
 			return {};
 		}
 
 		if (shader.entryPoint == nullptr || *shader.entryPoint == '\0')
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "Metal selects a shader function by name, so entryPoint cannot be empty");
+			fail(error, ErrorCode::eInvalidArgument, "Metal selects a shader function by name, so entryPoint cannot be empty");
 			return {};
 		}
 
@@ -610,36 +647,36 @@ namespace azo::rhi::metal_common
 
 		switch (shader.format)
 		{
-		case ShaderBinaryFormat::eBackendNative: return shader.isSource ? CompileSource(device, shader, error) : LoadLibrary(device, shader, error);
+		case ShaderBinaryFormat::eBackendNative: return shader.isSource ? compile_source(device, shader, error) : load_library(device, shader, error);
 		default:
-			Fail(error, ErrorCode::eUnsupportedFormat, "the Metal backend takes eBackendNative, which is a compiled metallib or, with isSource, MSL source");
+			fail(error, ErrorCode::eUnsupportedFormat, "the Metal backend takes eBackendNative, which is a compiled metallib or, with isSource, MSL source");
 			return {};
 		}
 	}
 
-	bool MetalRefuseUnblendableAttachment(const Format format, Error * error)
+	bool metal_refuse_unblendable_attachment(const Format format, Error * error)
 	{
-		if (IsBlendableFormat(format))
+		if (is_blendable_format(format))
 		{
 			return true;
 		}
 
-		Fail(error, ErrorCode::eInvalidArgument, "a colour attachment enables blending on a format Metal cannot blend");
+		fail(error, ErrorCode::eInvalidArgument, "a colour attachment enables blending on a format Metal cannot blend");
 		return false;
 	}
 
-	bool MetalRefuseUnrenderableAttachment(const Format format, Error * error)
+	bool metal_refuse_unrenderable_attachment(const Format format, Error * error)
 	{
-		if (IsColorRenderableFormat(format))
+		if (is_color_renderable_format(format))
 		{
 			return true;
 		}
 
-		Fail(error, ErrorCode::eInvalidArgument, "a graphics pipeline writes a colour attachment in a format Metal cannot render to");
+		fail(error, ErrorCode::eInvalidArgument, "a graphics pipeline writes a colour attachment in a format Metal cannot render to");
 		return false;
 	}
 
-	bool MetalRefuseUnbuildableGraphicsStage(const ShaderStage stage, Error * error)
+	bool metal_refuse_unbuildable_graphics_stage(const ShaderStage stage, Error * error)
 	{
 		if (stage == ShaderStage::eVertex || stage == ShaderStage::eFragment)
 		{
@@ -648,25 +685,25 @@ namespace azo::rhi::metal_common
 
 		if (stage == ShaderStage::eTessellationControl || stage == ShaderStage::eTessellationEvaluation)
 		{
-			Fail(error, ErrorCode::eUnsupportedFeature, "Metal tessellates through a compute pre-pass, which this backend does not build");
+			fail(error, ErrorCode::eUnsupportedFeature, "Metal tessellates through a compute pre-pass, which this backend does not build");
 			return false;
 		}
 
 		if (stage == ShaderStage::eGeometry)
 		{
-			Fail(error, ErrorCode::eUnsupportedFeature, "Metal has no geometry shader stage");
+			fail(error, ErrorCode::eUnsupportedFeature, "Metal has no geometry shader stage");
 			return false;
 		}
 
-		Fail(error, ErrorCode::eInvalidArgument, "a graphics pipeline names a shader stage that is not part of one");
+		fail(error, ErrorCode::eInvalidArgument, "a graphics pipeline names a shader stage that is not part of one");
 		return false;
 	}
 
-	NS::SharedPtr<MTL::Function> CompileFunction(MTL::Device * device, const ShaderBinary & shader, Error * error)
+	NS::SharedPtr<MTL::Function> compile_function(MTL::Device * device, const ShaderBinary & shader, Error * error)
 	{
 		const NS::SharedPtr<NS::AutoreleasePool> pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
 
-		NS::SharedPtr<MTL::Library> library = MetalCompileLibrary(device, shader, error);
+		NS::SharedPtr<MTL::Library> library = metal_compile_library(device, shader, error);
 		if (library.get() == nullptr)
 		{
 			return {};
@@ -674,7 +711,7 @@ namespace azo::rhi::metal_common
 
 		if (shader.stage != ShaderStage::eVertex && shader.stage != ShaderStage::eFragment && shader.stage != ShaderStage::eCompute)
 		{
-			Fail(error, ErrorCode::eUnsupportedFeature, "the shader binary declares a stage this backend has no Metal function type for");
+			fail(error, ErrorCode::eUnsupportedFeature, "the shader binary declares a stage this backend has no Metal function type for");
 			return {};
 		}
 
@@ -683,21 +720,21 @@ namespace azo::rhi::metal_common
 		NS::SharedPtr<MTL::Function> function = NS::TransferPtr(library->newFunction(name.get()));
 		if (function.get() == nullptr)
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "the shader library has no function with the name entryPoint gave");
+			fail(error, ErrorCode::eInvalidArgument, "the shader library has no function with the name entryPoint gave");
 			return {};
 		}
 
-		if (function->functionType() != MetalFunctionType(shader.stage))
+		if (function->functionType() != metal_function_type(shader.stage))
 		{
-			Fail(error, ErrorCode::eInvalidArgument, "the named Metal function is not of the stage the shader binary declared");
+			fail(error, ErrorCode::eInvalidArgument, "the named Metal function is not of the stage the shader binary declared");
 			return {};
 		}
 
-		Succeed(error);
+		succeed(error);
 		return function;
 	}
 
-	MTL::StencilOperation MetalStencilOp(const StencilOp op) noexcept
+	MTL::StencilOperation metal_stencil_op(const StencilOp op) noexcept
 	{
 		switch (op)
 		{
@@ -716,20 +753,20 @@ namespace azo::rhi::metal_common
 
 	namespace
 	{
-		NS::SharedPtr<MTL::StencilDescriptor> BuildStencilFace(const StencilFaceDesc & face)
+		NS::SharedPtr<MTL::StencilDescriptor> build_stencil_face(const StencilFaceDesc & face)
 		{
 			NS::SharedPtr<MTL::StencilDescriptor> stencil = NS::TransferPtr(MTL::StencilDescriptor::alloc()->init());
-			stencil->setStencilCompareFunction(MetalCompareFunction(face.compareOp));
-			stencil->setStencilFailureOperation(MetalStencilOp(face.failOp));
-			stencil->setDepthFailureOperation(MetalStencilOp(face.depthFailOp));
-			stencil->setDepthStencilPassOperation(MetalStencilOp(face.passOp));
+			stencil->setStencilCompareFunction(metal_compare_function(face.compareOp));
+			stencil->setStencilFailureOperation(metal_stencil_op(face.failOp));
+			stencil->setDepthFailureOperation(metal_stencil_op(face.depthFailOp));
+			stencil->setDepthStencilPassOperation(metal_stencil_op(face.passOp));
 			stencil->setReadMask(face.compareMask);
 			stencil->setWriteMask(face.writeMask);
 			return stencil;
 		}
 	} // namespace
 
-	NS::SharedPtr<MTL::DepthStencilState> BuildDepthStencilState(MTL::Device * device, const DepthStencilStateDesc & desc)
+	NS::SharedPtr<MTL::DepthStencilState> build_depth_stencil_state(MTL::Device * device, const DepthStencilStateDesc & desc)
 	{
 		if (!desc.depthTestEnable && !desc.stencilTestEnable)
 		{
@@ -737,13 +774,13 @@ namespace azo::rhi::metal_common
 		}
 
 		NS::SharedPtr<MTL::DepthStencilDescriptor> descriptor = NS::TransferPtr(MTL::DepthStencilDescriptor::alloc()->init());
-		descriptor->setDepthCompareFunction(desc.depthTestEnable ? MetalCompareFunction(desc.depthCompareOp) : MTL::CompareFunctionAlways);
+		descriptor->setDepthCompareFunction(desc.depthTestEnable ? metal_compare_function(desc.depthCompareOp) : MTL::CompareFunctionAlways);
 		descriptor->setDepthWriteEnabled(desc.depthWriteEnable);
 
 		if (desc.stencilTestEnable)
 		{
-			const NS::SharedPtr<MTL::StencilDescriptor> front = BuildStencilFace(desc.front);
-			const NS::SharedPtr<MTL::StencilDescriptor> back  = BuildStencilFace(desc.back);
+			const NS::SharedPtr<MTL::StencilDescriptor> front = build_stencil_face(desc.front);
+			const NS::SharedPtr<MTL::StencilDescriptor> back  = build_stencil_face(desc.back);
 			descriptor->setFrontFaceStencil(front.get());
 			descriptor->setBackFaceStencil(back.get());
 		}

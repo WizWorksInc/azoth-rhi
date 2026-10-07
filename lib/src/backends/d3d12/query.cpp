@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -89,8 +94,15 @@ namespace azo::rhi::d3d12
 		return Succeed(error);
 	}
 
-	bool D3D12CmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept
+	bool D3D12CmdResolveQueryData(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept
 	{
 		auto * list			 = static_cast<D3D12CommandList *>(impl);
 		QueryPoolSlot * slot = ResolveQueryPool(list->owner, pool);
@@ -170,7 +182,7 @@ namespace azo::rhi::d3d12
 
 	bool D3D12CmdBeginNativeMutation(void * impl, GraphicsApiId api, [[maybe_unused]] const NativeMutationDesc & desc, Error * error) noexcept
 	{
-		if (api != D3D12Api::id)
+		if (api != D3D12Api::kId)
 		{
 			return Fail(error, ErrorCode::eUnsupportedApi, "native mutation requested for a different graphics API");
 		}

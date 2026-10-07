@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -415,6 +420,160 @@ namespace
 		EXPECT_TRUE(test::Ok(Dev().Destroy(named, {}, error), error));
 	}
 
+	TEST_P(NativeAccessTest, ABarrierAfterANativeMutationWithAnUnknownFinalStateIsTrusted)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		{
+			test::Recording recording(Dev());
+			ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+			const std::array toCopy{ rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() } };
+			ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
+
+			const std::array touched{ rhi::NativeTouchedBuffer{
+				.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true } };
+			ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
+				error));
+
+			const std::array named{ rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = CopyDestinationState() } };
+			EXPECT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .buffers = named }, error), error))
+				<< "a barrier after a native scope that declared its final state unknown was refused, so the caller cannot say where it left the resource";
+
+			const std::array stale{ rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = ShaderReadState() } };
+			rhi::Error staleError{};
+			EXPECT_FALSE(recording.List().Barriers(rhi::BarrierBatch{ .buffers = stale }, staleError))
+				<< "tracking did not resume after the barrier that named the unknown state";
+			EXPECT_TRUE(test::ErrorIsPopulated(staleError));
+
+			ASSERT_TRUE(recording.End());
+			EXPECT_TRUE(test::Ok(SubmitAndWait(Dev(), recording.List(), error), error))
+				<< "submit checked the trusted barrier against the state the resource held before the native scope";
+		}
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(NativeAccessTest, ALaterRecordingAfterAnUnknownFinalStateIsTrusted)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+
+		{
+			test::Recording moving(Dev());
+			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
+
+			const std::array toCopy{ rhi::TextureBarrier{
+				.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+			ASSERT_TRUE(test::Ok(moving.List().Barriers(rhi::BarrierBatch{ .textures = toCopy }, error), error));
+
+			const std::array touched{ rhi::NativeTouchedTexture{
+				.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true, .range = test::samples::WholeColorRange() } };
+			ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+									 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
+				error));
+			ASSERT_TRUE(moving.End());
+			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), moving.List(), error), error));
+		}
+
+		test::Recording next(Dev());
+		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
+
+		const std::array onward{ rhi::TextureBarrier{
+			.texture = texture, .before = ShaderReadState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .textures = onward }, error), error));
+		ASSERT_TRUE(next.End());
+		EXPECT_TRUE(test::Ok(SubmitAndWait(Dev(), next.List(), error), error))
+			<< "a later submit checked its barrier against the state from before a native scope that declared its final state unknown";
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+	}
+
+	TEST_P(NativeAccessTest, AListSubmittedWithOneThatLeftAnUnknownFinalStateIsTrusted)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		const rhi::BufferHandle buffer = Dev().CreateBuffer(test::samples::StorageBuffer(), error);
+		ASSERT_TRUE(test::Ok(buffer.IsValid(), error));
+
+		test::Recording moving(Dev());
+		ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
+		const std::array touched{ rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true } };
+		ASSERT_TRUE(test::Ok(moving.List().ModifyNative<rhi::NullApi>(
+								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
+			error));
+		ASSERT_TRUE(moving.End());
+
+		test::Recording next(Dev());
+		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
+		const std::array onward{ rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = CopyDestinationState() } };
+		ASSERT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .buffers = onward }, error), error));
+		ASSERT_TRUE(next.End());
+
+		const rhi::TimelineHandle done = Dev().CreateTimeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(done.IsValid(), error));
+		rhi::Queue queue = Dev().GetQueue(rhi::QueueType::eGraphics);
+		ASSERT_TRUE(queue.IsValid());
+
+		std::array<const rhi::CommandList *, 2> lists{ &moving.List(), &next.List() };
+		const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
+		EXPECT_TRUE(test::Ok(queue.Submit({ .commandLists = lists, .signals = signals, .debugName = "azoth.rhi.test.nativeMutation" }, error) &&
+								 queue.Wait(done, 1, test::kWaitTimeoutNanoseconds, error),
+			error))
+			<< "a submit checked the second list against the unknown state the first list's native scope left";
+
+		EXPECT_TRUE(test::Ok(Dev().Destroy(done, {}, error), error));
+		EXPECT_TRUE(test::Ok(Dev().Destroy(buffer, {}, error), error));
+	}
+
+	TEST_P(NativeAccessTest, GenerateMipsAfterAnUnknownFinalStateWaitsForABarrier)
+	{
+		AZO_RHI_REQUIRE_FULL_VALIDATION();
+		AZO_RHI_REQUIRE_CAP(IsNullBackend(), "recording against the Null API tag");
+
+		rhi::Error error{};
+		const rhi::TextureHandle texture = Dev().CreateTexture(test::samples::SampledTexture2D(), error);
+		ASSERT_TRUE(test::Ok(texture.IsValid(), error));
+
+		test::Recording recording(Dev());
+		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
+
+		const std::array toCopy{ rhi::TextureBarrier{
+			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = toCopy }, error), error));
+
+		const std::array touched{ rhi::NativeTouchedTexture{
+			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true, .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(recording.List().ModifyNative<rhi::NullApi>(
+								 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
+			error));
+
+		rhi::Error refused{};
+		EXPECT_FALSE(recording.List().GenerateMips(texture, refused)) << "generateMips trusted a state no barrier had named since the native scope";
+		EXPECT_TRUE(test::ErrorIsPopulated(refused));
+
+		const rhi::ResourceState copySource{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
+		const std::array named{ rhi::TextureBarrier{
+			.texture = texture, .before = ShaderReadState(), .after = copySource, .range = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(test::Ok(recording.List().Barriers(rhi::BarrierBatch{ .textures = named }, error), error));
+		EXPECT_TRUE(test::Ok(recording.List().GenerateMips(texture, error), error)) << "generateMips refused a chain a barrier had just named";
+
+		static_cast<void>(recording.End());
+		EXPECT_TRUE(test::Ok(Dev().Destroy(texture, {}, error), error));
+	}
+
 	TEST_P(NativeAccessTest, ARefusedDestroyKeepsTheArrivalStateTheRecordHeld)
 	{
 		AZO_RHI_REQUIRE_FULL_VALIDATION();
@@ -458,8 +617,7 @@ namespace
 		rhi::Error staleError{};
 		ASSERT_TRUE(test::Ok(next.List().Barriers(rhi::BarrierBatch{ .textures = stale }, error), error));
 		ASSERT_TRUE(next.End());
-		EXPECT_FALSE(SubmitAndWait(Dev(), next.List(), staleError))
-			<< "the refused destroy dropped the arrival state the native scope had declared";
+		EXPECT_FALSE(SubmitAndWait(Dev(), next.List(), staleError)) << "the refused destroy dropped the arrival state the native scope had declared";
 		EXPECT_TRUE(test::ErrorIsPopulated(staleError));
 	}
 

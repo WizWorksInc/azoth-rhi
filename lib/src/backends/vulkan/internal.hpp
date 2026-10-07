@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -90,7 +95,7 @@ namespace azo::rhi::vulkan
 	};
 
 	// Defined in backend.cpp beside the debug messenger, so every message this backend raises itself takes the one route.
-	void ReportInstanceMessage(const VulkanInstance * instance, ValidationMessageSeverity severity, const char * source, const char * message) noexcept;
+	void report_instance_message(const VulkanInstance * instance, ValidationMessageSeverity severity, const char * source, const char * message) noexcept;
 
 	struct BufferSlot final
 	{
@@ -353,6 +358,7 @@ namespace azo::rhi::vulkan
 		vk::CommandBuffer buffer;
 		std::uint32_t submitTimeline = kNoSubmitTimeline;
 		std::uint64_t submitValue	 = 0;
+		detail::HostVector<TimelinePoint> callerSignals;
 	};
 
 	struct VulkanCommandPool final
@@ -388,6 +394,8 @@ namespace azo::rhi::vulkan
 		// Plain like lifecycle beside them: the threading model gives one list per thread, so moving one between threads is a caller hand-off.
 		std::uint32_t submitTimeline = kNoSubmitTimeline;
 		std::uint64_t submitValue	 = 0;
+		// The submit's own timeline signals, since a caller who waited on one may reuse the list before submitValue is reached.
+		detail::HostVector<TimelinePoint> callerSignals;
 
 		vk::QueryPool pendingEndTimestamp;
 		std::uint32_t pendingEndTimestampQuery = 0;
@@ -418,7 +426,12 @@ namespace azo::rhi::vulkan
 		vk::DeviceMemory deviceMemory;
 	};
 
-	inline void FreePending(vk::Device device, const vk::detail::DispatchLoaderDynamic & dispatch, VmaAllocator allocator, const PendingFree & pending) noexcept
+	inline void free_pending(
+		vk::Device device,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		VmaAllocator allocator,
+		const PendingFree & pending
+	) noexcept
 	{
 		if (pending.view)
 		{
@@ -498,7 +511,7 @@ namespace azo::rhi::vulkan
 
 		bool graphicsFamilyBindsSparse = false;
 
-		[[nodiscard]] const detail::HostVector<vk::Queue> & QueuesForType(QueueType type) const noexcept
+		[[nodiscard]] const detail::HostVector<vk::Queue> & queues_for_type(QueueType type) const noexcept
 		{
 			switch (type)
 			{
@@ -510,7 +523,7 @@ namespace azo::rhi::vulkan
 			return graphicsQueues;
 		}
 
-		[[nodiscard]] std::uint32_t FamilyForType(QueueType type) const noexcept
+		[[nodiscard]] std::uint32_t family_for_type(QueueType type) const noexcept
 		{
 			switch (type)
 			{
@@ -543,7 +556,7 @@ namespace azo::rhi::vulkan
 		bool externalSemaphoreFd	= false;
 		bool externalSemaphoreWin32 = false;
 
-		[[nodiscard]] bool SharesExternally() const noexcept
+		[[nodiscard]] bool shares_externally() const noexcept
 		{
 			return (externalMemoryFd || externalMemoryWin32) && (externalSemaphoreFd || externalSemaphoreWin32);
 		}
@@ -613,18 +626,18 @@ namespace azo::rhi::vulkan
 		VulkanDevice(VulkanDevice &&) noexcept			   = delete;
 		VulkanDevice & operator=(VulkanDevice &&) noexcept = delete;
 
-		void DestroyPendingGarbage() const
+		void destroy_pending_garbage() const
 		{
 			for (const detail::HostVector<PendingFree> & queue : garbage)
 			{
 				for (const PendingFree & pending : queue)
 				{
-					FreePending(device, dispatch, allocator, pending);
+					free_pending(device, dispatch, allocator, pending);
 				}
 			}
 		}
 
-		void DestroySubmitTimelines() const
+		void destroy_submit_timelines() const
 		{
 			for (const HostUniquePtr<SubmitTimeline> & tracked : submitTimelines)
 			{
@@ -636,7 +649,7 @@ namespace azo::rhi::vulkan
 		}
 
 		// vkDestroyCommandPool takes its buffers with it, so anything parked on a pool needs no separate free here.
-		void DestroyCommandPools() const
+		void destroy_command_pools() const
 		{
 			for (const HostUniquePtr<VulkanCommandPool> & cmdPool : commandPools)
 			{
@@ -663,7 +676,7 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		void DestroySwapchains() const
+		void destroy_swapchains() const
 		{
 			for (const HostUniquePtr<VulkanSwapchain> & sc : swapchains)
 			{
@@ -675,11 +688,11 @@ namespace azo::rhi::vulkan
 					}
 				}
 
-				DestroySwapchain(device, dispatch, allocator, sc->bundle);
+				destroy_swapchain(device, dispatch, allocator, sc->bundle);
 			}
 		}
 
-		void DestroyOwnedSurface() const
+		void destroy_owned_surface() const
 		{
 			if (ownedSurface)
 			{
@@ -687,21 +700,22 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		void DestroyTextureViews()
+		void destroy_texture_views()
 		{
-			textureViewSlots.ForEachLive(
+			textureViewSlots.for_each_live(
 				[this](const TextureViewSlot & slot)
 				{
 					if (slot.lifetime == SlotLifetime::eOwned && slot.view)
 					{
 						device.destroyImageView(slot.view, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyTextures()
+		void destroy_textures()
 		{
-			textureSlots.ForEachLive(
+			textureSlots.for_each_live(
 				[this](const TextureSlot & slot)
 				{
 					if (slot.lifetime != SlotLifetime::eOwned)
@@ -718,34 +732,37 @@ namespace azo::rhi::vulkan
 					{
 						vmaDestroyImage(allocator, slot.image, slot.allocation);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyBuffers()
+		void destroy_buffers()
 		{
-			bufferSlots.ForEachLive(
+			bufferSlots.for_each_live(
 				[this](const BufferSlot & slot)
 				{
 					if (slot.buffer != VK_NULL_HANDLE && slot.lifetime == SlotLifetime::eOwned)
 					{
 						vmaDestroyBuffer(allocator, slot.buffer, slot.allocation);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyGraphicsPipelines()
+		void destroy_graphics_pipelines()
 		{
-			graphicsPipelineSlots.ForEachLive(
+			graphicsPipelineSlots.for_each_live(
 				[this](const GraphicsPipelineSlot & slot)
 				{
 					if (slot.pipeline)
 					{
 						device.destroyPipeline(slot.pipeline, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyRenderPasses()
+		void destroy_render_passes()
 		{
 			for (const auto & [key, pass] : renderPasses)
 			{
@@ -756,55 +773,59 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		void DestroyPipelineLayouts()
+		void destroy_pipeline_layouts()
 		{
-			pipelineLayoutSlots.ForEachLive(
+			pipelineLayoutSlots.for_each_live(
 				[this](const PipelineLayoutSlot & slot)
 				{
 					if (slot.layout)
 					{
 						device.destroyPipelineLayout(slot.layout, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyTimelines()
+		void destroy_timelines()
 		{
-			timelineSlots.ForEachLive(
+			timelineSlots.for_each_live(
 				[this](const TimelineSlot & slot)
 				{
 					if (slot.semaphore && slot.lifetime == SlotLifetime::eOwned)
 					{
 						device.destroySemaphore(slot.semaphore, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyQueryPools()
+		void destroy_query_pools()
 		{
-			queryPoolSlots.ForEachLive(
+			queryPoolSlots.for_each_live(
 				[this](const QueryPoolSlot & slot)
 				{
 					if (slot.pool)
 					{
 						device.destroyQueryPool(slot.pool, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroySamplers()
+		void destroy_samplers()
 		{
-			samplerSlots.ForEachLive(
+			samplerSlots.for_each_live(
 				[this](const SamplerSlot & slot)
 				{
 					if (slot.sampler && slot.lifetime == SlotLifetime::eOwned)
 					{
 						device.destroySampler(slot.sampler, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyYcbcrConversions()
+		void destroy_ycbcr_conversions()
 		{
 			for (const auto & [desc, conversion] : ycbcrConversions)
 			{
@@ -816,43 +837,46 @@ namespace azo::rhi::vulkan
 			ycbcrConversions.clear();
 		}
 
-		void DestroyComputePipelines()
+		void destroy_compute_pipelines()
 		{
-			computePipelineSlots.ForEachLive(
+			computePipelineSlots.for_each_live(
 				[this](const ComputePipelineSlot & slot)
 				{
 					if (slot.pipeline)
 					{
 						device.destroyPipeline(slot.pipeline, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyPipelineCaches()
+		void destroy_pipeline_caches()
 		{
-			pipelineCacheSlots.ForEachLive(
+			pipelineCacheSlots.for_each_live(
 				[this](const PipelineCacheSlot & slot)
 				{
 					if (slot.cache)
 					{
 						device.destroyPipelineCache(slot.cache, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyBinarySemaphores()
+		void destroy_binary_semaphores()
 		{
-			binarySemaphoreSlots.ForEachLive(
+			binarySemaphoreSlots.for_each_live(
 				[this](const BinarySemaphoreSlot & slot)
 				{
 					if (slot.semaphore && slot.lifetime == SlotLifetime::eOwned)
 					{
 						device.destroySemaphore(slot.semaphore, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyDescriptorArenas()
+		void destroy_descriptor_arenas()
 		{
 			for (const HostUniquePtr<VulkanDescriptorArena> & arena : descriptorArenas)
 			{
@@ -863,31 +887,33 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		void DestroyDescriptorSetLayouts()
+		void destroy_descriptor_set_layouts()
 		{
-			descriptorSetLayoutSlots.ForEachLive(
+			descriptorSetLayoutSlots.for_each_live(
 				[this](const DescriptorSetLayoutSlot & slot)
 				{
 					if (slot.layout)
 					{
 						device.destroyDescriptorSetLayout(slot.layout, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyHeaps()
+		void destroy_heaps()
 		{
-			heapSlots.ForEachLive(
+			heapSlots.for_each_live(
 				[this](const HeapSlot & slot)
 				{
 					if (slot.memory)
 					{
 						device.freeMemory(slot.memory, nullptr, dispatch);
 					}
-				});
+				}
+			);
 		}
 
-		void DestroyAllocator() const
+		void destroy_allocator() const
 		{
 			if (allocator != nullptr)
 			{
@@ -895,7 +921,7 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		void DestroyLogicalDevice() const
+		void destroy_logical_device() const
 		{
 			if (device)
 			{
@@ -912,7 +938,7 @@ namespace azo::rhi::vulkan
 		// Set by a drain that reached every submitted value, so the destructor does not wait again on what the destroy entry already waited for.
 		bool submitTimelinesDrained = false;
 
-		[[nodiscard]] bool DrainSubmitTimelines()
+		[[nodiscard]] bool drain_submit_timelines()
 		{
 			if (submitTimelinesDrained)
 			{
@@ -921,7 +947,7 @@ namespace azo::rhi::vulkan
 
 			detail::HostVector<vk::Semaphore> semaphores;
 			detail::HostVector<std::uint64_t> values;
-			if (!detail::TryReserve(semaphores, submitTimelines.size()) || !detail::TryReserve(values, submitTimelines.size()))
+			if (!detail::try_reserve(semaphores, submitTimelines.size()) || !detail::try_reserve(values, submitTimelines.size()))
 			{
 				return false;
 			}
@@ -934,7 +960,7 @@ namespace azo::rhi::vulkan
 					continue;
 				}
 
-				if (!detail::TryPushBack(semaphores, tracked->semaphore) || !detail::TryPushBack(values, reached))
+				if (!detail::try_push_back(semaphores, tracked->semaphore) || !detail::try_push_back(values, reached))
 				{
 					return false;
 				}
@@ -951,49 +977,51 @@ namespace azo::rhi::vulkan
 			return submitTimelinesDrained;
 		}
 
-		void ReportTeardownStall() const
+		void report_teardown_stall() const
 		{
-			ReportInstanceMessage(instanceWrapper,
+			report_instance_message(
+				instanceWrapper,
 				ValidationMessageSeverity::eError,
 				"vulkan teardown",
-				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed");
+				"device destroyed while submitted work was still executing and did not drain in time, so its objects were leaked rather than destroyed"
+			);
 		}
 
 		~VulkanDevice()
 		{
 			// Nothing below may be destroyed while the GPU still references it. VulkanDestroyDevice drains first and leaks the whole
 			// record when it cannot, so this is the backstop for a device destroyed any other way, such as one that failed to finish being built.
-			if (device && !DrainSubmitTimelines())
+			if (device && !drain_submit_timelines())
 			{
 				// Every object below could be referenced by the work that did not finish, not just the semaphores and pools,
 				// so the whole teardown is skipped. Leaking is recoverable where destroying in use is not.
-				ReportTeardownStall();
+				report_teardown_stall();
 				return;
 			}
 
-			DestroyPendingGarbage();
-			DestroyCommandPools();
-			DestroySubmitTimelines();
-			DestroySwapchains();
-			DestroyOwnedSurface();
-			DestroyTextureViews();
-			DestroyTextures();
-			DestroyBuffers();
-			DestroyGraphicsPipelines();
-			DestroyRenderPasses();
-			DestroyPipelineLayouts();
-			DestroyTimelines();
-			DestroyQueryPools();
-			DestroySamplers();
-			DestroyYcbcrConversions();
-			DestroyComputePipelines();
-			DestroyPipelineCaches();
-			DestroyBinarySemaphores();
-			DestroyDescriptorArenas();
-			DestroyDescriptorSetLayouts();
-			DestroyHeaps();
-			DestroyAllocator();
-			DestroyLogicalDevice();
+			destroy_pending_garbage();
+			destroy_command_pools();
+			destroy_submit_timelines();
+			destroy_swapchains();
+			destroy_owned_surface();
+			destroy_texture_views();
+			destroy_textures();
+			destroy_buffers();
+			destroy_graphics_pipelines();
+			destroy_render_passes();
+			destroy_pipeline_layouts();
+			destroy_timelines();
+			destroy_query_pools();
+			destroy_samplers();
+			destroy_ycbcr_conversions();
+			destroy_compute_pipelines();
+			destroy_pipeline_caches();
+			destroy_binary_semaphores();
+			destroy_descriptor_arenas();
+			destroy_descriptor_set_layouts();
+			destroy_heaps();
+			destroy_allocator();
+			destroy_logical_device();
 		}
 	};
 
@@ -1012,159 +1040,246 @@ namespace azo::rhi::vulkan
 		detail::HostVector<HostUniquePtr<VulkanDevice>> devices;
 	};
 
-	[[nodiscard]] constexpr std::uint32_t EncodeWsiSemaphore(std::uint32_t swapchainId, std::uint32_t slot) noexcept
+	[[nodiscard]] constexpr std::uint32_t encode_wsi_semaphore(std::uint32_t swapchainId, std::uint32_t slot) noexcept
 	{
 		return ((swapchainId & kSwapchainIdMask) << kSwapchainIdShift) | (slot & kSwapchainSlotMask);
 	}
 
-	[[nodiscard]] BufferSlot * ResolveBuffer(VulkanDevice * device, BufferHandle handle) noexcept;
-	[[nodiscard]] bool BoundBufferRange(VkDeviceSize bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
-	[[nodiscard]] vk::PipelineLayout ResolvePipelineLayout(VulkanDevice * device, PipelineLayoutHandle handle) noexcept;
-	[[nodiscard]] vk::Image ResolveTexture(const VulkanDevice * device, TextureHandle handle) noexcept;
-	[[nodiscard]] const TextureViewSlot * ResolveTextureViewSlot(const VulkanDevice * device, TextureViewHandle handle) noexcept;
-	[[nodiscard]] vk::ImageView ResolveTextureView(const VulkanDevice * device, TextureViewHandle handle) noexcept;
-	[[nodiscard]] vk::Pipeline ResolveGraphicsPipeline(VulkanDevice * device, GraphicsPipelineHandle handle) noexcept;
-	[[nodiscard]] vk::Semaphore ResolveTimeline(VulkanDevice * device, TimelineHandle handle) noexcept;
-	[[nodiscard]] vk::Semaphore ResolveBinarySemaphore(VulkanDevice * device, BinarySemaphoreHandle handle) noexcept;
-	[[nodiscard]] VulkanBackendOwner & Owner();
-	[[nodiscard]] bool EnsureDispatcherInitialized(VulkanBackendOwner & owner);
-	std::pair<std::uint32_t, std::uint32_t> ResolveApiVersion(ApiVersion requested) noexcept;
-	std::uint32_t PackVkApiVersion(std::uint32_t major, std::uint32_t minor) noexcept;
-	VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-		[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types, const vk::DebugUtilsMessengerCallbackDataEXT * data, void * userData) noexcept;
-	[[nodiscard]] HostUniquePtr<VulkanInstance> BuildInstance(const InstanceDesc & desc, Error * error);
-	[[nodiscard]] VulkanInstance * MakeOwnedInstance(const InstanceDesc & desc, Error * error);
-	[[nodiscard]] VulkanDevice * MakeOwnedDevice(VulkanInstance * instance, const DeviceDesc & desc, Error * error);
-	void VulkanDestroyDevice(void * impl) noexcept;
-	void VulkanDestroyInstance(void * impl) noexcept;
-	bool Succeed(Error * error) noexcept;
-	bool Fail(Error * error, ErrorCode code, const char * message) noexcept;
-	bool FailNative(Error * error, const char * message, vk::Result result) noexcept;
-	bool FailAllocation(Error * error, const char * message, vk::Result result) noexcept;
-	GraphicsApiId VulkanDeviceApiId([[maybe_unused]] void * impl) noexcept;
-	std::string_view VulkanDeviceApiName([[maybe_unused]] void * impl) noexcept;
-	const DeviceCaps & VulkanDeviceCaps(void * impl) noexcept;
-	const AdapterInfo & VulkanDeviceAdapterInfo(void * impl) noexcept;
-	ValidationMessageCounts VulkanDeviceValidationMessageCounts(void * impl) noexcept;
-	FormatSupport VulkanDeviceFormatSupport(void * impl, Format format) noexcept;
-	bool VulkanGetTextureInfo(void * impl, TextureHandle texture, TextureInfo * out, Error * error) noexcept;
-	bool VulkanGetBufferInfo(void * impl, BufferHandle buffer, BufferInfo * out, Error * error) noexcept;
-	void NameVulkanObject(const VulkanDevice * device, vk::ObjectType type, std::uint64_t handle, CString name) noexcept;
-	BufferHandle VulkanCreateBuffer(void * impl, const BufferDesc & desc, Error * error) noexcept;
-	MappedMemory VulkanMap(void * impl, BufferHandle handle, const MapDesc & desc, Error * error) noexcept;
-	bool VulkanUnmap(void * impl, BufferHandle handle, Error * error) noexcept;
-	bool VulkanFlushMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
-	bool VulkanInvalidateMappedRange(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
-	TextureHandle VulkanCreateTexture(void * impl, const TextureDesc & desc, Error * error) noexcept;
-	[[nodiscard]] bool FindMemoryTypeForHeap(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, HeapType type,
-		std::uint32_t & outIndex, bool & outHostVisible, bool & outCoherent) noexcept;
-	[[nodiscard]] HeapSlot * ResolveHeap(VulkanDevice * device, HeapHandle handle) noexcept;
-	HeapHandle VulkanCreateHeap(void * impl, const HeapDesc & desc, Error * error) noexcept;
-	BufferHandle VulkanCreatePlacedBuffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept;
-	TextureHandle VulkanCreatePlacedTexture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept;
-	bool VulkanGetTextureMemoryInfo(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept;
-	bool VulkanGetBufferMemoryInfo(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
-	TextureViewHandle VulkanCreateTextureView(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
-	PipelineLayoutHandle VulkanCreatePipelineLayout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
-	[[nodiscard]] vk::RenderPass GetOrCreateRenderPass(
-		VulkanDevice * device, detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache, const RenderPassKey & key, vk::Result & outResult);
-	[[nodiscard]] RenderPassKey MakePipelineRenderPassKey(const GraphicsPipelineDesc & desc) noexcept;
-	[[nodiscard]] vk::PipelineCache ResolvePipelineCache(VulkanDevice * device, PipelineCacheHandle handle) noexcept;
-	GraphicsPipelineHandle VulkanCreateGraphicsPipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
-	TimelineHandle VulkanCreateTimeline(void * impl, const TimelineDesc & desc, Error * error) noexcept;
-	[[nodiscard]] vk::QueryType MapQueryType(QueryType type) noexcept;
-	[[nodiscard]] vk::QueryPipelineStatisticFlags MapPipelineStatistics(Flags<PipelineStatistic> stats) noexcept;
-	QueryPoolHandle VulkanCreateQueryPool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
-	[[nodiscard]] QueryPoolSlot * ResolveQueryPool(VulkanDevice * device, QueryPoolHandle handle) noexcept;
-	[[nodiscard]] vk::Filter MapFilter(Filter filter) noexcept;
-	[[nodiscard]] vk::SamplerMipmapMode MapMipmapMode(MipmapMode mode) noexcept;
-	[[nodiscard]] vk::SamplerAddressMode MapAddressMode(AddressMode mode) noexcept;
-	[[nodiscard]] vk::BorderColor MapBorderColor(BorderColor color) noexcept;
-	SamplerHandle VulkanCreateSampler(void * impl, const SamplerDesc & desc, Error * error) noexcept;
-	ComputePipelineHandle VulkanCreateComputePipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept;
-	[[nodiscard]] vk::Pipeline ResolveComputePipeline(const VulkanDevice * device, ComputePipelineHandle handle) noexcept;
-	PipelineCacheHandle VulkanCreatePipelineCache(void * impl, const PipelineCacheDesc & desc, Error * error) noexcept;
-	bool VulkanGetPipelineCacheData(void * impl, PipelineCacheHandle cache, PipelineCacheData * out, Error * error) noexcept;
-	BinarySemaphoreHandle VulkanCreateBinarySemaphore(void * impl, const BinarySemaphoreDesc &, Error * error) noexcept;
-	bool VulkanQueryMemoryBudget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
-	bool VulkanSetResidencyPriority(void * impl, std::span<const ResidencyPriorityDesc> priorities, Error * error) noexcept;
-	bool VulkanCalibrateTimestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
-	void * VulkanCreateCommandPool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
-	void * VulkanCommandPoolAllocate(void * impl, [[maybe_unused]] CString debugName, Error * error) noexcept;
-	bool VulkanCommandPoolReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
-	[[nodiscard]] bool RecordingThreadMismatch(const VulkanCommandList * list) noexcept;
-	bool VulkanCommandListBegin(void * impl, Error * error) noexcept;
-	bool VulkanCommandListEnd(void * impl, Error * error) noexcept;
-	bool VulkanCmdSetViewport(void * impl, const Viewport & viewport, Error * error) noexcept;
-	bool VulkanCmdSetScissor(void * impl, const Rect2D & scissor, Error * error) noexcept;
-	bool VulkanCmdCopyBuffer(
-		void * impl, BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error * error) noexcept;
-	bool VulkanCmdResetQueryPool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
-	bool VulkanCmdWriteTimestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
-	bool VulkanCmdBeginQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool VulkanCmdEndQuery(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
-	bool VulkanCmdResolveQueryData(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst,
-		std::uint64_t dstOffset, Error * error) noexcept;
-	[[nodiscard]] std::array<float, 4> UnpackLabelColor(std::uint32_t color) noexcept;
-	bool VulkanCmdBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
-	bool VulkanCmdEndDebugLabel(void * impl, Error * error) noexcept;
-	bool VulkanCmdBeginNativeMutation(void * impl, GraphicsApiId api, const NativeMutationDesc &, Error * error) noexcept;
-	bool VulkanCmdEndNativeMutation(void * impl, const NativeMutationDesc &, Error * error) noexcept;
-	bool VulkanQueueBeginDebugLabel(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
-	bool VulkanQueueEndDebugLabel(void * impl, Error * error) noexcept;
-	bool VulkanCmdBarriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;
-	bool VulkanCmdAliasBarriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept;
-	bool VulkanCmdBeginRenderPassScope(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept;
-	bool VulkanCmdBeginRendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept;
-	bool VulkanCmdEndRendering(void * impl, Error * error) noexcept;
-	bool VulkanCmdSetGraphicsPipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
-	bool VulkanCmdPushConstants(void * impl, PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size,
-		const void * data, Error * error) noexcept;
-	bool VulkanCmdSetVertexBuffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
-	bool VulkanCmdSetIndexBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
-	bool VulkanCmdDraw(
-		void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error * error) noexcept;
-	bool VulkanCmdDrawIndexed(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error * error) noexcept;
-	bool VulkanCmdDrawIndirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool VulkanCmdDrawIndexedIndirect(
-		void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
-	bool VulkanCmdDrawIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept;
-	bool VulkanCmdDrawIndexedIndirectCount(void * impl, BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error * error) noexcept;
-	[[nodiscard]] vk::ImageSubresourceLayers MapSubresourceLayers(const TextureSubresource & sub) noexcept;
-	bool VulkanCmdCopyBufferToTexture(void * impl, TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
-	bool VulkanCmdCopyTextureToBuffer(void * impl, BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error * error) noexcept;
-	bool VulkanCmdCopyTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
-	[[nodiscard]] bool FormatSupportsBlit(const VulkanDevice * device, vk::Format format, bool asSource, bool linearFilter) noexcept;
-	bool VulkanCmdBlit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
-	bool VulkanCmdGenerateMips(void * impl, TextureHandle texture, Error * error) noexcept;
-	bool VulkanCmdClearBuffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
-	bool VulkanCmdClearTexture(
-		void * impl, TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error * error) noexcept;
-	bool VulkanCmdResolveTexture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
-	bool VulkanCmdSetBlendConstants(void * impl, float r, float g, float b, float a, Error * error) noexcept;
-	bool VulkanCmdSetStencilReference(void * impl, std::uint32_t reference, Error * error) noexcept;
-	bool VulkanCmdSetDepthBias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept;
-	bool VulkanCmdSetComputePipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
-	bool VulkanCmdDispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept;
-	bool VulkanCmdDispatchIndirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
-	[[nodiscard]] vk::BufferUsageFlags MapBufferUsage(Flags<BufferUsage> usage) noexcept;
+	[[nodiscard]] BufferSlot * resolve_buffer(VulkanDevice * device, BufferHandle handle) noexcept;
+	[[nodiscard]] bool bound_buffer_range(VkDeviceSize bufferSize, std::uint64_t offset, std::uint64_t & size) noexcept;
+	[[nodiscard]] vk::PipelineLayout resolve_pipeline_layout(VulkanDevice * device, PipelineLayoutHandle handle) noexcept;
+	[[nodiscard]] vk::Image resolve_texture(const VulkanDevice * device, TextureHandle handle) noexcept;
+	[[nodiscard]] const TextureViewSlot * resolve_texture_view_slot(const VulkanDevice * device, TextureViewHandle handle) noexcept;
+	[[nodiscard]] vk::ImageView resolve_texture_view(const VulkanDevice * device, TextureViewHandle handle) noexcept;
+	[[nodiscard]] vk::Pipeline resolve_graphics_pipeline(VulkanDevice * device, GraphicsPipelineHandle handle) noexcept;
+	[[nodiscard]] vk::Semaphore resolve_timeline(VulkanDevice * device, TimelineHandle handle) noexcept;
+	[[nodiscard]] vk::Semaphore resolve_binary_semaphore(VulkanDevice * device, BinarySemaphoreHandle handle) noexcept;
+	[[nodiscard]] VulkanBackendOwner & backend_owner();
+	[[nodiscard]] bool ensure_dispatcher_initialized(VulkanBackendOwner & owner);
+	std::pair<std::uint32_t, std::uint32_t> resolve_api_version(ApiVersion requested) noexcept;
+	std::uint32_t pack_vk_api_version(std::uint32_t major, std::uint32_t minor) noexcept;
+	VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(
+		vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+		[[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT types,
+		const vk::DebugUtilsMessengerCallbackDataEXT * data,
+		void * userData
+	) noexcept;
+	[[nodiscard]] HostUniquePtr<VulkanInstance> build_instance(const InstanceDesc & desc, Error * error);
+	[[nodiscard]] VulkanInstance * make_owned_instance(const InstanceDesc & desc, Error * error);
+	[[nodiscard]] VulkanDevice * make_owned_device(VulkanInstance * instance, const DeviceDesc & desc, Error * error);
+	void vulkan_destroy_device(void * impl) noexcept;
+	void vulkan_destroy_instance(void * impl) noexcept;
+	bool succeed(Error * error) noexcept;
+	bool fail(Error * error, ErrorCode code, const char * message) noexcept;
+	bool fail_native(Error * error, const char * message, vk::Result result) noexcept;
+	bool fail_allocation(Error * error, const char * message, vk::Result result) noexcept;
+	GraphicsApiId vulkan_device_api_id([[maybe_unused]] void * impl) noexcept;
+	std::string_view vulkan_device_api_name([[maybe_unused]] void * impl) noexcept;
+	const DeviceCaps & vulkan_device_caps(void * impl) noexcept;
+	const AdapterInfo & vulkan_device_adapter_info(void * impl) noexcept;
+	ValidationMessageCounts vulkan_device_validation_message_counts(void * impl) noexcept;
+	FormatSupport vulkan_device_format_support(void * impl, Format format) noexcept;
+	bool vulkan_get_texture_info(void * impl, TextureHandle texture, TextureInfo * out, Error * error) noexcept;
+	bool vulkan_get_buffer_info(void * impl, BufferHandle buffer, BufferInfo * out, Error * error) noexcept;
+	void name_vulkan_object(const VulkanDevice * device, vk::ObjectType type, std::uint64_t handle, CString name) noexcept;
+	BufferHandle vulkan_create_buffer(void * impl, const BufferDesc & desc, Error * error) noexcept;
+	MappedMemory vulkan_map(void * impl, BufferHandle handle, const MapDesc & desc, Error * error) noexcept;
+	bool vulkan_unmap(void * impl, BufferHandle handle, Error * error) noexcept;
+	bool vulkan_flush_mapped_range(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
+	bool vulkan_invalidate_mapped_range(void * impl, BufferHandle handle, std::uint64_t offset, std::uint64_t size, Error * error) noexcept;
+	TextureHandle vulkan_create_texture(void * impl, const TextureDesc & desc, Error * error) noexcept;
+	[[nodiscard]] bool find_memory_type_for_heap(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		HeapType type,
+		std::uint32_t & outIndex,
+		bool & outHostVisible,
+		bool & outCoherent
+	) noexcept;
+	[[nodiscard]] HeapSlot * resolve_heap(VulkanDevice * device, HeapHandle handle) noexcept;
+	HeapHandle vulkan_create_heap(void * impl, const HeapDesc & desc, Error * error) noexcept;
+	BufferHandle vulkan_create_placed_buffer(void * impl, const PlacedBufferDesc & desc, Error * error) noexcept;
+	TextureHandle vulkan_create_placed_texture(void * impl, const PlacedTextureDesc & desc, Error * error) noexcept;
+	bool vulkan_get_texture_memory_info(void * impl, const TextureDesc & desc, MemoryInfo * out, Error * error) noexcept;
+	bool vulkan_get_buffer_memory_info(void * impl, const BufferDesc & desc, MemoryInfo * out, Error * error) noexcept;
+	TextureViewHandle vulkan_create_texture_view(void * impl, TextureHandle texture, const TextureViewDesc & desc, Error * error) noexcept;
+	PipelineLayoutHandle vulkan_create_pipeline_layout(void * impl, const PipelineLayoutDesc & desc, Error * error) noexcept;
+	[[nodiscard]] vk::RenderPass get_or_create_render_pass(
+		VulkanDevice * device,
+		detail::HostMap<RenderPassKey, vk::RenderPass, RenderPassKeyHash> & cache,
+		const RenderPassKey & key,
+		vk::Result & outResult
+	);
+	[[nodiscard]] RenderPassKey make_pipeline_render_pass_key(const GraphicsPipelineDesc & desc) noexcept;
+	[[nodiscard]] vk::PipelineCache resolve_pipeline_cache(VulkanDevice * device, PipelineCacheHandle handle) noexcept;
+	GraphicsPipelineHandle vulkan_create_graphics_pipeline(void * impl, const GraphicsPipelineDesc & desc, Error * error) noexcept;
+	TimelineHandle vulkan_create_timeline(void * impl, const TimelineDesc & desc, Error * error) noexcept;
+	[[nodiscard]] vk::QueryType map_query_type(QueryType type) noexcept;
+	[[nodiscard]] vk::QueryPipelineStatisticFlags map_pipeline_statistics(Flags<PipelineStatistic> stats) noexcept;
+	QueryPoolHandle vulkan_create_query_pool(void * impl, const QueryPoolDesc & desc, Error * error) noexcept;
+	[[nodiscard]] QueryPoolSlot * resolve_query_pool(VulkanDevice * device, QueryPoolHandle handle) noexcept;
+	[[nodiscard]] vk::Filter map_filter(Filter filter) noexcept;
+	[[nodiscard]] vk::SamplerMipmapMode map_mipmap_mode(MipmapMode mode) noexcept;
+	[[nodiscard]] vk::SamplerAddressMode map_address_mode(AddressMode mode) noexcept;
+	[[nodiscard]] vk::BorderColor map_border_color(BorderColor color) noexcept;
+	SamplerHandle vulkan_create_sampler(void * impl, const SamplerDesc & desc, Error * error) noexcept;
+	ComputePipelineHandle vulkan_create_compute_pipeline(void * impl, const ComputePipelineDesc & desc, Error * error) noexcept;
+	[[nodiscard]] vk::Pipeline resolve_compute_pipeline(const VulkanDevice * device, ComputePipelineHandle handle) noexcept;
+	PipelineCacheHandle vulkan_create_pipeline_cache(void * impl, const PipelineCacheDesc & desc, Error * error) noexcept;
+	bool vulkan_get_pipeline_cache_data(void * impl, PipelineCacheHandle cache, PipelineCacheData * out, Error * error) noexcept;
+	BinarySemaphoreHandle vulkan_create_binary_semaphore(void * impl, const BinarySemaphoreDesc & /*desc*/, Error * error) noexcept;
+	bool vulkan_query_memory_budget(void * impl, HeapType heap, MemoryBudgetInfo * out, Error * error) noexcept;
+	bool vulkan_set_residency_priority(void * impl, std::span<const ResidencyPriorityDesc> priorities, Error * error) noexcept;
+	bool vulkan_calibrate_timestamp(void * impl, QueueType queueType, TimestampCalibration * out, Error * error) noexcept;
+	void * vulkan_create_command_pool(void * impl, const CommandPoolDesc & desc, Error * error) noexcept;
+	void * vulkan_command_pool_allocate(void * impl, [[maybe_unused]] CString debugName, Error * error) noexcept;
+	bool vulkan_command_pool_reset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
+	[[nodiscard]] bool recording_thread_mismatch(const VulkanCommandList * list) noexcept;
+	bool vulkan_command_list_begin(void * impl, Error * error) noexcept;
+	bool vulkan_command_list_end(void * impl, Error * error) noexcept;
+	bool vulkan_cmd_set_viewport(void * impl, const Viewport & viewport, Error * error) noexcept;
+	bool vulkan_cmd_set_scissor(void * impl, const Rect2D & scissor, Error * error) noexcept;
+	bool vulkan_cmd_copy_buffer(
+		void * impl,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_reset_query_pool(void * impl, QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error * error) noexcept;
+	bool vulkan_cmd_write_timestamp(void * impl, QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error * error) noexcept;
+	bool vulkan_cmd_begin_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
+	bool vulkan_cmd_end_query(void * impl, QueryPoolHandle pool, std::uint32_t query, Error * error) noexcept;
+	bool vulkan_cmd_resolve_query_data(
+		void * impl,
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error * error
+	) noexcept;
+	[[nodiscard]] std::array<float, 4> unpack_label_color(std::uint32_t color) noexcept;
+	bool vulkan_cmd_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
+	bool vulkan_cmd_end_debug_label(void * impl, Error * error) noexcept;
+	bool vulkan_cmd_begin_native_mutation(void * impl, GraphicsApiId api, const NativeMutationDesc & /*unused*/, Error * error) noexcept;
+	bool vulkan_cmd_end_native_mutation(void * impl, const NativeMutationDesc & /*unused*/, Error * error) noexcept;
+	bool vulkan_queue_begin_debug_label(void * impl, CString name, std::uint32_t color, Error * error) noexcept;
+	bool vulkan_queue_end_debug_label(void * impl, Error * error) noexcept;
+	bool vulkan_cmd_barriers(void * impl, const BarrierBatch & barriers, Error * error) noexcept;
+	bool vulkan_cmd_alias_barriers(void * impl, std::span<const AliasBarrier> barriers, Error * error) noexcept;
+	bool vulkan_cmd_begin_render_pass_scope(VulkanCommandList * list, const BeginRenderingDesc & desc, Error * error) noexcept;
+	bool vulkan_cmd_begin_rendering(void * impl, const BeginRenderingDesc & desc, Error * error) noexcept;
+	bool vulkan_cmd_end_rendering(void * impl, Error * error) noexcept;
+	bool vulkan_cmd_set_graphics_pipeline(void * impl, GraphicsPipelineHandle pipeline, Error * error) noexcept;
+	bool vulkan_cmd_push_constants(
+		void * impl,
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_set_vertex_buffer(void * impl, std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error * error) noexcept;
+	bool vulkan_cmd_set_index_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, bool index32, Error * error) noexcept;
+	bool vulkan_cmd_draw(
+		void * impl,
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indexed(
+		void * impl,
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indirect(void * impl, BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error * error) noexcept;
+	bool vulkan_cmd_draw_indexed_indirect(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t offset,
+		std::uint32_t drawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indirect_count(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_draw_indexed_indirect_count(
+		void * impl,
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error * error
+	) noexcept;
+	[[nodiscard]] vk::ImageSubresourceLayers map_subresource_layers(const TextureSubresource & sub) noexcept;
+	bool vulkan_cmd_copy_buffer_to_texture(
+		void * impl,
+		TextureHandle dst,
+		BufferHandle src,
+		std::span<const BufferTextureCopy> regions,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_copy_texture_to_buffer(
+		void * impl,
+		BufferHandle dst,
+		TextureHandle src,
+		std::span<const BufferTextureCopy> regions,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_copy_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error * error) noexcept;
+	[[nodiscard]] bool format_supports_blit(const VulkanDevice * device, vk::Format format, bool asSource, bool linearFilter) noexcept;
+	bool vulkan_cmd_blit(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error * error) noexcept;
+	bool vulkan_cmd_generate_mips(void * impl, TextureHandle texture, Error * error) noexcept;
+	bool vulkan_cmd_clear_buffer(void * impl, BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error * error) noexcept;
+	bool vulkan_cmd_clear_texture(
+		void * impl,
+		TextureHandle texture,
+		const ClearColor & color,
+		std::span<const TextureSubresourceRange> ranges,
+		Error * error
+	) noexcept;
+	bool vulkan_cmd_resolve_texture(void * impl, TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error * error) noexcept;
+	bool vulkan_cmd_set_blend_constants(void * impl, float r, float g, float b, float a, Error * error) noexcept;
+	bool vulkan_cmd_set_stencil_reference(void * impl, std::uint32_t reference, Error * error) noexcept;
+	bool vulkan_cmd_set_depth_bias(void * impl, float constantFactor, float clamp, float slopeFactor, Error * error) noexcept;
+	bool vulkan_cmd_set_compute_pipeline(void * impl, ComputePipelineHandle pipeline, Error * error) noexcept;
+	bool vulkan_cmd_dispatch(void * impl, std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error * error) noexcept;
+	bool vulkan_cmd_dispatch_indirect(void * impl, BufferHandle args, std::uint64_t offset, Error * error) noexcept;
+	[[nodiscard]] vk::BufferUsageFlags map_buffer_usage(Flags<BufferUsage> usage) noexcept;
 
-	[[nodiscard]] bool VulkanRefuseRayTracingUsage(Flags<BufferUsage> usage, bool supportsRayTracing, Error * error) noexcept;
-	[[nodiscard]] VmaMemoryUsage MapMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept;
-	[[nodiscard]] VmaMemoryUsage MapBufferMemoryUsage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept;
-	[[nodiscard]] vk::Format MapFormat(Format format) noexcept;
-	[[nodiscard]] vk::ImageUsageFlags MapTextureUsage(Flags<TextureUsage> usage) noexcept;
-	[[nodiscard]] vk::ImageType MapImageType(TextureType type) noexcept;
-	[[nodiscard]] vk::ImageViewType MapViewType(TextureType type) noexcept;
-	[[nodiscard]] vk::SampleCountFlagBits MapSampleCount(SampleCount samples) noexcept;
-	[[nodiscard]] vk::PresentModeKHR MapPresentMode(PresentMode mode) noexcept;
-	[[nodiscard]] PresentMode MapVkPresentMode(vk::PresentModeKHR mode) noexcept;
-	[[nodiscard]] Format MapVkFormat(vk::Format format) noexcept;
-	[[nodiscard]] bool AdapterSupportsFeature(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, DeviceFeature feature) noexcept;
-	[[nodiscard]] const char * VulkanAdapterRefusal(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
+	[[nodiscard]] bool vulkan_refuse_ray_tracing_usage(Flags<BufferUsage> usage, bool supportsRayTracing, Error * error) noexcept;
+	[[nodiscard]] VmaMemoryUsage map_memory_usage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept;
+	[[nodiscard]] VmaMemoryUsage map_buffer_memory_usage(MemoryUsage memory, VmaAllocationCreateFlags & outFlags) noexcept;
+	[[nodiscard]] vk::Format map_format(Format format) noexcept;
+	[[nodiscard]] vk::ImageUsageFlags map_texture_usage(Flags<TextureUsage> usage) noexcept;
+	[[nodiscard]] vk::ImageType map_image_type(TextureType type) noexcept;
+	[[nodiscard]] vk::ImageViewType map_view_type(TextureType type) noexcept;
+	[[nodiscard]] vk::SampleCountFlagBits map_sample_count(SampleCount samples) noexcept;
+	[[nodiscard]] vk::PresentModeKHR map_present_mode(PresentMode mode) noexcept;
+	[[nodiscard]] PresentMode map_vk_present_mode(vk::PresentModeKHR mode) noexcept;
+	[[nodiscard]] Format map_vk_format(vk::Format format) noexcept;
+	[[nodiscard]] bool adapter_supports_feature(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, DeviceFeature feature) noexcept;
+	[[nodiscard]] const char * vulkan_adapter_refusal(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 
 	struct PortabilitySubsetFeatures final
 	{
@@ -1187,162 +1302,209 @@ namespace azo::rhi::vulkan
 		VkBool32 vertexAttributeAccessBeyondStride{};
 	};
 
-	[[nodiscard]] bool QueryPortabilitySubsetFeatures(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, PortabilitySubsetFeatures & out) noexcept;
+	[[nodiscard]] bool query_portability_subset_features(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		PortabilitySubsetFeatures & out
+	) noexcept;
 
-	[[nodiscard]] bool AdapterSupportsViewSwizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
-	[[nodiscard]] bool AdapterSupportsMultiPlanarFormats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
+	[[nodiscard]] bool adapter_supports_view_swizzle(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
+	[[nodiscard]] bool adapter_supports_multi_planar_formats(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch) noexcept;
 
-	[[nodiscard]] vk::SamplerYcbcrConversion AcquireYcbcrConversion(
-		VulkanDevice * device, const SamplerYcbcrConversionDesc & desc, vk::Result & outResult) noexcept;
-	[[nodiscard]] vk::ComponentMapping MapComponentMapping(ComponentMapping mapping) noexcept;
-	[[nodiscard]] bool AdapterSupportsAllFeatures(
-		vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch, std::span<const DeviceFeature> features) noexcept;
-	void EnableFeatureBit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept;
-	[[nodiscard]] const char * RequiredFeatureMessage(DeviceFeature feature) noexcept;
-	[[nodiscard]] vk::ShaderStageFlags MapShaderStages(Flags<ShaderStage> stages) noexcept;
-	[[nodiscard]] vk::ShaderStageFlagBits MapShaderStageBit(ShaderStage stage) noexcept;
-	[[nodiscard]] vk::PrimitiveTopology MapTopology(PrimitiveTopology topology) noexcept;
-	[[nodiscard]] vk::PolygonMode MapFillMode(FillMode mode) noexcept;
-	[[nodiscard]] vk::CullModeFlags MapCullMode(CullMode mode) noexcept;
-	[[nodiscard]] vk::FrontFace MapFrontFace(FrontFace face) noexcept;
-	[[nodiscard]] vk::CompareOp MapCompareOp(CompareOp op) noexcept;
-	[[nodiscard]] vk::StencilOp MapStencilOp(StencilOp op) noexcept;
-	[[nodiscard]] vk::StencilOpState MapStencilFace(const StencilFaceDesc & face) noexcept;
-	[[nodiscard]] vk::BlendFactor MapBlendFactor(BlendFactor factor) noexcept;
-	[[nodiscard]] vk::BlendOp MapBlendOp(BlendOp op) noexcept;
-	[[nodiscard]] vk::ColorComponentFlags MapColorWriteMask(Flags<ColorWrite> mask) noexcept;
-	[[nodiscard]] detail::HostVector<vk::DynamicState> MapDynamicStates(Flags<DynamicState> states);
-	[[nodiscard]] bool HasStencilAspect(Format format) noexcept;
-	[[nodiscard]] vk::ImageViewType MapImageViewType(TextureViewType type) noexcept;
-	[[nodiscard]] vk::ImageAspectFlags MapAspect(Flags<TextureAspect> aspects) noexcept;
-	[[nodiscard]] vk::AttachmentLoadOp MapLoadOp(LoadOp op) noexcept;
-	[[nodiscard]] vk::AttachmentStoreOp MapStoreOp(StoreOp op) noexcept;
-	[[nodiscard]] vk::ImageSubresourceRange MapSubresourceRange(const TextureSubresourceRange & range) noexcept;
-	[[nodiscard]] vk::ImageAspectFlags AspectForViewFormat(vk::Format format) noexcept;
-	[[nodiscard]] AdapterType MapAdapterType(vk::PhysicalDeviceType type) noexcept;
-	[[nodiscard]] DriverId MapDriverId(vk::DriverId id) noexcept;
-	void FillAdapterIdentity(AdapterInfo & adapter, const vk::PhysicalDeviceIDProperties & id) noexcept;
-	[[nodiscard]] vk::DescriptorType MapDescriptorType(DescriptorType type) noexcept;
-	[[nodiscard]] vk::DescriptorSetLayout ResolveDescriptorSetLayout(const VulkanDevice * device, DescriptorSetLayoutHandle handle) noexcept;
-	[[nodiscard]] vk::Sampler ResolveSampler(const VulkanDevice * device, SamplerHandle handle) noexcept;
-	[[nodiscard]] vk::DescriptorSet ResolveDescriptorSet(const VulkanDevice * device, DescriptorSetHandle handle) noexcept;
-	DescriptorSetLayoutHandle VulkanCreateDescriptorSetLayout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept;
-	void * VulkanCreateDescriptorArena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept;
-	DescriptorSetHandle VulkanArenaAllocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept;
-	bool VulkanArenaReset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
-	const DescriptorArenaApi & DescriptorArenaBlock() noexcept;
-	bool VulkanUpdateDescriptorsBuffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
-	bool VulkanUpdateDescriptorsTexture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
-	bool VulkanUpdateDescriptorsSampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
-	bool VulkanCmdBindDescriptorSet(void * impl, PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error * error) noexcept;
-	bool RetireNative(VulkanDevice * device, ResourceType type, const DestroyDesc & desc, const PendingFree & pending, Error * error) noexcept;
-	bool VulkanCollectGarbage(void * impl, ResourceType type, Error * error) noexcept;
-	bool VulkanCollectGarbageTimeline(void * impl, ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, Error * error) noexcept;
-	bool VulkanDestroy(void * impl, ResourceType type, RawHandle handle, const DestroyDesc & desc, Error * error) noexcept;
-	GraphicsApiId VulkanInstanceApiId([[maybe_unused]] void * impl) noexcept;
-	bool VulkanEnumerateAdapters(void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept;
-	bool VulkanQueryExternalHandleSupport(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept;
-	[[nodiscard]] ExternalHandleSupport VulkanExternalSupportOf(vk::PhysicalDevice phys, const vk::detail::DispatchLoaderDynamic & dispatch,
-		const ExternalHandleSupportDesc & desc, vk::BufferUsageFlags bufferUsage) noexcept;
-	[[nodiscard]] bool VulkanRefuseUnexportable(const VulkanDevice * device, Flags<ExternalHandleType> declared, ExternalObjectKind kind, Format format,
-		vk::BufferUsageFlags bufferUsage, const char * what, Error * error) noexcept;
+	[[nodiscard]] vk::SamplerYcbcrConversion acquire_ycbcr_conversion(
+		VulkanDevice * device,
+		const SamplerYcbcrConversionDesc & desc,
+		vk::Result & outResult
+	) noexcept;
+	[[nodiscard]] vk::ComponentMapping map_component_mapping(ComponentMapping mapping) noexcept;
+	[[nodiscard]] bool adapter_supports_all_features(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		std::span<const DeviceFeature> features
+	) noexcept;
+	void enable_feature_bit(vk::PhysicalDeviceFeatures & features, vk::PhysicalDeviceVulkan11Features & features11, DeviceFeature feature) noexcept;
+	[[nodiscard]] const char * required_feature_message(DeviceFeature feature) noexcept;
+	[[nodiscard]] vk::ShaderStageFlags map_shader_stages(Flags<ShaderStage> stages) noexcept;
+	[[nodiscard]] vk::ShaderStageFlagBits map_shader_stage_bit(ShaderStage stage) noexcept;
+	[[nodiscard]] vk::PrimitiveTopology map_topology(PrimitiveTopology topology) noexcept;
+	[[nodiscard]] vk::PolygonMode map_fill_mode(FillMode mode) noexcept;
+	[[nodiscard]] vk::CullModeFlags map_cull_mode(CullMode mode) noexcept;
+	[[nodiscard]] vk::FrontFace map_front_face(FrontFace face) noexcept;
+	[[nodiscard]] vk::CompareOp map_compare_op(CompareOp op) noexcept;
+	[[nodiscard]] vk::StencilOp map_stencil_op(StencilOp op) noexcept;
+	[[nodiscard]] vk::StencilOpState map_stencil_face(const StencilFaceDesc & face) noexcept;
+	[[nodiscard]] vk::BlendFactor map_blend_factor(BlendFactor factor) noexcept;
+	[[nodiscard]] vk::BlendOp map_blend_op(BlendOp op) noexcept;
+	[[nodiscard]] vk::ColorComponentFlags map_color_write_mask(Flags<ColorWrite> mask) noexcept;
+	[[nodiscard]] detail::HostVector<vk::DynamicState> map_dynamic_states(Flags<DynamicState> states);
+	[[nodiscard]] bool has_stencil_aspect(Format format) noexcept;
+	[[nodiscard]] vk::ImageViewType map_image_view_type(TextureViewType type) noexcept;
+	[[nodiscard]] vk::ImageAspectFlags map_aspect(Flags<TextureAspect> aspects) noexcept;
+	[[nodiscard]] vk::AttachmentLoadOp map_load_op(LoadOp op) noexcept;
+	[[nodiscard]] vk::AttachmentStoreOp map_store_op(StoreOp op) noexcept;
+	[[nodiscard]] vk::ImageSubresourceRange map_subresource_range(const TextureSubresourceRange & range) noexcept;
+	[[nodiscard]] vk::ImageAspectFlags aspect_for_view_format(vk::Format format) noexcept;
+	[[nodiscard]] AdapterType map_adapter_type(vk::PhysicalDeviceType type) noexcept;
+	[[nodiscard]] DriverId map_driver_id(vk::DriverId id) noexcept;
+	void fill_adapter_identity(AdapterInfo & adapter, const vk::PhysicalDeviceIDProperties & id) noexcept;
+	[[nodiscard]] vk::DescriptorType map_descriptor_type(DescriptorType type) noexcept;
+	[[nodiscard]] vk::DescriptorSetLayout resolve_descriptor_set_layout(const VulkanDevice * device, DescriptorSetLayoutHandle handle) noexcept;
+	[[nodiscard]] vk::Sampler resolve_sampler(const VulkanDevice * device, SamplerHandle handle) noexcept;
+	[[nodiscard]] vk::DescriptorSet resolve_descriptor_set(const VulkanDevice * device, DescriptorSetHandle handle) noexcept;
+	DescriptorSetLayoutHandle vulkan_create_descriptor_set_layout(void * impl, const DescriptorSetLayoutDesc & desc, Error * error) noexcept;
+	void * vulkan_create_descriptor_arena(void * impl, const DescriptorArenaDesc & desc, Error * error) noexcept;
+	DescriptorSetHandle vulkan_arena_allocate(void * impl, const DescriptorSetAllocDesc & desc, Error * error) noexcept;
+	bool vulkan_arena_reset(void * impl, [[maybe_unused]] RetirePoint safeAfter, Error * error) noexcept;
+	const DescriptorArenaApi & descriptor_arena_block() noexcept;
+	bool vulkan_update_descriptors_buffer(void * impl, std::span<const DescriptorWriteBuffer> writes, Error * error) noexcept;
+	bool vulkan_update_descriptors_texture(void * impl, std::span<const DescriptorWriteTexture> writes, Error * error) noexcept;
+	bool vulkan_update_descriptors_sampler(void * impl, std::span<const DescriptorWriteSampler> writes, Error * error) noexcept;
+	bool vulkan_cmd_bind_descriptor_set(
+		void * impl,
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error * error
+	) noexcept;
+	bool retire_native(VulkanDevice * device, ResourceType type, const DestroyDesc & desc, const PendingFree & pending, Error * error) noexcept;
+	bool vulkan_collect_garbage(void * impl, ResourceType type, Error * error) noexcept;
+	bool vulkan_collect_garbage_timeline(void * impl, ResourceType type, TimelineHandle timeline, std::uint64_t completedValue, Error * error) noexcept;
+	bool vulkan_destroy(void * impl, ResourceType type, RawHandle handle, const DestroyDesc & desc, Error * error) noexcept;
+	GraphicsApiId vulkan_instance_api_id([[maybe_unused]] void * impl) noexcept;
+	bool vulkan_enumerate_adapters(void * impl, std::span<AdapterInfo> adapters, std::uint32_t * out, Error * error) noexcept;
+	bool vulkan_query_external_handle_support(void * impl, const ExternalHandleSupportDesc & desc, ExternalHandleSupport * out, Error * error) noexcept;
+	[[nodiscard]] ExternalHandleSupport vulkan_external_support_of(
+		vk::PhysicalDevice phys,
+		const vk::detail::DispatchLoaderDynamic & dispatch,
+		const ExternalHandleSupportDesc & desc,
+		vk::BufferUsageFlags bufferUsage
+	) noexcept;
+	[[nodiscard]] bool vulkan_refuse_unexportable(
+		const VulkanDevice * device,
+		Flags<ExternalHandleType> declared,
+		ExternalObjectKind kind,
+		Format format,
+		vk::BufferUsageFlags bufferUsage,
+		const char * what,
+		Error * error
+	) noexcept;
 
 	inline constexpr vk::BufferUsageFlags kExternalQueryBufferUsage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst;
 
-	[[nodiscard]] std::optional<vk::ExternalMemoryHandleTypeFlagBits> MapMemoryHandleType(ExternalHandleType type) noexcept;
-	[[nodiscard]] std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> MapSemaphoreHandleType(ExternalHandleType type) noexcept;
-	[[nodiscard]] vk::ExternalMemoryHandleTypeFlags MapMemoryHandleTypes(Flags<ExternalHandleType> types) noexcept;
-	[[nodiscard]] vk::ExternalSemaphoreHandleTypeFlags MapSemaphoreHandleTypes(Flags<ExternalHandleType> types) noexcept;
+	[[nodiscard]] std::optional<vk::ExternalMemoryHandleTypeFlagBits> map_memory_handle_type(ExternalHandleType type) noexcept;
+	[[nodiscard]] std::optional<vk::ExternalSemaphoreHandleTypeFlagBits> map_semaphore_handle_type(ExternalHandleType type) noexcept;
+	[[nodiscard]] vk::ExternalMemoryHandleTypeFlags map_memory_handle_types(Flags<ExternalHandleType> types) noexcept;
+	[[nodiscard]] vk::ExternalSemaphoreHandleTypeFlags map_semaphore_handle_types(Flags<ExternalHandleType> types) noexcept;
 
-	bool VulkanExportBuffer(void * impl, BufferHandle buffer, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool VulkanExportHeap(void * impl, HeapHandle heap, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool VulkanExportTexture(void * impl, TextureHandle texture, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool VulkanExportTimeline(void * impl, TimelineHandle timeline, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	bool VulkanExportBinarySemaphore(void * impl, BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
-	BufferHandle VulkanImportBuffer(void * impl, const ExternalBufferImportDesc & desc, Error * error) noexcept;
-	HeapHandle VulkanImportHeap(void * impl, const ExternalHeapImportDesc & desc, Error * error) noexcept;
-	TextureHandle VulkanImportTexture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept;
-	TimelineHandle VulkanImportTimeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept;
-	BinarySemaphoreHandle VulkanImportBinarySemaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept;
-	bool VulkanCloseExportedHandle(void * impl, const ExternalHandle & handle, Error * error) noexcept;
-	const ExternalSharingApi & ExternalSharingBlock() noexcept;
+	bool vulkan_export_buffer(void * impl, BufferHandle buffer, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool vulkan_export_heap(void * impl, HeapHandle heap, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool vulkan_export_texture(void * impl, TextureHandle texture, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool vulkan_export_timeline(void * impl, TimelineHandle timeline, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	bool vulkan_export_binary_semaphore(void * impl, BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle * out, Error * error) noexcept;
+	BufferHandle vulkan_import_buffer(void * impl, const ExternalBufferImportDesc & desc, Error * error) noexcept;
+	HeapHandle vulkan_import_heap(void * impl, const ExternalHeapImportDesc & desc, Error * error) noexcept;
+	TextureHandle vulkan_import_texture(void * impl, const ExternalTextureImportDesc & desc, Error * error) noexcept;
+	TimelineHandle vulkan_import_timeline(void * impl, const ExternalTimelineImportDesc & desc, Error * error) noexcept;
+	BinarySemaphoreHandle vulkan_import_binary_semaphore(void * impl, const ExternalBinarySemaphoreImportDesc & desc, Error * error) noexcept;
+	bool vulkan_close_exported_handle(void * impl, const ExternalHandle & handle, Error * error) noexcept;
+	const ExternalSharingApi & external_sharing_block() noexcept;
 
-	BufferHandle VulkanAdoptBuffer(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept;
-	TextureHandle VulkanAdoptTexture(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept;
-	bool VulkanGetNativeBuffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
-	bool VulkanGetNativeTexture(void * impl, GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept;
-	TextureViewHandle VulkanAdoptTextureView(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept;
-	SamplerHandle VulkanAdoptSampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
-	bool VulkanGetNativeTextureView(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
-	bool VulkanGetNativeSampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
-	TimelineHandle VulkanAdoptTimeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
-	BinarySemaphoreHandle VulkanAdoptBinarySemaphore(
-		void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept;
-	bool VulkanGetNativeTimeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
-	bool VulkanGetNativeBinarySemaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
-	const AdoptionApi & AdoptionBlock() noexcept;
+	BufferHandle vulkan_adopt_buffer(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept;
+	TextureHandle vulkan_adopt_texture(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept;
+	bool vulkan_get_native_buffer(void * impl, GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept;
+	bool vulkan_get_native_texture(void * impl, GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept;
+	TextureViewHandle vulkan_adopt_texture_view(
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedTextureViewDesc & desc,
+		Error * error
+	) noexcept;
+	SamplerHandle vulkan_adopt_sampler(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept;
+	bool vulkan_get_native_texture_view(void * impl, GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept;
+	bool vulkan_get_native_sampler(void * impl, GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept;
+	TimelineHandle vulkan_adopt_timeline(void * impl, GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept;
+	BinarySemaphoreHandle vulkan_adopt_binary_semaphore(
+		void * impl,
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept;
+	bool vulkan_get_native_timeline(void * impl, GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept;
+	bool vulkan_get_native_binary_semaphore(void * impl, GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept;
+	const AdoptionApi & adoption_block() noexcept;
 
-	[[nodiscard]] bool VulkanImageCreateInfo(const TextureDesc & desc, vk::ImageCreateInfo & out, Error * error) noexcept;
-	[[nodiscard]] TextureHandle VulkanFinishTexture(
-		VulkanDevice * device, const TextureDesc & desc, VkImage image, VmaAllocation allocation, Error * error) noexcept;
-	void * VulkanInstanceCreateDevice(void * impl, const DeviceDesc & desc, Error * error) noexcept;
-	void * VulkanCreateInstance(const void * instanceDesc, Error * error) noexcept;
-	void * VulkanGetQueue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
-	QueueType VulkanQueueType(void * impl) noexcept;
-	bool VulkanQueueSubmit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
-	bool VulkanQueueBindSparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
-	bool VulkanQueueWaitIdle(void * impl, Error * error) noexcept;
-	bool VulkanQueueGetCompletedValue(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
-	[[nodiscard]] std::uint32_t AcquireSubmitTimeline(VulkanDevice * device, QueueType type, std::uint32_t index) noexcept;
-	[[nodiscard]] bool BuildSubmitTimelines(VulkanDevice * device, Error * error) noexcept;
-	[[nodiscard]] bool SubmissionStillRunning(VulkanDevice * device, std::uint32_t submitTimeline, std::uint64_t submitValue) noexcept;
-	[[nodiscard]] bool ListStillRunning(const VulkanCommandList * list) noexcept;
-	void SweepRetiredCommandBuffers(VulkanCommandPool * pool) noexcept;
-	bool VulkanQueueWait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
-	bool VulkanQueueSignal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
-	std::uint32_t QueueFamilyForType(const VulkanDevice * device, QueueType type) noexcept;
-	[[nodiscard]] bool RebuildSwapchainSemaphores(VulkanSwapchain * swapchain);
-	[[nodiscard]] bool RegisterSwapchainBackBuffers(VulkanSwapchain * swapchain);
-	void * VulkanCreateSwapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
-	bool VulkanSwapchainResize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept;
-	bool VulkanSwapchainSetPresentMode(void * impl, PresentMode mode, Error * error) noexcept;
-	[[nodiscard]] SwapchainStatus MapSwapchainStatus(vk::Result result) noexcept;
-	AcquireResult VulkanAcquire(void * impl, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
-	PresentResult VulkanPresent(void * impl, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, void * queueImpl, Error * error) noexcept;
-	Format VulkanSwapchainFormat(void * impl) noexcept;
-	PresentMode VulkanSwapchainGetPresentMode(void * impl) noexcept;
-	bool VulkanSwapchainSupportsReadback(void * impl) noexcept;
-	std::uint32_t VulkanSwapchainImageCount(void * impl) noexcept;
-	std::uint32_t VulkanSwapchainWidth(void * impl) noexcept;
-	std::uint32_t VulkanSwapchainHeight(void * impl) noexcept;
-	TextureHandle VulkanSwapchainBackBuffer(void * impl, std::uint32_t imageIndex) noexcept;
-	TextureViewHandle VulkanSwapchainBackBufferView(void * impl, std::uint32_t imageIndex) noexcept;
-	BinarySemaphoreHandle VulkanSwapchainPresentSemaphore(void * impl, std::uint32_t imageIndex) noexcept;
-	const CoreDeviceApi & CoreDeviceBlock() noexcept;
-	const PresentApi & PresentBlock() noexcept;
-	const PlacedMemoryApi & PlacedMemoryBlock() noexcept;
-	const ResourceIntrospectionApi & ResourceIntrospectionBlock() noexcept;
-	const QueryApi & QueryBlock() noexcept;
-	const PipelineCacheApi & PipelineCacheBlock() noexcept;
-	const ResidencyApi & ResidencyBlock() noexcept;
-	const InstanceApi & InstanceBlock() noexcept;
-	const ExternalCapabilityApi & ExternalCapabilityBlock() noexcept;
-	const SwapchainApi & SwapchainBlock() noexcept;
-	const QueueApi & QueueBlock() noexcept;
-	const SparseApi & SparseBlock() noexcept;
-	const CommandPoolApi & CommandPoolBlock() noexcept;
-	const RenderCommandApi & RenderCommandBlock() noexcept;
-	const AliasingCommandApi & AliasingCommandBlock() noexcept;
-	const QueryCommandApi & QueryCommandBlock() noexcept;
-	const IndirectApi & IndirectBlock() noexcept;
-	const IndirectCountApi & IndirectCountBlock() noexcept;
-	const NativeEscapeApi & NativeEscapeBlock() noexcept;
+	[[nodiscard]] bool vulkan_image_create_info(const TextureDesc & desc, vk::ImageCreateInfo & out, Error * error) noexcept;
+	[[nodiscard]] TextureHandle vulkan_finish_texture(
+		VulkanDevice * device,
+		const TextureDesc & desc,
+		VkImage image,
+		VmaAllocation allocation,
+		Error * error
+	) noexcept;
+	void * vulkan_instance_create_device(void * impl, const DeviceDesc & desc, Error * error) noexcept;
+	void * vulkan_create_instance(const void * instanceDesc, Error * error) noexcept;
+	void * vulkan_get_queue(void * impl, QueueType type, std::uint32_t index, Error * error) noexcept;
+	QueueType vulkan_queue_type(void * impl) noexcept;
+	bool vulkan_queue_submit(void * impl, const SubmitDesc & desc, Error * error) noexcept;
+	bool vulkan_queue_bind_sparse(void * impl, const SparseBindDesc & desc, Error * error) noexcept;
+	bool vulkan_queue_wait_idle(void * impl, Error * error) noexcept;
+	bool vulkan_queue_get_completed_value(void * impl, TimelineHandle timeline, std::uint64_t * out, Error * error) noexcept;
+	[[nodiscard]] std::uint32_t acquire_submit_timeline(VulkanDevice * device, QueueType type, std::uint32_t index) noexcept;
+	[[nodiscard]] bool build_submit_timelines(VulkanDevice * device, Error * error) noexcept;
+	[[nodiscard]] bool caller_signal_reached(VulkanDevice * device, std::span<const TimelinePoint> callerSignals) noexcept;
+	[[nodiscard]] bool submission_still_running(
+		VulkanDevice * device,
+		std::uint32_t submitTimeline,
+		std::uint64_t submitValue,
+		std::span<const TimelinePoint> callerSignals
+	) noexcept;
+	[[nodiscard]] bool list_still_running(const VulkanCommandList * list) noexcept;
+	void sweep_retired_command_buffers(VulkanCommandPool * pool) noexcept;
+	bool vulkan_queue_wait(void * impl, TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
+	bool vulkan_queue_signal(void * impl, TimelineHandle timeline, std::uint64_t value, Error * error) noexcept;
+	std::uint32_t queue_family_for_type(const VulkanDevice * device, QueueType type) noexcept;
+	[[nodiscard]] bool rebuild_swapchain_semaphores(VulkanSwapchain * swapchain);
+	[[nodiscard]] bool register_swapchain_back_buffers(VulkanSwapchain * swapchain);
+	void * vulkan_create_swapchain(void * impl, const SwapchainDesc & desc, Error * error) noexcept;
+	bool vulkan_swapchain_resize(void * impl, std::uint32_t width, std::uint32_t height, Error * error) noexcept;
+	bool vulkan_swapchain_set_present_mode(void * impl, PresentMode mode, Error * error) noexcept;
+	[[nodiscard]] SwapchainStatus map_swapchain_status(vk::Result result) noexcept;
+	AcquireResult vulkan_acquire(void * impl, std::uint64_t timeoutNanoseconds, Error * error) noexcept;
+	PresentResult vulkan_present(void * impl, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, void * queueImpl, Error * error) noexcept;
+	Format vulkan_swapchain_format(void * impl) noexcept;
+	PresentMode vulkan_swapchain_get_present_mode(void * impl) noexcept;
+	bool vulkan_swapchain_supports_readback(void * impl) noexcept;
+	std::uint32_t vulkan_swapchain_image_count(void * impl) noexcept;
+	std::uint32_t vulkan_swapchain_width(void * impl) noexcept;
+	std::uint32_t vulkan_swapchain_height(void * impl) noexcept;
+	TextureHandle vulkan_swapchain_back_buffer(void * impl, std::uint32_t imageIndex) noexcept;
+	TextureViewHandle vulkan_swapchain_back_buffer_view(void * impl, std::uint32_t imageIndex) noexcept;
+	BinarySemaphoreHandle vulkan_swapchain_present_semaphore(void * impl, std::uint32_t imageIndex) noexcept;
+	const CoreDeviceApi & core_device_block() noexcept;
+	const PresentApi & present_block() noexcept;
+	const PlacedMemoryApi & placed_memory_block() noexcept;
+	const ResourceIntrospectionApi & resource_introspection_block() noexcept;
+	const QueryApi & query_block() noexcept;
+	const PipelineCacheApi & pipeline_cache_block() noexcept;
+	const ResidencyApi & residency_block() noexcept;
+	const InstanceApi & instance_block() noexcept;
+	const ExternalCapabilityApi & external_capability_block() noexcept;
+	const SwapchainApi & swapchain_block() noexcept;
+	const QueueApi & queue_block() noexcept;
+	const SparseApi & sparse_block() noexcept;
+	const CommandPoolApi & command_pool_block() noexcept;
+	const RenderCommandApi & render_command_block() noexcept;
+	const AliasingCommandApi & aliasing_command_block() noexcept;
+	const QueryCommandApi & query_command_block() noexcept;
+	const IndirectApi & indirect_block() noexcept;
+	const IndirectCountApi & indirect_count_block() noexcept;
+	const NativeEscapeApi & native_escape_block() noexcept;
 
 	template <typename... Args>
-	[[nodiscard]] Error * LastError(Args &&... args) noexcept
+	[[nodiscard]] Error * last_error(Args &&... args) noexcept
 	{
 		static_assert(sizeof...(Args) > 0);
 		auto tuple = std::forward_as_tuple(std::forward<Args>(args)...);
@@ -1350,53 +1512,53 @@ namespace azo::rhi::vulkan
 	}
 
 	template <typename T>
-	[[nodiscard]] bool Store(T * out, T value, Error * error) noexcept
+	[[nodiscard]] bool store(T * out, T value, Error * error) noexcept
 	{
 		if (out == nullptr)
 		{
-			return Fail(error, ErrorCode::eInvalidArgument, "backend output pointer is null");
+			return fail(error, ErrorCode::eInvalidArgument, "backend output pointer is null");
 		}
 
 		*out = std::move(value);
-		return Succeed(error);
+		return succeed(error);
 	}
 
 	template <typename T>
-	[[nodiscard]] T ReturnValue(T value, Error * error) noexcept
+	[[nodiscard]] T return_value(T value, Error * error) noexcept
 	{
-		Succeed(error);
+		succeed(error);
 		return value;
 	}
 
 	template <typename T>
-	[[nodiscard]] T FailValue(Error * error, ErrorCode code, const char * message) noexcept
+	[[nodiscard]] T fail_value(Error * error, ErrorCode code, const char * message) noexcept
 	{
-		Fail(error, code, message);
+		fail(error, code, message);
 		return {};
 	}
 
 	template <typename T>
-	[[nodiscard]] T FailNativeValue(Error * error, const char * message, vk::Result result) noexcept
+	[[nodiscard]] T fail_native_value(Error * error, const char * message, vk::Result result) noexcept
 	{
-		FailNative(error, message, result);
+		fail_native(error, message, result);
 		return {};
 	}
 
 	template <typename T>
-	[[nodiscard]] T FailAllocationValue(Error * error, const char * message, vk::Result result) noexcept
+	[[nodiscard]] T fail_allocation_value(Error * error, const char * message, vk::Result result) noexcept
 	{
-		FailAllocation(error, message, result);
+		fail_allocation(error, message, result);
 		return {};
 	}
 
 	template <typename T, typename... Args>
-	T VulkanUnimplementedValue([[maybe_unused]] void * impl, Args... args) noexcept
+	T vulkan_unimplemented_value([[maybe_unused]] void * impl, Args... args) noexcept
 	{
-		return FailValue<T>(LastError(args...), ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: operation not implemented yet");
+		return fail_value<T>(last_error(args...), ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: operation not implemented yet");
 	}
 
 	template <typename... Args>
-	bool VulkanUnimplemented([[maybe_unused]] void * impl, Args... args) noexcept
+	bool vulkan_unimplemented([[maybe_unused]] void * impl, Args... args) noexcept
 	{
 		static_assert(sizeof...(Args) > 0);
 		auto tuple = std::forward_as_tuple(args...);
@@ -1413,7 +1575,7 @@ namespace azo::rhi::vulkan
 			}
 		}
 
-		return Fail(LastError(args...), ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: operation not implemented yet");
+		return fail(last_error(args...), ErrorCode::eUnsupportedFeature, "Vulkan RHI backend: operation not implemented yet");
 	}
 
 }

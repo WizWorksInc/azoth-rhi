@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -58,22 +63,22 @@ namespace azo::rhi::validation
 			return m_handles;
 		}
 
-		[[nodiscard]] ValidationMode Mode() const noexcept
+		[[nodiscard]] ValidationMode mode() const noexcept
 		{
 			return m_mode;
 		}
 
-		void SetMode(const ValidationMode mode) noexcept
+		void set_mode(const ValidationMode mode) noexcept
 		{
 			m_mode = mode;
 		}
 
-		[[nodiscard]] bool ChecksState() const noexcept
+		[[nodiscard]] bool checks_state() const noexcept
 		{
 			return m_mode == ValidationMode::eDeveloper || m_mode == ValidationMode::eCapture;
 		}
 
-		bool Fail(Error * error, const char * message) noexcept
+		bool fail(Error * error, const char * message) noexcept
 		{
 			m_failures.fetch_add(1, std::memory_order_relaxed);
 			if (error != nullptr)
@@ -88,13 +93,13 @@ namespace azo::rhi::validation
 		}
 
 		template <class T>
-		[[nodiscard]] T FailValue(Error * error, const char * message) noexcept
+		[[nodiscard]] T fail_value(Error * error, const char * message) noexcept
 		{
-			static_cast<void>(Fail(error, message));
+			static_cast<void>(fail(error, message));
 			return T{};
 		}
 
-		[[nodiscard]] std::uint64_t Failures() const noexcept
+		[[nodiscard]] std::uint64_t failures() const noexcept
 		{
 			return m_failures.load(std::memory_order_relaxed);
 		}
@@ -203,7 +208,7 @@ namespace azo::rhi::validation
 	};
 
 	template <class Block>
-	[[nodiscard]] const Block * InnerBlock(WrappedObject * self) noexcept;
+	[[nodiscard]] const Block * inner_block(WrappedObject * self) noexcept;
 
 	template <auto Member>
 	struct Forward;
@@ -217,15 +222,17 @@ namespace azo::rhi::validation
 	template <class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct Forward<Member>
 	{
-		static_assert(!kIsHandle<R>,
+		static_assert(
+			!kIsHandle<R>,
 			"an entry returning a Handle must use Vending, which records it with the validation registry. "
 			"Forward passes the handle straight through, so nothing has heard of it and the first use is "
-			"refused as stale.");
+			"refused as stale."
+		);
 
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedObject *>(impl);
-			return (InnerBlock<Block>(self)->*Member)(self->inner, args...);
+			return (inner_block<Block>(self)->*Member)(self->inner, args...);
 		}
 	};
 
@@ -235,56 +242,58 @@ namespace azo::rhi::validation
 	}
 
 	template <class T>
-	[[nodiscard]] Error * PickError(Error * found, const T &) noexcept
+	[[nodiscard]] Error * PickError(Error * found, const T & /*unused*/) noexcept
 	{
 		return found;
 	}
 
 	template <class T>
-	[[nodiscard]] bool ArgumentIsUsable(DeviceValidator &, const T &) noexcept
+	[[nodiscard]] bool argument_is_usable(DeviceValidator & /*unused*/, const T & /*unused*/) noexcept
 	{
 		return true;
 	}
 
 	template <class Tag>
 	requires requires { detail::ResourceTypeOf<Handle<Tag>>::kValue; }
-	[[nodiscard]] bool ArgumentIsUsable(DeviceValidator & validator, const Handle<Tag> handle) noexcept
+	[[nodiscard]] bool argument_is_usable(DeviceValidator & validator, const Handle<Tag> handle) noexcept
 	{
-		if (!handle.IsValid())
+		if (!handle.is_valid())
 		{
 			return true;
 		}
 
-		return validator.Handles().Lookup(RegisteredHandle{
-				   .type	   = detail::ResourceTypeOf<Handle<Tag>>::kValue,
-				   .index	   = handle.index,
-				   .generation = handle.generation,
-			   }) != nullptr;
+		return validator.Handles().lookup(
+				   RegisteredHandle{
+					   .type	   = detail::ResourceTypeOf<Handle<Tag>>::kValue,
+					   .index	   = handle.index,
+					   .generation = handle.generation,
+				   }
+			   ) != nullptr;
 	}
 
 	template <class... Handles>
-	[[nodiscard]] bool AllUsable(DeviceValidator & validator, const Handles &... handles) noexcept
+	[[nodiscard]] bool all_usable(DeviceValidator & validator, const Handles &... handles) noexcept
 	{
 		bool usable = true;
-		((usable = usable && ArgumentIsUsable(validator, handles)), ...);
+		((usable = usable && argument_is_usable(validator, handles)), ...);
 		return usable;
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const PlacedBufferDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const PlacedBufferDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.heap);
+		return all_usable(validator, desc.heap);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const PlacedTextureDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const PlacedTextureDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.heap);
+		return all_usable(validator, desc.heap);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const PipelineLayoutDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const PipelineLayoutDesc & desc) noexcept
 	{
 		for (const DescriptorSetLayoutHandle layout : desc.sets)
 		{
-			if (!AllUsable(validator, layout))
+			if (!all_usable(validator, layout))
 			{
 				return false;
 			}
@@ -293,106 +302,106 @@ namespace azo::rhi::validation
 		return true;
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const GraphicsPipelineDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const GraphicsPipelineDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.layout, desc.pipelineCache);
+		return all_usable(validator, desc.layout, desc.pipelineCache);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const ComputePipelineDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const ComputePipelineDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.layout, desc.pipelineCache);
+		return all_usable(validator, desc.layout, desc.pipelineCache);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const RayTracingPipelineDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const RayTracingPipelineDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.layout, desc.pipelineCache);
+		return all_usable(validator, desc.layout, desc.pipelineCache);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const AccelerationStructureDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const AccelerationStructureDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.storage);
+		return all_usable(validator, desc.storage);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorSetAllocDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DescriptorSetAllocDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.layout);
+		return all_usable(validator, desc.layout);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const RetirePoint & point) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const RetirePoint & point) noexcept
 	{
-		return AllUsable(validator, point.timeline);
+		return all_usable(validator, point.timeline);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const TimelinePoint & point) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const TimelinePoint & point) noexcept
 	{
-		return AllUsable(validator, point.timeline);
+		return all_usable(validator, point.timeline);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DestroyDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DestroyDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.safeAfter);
+		return all_usable(validator, desc.safeAfter);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const RenderingAttachment & attachment) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const RenderingAttachment & attachment) noexcept
 	{
-		return AllUsable(validator, attachment.view);
+		return all_usable(validator, attachment.view);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const BufferBarrier & barrier) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const BufferBarrier & barrier) noexcept
 	{
-		return AllUsable(validator, barrier.buffer);
+		return all_usable(validator, barrier.buffer);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const TextureBarrier & barrier) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const TextureBarrier & barrier) noexcept
 	{
-		return AllUsable(validator, barrier.texture);
+		return all_usable(validator, barrier.texture);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const AliasBarrier & barrier) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const AliasBarrier & barrier) noexcept
 	{
-		return AllUsable(validator, barrier.beforeBuffer, barrier.beforeTexture, barrier.afterBuffer, barrier.afterTexture);
+		return all_usable(validator, barrier.beforeBuffer, barrier.beforeTexture, barrier.afterBuffer, barrier.afterTexture);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const NativeTouchedBuffer & touched) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const NativeTouchedBuffer & touched) noexcept
 	{
-		return AllUsable(validator, touched.buffer);
+		return all_usable(validator, touched.buffer);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const NativeTouchedTexture & touched) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const NativeTouchedTexture & touched) noexcept
 	{
-		return AllUsable(validator, touched.texture);
+		return all_usable(validator, touched.texture);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const ResidencyPriorityDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const ResidencyPriorityDesc & desc) noexcept
 	{
-		return AllUsable(validator, desc.buffer, desc.texture);
+		return all_usable(validator, desc.buffer, desc.texture);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const SparseBufferBind & bind) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const SparseBufferBind & bind) noexcept
 	{
-		return AllUsable(validator, bind.buffer, bind.page.heap);
+		return all_usable(validator, bind.buffer, bind.page.heap);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const SparseTextureBind & bind) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const SparseTextureBind & bind) noexcept
 	{
-		return AllUsable(validator, bind.texture, bind.page.heap);
+		return all_usable(validator, bind.texture, bind.page.heap);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const ShaderBindingTableDesc & sbt) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const ShaderBindingTableDesc & sbt) noexcept
 	{
-		return AllUsable(validator, sbt.rayGeneration.buffer, sbt.miss.buffer, sbt.hit.buffer, sbt.callable.buffer);
+		return all_usable(validator, sbt.rayGeneration.buffer, sbt.miss.buffer, sbt.hit.buffer, sbt.callable.buffer);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const AccelerationStructureBuildDesc & build) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const AccelerationStructureBuildDesc & build) noexcept
 	{
-		if (!AllUsable(validator, build.dst, build.src, build.instanceBuffer, build.scratchBuffer))
+		if (!all_usable(validator, build.dst, build.src, build.instanceBuffer, build.scratchBuffer))
 		{
 			return false;
 		}
 
 		for (const AccelerationStructureGeometryDesc & geometry : build.geometries)
 		{
-			if (!AllUsable(validator, geometry.vertexBuffer, geometry.indexBuffer))
+			if (!all_usable(validator, geometry.vertexBuffer, geometry.indexBuffer))
 			{
 				return false;
 			}
@@ -401,33 +410,33 @@ namespace azo::rhi::validation
 		return true;
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorWriteBuffer & write) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DescriptorWriteBuffer & write) noexcept
 	{
-		return AllUsable(validator, write.set, write.buffer);
+		return all_usable(validator, write.set, write.buffer);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorWriteTexture & write) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DescriptorWriteTexture & write) noexcept
 	{
-		return AllUsable(validator, write.set, write.view, write.sampler);
+		return all_usable(validator, write.set, write.view, write.sampler);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorWriteSampler & write) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DescriptorWriteSampler & write) noexcept
 	{
-		return AllUsable(validator, write.set, write.sampler);
+		return all_usable(validator, write.set, write.sampler);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorWriteAccelerationStructure & write) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DescriptorWriteAccelerationStructure & write) noexcept
 	{
-		return AllUsable(validator, write.set, write.accelerationStructure);
+		return all_usable(validator, write.set, write.accelerationStructure);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const DescriptorSetLayoutDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const DescriptorSetLayoutDesc & desc) noexcept
 	{
 		for (const DescriptorBinding & binding : desc.bindings)
 		{
 			for (const SamplerHandle sampler : binding.immutableSamplers)
 			{
-				if (!AllUsable(validator, sampler))
+				if (!all_usable(validator, sampler))
 				{
 					return false;
 				}
@@ -437,11 +446,11 @@ namespace azo::rhi::validation
 		return true;
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const SubmitDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const SubmitDesc & desc) noexcept
 	{
 		for (const TimelinePoint & point : desc.waits)
 		{
-			if (!ArgumentIsUsable(validator, point))
+			if (!argument_is_usable(validator, point))
 			{
 				return false;
 			}
@@ -449,7 +458,7 @@ namespace azo::rhi::validation
 
 		for (const TimelinePoint & point : desc.signals)
 		{
-			if (!ArgumentIsUsable(validator, point))
+			if (!argument_is_usable(validator, point))
 			{
 				return false;
 			}
@@ -459,11 +468,11 @@ namespace azo::rhi::validation
 	}
 
 	template <class T>
-	[[nodiscard]] bool ArgumentIsUsable(DeviceValidator & validator, const std::span<const T> items) noexcept
+	[[nodiscard]] bool argument_is_usable(DeviceValidator & validator, const std::span<const T> items) noexcept
 	{
 		for (const T & item : items)
 		{
-			if (!ArgumentIsUsable(validator, item))
+			if (!argument_is_usable(validator, item))
 			{
 				return false;
 			}
@@ -472,35 +481,35 @@ namespace azo::rhi::validation
 		return true;
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const BeginRenderingDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const BeginRenderingDesc & desc) noexcept
 	{
-		if (!ArgumentIsUsable(validator, desc.colors))
+		if (!argument_is_usable(validator, desc.colors))
 		{
 			return false;
 		}
 
-		if (desc.timestamps != nullptr && !AllUsable(validator, desc.timestamps->pool))
+		if (desc.timestamps != nullptr && !all_usable(validator, desc.timestamps->pool))
 		{
 			return false;
 		}
 
-		return desc.depthStencil == nullptr || ArgumentIsUsable(validator, *desc.depthStencil);
+		return desc.depthStencil == nullptr || argument_is_usable(validator, *desc.depthStencil);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const BarrierBatch & batch) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const BarrierBatch & batch) noexcept
 	{
-		return ArgumentIsUsable(validator, batch.buffers) && ArgumentIsUsable(validator, batch.textures);
+		return argument_is_usable(validator, batch.buffers) && argument_is_usable(validator, batch.textures);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const NativeMutationDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const NativeMutationDesc & desc) noexcept
 	{
-		return ArgumentIsUsable(validator, desc.buffers) && ArgumentIsUsable(validator, desc.textures);
+		return argument_is_usable(validator, desc.buffers) && argument_is_usable(validator, desc.textures);
 	}
 
-	[[nodiscard]] inline bool ArgumentIsUsable(DeviceValidator & validator, const SparseBindDesc & desc) noexcept
+	[[nodiscard]] inline bool argument_is_usable(DeviceValidator & validator, const SparseBindDesc & desc) noexcept
 	{
-		return ArgumentIsUsable(validator, desc.buffers) && ArgumentIsUsable(validator, desc.textures) && ArgumentIsUsable(validator, desc.timelineWaits) &&
-			   ArgumentIsUsable(validator, desc.timelineSignals);
+		return argument_is_usable(validator, desc.buffers) && argument_is_usable(validator, desc.textures) &&
+			   argument_is_usable(validator, desc.timelineWaits) && argument_is_usable(validator, desc.timelineSignals);
 	}
 
 	template <auto Member>
@@ -509,41 +518,41 @@ namespace azo::rhi::validation
 	template <class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct Checked<Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedObject *>(impl);
 
 			bool usable = true;
-			((usable = usable && ArgumentIsUsable(*self->validator, args)), ...);
+			((usable = usable && argument_is_usable(*self->validator, args)), ...);
 			if (!usable)
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				return self->validator->FailValue<R>(error, "an operation names a handle this device has already taken back");
+				return self->validator->fail_value<R>(error, "an operation names a handle this device has already taken back");
 			}
 
-			return (InnerBlock<Block>(self)->*Member)(self->inner, args...);
+			return (inner_block<Block>(self)->*Member)(self->inner, args...);
 		}
 	};
 
-	[[nodiscard]] inline bool OnItsRecordingThread(WrappedCommandList * self) noexcept
+	[[nodiscard]] inline bool on_its_recording_thread(WrappedCommandList * self) noexcept
 	{
 		return !self->checksThread || std::this_thread::get_id() == self->recordingThread;
 	}
 
-	[[nodiscard]] inline bool RecordedOnItsOwnThread(WrappedCommandList * self, Error * error) noexcept
+	[[nodiscard]] inline bool recorded_on_its_own_thread(WrappedCommandList * self, Error * error) noexcept
 	{
-		return OnItsRecordingThread(self) ? true : self->validator->Fail(error, "a command recorded on a thread other than the one that began the list");
+		return on_its_recording_thread(self) ? true : self->validator->fail(error, "a command recorded on a thread other than the one that began the list");
 	}
 
-	[[nodiscard]] inline bool RecordedIntoAnOpenList(WrappedCommandList * self, Error * error) noexcept
+	[[nodiscard]] inline bool recorded_into_an_open_list(WrappedCommandList * self, Error * error) noexcept
 	{
-		return self->recording ? true : self->validator->Fail(error, "a command recorded on a list that is not between Begin and End");
+		return self->recording ? true : self->validator->fail(error, "a command recorded on a list that is not between Begin and End");
 	}
 
-	[[nodiscard]] inline bool RecordedLegally(WrappedCommandList * self, Error * error) noexcept
+	[[nodiscard]] inline bool recorded_legally(WrappedCommandList * self, Error * error) noexcept
 	{
-		return RecordedOnItsOwnThread(self, error) && RecordedIntoAnOpenList(self, error);
+		return recorded_on_its_own_thread(self, error) && recorded_into_an_open_list(self, error);
 	}
 
 	template <auto Member>
@@ -552,18 +561,18 @@ namespace azo::rhi::validation
 	template <class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct Recorded<Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
-			if (!OnItsRecordingThread(self) || !self->recording) [[unlikely]]
+			if (!on_its_recording_thread(self) || !self->recording) [[unlikely]]
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				static_cast<void>(RecordedLegally(self, error));
+				static_cast<void>(recorded_legally(self, error));
 				return R{};
 			}
 
-			return (InnerBlock<Block>(self)->*Member)(self->inner, args...);
+			return (inner_block<Block>(self)->*Member)(self->inner, args...);
 		}
 	};
 
@@ -573,18 +582,18 @@ namespace azo::rhi::validation
 	template <class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct RecordedChecked<Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
-			if (!OnItsRecordingThread(self) || !self->recording) [[unlikely]]
+			if (!on_its_recording_thread(self) || !self->recording) [[unlikely]]
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				static_cast<void>(RecordedLegally(self, error));
+				static_cast<void>(recorded_legally(self, error));
 				return R{};
 			}
 
-			return Checked<Member>::Call(impl, args...);
+			return Checked<Member>::call(impl, args...);
 		}
 	};
 
@@ -600,28 +609,30 @@ namespace azo::rhi::validation
 	template <bool ChecksThread, class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct OutsideRendering<ChecksThread, Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 			if constexpr (ChecksThread)
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				if (!RecordedLegally(self, error)) [[unlikely]]
+				if (!recorded_legally(self, error)) [[unlikely]]
 				{
 					return R{};
 				}
 			}
 
-			if (self->validator->ChecksState() && self->rendering) [[unlikely]]
+			if (self->validator->checks_state() && self->rendering) [[unlikely]]
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				return self->validator->FailValue<R>(
-					error, "a transfer or dispatch recorded inside a rendering scope, which has to be recorded between passes");
+				return self->validator->fail_value<R>(
+					error,
+					"a transfer or dispatch recorded inside a rendering scope, which has to be recorded between passes"
+				);
 			}
 
-			return RecordedCheckedEntry<ChecksThread, Member>::Call(impl, args...);
+			return RecordedCheckedEntry<ChecksThread, Member>::call(impl, args...);
 		}
 	};
 
@@ -631,37 +642,37 @@ namespace azo::rhi::validation
 	template <bool ChecksThread, class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct InsideRenderingWithGraphics<ChecksThread, Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 			if constexpr (ChecksThread)
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				if (!RecordedLegally(self, error)) [[unlikely]]
+				if (!recorded_legally(self, error)) [[unlikely]]
 				{
 					return R{};
 				}
 			}
 
-			if (self->validator->ChecksState())
+			if (self->validator->checks_state())
 			{
 				if (!self->rendering) [[unlikely]]
 				{
 					Error * error = nullptr;
 					((error = PickError(error, args)), ...);
-					return self->validator->FailValue<R>(error, "a draw recorded outside a rendering scope");
+					return self->validator->fail_value<R>(error, "a draw recorded outside a rendering scope");
 				}
 
 				if (!self->graphicsBound) [[unlikely]]
 				{
 					Error * error = nullptr;
 					((error = PickError(error, args)), ...);
-					return self->validator->FailValue<R>(error, "a draw recorded with no graphics pipeline bound");
+					return self->validator->fail_value<R>(error, "a draw recorded with no graphics pipeline bound");
 				}
 			}
 
-			return RecordedCheckedEntry<ChecksThread, Member>::Call(impl, args...);
+			return RecordedCheckedEntry<ChecksThread, Member>::call(impl, args...);
 		}
 	};
 
@@ -671,27 +682,27 @@ namespace azo::rhi::validation
 	template <bool ChecksThread, class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct OutsideRenderingWithCompute<ChecksThread, Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 			if constexpr (ChecksThread)
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				if (!RecordedLegally(self, error)) [[unlikely]]
+				if (!recorded_legally(self, error)) [[unlikely]]
 				{
 					return R{};
 				}
 			}
 
-			if (self->validator->ChecksState() && !self->computeBound) [[unlikely]]
+			if (self->validator->checks_state() && !self->computeBound) [[unlikely]]
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				return self->validator->FailValue<R>(error, "a dispatch recorded with no compute pipeline bound");
+				return self->validator->fail_value<R>(error, "a dispatch recorded with no compute pipeline bound");
 			}
 
-			return OutsideRendering<ChecksThread, Member>::Call(impl, args...);
+			return OutsideRendering<ChecksThread, Member>::call(impl, args...);
 		}
 	};
 
@@ -701,34 +712,34 @@ namespace azo::rhi::validation
 	template <bool ChecksThread, class Block, class R, class... Args, R (*Block::*Member)(void *, Args...) noexcept>
 	struct OutsideRenderingWithRayTracing<ChecksThread, Member>
 	{
-		static R Call(void * impl, Args... args) noexcept
+		static R call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedCommandList *>(impl);
 			if constexpr (ChecksThread)
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				if (!RecordedLegally(self, error)) [[unlikely]]
+				if (!recorded_legally(self, error)) [[unlikely]]
 				{
 					return R{};
 				}
 			}
 
-			if (self->validator->ChecksState() && !self->rayTracingBound) [[unlikely]]
+			if (self->validator->checks_state() && !self->rayTracingBound) [[unlikely]]
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				return self->validator->FailValue<R>(error, "a trace recorded with no ray tracing pipeline bound");
+				return self->validator->fail_value<R>(error, "a trace recorded with no ray tracing pipeline bound");
 			}
 
-			return OutsideRendering<ChecksThread, Member>::Call(impl, args...);
+			return OutsideRendering<ChecksThread, Member>::call(impl, args...);
 		}
 	};
 
 	inline constexpr std::uint64_t kUsageDeclared = 1ull << 63u;
 
 	template <class T>
-	[[nodiscard]] std::uint64_t PickUsage(const std::uint64_t found, const T &) noexcept
+	[[nodiscard]] std::uint64_t PickUsage(const std::uint64_t found, const T & /*unused*/) noexcept
 	{
 		return found;
 	}
@@ -743,7 +754,7 @@ namespace azo::rhi::validation
 
 	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const BufferDesc & desc) noexcept
 	{
-		const std::uint64_t usage = kUsageDeclared | desc.usage.Bits();
+		const std::uint64_t usage = kUsageDeclared | desc.usage.bits();
 
 		if (desc.size == 0 || desc.size > kSizeMax)
 		{
@@ -753,7 +764,7 @@ namespace azo::rhi::validation
 		return usage | kExtentsDeclared | (desc.size << kSizeShift);
 	}
 
-	[[nodiscard]] inline std::uint64_t DeclaredSizeFrom(const std::uint64_t detail) noexcept
+	[[nodiscard]] inline std::uint64_t declared_size_from(const std::uint64_t detail) noexcept
 	{
 		return (detail & kExtentsDeclared) != 0 ? (detail >> kSizeShift) & kSizeMax : 0;
 	}
@@ -765,18 +776,18 @@ namespace azo::rhi::validation
 	inline constexpr std::uint64_t kLayerCountMax = 0xffffull;
 	inline constexpr std::uint64_t kAspectMax	  = 0x3full;
 
-	[[nodiscard]] inline std::uint64_t AspectsOfFormat(const Format format) noexcept
+	[[nodiscard]] inline std::uint64_t aspects_of_format(const Format format) noexcept
 	{
-		if (PlaneCountOf(format) > 1)
+		if (plane_count_of(format) > 1)
 		{
 			const std::uint64_t planes = static_cast<std::uint64_t>(TextureAspect::ePlane0) | static_cast<std::uint64_t>(TextureAspect::ePlane1);
-			return PlaneCountOf(format) > 2 ? planes | static_cast<std::uint64_t>(TextureAspect::ePlane2) : planes;
+			return plane_count_of(format) > 2 ? planes | static_cast<std::uint64_t>(TextureAspect::ePlane2) : planes;
 		}
 
-		if (IsDepthFormat(format))
+		if (is_depth_format(format))
 		{
-			const std::uint64_t depth = static_cast<std::uint64_t>(TextureAspect::eDepth);
-			const bool stencil		  = format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
+			const auto depth   = static_cast<std::uint64_t>(TextureAspect::eDepth);
+			const bool stencil = format == Format::eD24UNormS8UInt || format == Format::eD32FloatS8UInt;
 			return stencil ? depth | static_cast<std::uint64_t>(TextureAspect::eStencil) : depth;
 		}
 
@@ -785,12 +796,14 @@ namespace azo::rhi::validation
 
 	[[nodiscard]] inline std::uint64_t PickUsage([[maybe_unused]] std::uint64_t found, const TextureDesc & desc) noexcept
 	{
-		static_assert(std::numeric_limits<std::underlying_type_t<TextureUsage>>::digits <= kMipCountShift,
-			"a texture usage bit reaches the mip count, so the two would overwrite each other");
+		static_assert(
+			std::numeric_limits<std::underlying_type_t<TextureUsage>>::digits <= kMipCountShift,
+			"a texture usage bit reaches the mip count, so the two would overwrite each other"
+		);
 		static_assert((kAspectMax << kAspectShift) < kExtentsDeclared, "the aspect field runs into the declared-extents and declared-usage flags above it");
-		static_assert(kAllAspects.Bits() <= kAspectMax, "an aspect enumerator reaches past the field, so it would be read as one of the flags above it");
+		static_assert(kAllAspects.bits() <= kAspectMax, "an aspect enumerator reaches past the field, so it would be read as one of the flags above it");
 
-		const std::uint64_t usage = kUsageDeclared | desc.usage.Bits();
+		const std::uint64_t usage = kUsageDeclared | desc.usage.bits();
 
 		if (desc.mipLevels == 0 || desc.mipLevels > kMipCountMax || desc.arrayLayers == 0 || desc.arrayLayers > kLayerCountMax)
 		{
@@ -798,7 +811,7 @@ namespace azo::rhi::validation
 		}
 
 		return usage | kExtentsDeclared | (static_cast<std::uint64_t>(desc.mipLevels) << kMipCountShift) |
-			   (static_cast<std::uint64_t>(desc.arrayLayers) << kLayerCountShift) | (AspectsOfFormat(desc.format) << kAspectShift);
+			   (static_cast<std::uint64_t>(desc.arrayLayers) << kLayerCountShift) | (aspects_of_format(desc.format) << kAspectShift);
 	}
 
 	[[nodiscard]] inline std::uint64_t PickUsage(const std::uint64_t found, const PlacedBufferDesc & desc) noexcept
@@ -812,19 +825,19 @@ namespace azo::rhi::validation
 	}
 
 	template <class T>
-	[[nodiscard]] Format PickFormat(const Format found, const T &) noexcept
+	[[nodiscard]] Format pick_format(const Format found, const T & /*unused*/) noexcept
 	{
 		return found;
 	}
 
-	[[nodiscard]] inline Format PickFormat([[maybe_unused]] const Format found, const TextureDesc & desc) noexcept
+	[[nodiscard]] inline Format pick_format([[maybe_unused]] const Format found, const TextureDesc & desc) noexcept
 	{
 		return desc.format;
 	}
 
-	[[nodiscard]] inline Format PickFormat(const Format found, const PlacedTextureDesc & desc) noexcept
+	[[nodiscard]] inline Format pick_format(const Format found, const PlacedTextureDesc & desc) noexcept
 	{
-		return PickFormat(found, desc.texture);
+		return pick_format(found, desc.texture);
 	}
 
 	struct DeclaredExtents final
@@ -835,7 +848,7 @@ namespace azo::rhi::validation
 		std::uint64_t bytes	  = 0;
 	};
 
-	[[nodiscard]] inline DeclaredExtents ExtentsFrom(const ResourceType type, const std::uint64_t detail) noexcept
+	[[nodiscard]] inline DeclaredExtents extents_from(const ResourceType type, const std::uint64_t detail) noexcept
 	{
 		DeclaredExtents extents{};
 
@@ -846,7 +859,7 @@ namespace azo::rhi::validation
 
 		if (type == ResourceType::eBuffer)
 		{
-			extents.bytes = DeclaredSizeFrom(detail);
+			extents.bytes = declared_size_from(detail);
 			return extents;
 		}
 
@@ -862,39 +875,39 @@ namespace azo::rhi::validation
 	template <ResourceType Type, class Block, class Produced, class... Args, Produced (*Block::*Member)(void *, Args...) noexcept>
 	struct Recording<Type, Member>
 	{
-		static Produced Call(void * impl, Args... args) noexcept
+		static Produced call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedObject *>(impl);
 
-			if (!AllUsable(*self->validator, args...))
+			if (!all_usable(*self->validator, args...))
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				return self->validator->FailValue<Produced>(error, "a create names a handle this device has already taken back");
+				return self->validator->fail_value<Produced>(error, "a create names a handle this device has already taken back");
 			}
 
-			const Produced handle = (InnerBlock<Block>(self)->*Member)(self->inner, args...);
-			if (handle.IsValid())
+			const Produced handle = (inner_block<Block>(self)->*Member)(self->inner, args...);
+			if (handle.is_valid())
 			{
 				const RegisteredHandle registered{
 					.type		= Type,
 					.index		= handle.index,
 					.generation = handle.generation,
 				};
-				if (self->validator->Handles().Record(registered))
+				if (self->validator->Handles().record(registered))
 				{
 					std::uint64_t usage = 0;
 					((usage = PickUsage(usage, args)), ...);
 					if (usage != 0)
 					{
-						self->validator->Handles().Lookup(registered)->detail.store(usage, std::memory_order_relaxed);
+						self->validator->Handles().lookup(registered)->detail.store(usage, std::memory_order_relaxed);
 					}
 
 					Format format = Format::eUndefined;
-					((format = PickFormat(format, args)), ...);
+					((format = pick_format(format, args)), ...);
 					if (format != Format::eUndefined)
 					{
-						self->validator->Handles().Lookup(registered)->format.store(static_cast<std::uint16_t>(format), std::memory_order_relaxed);
+						self->validator->Handles().lookup(registered)->format.store(static_cast<std::uint16_t>(format), std::memory_order_relaxed);
 					}
 				}
 			}
@@ -911,7 +924,7 @@ namespace azo::rhi::validation
 	};
 
 	template <class T>
-	[[nodiscard]] AdoptedSeed PickAdoptedSeed(AdoptedSeed found, const T &) noexcept
+	[[nodiscard]] AdoptedSeed PickAdoptedSeed(AdoptedSeed found, const T & /*unused*/) noexcept
 	{
 		return found;
 	}
@@ -932,18 +945,18 @@ namespace azo::rhi::validation
 	template <ResourceType Type, class Block, class Produced, class... Args, Produced (*Block::*Member)(void *, Args...) noexcept>
 	struct RecordingAdopted<Type, Member>
 	{
-		static Produced Call(void * impl, Args... args) noexcept
+		static Produced call(void * impl, Args... args) noexcept
 		{
 			auto * self = static_cast<WrappedObject *>(impl);
-			if (!AllUsable(*self->validator, args...))
+			if (!all_usable(*self->validator, args...))
 			{
 				Error * error = nullptr;
 				((error = PickError(error, args)), ...);
-				return self->validator->FailValue<Produced>(error, "an adopt names a handle this device has already taken back");
+				return self->validator->fail_value<Produced>(error, "an adopt names a handle this device has already taken back");
 			}
 
-			const Produced handle = (InnerBlock<Block>(self)->*Member)(self->inner, args...);
-			if (!handle.IsValid())
+			const Produced handle = (inner_block<Block>(self)->*Member)(self->inner, args...);
+			if (!handle.is_valid())
 			{
 				return handle;
 			}
@@ -953,7 +966,7 @@ namespace azo::rhi::validation
 				.index		= handle.index,
 				.generation = handle.generation,
 			};
-			if (!self->validator->Handles().Record(registered))
+			if (!self->validator->Handles().record(registered))
 			{
 				return handle;
 			}
@@ -965,9 +978,9 @@ namespace azo::rhi::validation
 				return handle;
 			}
 
-			if (ResourceRecord * record = self->validator->Handles().Lookup(registered))
+			if (ResourceRecord * record = self->validator->Handles().lookup(registered))
 			{
-				record->use.store(seed.state.use.Bits(), std::memory_order_relaxed);
+				record->use.store(seed.state.use.bits(), std::memory_order_relaxed);
 				record->useKnown.store(true, std::memory_order_relaxed);
 
 				if (seed.ownership.op == OwnershipOp::eRelease || seed.ownership.op == OwnershipOp::eAcquire)
@@ -987,11 +1000,11 @@ namespace azo::rhi::validation
 	template <ResourceType Type, class Block, class Produced, class... Args, Produced (*Block::*Member)(void *, Args...) noexcept>
 	struct Vending<Type, Member>
 	{
-		static Produced Call(void * impl, Args... args) noexcept
+		static Produced call(void * impl, Args... args) noexcept
 		{
 			auto * self			  = static_cast<WrappedObject *>(impl);
-			const Produced handle = (InnerBlock<Block>(self)->*Member)(self->inner, args...);
-			if (!handle.IsValid())
+			const Produced handle = (inner_block<Block>(self)->*Member)(self->inner, args...);
+			if (!handle.is_valid())
 			{
 				return handle;
 			}
@@ -1001,17 +1014,17 @@ namespace azo::rhi::validation
 				.index		= handle.index,
 				.generation = handle.generation,
 			};
-			if (self->validator->Handles().Lookup(registered) == nullptr)
+			if (self->validator->Handles().lookup(registered) == nullptr)
 			{
-				static_cast<void>(self->validator->Handles().Record(registered));
+				static_cast<void>(self->validator->Handles().record(registered));
 			}
 
 			return handle;
 		}
 	};
 
-	[[nodiscard]] void * WrapDevice(void * deviceImpl, ValidationMode mode) noexcept;
+	[[nodiscard]] void * wrap_device(void * deviceImpl, ValidationMode mode) noexcept;
 
-	[[nodiscard]] AZO_RHI_API DeviceValidator * ValidatorOf(void * deviceImpl) noexcept;
+	[[nodiscard]] AZO_RHI_API DeviceValidator * validator_of(void * deviceImpl) noexcept;
 
 }

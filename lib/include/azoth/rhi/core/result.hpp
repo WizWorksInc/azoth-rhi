@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -62,13 +67,13 @@ namespace azo::rhi
 	class Result final
 	{
 	public:
-		// Intentionally implicit so a fallible function can return a value directly. NOLINTNEXTLINE(hicpp-explicit-conversions)
+		// Intentionally implicit so a fallible function can return a value directly. NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor, misc-explicit-constructor)
 		constexpr Result(T value) noexcept : m_value(std::move(value)), m_hasValue(true) {}
 
-		// Intentionally implicit so a fallible function can return Error directly. NOLINTNEXTLINE(hicpp-explicit-conversions)
+		// Intentionally implicit so a fallible function can return Error directly. NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor, misc-explicit-constructor)
 		constexpr Result(Error error) noexcept : m_error(error) {}
 
-		[[nodiscard]] constexpr bool HasValue() const noexcept
+		[[nodiscard]] constexpr bool has_value() const noexcept
 		{
 			return m_hasValue;
 		}
@@ -78,22 +83,22 @@ namespace azo::rhi
 			return m_hasValue;
 		}
 
-		[[nodiscard]] constexpr T & Value() & noexcept
+		[[nodiscard]] constexpr T & value() & noexcept
 		{
 			return m_value;
 		}
 
-		[[nodiscard]] constexpr const T & Value() const & noexcept
+		[[nodiscard]] constexpr const T & value() const & noexcept
 		{
 			return m_value;
 		}
 
-		[[nodiscard]] constexpr T && Value() && noexcept
+		[[nodiscard]] constexpr T && value() && noexcept
 		{
 			return std::move(m_value);
 		}
 
-		[[nodiscard]] constexpr Error GetError() const noexcept
+		[[nodiscard]] constexpr Error get_error() const noexcept
 		{
 			return m_error;
 		}
@@ -110,10 +115,10 @@ namespace azo::rhi
 	public:
 		constexpr Result() noexcept = default;
 
-		// Intentionally implicit so a fallible function can return Error directly. NOLINTNEXTLINE(hicpp-explicit-conversions)
+		// Intentionally implicit so a fallible function can return Error directly. NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor, misc-explicit-constructor)
 		constexpr Result(Error error) noexcept : m_error(error), m_hasValue(false) {}
 
-		[[nodiscard]] constexpr bool HasValue() const noexcept
+		[[nodiscard]] constexpr bool has_value() const noexcept
 		{
 			return m_hasValue;
 		}
@@ -123,7 +128,7 @@ namespace azo::rhi
 			return m_hasValue;
 		}
 
-		[[nodiscard]] constexpr Error GetError() const noexcept
+		[[nodiscard]] constexpr Error get_error() const noexcept
 		{
 			return m_error;
 		}

@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -42,7 +47,7 @@ namespace azo::rhi
 		};
 
 		template <class Config>
-		[[nodiscard]] constexpr DeviceConfigLookup<Config> FindConfigBlock(std::span<const DeviceConfigEntry> entries, GraphicsApiId api) noexcept
+		[[nodiscard]] constexpr DeviceConfigLookup<Config> find_config_block(std::span<const DeviceConfigEntry> entries, GraphicsApiId api) noexcept
 		{
 			for (const DeviceConfigEntry & entry : entries)
 			{
@@ -64,15 +69,15 @@ namespace azo::rhi
 		}
 
 		template <GraphicsApiTag Api>
-		[[nodiscard]] constexpr auto FindDeviceConfig(std::span<const DeviceConfigEntry> entries) noexcept
+		[[nodiscard]] constexpr auto find_device_config(std::span<const DeviceConfigEntry> entries) noexcept
 		{
-			return FindConfigBlock<typename DeviceConfigFor<Api>::Config>(entries, Api::id);
+			return find_config_block<typename DeviceConfigFor<Api>::Config>(entries, Api::kId);
 		}
 
 		template <GraphicsApiTag Api>
-		[[nodiscard]] constexpr auto FindInstanceConfig(std::span<const InstanceConfigEntry> entries) noexcept
+		[[nodiscard]] constexpr auto find_instance_config(std::span<const InstanceConfigEntry> entries) noexcept
 		{
-			return FindConfigBlock<typename InstanceConfigFor<Api>::Config>(entries, Api::id);
+			return find_config_block<typename InstanceConfigFor<Api>::Config>(entries, Api::kId);
 		}
 
 	}

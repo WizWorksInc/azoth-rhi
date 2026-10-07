@@ -1,9 +1,14 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -925,6 +930,64 @@ namespace
 		EXPECT_TRUE(test::Ok(local.Get().Destroy(blocker, {}, error), error));
 	}
 
+	TEST_P(CommandTest, RefusesToResetAPoolWhoseListWasBegunAgainOverARunningSubmission)
+	{
+		rhi::DeviceDesc desc = MakeDeviceDesc();
+		desc.validation		 = rhi::ValidationMode::eOff;
+
+		const test::DeviceHarness local(CurrentBackend(), desc);
+		if (!local.IsValid())
+		{
+			GTEST_SKIP() << "this backend does not allow a second device: " << test::Describe(local.GetError());
+		}
+
+		if (std::string_view(CurrentBackend().shortName) == "null")
+		{
+			GTEST_SKIP() << "nothing executes on null, so a pool never holds a running list";
+		}
+
+		if (!local.Get().GetCaps().supportsCommandListResubmit)
+		{
+			GTEST_SKIP() << "this backend does not track per list completion, so it cannot tell a running list from a finished one";
+		}
+
+		rhi::Error error{};
+		rhi::Queue queue = local.Get().GetQueue(rhi::QueueType::eGraphics, 0, error);
+		ASSERT_TRUE(test::Ok(queue.IsValid(), error));
+
+		const rhi::TimelineHandle blocker = local.Get().CreateTimeline(test::samples::Timeline(), error);
+		ASSERT_TRUE(test::Ok(blocker.IsValid(), error));
+
+		rhi::CommandPool pool = local.Get().CreateCommandPool(test::samples::CommandPool(), error);
+		ASSERT_TRUE(test::Ok(pool.IsValid(), error));
+
+		rhi::CommandList list = pool.Allocate("azoth.rhi.test.list", error);
+		ASSERT_TRUE(test::Ok(list.IsValid(), error));
+		ASSERT_TRUE(test::Ok(list.Begin(error), error));
+		ASSERT_TRUE(test::Ok(list.End(error), error));
+
+		std::array<const rhi::CommandList *, 1> submitted{ &list };
+		const std::array held{ rhi::TimelinePoint{ .timeline = blocker, .value = 1 } };
+		ASSERT_TRUE(test::Ok(queue.Submit(rhi::SubmitDesc{ .commandLists = submitted, .waits = held, .debugName = "azoth.rhi.test.blocked" }, error), error));
+
+		EXPECT_TRUE(test::Ok(list.Begin(error), error)) << "beginning a list whose earlier submission is still executing was refused";
+		EXPECT_TRUE(test::Ok(list.End(error), error));
+
+		// The earlier recording still executes from memory the pool owns, so the pool cannot be reset under it.
+		rhi::Error refused{};
+		EXPECT_FALSE(pool.Reset({}, refused)) << "a pool was reset while the submission its list was begun over was still executing";
+		EXPECT_EQ(refused.code, rhi::ErrorCode::eInvalidState);
+
+		EXPECT_TRUE(test::Ok(queue.Submit(rhi::SubmitDesc{ .commandLists = submitted, .debugName = "azoth.rhi.test.rerecorded" }, error), error))
+			<< "the new recording was refused while the earlier one was still queued";
+
+		EXPECT_TRUE(test::Ok(queue.Signal(blocker, 1, error), error));
+		EXPECT_TRUE(test::Ok(queue.WaitIdle(error), error));
+		EXPECT_TRUE(test::Ok(pool.Reset({}, error), error)) << "a pool was refused after its work had drained";
+
+		EXPECT_TRUE(test::Ok(local.Get().Destroy(blocker, {}, error), error));
+	}
+
 	TEST_P(CommandTest, DestroysADeviceWhoseSubmissionIsBlockedOnAWaitNobodySignals)
 	{
 		rhi::DeviceDesc desc = MakeDeviceDesc();
@@ -1194,7 +1257,6 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 			rhi::CommandPool pool = local.Get().CreateCommandPool(poolDesc, made);
 			if (!pool.IsValid())
 			{
-				// d3d12 refuses per list reset outright, so there is nothing to compare against there.
 				EXPECT_EQ(made.code, rhi::ErrorCode::eUnsupportedFeature) << "a pool reuse mode was refused for an unexpected reason";
 				continue;
 			}
@@ -1298,7 +1360,8 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 		const std::string_view backend = CurrentBackend().shortName;
 
 		// Vulkan records no usage flags so a drained buffer may go again, and null has nothing in flight at all. Both Metal backends commit once.
-		const bool expected = backend == "null" || backend == "vulkan";
+		// ExecuteCommandLists refuses a list only while a previous execution of it has not completed, so a finished D3D12 list may be submitted again.
+		const bool expected = backend == "null" || backend == "vulkan" || backend == "d3d12";
 
 		EXPECT_EQ(Dev().GetCaps().supportsCommandListResubmit, expected) << "the resubmit cap does not match what " << backend << " can actually do";
 	}

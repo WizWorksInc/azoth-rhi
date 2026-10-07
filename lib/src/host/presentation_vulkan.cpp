@@ -1,16 +1,25 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "azoth/rhi/core/result.hpp"
+#include "azoth/rhi/device/device.hpp"
+#include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/host/presentation_backend.hpp"
+#include "azoth/rhi/host/surface_source.hpp"
 #include "azoth/rhi/native/surface_payloads.hpp"
 #include "azoth/rhi/native/vulkan_native.hpp"
+#include "azoth/rhi/present/swapchain.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -18,7 +27,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <memory>
 
 namespace azo::rhi
 {
@@ -29,7 +37,7 @@ namespace azo::rhi
 		class VulkanPresentationBackend final : public PresentationBackend
 		{
 		public:
-			bool InitInstanceLoader(SurfaceSource & source) override
+			bool init_instance_loader(SurfaceSource & source) override
 			{
 				native::VulkanLoaderPayload payload{};
 				const SurfaceRequest request{
@@ -38,9 +46,9 @@ namespace azo::rhi
 					.payload  = &payload,
 				};
 
-				if (!source.Provide(request) || payload.getInstanceProcAddr == nullptr)
+				if (!source.provide(request) || payload.getInstanceProcAddr == nullptr)
 				{
-					payload.getInstanceProcAddr = native::ResolveVulkanLoader();
+					payload.getInstanceProcAddr = native::resolve_vulkan_loader();
 				}
 
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): a loader entry point arrives as a void pointer and this is the cast for it.
@@ -55,17 +63,17 @@ namespace azo::rhi
 				return true;
 			}
 
-			SurfaceHandle CreateSurface(SurfaceSource & source, Device device) override
+			SurfaceHandle create_surface(SurfaceSource & source, Device device) override
 			{
-				const Result<VulkanNativeDevice> native = GetVulkanNativeDevice(device);
+				const Result<VulkanNativeDevice> native = get_vulkan_native_device(device);
 				if (!native)
 				{
 					return {};
 				}
 
-				const vk::Instance instance = native.Value().instance;
+				const vk::Instance instance = native.value().instance;
 
-				const vk::detail::DispatchLoaderDynamic & dispatch = *native.Value().dispatch;
+				const vk::detail::DispatchLoaderDynamic & dispatch = *native.value().dispatch;
 
 				native::VulkanSurfacePayload payload{};
 				payload.instance = static_cast<VkInstance>(instance);
@@ -76,7 +84,7 @@ namespace azo::rhi
 					.payload  = &payload,
 				};
 
-				if (!source.Provide(request) || payload.surface == 0)
+				if (!source.provide(request) || payload.surface == 0)
 				{
 					return {};
 				}
@@ -86,7 +94,7 @@ namespace azo::rhi
 				m_surface  = vk::SurfaceKHR(std::bit_cast<VkSurfaceKHR>(raw));
 				m_instance = instance;
 
-				if (const Result<void> attached = SetVulkanDeviceSurface(device, m_surface); !attached)
+				if (const Result<void> attached = set_vulkan_device_surface(device, m_surface); !attached)
 				{
 					instance.destroySurfaceKHR(m_surface, nullptr, dispatch);
 					m_surface = nullptr;
@@ -104,17 +112,17 @@ namespace azo::rhi
 	}
 
 	// NOLINTNEXTLINE(misc-use-internal-linkage)
-	HostUniquePtr<PresentationBackend> MakeVulkanPresentationBackend()
+	HostUniquePtr<PresentationBackend> make_vulkan_presentation_backend()
 	{
-		return HostNew<VulkanPresentationBackend>();
+		return host_new<VulkanPresentationBackend>();
 	}
 
 	namespace native
 	{
 
-		void * ResolveVulkanLoader()
+		void * resolve_vulkan_loader()
 		{
-			static const vk::detail::DynamicLoader * loader = []() -> const vk::detail::DynamicLoader *
+			static const vk::detail::DynamicLoader * s_Loader = [] -> const vk::detail::DynamicLoader *
 			{
 				auto * opened = new vk::detail::DynamicLoader(); // NOLINT(cppcoreguidelines-owning-memory): outlives every caller on purpose.
 
@@ -127,13 +135,13 @@ namespace azo::rhi
 				return opened;
 			}();
 
-			if (loader == nullptr)
+			if (s_Loader == nullptr)
 			{
 				return nullptr;
 			}
 
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): a loader entry point leaves as a void pointer, which is what the host asked for.
-			return reinterpret_cast<void *>(loader->getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
+			return reinterpret_cast<void *>(s_Loader->getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
 		}
 
 	}

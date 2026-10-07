@@ -1,28 +1,46 @@
 ---
 Checks: >
   bugprone-*,
-  -bugprone-easily-swappable-parameters,
-  cert-*,
+  -bugprone-easily-swappable-parameters,  
+  
   clang-analyzer-*,
+  
   concurrency-*,
+  
   cppcoreguidelines-*,
   -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-avoid-do-while,
-  hicpp-*,
-  misc-*,
-  -misc-const-correctness,
-  modernize-*,
-  performance-*,
-  portability-*,
-  readability-*,
-  
-  -modernize-use-trailing-return-type,
-  -readability-magic-numbers,
+  -cppcoreguidelines-macro-usage,
   -cppcoreguidelines-avoid-magic-numbers,
-  -portability-avoid-pragma-once,
-  -readability-uppercase-literal-suffix,
-  -hicpp-uppercase-literal-suffix,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-c-copy-assignment-signature,
+  -cppcoreguidelines-explicit-virtual-functions,
+  -cppcoreguidelines-macro-to-enum,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-noexcept-destructor,
+  -cppcoreguidelines-noexcept-move-operations,
+  -cppcoreguidelines-noexcept-swap,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-use-default-member-init,
+  
+  misc-*,
   -misc-header-include-cycle,
+  -misc-const-correctness,
+  
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-macro-to-enum,
+  
+  performance-*,
+  
+  portability-*,
+  -portability-avoid-pragma-once,
+  
+  readability-*,
+  -readability-magic-numbers,
+  -readability-uppercase-literal-suffix,
+  
+  cert-*,
   -cert-arr39-c,
   -cert-con36-c,
   -cert-con54-cpp,
@@ -64,47 +82,21 @@ Checks: >
   -cert-pos47-c,
   -cert-sig30-c,
   -cert-str34-c,
-  -cppcoreguidelines-avoid-c-arrays,
-  -cppcoreguidelines-c-copy-assignment-signature,
-  -cppcoreguidelines-explicit-virtual-functions,
-  -cppcoreguidelines-macro-to-enum,
-  -cppcoreguidelines-narrowing-conversions,
-  -cppcoreguidelines-noexcept-destructor,
-  -cppcoreguidelines-noexcept-move-operations,
-  -cppcoreguidelines-noexcept-swap,
-  -cppcoreguidelines-non-private-member-variables-in-classes,
-  -cppcoreguidelines-use-default-member-init,
-  -hicpp-avoid-c-arrays,
-  -hicpp-avoid-goto,
-  -hicpp-braces-around-statements,
-  -hicpp-deprecated-headers,
-  -hicpp-function-size,
-  -hicpp-invalid-access-moved,
-  -hicpp-member-init,
-  -hicpp-move-const-arg,
-  -hicpp-named-parameter,
-  -hicpp-new-delete-operators,
-  -hicpp-no-array-decay,
-  -hicpp-no-malloc,
-  -hicpp-noexcept-move,
-  -hicpp-special-member-functions,
-  -hicpp-static-assert,
-  -hicpp-undelegated-constructor,
-  -hicpp-use-auto,
-  -hicpp-use-emplace,
-  -hicpp-use-equals-default,
-  -hicpp-use-equals-delete,
-  -hicpp-use-noexcept,
-  -hicpp-use-nullptr,
-  -hicpp-use-override,
-  -hicpp-vararg
+  
+  
+  -*-redundant-parentheses,
+  
+  -hicpp-no-assembler,
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*/lib/(include|src)/.*'
-# Third party code should not be handled by clang-tidy.
+HeaderFilterRegex: '.*/azoth/lib/(include|src)/.*'
 ExcludeHeaderFilterRegex: '.*/_deps/.*'
 FormatStyle: none
 SystemHeaders: false
 CheckOptions:
+
+  misc-include-cleaner.IgnoreHeaders: '.*/sys/_types/.*;.*/sys/_pthread/.*;.*/sys/fcntl\.h;.*/sys/signal\.h;.*/sys/unistd\.h;.*/sys/syslimits\.h;.*/malloc/_malloc\.h;.*/mach/(arm|arm64|i386|machine)/.*;.*/_time\.h;.*/_stdlib\.h;.*/azoth/base/config/platform\.hpp'
+  bugprone-reserved-identifier.AllowedIdentifiers: '^__has_cpp_attribute$'
+  readability-trailing-comma.SingleLineCommaPolicy: 'Ignore'
   readability-identifier-length.MinimumVariableNameLength: '2'
   readability-identifier-length.MinimumParameterNameLength: '2'
   readability-identifier-length.MinimumLoopCounterNameLength: '1'
@@ -114,4 +106,47 @@ CheckOptions:
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: 'true'
   cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: 'true'
   readability-function-cognitive-complexity.IgnoreMacros: 'true'
-  hicpp-signed-bitwise.IgnorePositiveIntegerLiterals: 'true'
+  bugprone-signed-bitwise.IgnorePositiveIntegerLiterals: 'true'
+  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::azo::FlatHashMap;::azo::BitVector'
+  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.FixMode: 'function'
+  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.FixFunction: 'azo::at'
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.ConceptCase: CamelCase
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.EnumConstantPrefix: e
+  readability-identifier-naming.EnumConstantIgnoredRegexp: '^e[A-Z][A-Za-z0-9]*$'
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.PublicMethodCase: lower_case
+  readability-identifier-naming.ProtectedMethodCase: lower_case
+  readability-identifier-naming.PrivateMethodCase: CamelCase
+  readability-identifier-naming.ParameterCase: camelBack
+  readability-identifier-naming.LocalVariableCase: camelBack
+  readability-identifier-naming.LocalConstantCase: camelBack
+  readability-identifier-naming.PrivateMemberCase: camelBack
+  readability-identifier-naming.PrivateMemberPrefix: m_
+  readability-identifier-naming.PrivateMemberIgnoredRegexp: '^m_[a-z][A-Za-z0-9]*$'
+  readability-identifier-naming.ProtectedMemberCase: camelBack
+  readability-identifier-naming.ProtectedMemberPrefix: m_
+  readability-identifier-naming.ProtectedMemberIgnoredRegexp: '^m_[a-z][A-Za-z0-9]*$'
+  readability-identifier-naming.GlobalVariableCase: CamelCase
+  readability-identifier-naming.GlobalVariablePrefix: g_
+  readability-identifier-naming.GlobalVariableIgnoredRegexp: '^([gt]_[A-Z][A-Za-z0-9]*|r_[a-z][A-Za-z0-9]*)$'
+  readability-identifier-naming.StaticVariableCase: CamelCase
+  readability-identifier-naming.StaticVariablePrefix: s_
+  readability-identifier-naming.StaticVariableIgnoredRegexp: '^[st]_[A-Z][A-Za-z0-9]*$'
+  readability-identifier-naming.ClassMemberCase: CamelCase
+  readability-identifier-naming.ClassMemberPrefix: s_
+  readability-identifier-naming.ClassMemberIgnoredRegexp: '^[st]_[A-Z][A-Za-z0-9]*$'
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: k
+  readability-identifier-naming.ConstexprVariableIgnoredRegexp: '^[A-Z][A-Za-z0-9]*_v$'
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantPrefix: k
+  readability-identifier-naming.GlobalConstantIgnoredRegexp: '^[A-Z][A-Za-z0-9]*_v$'
+  readability-identifier-naming.ClassConstantCase: CamelCase
+  readability-identifier-naming.ClassConstantPrefix: k
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

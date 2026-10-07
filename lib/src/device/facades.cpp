@@ -1,18 +1,28 @@
 // Copyright 2026 Ian Pike
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "azoth/rhi/backend/allocation_tracker.hpp"
 #include "azoth/rhi/backend/dispatch.hpp"
+#include "azoth/rhi/backend/support/host_containers.hpp"
 #include "azoth/rhi/backend/table_validation.hpp"
+#include "azoth/rhi/core/c_string.hpp"
+#include "azoth/rhi/core/handle.hpp"
+#include "azoth/rhi/host/allocator.hpp"
 #include "azoth/rhi/native/native_access.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <span>
@@ -24,7 +34,7 @@ namespace azo::rhi
 	namespace
 	{
 
-		void Fail(Error * error, const ErrorCode code, const char * message) noexcept
+		void fail(Error * error, const ErrorCode code, const char * message) noexcept
 		{
 			if (error != nullptr)
 			{
@@ -53,16 +63,16 @@ namespace azo::rhi
 		constexpr const char * kNoNativeEscape		= "this backend hands out no native command buffer";
 
 		template <class ValueT>
-		[[nodiscard]] ValueT Decline(Error * error, const char * what) noexcept
+		[[nodiscard]] ValueT decline(Error * error, const char * what) noexcept
 		{
-			Fail(error, ErrorCode::eUnsupportedFeature, what);
+			fail(error, ErrorCode::eUnsupportedFeature, what);
 			return ValueT{};
 		}
 
 		template <class Tag>
 		[[nodiscard]] bool Produced(const Handle<Tag> & handle) noexcept
 		{
-			return handle.IsValid();
+			return handle.is_valid();
 		}
 
 		[[nodiscard]] bool Produced(const bool answered) noexcept
@@ -124,7 +134,7 @@ namespace azo::rhi
 		}
 
 		template <class ValueT>
-		void Settle(ValueT & value, Error & error) noexcept
+		void settle(ValueT & value, Error & error) noexcept
 		{
 			if (Produced(value) && error.code == ErrorCode::eOk)
 			{
@@ -143,7 +153,7 @@ namespace azo::rhi
 		}
 
 		template <class ValueT>
-		[[nodiscard]] Result<ValueT> AsResult(ValueT value, const Error & error) noexcept
+		[[nodiscard]] Result<ValueT> as_result(ValueT value, const Error & error) noexcept
 		{
 			if (error.code != ErrorCode::eOk)
 			{
@@ -153,8 +163,16 @@ namespace azo::rhi
 			return value;
 		}
 
-		[[nodiscard]] bool ReserveSpan(Device device, DeviceMemoryAllocator * allocator, const MemoryInfo & info, const HeapType heapType, const bool forBuffer,
-			CString debugName, MemorySpan & out, Error * error)
+		[[nodiscard]] bool reserve_span(
+			Device device,
+			DeviceMemoryAllocator * allocator,
+			const MemoryInfo & info,
+			const HeapType heapType,
+			const bool forBuffer,
+			CString debugName,
+			MemorySpan & out,
+			Error * error
+		)
 		{
 			const MemoryRequest request{
 				.size		   = info.size,
@@ -166,65 +184,80 @@ namespace azo::rhi
 				.debugName	   = debugName,
 			};
 
-			detail::CheckNoGuardHeld();
+			detail::check_no_guard_held();
 
-			if (!allocator->Allocate(device, request, out) || !out.IsValid())
+			if (!allocator->allocate(device, request, out) || !out.is_valid())
 			{
-				Fail(error, ErrorCode::eOutOfDeviceMemory, "the installed device memory allocator refused the request");
+				fail(error, ErrorCode::eOutOfDeviceMemory, "the installed device memory allocator refused the request");
 				return false;
 			}
 
 			if (info.alignment != 0 && out.offset % info.alignment != 0)
 			{
-				detail::CheckNoGuardHeld();
-				allocator->Free(device, out);
+				detail::check_no_guard_held();
+				allocator->free(device, out);
 				out = {};
-				Fail(error, ErrorCode::eInvalidArgument, "the device memory allocator returned an offset that does not satisfy the requested alignment");
+				fail(error, ErrorCode::eInvalidArgument, "the device memory allocator returned an offset that does not satisfy the requested alignment");
 				return false;
 			}
 
 			if (out.size < info.size)
 			{
-				detail::CheckNoGuardHeld();
-				allocator->Free(device, out);
+				detail::check_no_guard_held();
+				allocator->free(device, out);
 				out = {};
-				Fail(error, ErrorCode::eOutOfDeviceMemory, "the device memory allocator returned a span smaller than the resource needs");
+				fail(error, ErrorCode::eOutOfDeviceMemory, "the device memory allocator returned a span smaller than the resource needs");
 				return false;
 			}
 
 			return true;
 		}
 
-		[[nodiscard]] bool RecordSpan(
-			BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation, const MemorySpan & span) noexcept
+		[[nodiscard]] bool record_span(
+			BackendBlockSet & blocks,
+			const ResourceType type,
+			const std::uint32_t index,
+			const std::uint32_t generation,
+			const MemorySpan & span
+		) noexcept
 		{
-			return blocks.Tracker().Record(type,
+			return blocks.tracker().record(
+				type,
 				RawHandle{
 					.index		= index,
 					.generation = generation,
 				},
-				span);
+				span
+			);
 		}
 
-		[[nodiscard]] bool TakeRetiredSpan(BackendBlockSet & blocks, const ResourceType type, const std::uint32_t index, const std::uint32_t generation,
-			const DestroyDesc & desc, MemorySpan & out)
+		[[nodiscard]] bool take_retired_span(
+			BackendBlockSet & blocks,
+			const ResourceType type,
+			const std::uint32_t index,
+			const std::uint32_t generation,
+			const DestroyDesc & desc,
+			MemorySpan & out
+		)
 		{
-			if (blocks.Allocator() == nullptr)
+			if (blocks.allocator() == nullptr)
 			{
 				return false;
 			}
 
-			return blocks.Tracker().Retire(type,
+			return blocks.tracker().retire(
+				type,
 				RawHandle{
 					.index		= index,
 					.generation = generation,
 				},
 				desc,
-				out);
+				out
+			);
 		}
 
 		template <class Collect>
-		[[nodiscard]] bool CollectEveryKind(BackendBlockSet & blocks, Error * error, Collect collect) noexcept
+		[[nodiscard]] bool collect_every_kind(BackendBlockSet & blocks, Error * error, Collect collect) noexcept
 		{
 			bool collected = true;
 			for (std::size_t kind = 0; kind < kResourceTypeCount; ++kind)
@@ -232,7 +265,7 @@ namespace azo::rhi
 				const auto type = static_cast<ResourceType>(kind);
 
 				Error kindError{};
-				const std::scoped_lock guard(blocks.Guard(type));
+				const std::scoped_lock guard(blocks.guard(type));
 				if (!collect(type, error != nullptr ? &kindError : nullptr))
 				{
 					if (collected && error != nullptr)
@@ -245,18 +278,18 @@ namespace azo::rhi
 			return collected;
 		}
 
-		void FreeSpans(Device device, DeviceMemoryAllocator * allocator, const detail::HostVector<MemorySpan> & spans) noexcept
+		void free_spans(Device device, DeviceMemoryAllocator * allocator, const detail::HostVector<MemorySpan> & spans) noexcept
 		{
 			if (allocator == nullptr)
 			{
 				return;
 			}
 
-			detail::CheckNoGuardHeld();
+			detail::check_no_guard_held();
 
 			for (const MemorySpan & span : spans)
 			{
-				allocator->Free(device, span);
+				allocator->free(device, span);
 			}
 		}
 
@@ -273,24 +306,24 @@ namespace azo::rhi
 		m_impl = nullptr;
 	}
 
-	GraphicsApiId Instance::GetGraphicsApiId() const noexcept
+	GraphicsApiId Instance::get_graphics_api_id() const noexcept
 	{
 		return m_dispatch->getGraphicsApiId(m_impl);
 	}
 
-	bool Instance::EnumerateAdapters(std::span<AdapterInfo> adapters, std::uint32_t & out) const noexcept
+	bool Instance::enumerate_adapters(std::span<AdapterInfo> adapters, std::uint32_t & out) const noexcept
 	{
 		Error error{};
-		return EnumerateAdapters(adapters, out, error);
+		return enumerate_adapters(adapters, out, error);
 	}
 
-	bool Instance::EnumerateAdapters(std::span<AdapterInfo> adapters, std::uint32_t & out, Error & error) const noexcept
+	bool Instance::enumerate_adapters(std::span<AdapterInfo> adapters, std::uint32_t & out, Error & error) const noexcept
 	{
 		out	  = 0;
 		error = {};
 
 		bool answered = m_dispatch->enumerateAdapters(m_impl, adapters, &out, &error);
-		Settle(answered, error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -299,33 +332,33 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<std::uint32_t> Instance::EnumerateAdaptersWithResult(std::span<AdapterInfo> adapters) const noexcept
+	Result<std::uint32_t> Instance::enumerate_adapters_with_result(std::span<AdapterInfo> adapters) const noexcept
 	{
 		std::uint32_t out = 0;
 		Error error{};
-		static_cast<void>(EnumerateAdapters(adapters, out, error));
-		return AsResult(out, error);
+		static_cast<void>(enumerate_adapters(adapters, out, error));
+		return as_result(out, error);
 	}
 
-	bool Instance::QueryExternalHandleSupport(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out) const noexcept
+	bool Instance::query_external_handle_support(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out) const noexcept
 	{
 		Error error{};
-		return QueryExternalHandleSupport(desc, out, error);
+		return query_external_handle_support(desc, out, error);
 	}
 
-	bool Instance::QueryExternalHandleSupport(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out, Error & error) const noexcept
+	bool Instance::query_external_handle_support(const ExternalHandleSupportDesc & desc, ExternalHandleSupport & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		const ExternalCapabilityApi * block = detail::QueryBlock<ExternalCapabilityApi>(m_impl);
+		const auto * block = detail::query_block<ExternalCapabilityApi>(m_impl);
 		if (block == nullptr || block->queryExternalHandleSupport == nullptr)
 		{
 			return true;
 		}
 
 		bool answered = block->queryExternalHandleSupport(m_impl, desc, &out, &error);
-		Settle(answered, error);
+		settle(answered, error);
 
 		if (!answered)
 		{
@@ -335,58 +368,58 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<ExternalHandleSupport> Instance::QueryExternalHandleSupportWithResult(const ExternalHandleSupportDesc & desc) const noexcept
+	Result<ExternalHandleSupport> Instance::query_external_handle_support_with_result(const ExternalHandleSupportDesc & desc) const noexcept
 	{
 		ExternalHandleSupport out{};
 		Error error{};
-		static_cast<void>(QueryExternalHandleSupport(desc, out, error));
-		return AsResult(out, error);
+		static_cast<void>(query_external_handle_support(desc, out, error));
+		return as_result(out, error);
 	}
 
-	GraphicsApiId Device::GetGraphicsApiId() const noexcept
+	GraphicsApiId Device::get_graphics_api_id() const noexcept
 	{
-		return m_blocks->Device().core->getGraphicsApiId(m_impl);
+		return m_blocks->device().core->getGraphicsApiId(m_impl);
 	}
 
-	std::string_view Device::GetGraphicsApiName() const noexcept
+	std::string_view Device::get_graphics_api_name() const noexcept
 	{
-		return m_blocks->Device().core->getGraphicsApiName(m_impl);
+		return m_blocks->device().core->getGraphicsApiName(m_impl);
 	}
 
-	BufferHandle Device::CreateBuffer(const BufferDesc & desc) noexcept
+	BufferHandle Device::create_buffer(const BufferDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateBuffer(desc, error);
+		return create_buffer(desc, error);
 	}
 
-	BufferHandle Device::CreateBuffer(const BufferDesc & desc, Error & error) noexcept
+	BufferHandle Device::create_buffer(const BufferDesc & desc, Error & error) noexcept
 	{
 		error = {};
 
 		BufferHandle produced = CreateBufferRouted(desc, &error);
-		Settle(produced, error);
+		settle(produced, error);
 		return produced;
 	}
 
 	BufferHandle Device::CreateBufferRouted(const BufferDesc & desc, Error * error) noexcept
 	{
-		if (!m_blocks->AllocatesPlaced())
+		if (!m_blocks->allocates_placed())
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-			return m_blocks->Device().core->createBuffer(m_impl, desc, error);
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+			return m_blocks->device().core->createBuffer(m_impl, desc, error);
 		}
 
 		MemoryInfo info{};
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-			if (!m_blocks->Device().placedMemory->getBufferMemoryInfo(m_impl, desc, &info, error))
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+			if (!m_blocks->device().placedMemory->getBufferMemoryInfo(m_impl, desc, &info, error))
 			{
 				return {};
 			}
 		}
 
 		MemorySpan span{};
-		if (!ReserveSpan(*this, m_blocks->Allocator(), info, HeapTypeForUsage(desc.memory), true, desc.debugName, span, error))
+		if (!reserve_span(*this, m_blocks->allocator(), info, heap_type_for_usage(desc.memory), true, desc.debugName, span, error))
 		{
 			return {};
 		}
@@ -399,73 +432,75 @@ namespace azo::rhi
 
 		BufferHandle handle{};
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-			handle = m_blocks->Device().placedMemory->createPlacedBuffer(m_impl, placed, error);
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+			handle = m_blocks->device().placedMemory->createPlacedBuffer(m_impl, placed, error);
 
-			if (handle.IsValid() && !RecordSpan(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, span))
+			if (handle.is_valid() && !record_span(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, span))
 			{
-				static_cast<void>(m_blocks->Device().core->destroy(m_impl,
+				static_cast<void>(m_blocks->device().core->destroy(
+					m_impl,
 					ResourceType::eBuffer,
 					{
 						.index		= handle.index,
 						.generation = handle.generation,
 					},
 					DestroyDesc{},
-					nullptr));
+					nullptr
+				));
 				handle = {};
-				Fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this buffer");
+				fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this buffer");
 			}
 		}
 
-		if (!handle.IsValid())
+		if (!handle.is_valid())
 		{
-			detail::CheckNoGuardHeld();
-			m_blocks->Allocator()->Free(*this, span);
+			detail::check_no_guard_held();
+			m_blocks->allocator()->free(*this, span);
 		}
 
 		return handle;
 	}
 
-	Result<BufferHandle> Device::CreateBufferWithResult(const BufferDesc & desc) noexcept
+	Result<BufferHandle> Device::create_buffer_with_result(const BufferDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateBuffer(desc, error), error);
+		return as_result(create_buffer(desc, error), error);
 	}
 
-	TextureHandle Device::CreateTexture(const TextureDesc & desc) noexcept
+	TextureHandle Device::create_texture(const TextureDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateTexture(desc, error);
+		return create_texture(desc, error);
 	}
 
-	TextureHandle Device::CreateTexture(const TextureDesc & desc, Error & error) noexcept
+	TextureHandle Device::create_texture(const TextureDesc & desc, Error & error) noexcept
 	{
 		error = {};
 
 		TextureHandle produced = CreateTextureRouted(desc, &error);
-		Settle(produced, error);
+		settle(produced, error);
 		return produced;
 	}
 
 	TextureHandle Device::CreateTextureRouted(const TextureDesc & desc, Error * error) noexcept
 	{
-		if (!m_blocks->AllocatesPlaced())
+		if (!m_blocks->allocates_placed())
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-			return m_blocks->Device().core->createTexture(m_impl, desc, error);
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+			return m_blocks->device().core->createTexture(m_impl, desc, error);
 		}
 
 		MemoryInfo info{};
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-			if (!m_blocks->Device().placedMemory->getTextureMemoryInfo(m_impl, desc, &info, error))
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+			if (!m_blocks->device().placedMemory->getTextureMemoryInfo(m_impl, desc, &info, error))
 			{
 				return {};
 			}
 		}
 
 		MemorySpan span{};
-		if (!ReserveSpan(*this, m_blocks->Allocator(), info, HeapTypeForUsage(desc.memory), false, desc.debugName, span, error))
+		if (!reserve_span(*this, m_blocks->allocator(), info, heap_type_for_usage(desc.memory), false, desc.debugName, span, error))
 		{
 			return {};
 		}
@@ -478,177 +513,179 @@ namespace azo::rhi
 
 		TextureHandle handle{};
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-			handle = m_blocks->Device().placedMemory->createPlacedTexture(m_impl, placed, error);
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+			handle = m_blocks->device().placedMemory->createPlacedTexture(m_impl, placed, error);
 
-			if (handle.IsValid() && !RecordSpan(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, span))
+			if (handle.is_valid() && !record_span(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, span))
 			{
-				static_cast<void>(m_blocks->Device().core->destroy(m_impl,
+				static_cast<void>(m_blocks->device().core->destroy(
+					m_impl,
 					ResourceType::eTexture,
 					{
 						.index		= handle.index,
 						.generation = handle.generation,
 					},
 					DestroyDesc{},
-					nullptr));
+					nullptr
+				));
 				handle = {};
-				Fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this texture");
+				fail(error, ErrorCode::eOutOfHostMemory, "the allocation tracker could not record the span backing this texture");
 			}
 		}
 
-		if (!handle.IsValid())
+		if (!handle.is_valid())
 		{
-			detail::CheckNoGuardHeld();
-			m_blocks->Allocator()->Free(*this, span);
+			detail::check_no_guard_held();
+			m_blocks->allocator()->free(*this, span);
 		}
 
 		return handle;
 	}
 
-	Result<TextureHandle> Device::CreateTextureWithResult(const TextureDesc & desc) noexcept
+	Result<TextureHandle> Device::create_texture_with_result(const TextureDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateTexture(desc, error), error);
+		return as_result(create_texture(desc, error), error);
 	}
 
-	TextureViewHandle Device::CreateTextureView(TextureHandle texture, const TextureViewDesc & desc) noexcept
+	TextureViewHandle Device::create_texture_view(TextureHandle texture, const TextureViewDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateTextureView(texture, desc, error);
+		return create_texture_view(texture, desc, error);
 	}
 
-	TextureViewHandle Device::CreateTextureView(TextureHandle texture, const TextureViewDesc & desc, Error & error) noexcept
+	TextureViewHandle Device::create_texture_view(TextureHandle texture, const TextureViewDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTextureView));
-		TextureViewHandle produced = m_blocks->Device().core->createTextureView(m_impl, texture, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTextureView));
+		TextureViewHandle produced = m_blocks->device().core->createTextureView(m_impl, texture, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<TextureViewHandle> Device::CreateTextureViewWithResult(TextureHandle texture, const TextureViewDesc & desc) noexcept
+	Result<TextureViewHandle> Device::create_texture_view_with_result(TextureHandle texture, const TextureViewDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateTextureView(texture, desc, error), error);
+		return as_result(create_texture_view(texture, desc, error), error);
 	}
 
-	SamplerHandle Device::CreateSampler(const SamplerDesc & desc) noexcept
+	SamplerHandle Device::create_sampler(const SamplerDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateSampler(desc, error);
+		return create_sampler(desc, error);
 	}
 
-	SamplerHandle Device::CreateSampler(const SamplerDesc & desc, Error & error) noexcept
+	SamplerHandle Device::create_sampler(const SamplerDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eSampler));
-		SamplerHandle produced = m_blocks->Device().core->createSampler(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eSampler));
+		SamplerHandle produced = m_blocks->device().core->createSampler(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<SamplerHandle> Device::CreateSamplerWithResult(const SamplerDesc & desc) noexcept
+	Result<SamplerHandle> Device::create_sampler_with_result(const SamplerDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateSampler(desc, error), error);
+		return as_result(create_sampler(desc, error), error);
 	}
 
-	HeapHandle Device::CreateHeap(const HeapDesc & desc) noexcept
+	HeapHandle Device::create_heap(const HeapDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateHeap(desc, error);
+		return create_heap(desc, error);
 	}
 
-	HeapHandle Device::CreateHeap(const HeapDesc & desc, Error & error) noexcept
+	HeapHandle Device::create_heap(const HeapDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().placedMemory == nullptr)
+		if (m_blocks->device().placedMemory == nullptr)
 		{
-			return Decline<HeapHandle>(&error, kNoPlacedMemory);
+			return decline<HeapHandle>(&error, kNoPlacedMemory);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eHeap));
-		HeapHandle produced = m_blocks->Device().placedMemory->createHeap(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
+		HeapHandle produced = m_blocks->device().placedMemory->createHeap(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<HeapHandle> Device::CreateHeapWithResult(const HeapDesc & desc) noexcept
+	Result<HeapHandle> Device::create_heap_with_result(const HeapDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateHeap(desc, error), error);
+		return as_result(create_heap(desc, error), error);
 	}
 
-	BufferHandle Device::CreatePlacedBuffer(const PlacedBufferDesc & desc) noexcept
+	BufferHandle Device::create_placed_buffer(const PlacedBufferDesc & desc) noexcept
 	{
 		Error error{};
-		return CreatePlacedBuffer(desc, error);
+		return create_placed_buffer(desc, error);
 	}
 
-	BufferHandle Device::CreatePlacedBuffer(const PlacedBufferDesc & desc, Error & error) noexcept
+	BufferHandle Device::create_placed_buffer(const PlacedBufferDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().placedMemory == nullptr)
+		if (m_blocks->device().placedMemory == nullptr)
 		{
-			return Decline<BufferHandle>(&error, kNoPlacedMemory);
+			return decline<BufferHandle>(&error, kNoPlacedMemory);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-		BufferHandle produced = m_blocks->Device().placedMemory->createPlacedBuffer(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+		BufferHandle produced = m_blocks->device().placedMemory->createPlacedBuffer(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<BufferHandle> Device::CreatePlacedBufferWithResult(const PlacedBufferDesc & desc) noexcept
+	Result<BufferHandle> Device::create_placed_buffer_with_result(const PlacedBufferDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreatePlacedBuffer(desc, error), error);
+		return as_result(create_placed_buffer(desc, error), error);
 	}
 
-	TextureHandle Device::CreatePlacedTexture(const PlacedTextureDesc & desc) noexcept
+	TextureHandle Device::create_placed_texture(const PlacedTextureDesc & desc) noexcept
 	{
 		Error error{};
-		return CreatePlacedTexture(desc, error);
+		return create_placed_texture(desc, error);
 	}
 
-	TextureHandle Device::CreatePlacedTexture(const PlacedTextureDesc & desc, Error & error) noexcept
+	TextureHandle Device::create_placed_texture(const PlacedTextureDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().placedMemory == nullptr)
+		if (m_blocks->device().placedMemory == nullptr)
 		{
-			return Decline<TextureHandle>(&error, kNoPlacedMemory);
+			return decline<TextureHandle>(&error, kNoPlacedMemory);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-		TextureHandle produced = m_blocks->Device().placedMemory->createPlacedTexture(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+		TextureHandle produced = m_blocks->device().placedMemory->createPlacedTexture(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<TextureHandle> Device::CreatePlacedTextureWithResult(const PlacedTextureDesc & desc) noexcept
+	Result<TextureHandle> Device::create_placed_texture_with_result(const PlacedTextureDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreatePlacedTexture(desc, error), error);
+		return as_result(create_placed_texture(desc, error), error);
 	}
 
-	bool Device::GetTextureMemoryInfo(const TextureDesc & desc, MemoryInfo & out) const noexcept
+	bool Device::get_texture_memory_info(const TextureDesc & desc, MemoryInfo & out) const noexcept
 	{
 		Error error{};
-		return GetTextureMemoryInfo(desc, out, error);
+		return get_texture_memory_info(desc, out, error);
 	}
 
-	bool Device::GetTextureMemoryInfo(const TextureDesc & desc, MemoryInfo & out, Error & error) const noexcept
+	bool Device::get_texture_memory_info(const TextureDesc & desc, MemoryInfo & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().placedMemory == nullptr)
+		if (m_blocks->device().placedMemory == nullptr)
 		{
-			return Decline<bool>(&error, kNoPlacedMemory);
+			return decline<bool>(&error, kNoPlacedMemory);
 		}
 
-		bool answered = m_blocks->Device().placedMemory->getTextureMemoryInfo(m_impl, desc, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().placedMemory->getTextureMemoryInfo(m_impl, desc, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -657,32 +694,32 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<MemoryInfo> Device::GetTextureMemoryInfoWithResult(const TextureDesc & desc) const noexcept
+	Result<MemoryInfo> Device::get_texture_memory_info_with_result(const TextureDesc & desc) const noexcept
 	{
 		MemoryInfo out{};
 		Error error{};
-		static_cast<void>(GetTextureMemoryInfo(desc, out, error));
-		return AsResult(out, error);
+		static_cast<void>(get_texture_memory_info(desc, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::GetBufferMemoryInfo(const BufferDesc & desc, MemoryInfo & out) const noexcept
+	bool Device::get_buffer_memory_info(const BufferDesc & desc, MemoryInfo & out) const noexcept
 	{
 		Error error{};
-		return GetBufferMemoryInfo(desc, out, error);
+		return get_buffer_memory_info(desc, out, error);
 	}
 
-	bool Device::GetBufferMemoryInfo(const BufferDesc & desc, MemoryInfo & out, Error & error) const noexcept
+	bool Device::get_buffer_memory_info(const BufferDesc & desc, MemoryInfo & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().placedMemory == nullptr)
+		if (m_blocks->device().placedMemory == nullptr)
 		{
-			return Decline<bool>(&error, kNoPlacedMemory);
+			return decline<bool>(&error, kNoPlacedMemory);
 		}
 
-		bool answered = m_blocks->Device().placedMemory->getBufferMemoryInfo(m_impl, desc, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().placedMemory->getBufferMemoryInfo(m_impl, desc, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -691,168 +728,168 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<MemoryInfo> Device::GetBufferMemoryInfoWithResult(const BufferDesc & desc) const noexcept
+	Result<MemoryInfo> Device::get_buffer_memory_info_with_result(const BufferDesc & desc) const noexcept
 	{
 		MemoryInfo out{};
 		Error error{};
-		static_cast<void>(GetBufferMemoryInfo(desc, out, error));
-		return AsResult(out, error);
+		static_cast<void>(get_buffer_memory_info(desc, out, error));
+		return as_result(out, error);
 	}
 
-	DescriptorSetLayoutHandle Device::CreateDescriptorSetLayout(const DescriptorSetLayoutDesc & desc) noexcept
+	DescriptorSetLayoutHandle Device::create_descriptor_set_layout(const DescriptorSetLayoutDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateDescriptorSetLayout(desc, error);
+		return create_descriptor_set_layout(desc, error);
 	}
 
-	DescriptorSetLayoutHandle Device::CreateDescriptorSetLayout(const DescriptorSetLayoutDesc & desc, Error & error) noexcept
+	DescriptorSetLayoutHandle Device::create_descriptor_set_layout(const DescriptorSetLayoutDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSetLayout));
-		DescriptorSetLayoutHandle produced = m_blocks->Device().core->createDescriptorSetLayout(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSetLayout));
+		DescriptorSetLayoutHandle produced = m_blocks->device().core->createDescriptorSetLayout(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<DescriptorSetLayoutHandle> Device::CreateDescriptorSetLayoutWithResult(const DescriptorSetLayoutDesc & desc) noexcept
+	Result<DescriptorSetLayoutHandle> Device::create_descriptor_set_layout_with_result(const DescriptorSetLayoutDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateDescriptorSetLayout(desc, error), error);
+		return as_result(create_descriptor_set_layout(desc, error), error);
 	}
 
-	PipelineLayoutHandle Device::CreatePipelineLayout(const PipelineLayoutDesc & desc) noexcept
+	PipelineLayoutHandle Device::create_pipeline_layout(const PipelineLayoutDesc & desc) noexcept
 	{
 		Error error{};
-		return CreatePipelineLayout(desc, error);
+		return create_pipeline_layout(desc, error);
 	}
 
-	PipelineLayoutHandle Device::CreatePipelineLayout(const PipelineLayoutDesc & desc, Error & error) noexcept
+	PipelineLayoutHandle Device::create_pipeline_layout(const PipelineLayoutDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::ePipelineLayout));
-		PipelineLayoutHandle produced = m_blocks->Device().core->createPipelineLayout(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineLayout));
+		PipelineLayoutHandle produced = m_blocks->device().core->createPipelineLayout(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<PipelineLayoutHandle> Device::CreatePipelineLayoutWithResult(const PipelineLayoutDesc & desc) noexcept
+	Result<PipelineLayoutHandle> Device::create_pipeline_layout_with_result(const PipelineLayoutDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreatePipelineLayout(desc, error), error);
+		return as_result(create_pipeline_layout(desc, error), error);
 	}
 
-	GraphicsPipelineHandle Device::CreateGraphicsPipeline(const GraphicsPipelineDesc & desc) noexcept
+	GraphicsPipelineHandle Device::create_graphics_pipeline(const GraphicsPipelineDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateGraphicsPipeline(desc, error);
+		return create_graphics_pipeline(desc, error);
 	}
 
-	GraphicsPipelineHandle Device::CreateGraphicsPipeline(const GraphicsPipelineDesc & desc, Error & error) noexcept
+	GraphicsPipelineHandle Device::create_graphics_pipeline(const GraphicsPipelineDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eGraphicsPipeline));
-		GraphicsPipelineHandle produced = m_blocks->Device().core->createGraphicsPipeline(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eGraphicsPipeline));
+		GraphicsPipelineHandle produced = m_blocks->device().core->createGraphicsPipeline(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<GraphicsPipelineHandle> Device::CreateGraphicsPipelineWithResult(const GraphicsPipelineDesc & desc) noexcept
+	Result<GraphicsPipelineHandle> Device::create_graphics_pipeline_with_result(const GraphicsPipelineDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateGraphicsPipeline(desc, error), error);
+		return as_result(create_graphics_pipeline(desc, error), error);
 	}
 
-	ComputePipelineHandle Device::CreateComputePipeline(const ComputePipelineDesc & desc) noexcept
+	ComputePipelineHandle Device::create_compute_pipeline(const ComputePipelineDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateComputePipeline(desc, error);
+		return create_compute_pipeline(desc, error);
 	}
 
-	ComputePipelineHandle Device::CreateComputePipeline(const ComputePipelineDesc & desc, Error & error) noexcept
+	ComputePipelineHandle Device::create_compute_pipeline(const ComputePipelineDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eComputePipeline));
-		ComputePipelineHandle produced = m_blocks->Device().core->createComputePipeline(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eComputePipeline));
+		ComputePipelineHandle produced = m_blocks->device().core->createComputePipeline(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<ComputePipelineHandle> Device::CreateComputePipelineWithResult(const ComputePipelineDesc & desc) noexcept
+	Result<ComputePipelineHandle> Device::create_compute_pipeline_with_result(const ComputePipelineDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateComputePipeline(desc, error), error);
+		return as_result(create_compute_pipeline(desc, error), error);
 	}
 
-	RayTracingPipelineHandle Device::CreateRayTracingPipeline(const RayTracingPipelineDesc & desc) noexcept
+	RayTracingPipelineHandle Device::create_ray_tracing_pipeline(const RayTracingPipelineDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateRayTracingPipeline(desc, error);
+		return create_ray_tracing_pipeline(desc, error);
 	}
 
-	RayTracingPipelineHandle Device::CreateRayTracingPipeline(const RayTracingPipelineDesc & desc, Error & error) noexcept
+	RayTracingPipelineHandle Device::create_ray_tracing_pipeline(const RayTracingPipelineDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().rayTracing == nullptr)
+		if (m_blocks->device().rayTracing == nullptr)
 		{
-			return Decline<RayTracingPipelineHandle>(&error, kNoRayTracing);
+			return decline<RayTracingPipelineHandle>(&error, kNoRayTracing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eRayTracingPipeline));
-		RayTracingPipelineHandle produced = m_blocks->Device().rayTracing->createRayTracingPipeline(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eRayTracingPipeline));
+		RayTracingPipelineHandle produced = m_blocks->device().rayTracing->createRayTracingPipeline(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<RayTracingPipelineHandle> Device::CreateRayTracingPipelineWithResult(const RayTracingPipelineDesc & desc) noexcept
+	Result<RayTracingPipelineHandle> Device::create_ray_tracing_pipeline_with_result(const RayTracingPipelineDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateRayTracingPipeline(desc, error), error);
+		return as_result(create_ray_tracing_pipeline(desc, error), error);
 	}
 
-	PipelineCacheHandle Device::CreatePipelineCache(const PipelineCacheDesc & desc) noexcept
+	PipelineCacheHandle Device::create_pipeline_cache(const PipelineCacheDesc & desc) noexcept
 	{
 		Error error{};
-		return CreatePipelineCache(desc, error);
+		return create_pipeline_cache(desc, error);
 	}
 
-	PipelineCacheHandle Device::CreatePipelineCache(const PipelineCacheDesc & desc, Error & error) noexcept
+	PipelineCacheHandle Device::create_pipeline_cache(const PipelineCacheDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().pipelineCache == nullptr)
+		if (m_blocks->device().pipelineCache == nullptr)
 		{
-			return Decline<PipelineCacheHandle>(&error, kNoPipelineCache);
+			return decline<PipelineCacheHandle>(&error, kNoPipelineCache);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::ePipelineCache));
-		PipelineCacheHandle produced = m_blocks->Device().pipelineCache->createPipelineCache(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineCache));
+		PipelineCacheHandle produced = m_blocks->device().pipelineCache->createPipelineCache(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<PipelineCacheHandle> Device::CreatePipelineCacheWithResult(const PipelineCacheDesc & desc) noexcept
+	Result<PipelineCacheHandle> Device::create_pipeline_cache_with_result(const PipelineCacheDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreatePipelineCache(desc, error), error);
+		return as_result(create_pipeline_cache(desc, error), error);
 	}
 
-	bool Device::GetPipelineCacheData(PipelineCacheHandle cache, PipelineCacheData & out) noexcept
+	bool Device::get_pipeline_cache_data(PipelineCacheHandle cache, PipelineCacheData & out) noexcept
 	{
 		Error error{};
-		return GetPipelineCacheData(cache, out, error);
+		return get_pipeline_cache_data(cache, out, error);
 	}
 
-	bool Device::GetPipelineCacheData(PipelineCacheHandle cache, PipelineCacheData & out, Error & error) noexcept
+	bool Device::get_pipeline_cache_data(PipelineCacheHandle cache, PipelineCacheData & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().pipelineCache == nullptr)
+		if (m_blocks->device().pipelineCache == nullptr)
 		{
-			return Decline<bool>(&error, kNoPipelineCache);
+			return decline<bool>(&error, kNoPipelineCache);
 		}
 
-		bool answered = m_blocks->Device().pipelineCache->getPipelineCacheData(m_impl, cache, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().pipelineCache->getPipelineCacheData(m_impl, cache, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -861,208 +898,208 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<PipelineCacheData> Device::GetPipelineCacheDataWithResult(PipelineCacheHandle cache) noexcept
+	Result<PipelineCacheData> Device::get_pipeline_cache_data_with_result(PipelineCacheHandle cache) noexcept
 	{
 		PipelineCacheData out{};
 		Error error{};
-		static_cast<void>(GetPipelineCacheData(cache, out, error));
-		return AsResult(out, error);
+		static_cast<void>(get_pipeline_cache_data(cache, out, error));
+		return as_result(out, error);
 	}
 
-	AccelerationStructureHandle Device::CreateAccelerationStructure(const AccelerationStructureDesc & desc) noexcept
+	AccelerationStructureHandle Device::create_acceleration_structure(const AccelerationStructureDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateAccelerationStructure(desc, error);
+		return create_acceleration_structure(desc, error);
 	}
 
-	AccelerationStructureHandle Device::CreateAccelerationStructure(const AccelerationStructureDesc & desc, Error & error) noexcept
+	AccelerationStructureHandle Device::create_acceleration_structure(const AccelerationStructureDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().rayTracing == nullptr)
+		if (m_blocks->device().rayTracing == nullptr)
 		{
-			return Decline<AccelerationStructureHandle>(&error, kNoRayTracing);
+			return decline<AccelerationStructureHandle>(&error, kNoRayTracing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eAccelerationStructure));
-		AccelerationStructureHandle produced = m_blocks->Device().rayTracing->createAccelerationStructure(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eAccelerationStructure));
+		AccelerationStructureHandle produced = m_blocks->device().rayTracing->createAccelerationStructure(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<AccelerationStructureHandle> Device::CreateAccelerationStructureWithResult(const AccelerationStructureDesc & desc) noexcept
+	Result<AccelerationStructureHandle> Device::create_acceleration_structure_with_result(const AccelerationStructureDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateAccelerationStructure(desc, error), error);
+		return as_result(create_acceleration_structure(desc, error), error);
 	}
 
-	QueryPoolHandle Device::CreateQueryPool(const QueryPoolDesc & desc) noexcept
+	QueryPoolHandle Device::create_query_pool(const QueryPoolDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateQueryPool(desc, error);
+		return create_query_pool(desc, error);
 	}
 
-	QueryPoolHandle Device::CreateQueryPool(const QueryPoolDesc & desc, Error & error) noexcept
+	QueryPoolHandle Device::create_query_pool(const QueryPoolDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().query == nullptr)
+		if (m_blocks->device().query == nullptr)
 		{
-			return Decline<QueryPoolHandle>(&error, kNoQuery);
+			return decline<QueryPoolHandle>(&error, kNoQuery);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eQueryPool));
-		QueryPoolHandle produced = m_blocks->Device().query->createQueryPool(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eQueryPool));
+		QueryPoolHandle produced = m_blocks->device().query->createQueryPool(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<QueryPoolHandle> Device::CreateQueryPoolWithResult(const QueryPoolDesc & desc) noexcept
+	Result<QueryPoolHandle> Device::create_query_pool_with_result(const QueryPoolDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateQueryPool(desc, error), error);
+		return as_result(create_query_pool(desc, error), error);
 	}
 
-	TimelineHandle Device::CreateTimeline(const TimelineDesc & desc) noexcept
+	TimelineHandle Device::create_timeline(const TimelineDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateTimeline(desc, error);
+		return create_timeline(desc, error);
 	}
 
-	TimelineHandle Device::CreateTimeline(const TimelineDesc & desc, Error & error) noexcept
+	TimelineHandle Device::create_timeline(const TimelineDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
-		TimelineHandle produced = m_blocks->Device().core->createTimeline(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
+		TimelineHandle produced = m_blocks->device().core->createTimeline(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<TimelineHandle> Device::CreateTimelineWithResult(const TimelineDesc & desc) noexcept
+	Result<TimelineHandle> Device::create_timeline_with_result(const TimelineDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateTimeline(desc, error), error);
+		return as_result(create_timeline(desc, error), error);
 	}
 
-	BinarySemaphoreHandle Device::CreateBinarySemaphore(const BinarySemaphoreDesc & desc) noexcept
+	BinarySemaphoreHandle Device::create_binary_semaphore(const BinarySemaphoreDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateBinarySemaphore(desc, error);
+		return create_binary_semaphore(desc, error);
 	}
 
-	BinarySemaphoreHandle Device::CreateBinarySemaphore(const BinarySemaphoreDesc & desc, Error & error) noexcept
+	BinarySemaphoreHandle Device::create_binary_semaphore(const BinarySemaphoreDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
-		BinarySemaphoreHandle produced = m_blocks->Device().core->createBinarySemaphore(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
+		BinarySemaphoreHandle produced = m_blocks->device().core->createBinarySemaphore(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<BinarySemaphoreHandle> Device::CreateBinarySemaphoreWithResult(const BinarySemaphoreDesc & desc) noexcept
+	Result<BinarySemaphoreHandle> Device::create_binary_semaphore_with_result(const BinarySemaphoreDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateBinarySemaphore(desc, error), error);
+		return as_result(create_binary_semaphore(desc, error), error);
 	}
 
-	DescriptorArena Device::CreateDescriptorArena(const DescriptorArenaDesc & desc) noexcept
+	DescriptorArena Device::create_descriptor_arena(const DescriptorArenaDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateDescriptorArena(desc, error);
+		return create_descriptor_arena(desc, error);
 	}
 
-	DescriptorArena Device::CreateDescriptorArena(const DescriptorArenaDesc & desc, Error & error) noexcept
+	DescriptorArena Device::create_descriptor_arena(const DescriptorArenaDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->ObjectGuard());
-		void * impl						 = m_blocks->Device().core->createDescriptorArena(m_impl, desc, &error);
-		const DescriptorArenaApi * block = detail::CheckedBlock<DescriptorArenaApi>(impl, &error);
-		Settle(block, error);
+		const std::scoped_lock guard(m_blocks->object_guard());
+		void * impl		   = m_blocks->device().core->createDescriptorArena(m_impl, desc, &error);
+		const auto * block = detail::checked_block<DescriptorArenaApi>(impl, &error);
+		settle(block, error);
 
-		return block != nullptr ? detail::FacadeBuilder::MakeDescriptorArena(impl, block, m_blocks) : DescriptorArena{};
+		return block != nullptr ? detail::FacadeBuilder::make_descriptor_arena(impl, block, m_blocks) : DescriptorArena{};
 	}
 
-	Result<DescriptorArena> Device::CreateDescriptorArenaWithResult(const DescriptorArenaDesc & desc) noexcept
+	Result<DescriptorArena> Device::create_descriptor_arena_with_result(const DescriptorArenaDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateDescriptorArena(desc, error), error);
+		return as_result(create_descriptor_arena(desc, error), error);
 	}
 
-	CommandPool Device::CreateCommandPool(const CommandPoolDesc & desc) noexcept
+	CommandPool Device::create_command_pool(const CommandPoolDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateCommandPool(desc, error);
+		return create_command_pool(desc, error);
 	}
 
-	CommandPool Device::CreateCommandPool(const CommandPoolDesc & desc, Error & error) noexcept
+	CommandPool Device::create_command_pool(const CommandPoolDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->ObjectGuard());
-		void * impl		   = m_blocks->Device().core->createCommandPool(m_impl, desc, &error);
-		const auto * block = detail::CheckedBlock<CommandPoolApi>(impl, &error);
-		Settle(block, error);
+		const std::scoped_lock guard(m_blocks->object_guard());
+		void * impl		   = m_blocks->device().core->createCommandPool(m_impl, desc, &error);
+		const auto * block = detail::checked_block<CommandPoolApi>(impl, &error);
+		settle(block, error);
 
-		return block != nullptr ? detail::FacadeBuilder::MakeCommandPool(impl, block, m_blocks) : CommandPool{};
+		return block != nullptr ? detail::FacadeBuilder::make_command_pool(impl, block, m_blocks) : CommandPool{};
 	}
 
-	Result<CommandPool> Device::CreateCommandPoolWithResult(const CommandPoolDesc & desc) noexcept
+	Result<CommandPool> Device::create_command_pool_with_result(const CommandPoolDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateCommandPool(desc, error), error);
+		return as_result(create_command_pool(desc, error), error);
 	}
 
-	Swapchain Device::CreateSwapchain(const SwapchainDesc & desc) noexcept
+	Swapchain Device::create_swapchain(const SwapchainDesc & desc) noexcept
 	{
 		Error error{};
-		return CreateSwapchain(desc, error);
+		return create_swapchain(desc, error);
 	}
 
-	Swapchain Device::CreateSwapchain(const SwapchainDesc & desc, Error & error) noexcept
+	Swapchain Device::create_swapchain(const SwapchainDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().present == nullptr)
+		if (m_blocks->device().present == nullptr)
 		{
-			return Decline<Swapchain>(&error, kNoPresent);
+			return decline<Swapchain>(&error, kNoPresent);
 		}
 
-		const std::scoped_lock guard(m_blocks->ObjectGuard());
-		void * impl				   = m_blocks->Device().present->createSwapchain(m_impl, desc, &error);
-		const SwapchainApi * block = detail::CheckedBlock<SwapchainApi>(impl, &error);
-		Settle(block, error);
+		const std::scoped_lock guard(m_blocks->object_guard());
+		void * impl		   = m_blocks->device().present->createSwapchain(m_impl, desc, &error);
+		const auto * block = detail::checked_block<SwapchainApi>(impl, &error);
+		settle(block, error);
 
-		return block != nullptr ? detail::FacadeBuilder::MakeSwapchain(impl, block) : Swapchain{};
+		return block != nullptr ? detail::FacadeBuilder::make_swapchain(impl, block) : Swapchain{};
 	}
 
-	Result<Swapchain> Device::CreateSwapchainWithResult(const SwapchainDesc & desc) noexcept
+	Result<Swapchain> Device::create_swapchain_with_result(const SwapchainDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(CreateSwapchain(desc, error), error);
+		return as_result(create_swapchain(desc, error), error);
 	}
 
-	Queue Device::GetQueue(QueueType type, std::uint32_t index) noexcept
+	Queue Device::get_queue(QueueType type, std::uint32_t index) noexcept
 	{
 		Error error{};
-		return GetQueue(type, index, error);
+		return get_queue(type, index, error);
 	}
 
-	Queue Device::GetQueue(QueueType type, std::uint32_t index, Error & error) noexcept
+	Queue Device::get_queue(QueueType type, std::uint32_t index, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->ObjectGuard());
-		void * impl				   = m_blocks->Device().core->getQueue(m_impl, type, index, &error);
-		const QueueBlocks * blocks = detail::CheckedChild<QueueApi>(impl, &error) ? m_blocks->Queue(impl) : nullptr;
-		Settle(blocks, error);
+		const std::scoped_lock guard(m_blocks->object_guard());
+		void * impl				   = m_blocks->device().core->getQueue(m_impl, type, index, &error);
+		const QueueBlocks * blocks = detail::checked_child<QueueApi>(impl, &error) ? m_blocks->queue(impl) : nullptr;
+		settle(blocks, error);
 
-		return blocks != nullptr ? detail::FacadeBuilder::MakeQueue(impl, blocks) : Queue{};
+		return blocks != nullptr ? detail::FacadeBuilder::make_queue(impl, blocks) : Queue{};
 	}
 
-	Result<Queue> Device::GetQueueWithResult(QueueType type, std::uint32_t index) noexcept
+	Result<Queue> Device::get_queue_with_result(QueueType type, std::uint32_t index) noexcept
 	{
 		Error error{};
-		return AsResult(GetQueue(type, index, error), error);
+		return as_result(get_queue(type, index, error), error);
 	}
 
-	std::uint32_t Device::GetQueueCount(QueueType type) const noexcept
+	std::uint32_t Device::get_queue_count(QueueType type) const noexcept
 	{
-		const DeviceCaps & caps = m_blocks->Device().core->getCaps(m_impl);
+		const DeviceCaps & caps = m_blocks->device().core->getCaps(m_impl);
 		switch (type)
 		{
 		case QueueType::eGraphics: return caps.graphicsQueueCount;
@@ -1073,139 +1110,139 @@ namespace azo::rhi
 		return 0;
 	}
 
-	MappedMemory Device::Map(BufferHandle buffer, const MapDesc & desc) noexcept
+	MappedMemory Device::map(BufferHandle buffer, const MapDesc & desc) noexcept
 	{
 		Error error{};
-		return Map(buffer, desc, error);
+		return map(buffer, desc, error);
 	}
 
-	MappedMemory Device::Map(BufferHandle buffer, const MapDesc & desc, Error & error) noexcept
+	MappedMemory Device::map(BufferHandle buffer, const MapDesc & desc, Error & error) noexcept
 	{
 		error				  = {};
-		MappedMemory produced = m_blocks->Device().core->map(m_impl, buffer, desc, &error);
-		Settle(produced, error);
+		MappedMemory produced = m_blocks->device().core->map(m_impl, buffer, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<MappedMemory> Device::MapWithResult(BufferHandle buffer, const MapDesc & desc) noexcept
+	Result<MappedMemory> Device::map_with_result(BufferHandle buffer, const MapDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(Map(buffer, desc, error), error);
+		return as_result(map(buffer, desc, error), error);
 	}
 
-	bool Device::Unmap(BufferHandle buffer) noexcept
+	bool Device::unmap(BufferHandle buffer) noexcept
 	{
-		return m_blocks->Device().core->unmap(m_impl, buffer, nullptr);
+		return m_blocks->device().core->unmap(m_impl, buffer, nullptr);
 	}
 
-	bool Device::Unmap(BufferHandle buffer, Error & error) noexcept
-	{
-		error = {};
-		return m_blocks->Device().core->unmap(m_impl, buffer, &error);
-	}
-
-	bool Device::FlushMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept
-	{
-		return m_blocks->Device().core->flushMappedRange(m_impl, buffer, offset, size, nullptr);
-	}
-
-	bool Device::FlushMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept
+	bool Device::unmap(BufferHandle buffer, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->Device().core->flushMappedRange(m_impl, buffer, offset, size, &error);
+		return m_blocks->device().core->unmap(m_impl, buffer, &error);
 	}
 
-	bool Device::InvalidateMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept
+	bool Device::flush_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept
 	{
-		return m_blocks->Device().core->invalidateMappedRange(m_impl, buffer, offset, size, nullptr);
+		return m_blocks->device().core->flushMappedRange(m_impl, buffer, offset, size, nullptr);
 	}
 
-	bool Device::InvalidateMappedRange(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept
-	{
-		error = {};
-		return m_blocks->Device().core->invalidateMappedRange(m_impl, buffer, offset, size, &error);
-	}
-
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteBuffer> writes) noexcept
-	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->updateDescriptorsBuffer(m_impl, writes, nullptr);
-	}
-
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteBuffer> writes, Error & error) noexcept
+	bool Device::flush_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->updateDescriptorsBuffer(m_impl, writes, &error);
+		return m_blocks->device().core->flushMappedRange(m_impl, buffer, offset, size, &error);
 	}
 
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteTexture> writes) noexcept
+	bool Device::invalidate_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->updateDescriptorsTexture(m_impl, writes, nullptr);
+		return m_blocks->device().core->invalidateMappedRange(m_impl, buffer, offset, size, nullptr);
 	}
 
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteTexture> writes, Error & error) noexcept
+	bool Device::invalidate_mapped_range(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->updateDescriptorsTexture(m_impl, writes, &error);
+		return m_blocks->device().core->invalidateMappedRange(m_impl, buffer, offset, size, &error);
 	}
 
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteSampler> writes) noexcept
+	bool Device::update_descriptors(std::span<const DescriptorWriteBuffer> writes) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->updateDescriptorsSampler(m_impl, writes, nullptr);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->updateDescriptorsBuffer(m_impl, writes, nullptr);
 	}
 
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteSampler> writes, Error & error) noexcept
+	bool Device::update_descriptors(std::span<const DescriptorWriteBuffer> writes, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->updateDescriptorsSampler(m_impl, writes, &error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->updateDescriptorsBuffer(m_impl, writes, &error);
 	}
 
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes) noexcept
+	bool Device::update_descriptors(std::span<const DescriptorWriteTexture> writes) noexcept
 	{
-		if (m_blocks->Device().rayTracing == nullptr)
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->updateDescriptorsTexture(m_impl, writes, nullptr);
+	}
+
+	bool Device::update_descriptors(std::span<const DescriptorWriteTexture> writes, Error & error) noexcept
+	{
+		error = {};
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->updateDescriptorsTexture(m_impl, writes, &error);
+	}
+
+	bool Device::update_descriptors(std::span<const DescriptorWriteSampler> writes) noexcept
+	{
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->updateDescriptorsSampler(m_impl, writes, nullptr);
+	}
+
+	bool Device::update_descriptors(std::span<const DescriptorWriteSampler> writes, Error & error) noexcept
+	{
+		error = {};
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->updateDescriptorsSampler(m_impl, writes, &error);
+	}
+
+	bool Device::update_descriptors(std::span<const DescriptorWriteAccelerationStructure> writes) noexcept
+	{
+		if (m_blocks->device().rayTracing == nullptr)
 		{
-			return Decline<bool>(nullptr, kNoRayTracing);
+			return decline<bool>(nullptr, kNoRayTracing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, nullptr);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, nullptr);
 	}
 
-	bool Device::UpdateDescriptors(std::span<const DescriptorWriteAccelerationStructure> writes, Error & error) noexcept
+	bool Device::update_descriptors(std::span<const DescriptorWriteAccelerationStructure> writes, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().rayTracing == nullptr)
+		if (m_blocks->device().rayTracing == nullptr)
 		{
-			return Decline<bool>(&error, kNoRayTracing);
+			return decline<bool>(&error, kNoRayTracing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, &error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().rayTracing->updateDescriptorsAccelerationStructure(m_impl, writes, &error);
 	}
 
-	bool Device::QueryMemoryBudget(HeapType heap, MemoryBudgetInfo & out) const noexcept
+	bool Device::query_memory_budget(HeapType heap, MemoryBudgetInfo & out) const noexcept
 	{
 		Error error{};
-		return QueryMemoryBudget(heap, out, error);
+		return query_memory_budget(heap, out, error);
 	}
 
-	bool Device::QueryMemoryBudget(HeapType heap, MemoryBudgetInfo & out, Error & error) const noexcept
+	bool Device::query_memory_budget(HeapType heap, MemoryBudgetInfo & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().residency == nullptr)
+		if (m_blocks->device().residency == nullptr)
 		{
-			return Decline<bool>(&error, kNoResidency);
+			return decline<bool>(&error, kNoResidency);
 		}
 
-		bool answered = m_blocks->Device().residency->queryMemoryBudget(m_impl, heap, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().residency->queryMemoryBudget(m_impl, heap, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -1214,45 +1251,45 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<MemoryBudgetInfo> Device::QueryMemoryBudgetWithResult(HeapType heap) const noexcept
+	Result<MemoryBudgetInfo> Device::query_memory_budget_with_result(HeapType heap) const noexcept
 	{
 		MemoryBudgetInfo out{};
 		Error error{};
-		static_cast<void>(QueryMemoryBudget(heap, out, error));
-		return AsResult(out, error);
+		static_cast<void>(query_memory_budget(heap, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::SetResidencyPriority(std::span<const ResidencyPriorityDesc> priorities) noexcept
+	bool Device::set_residency_priority(std::span<const ResidencyPriorityDesc> priorities) noexcept
 	{
-		return m_blocks->Device().residency != nullptr ? m_blocks->Device().residency->setResidencyPriority(m_impl, priorities, nullptr)
-													   : Decline<bool>(nullptr, kNoResidency);
+		return m_blocks->device().residency != nullptr ? m_blocks->device().residency->setResidencyPriority(m_impl, priorities, nullptr)
+													   : decline<bool>(nullptr, kNoResidency);
 	}
 
-	bool Device::SetResidencyPriority(std::span<const ResidencyPriorityDesc> priorities, Error & error) noexcept
+	bool Device::set_residency_priority(std::span<const ResidencyPriorityDesc> priorities, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->Device().residency != nullptr ? m_blocks->Device().residency->setResidencyPriority(m_impl, priorities, &error)
-													   : Decline<bool>(&error, kNoResidency);
+		return m_blocks->device().residency != nullptr ? m_blocks->device().residency->setResidencyPriority(m_impl, priorities, &error)
+													   : decline<bool>(&error, kNoResidency);
 	}
 
-	bool Device::CalibrateTimestamp(QueueType queueType, TimestampCalibration & out) const noexcept
+	bool Device::calibrate_timestamp(QueueType queueType, TimestampCalibration & out) const noexcept
 	{
 		Error error{};
-		return CalibrateTimestamp(queueType, out, error);
+		return calibrate_timestamp(queueType, out, error);
 	}
 
-	bool Device::CalibrateTimestamp(QueueType queueType, TimestampCalibration & out, Error & error) const noexcept
+	bool Device::calibrate_timestamp(QueueType queueType, TimestampCalibration & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().query == nullptr)
+		if (m_blocks->device().query == nullptr)
 		{
-			return Decline<bool>(&error, kNoQuery);
+			return decline<bool>(&error, kNoQuery);
 		}
 
-		bool answered = m_blocks->Device().query->calibrateTimestamp(m_impl, queueType, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().query->calibrateTimestamp(m_impl, queueType, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -1261,24 +1298,24 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<TimestampCalibration> Device::CalibrateTimestampWithResult(QueueType queueType) const noexcept
+	Result<TimestampCalibration> Device::calibrate_timestamp_with_result(QueueType queueType) const noexcept
 	{
 		TimestampCalibration out{};
 		Error error{};
-		static_cast<void>(CalibrateTimestamp(queueType, out, error));
-		return AsResult(out, error);
+		static_cast<void>(calibrate_timestamp(queueType, out, error));
+		return as_result(out, error);
 	}
 
-	const DeviceCaps & Device::GetCaps() const noexcept
+	const DeviceCaps & Device::get_caps() const noexcept
 	{
-		return m_blocks->Caps();
+		return m_blocks->caps();
 	}
 
-	FormatSupport Device::GetFormatSupport(Format format) const noexcept
+	FormatSupport Device::get_format_support(Format format) const noexcept
 	{
-		FormatSupport support = m_blocks->Device().core->getFormatSupport(m_impl, format);
+		FormatSupport support = m_blocks->device().core->getFormatSupport(m_impl, format);
 
-		if (!m_blocks->Caps().supportsScaledBlit)
+		if (!m_blocks->caps().supportsScaledBlit)
 		{
 			support.blitSrc = false;
 			support.blitDst = false;
@@ -1287,29 +1324,29 @@ namespace azo::rhi
 		return support;
 	}
 
-	const AdapterInfo & Device::GetAdapterInfo() const noexcept
+	const AdapterInfo & Device::get_adapter_info() const noexcept
 	{
-		return m_blocks->Device().core->getAdapterInfo(m_impl);
+		return m_blocks->device().core->getAdapterInfo(m_impl);
 	}
 
-	bool Device::GetTextureInfo(const TextureHandle texture, TextureInfo & out) const noexcept
+	bool Device::get_texture_info(const TextureHandle texture, TextureInfo & out) const noexcept
 	{
 		Error error{};
-		return GetTextureInfo(texture, out, error);
+		return get_texture_info(texture, out, error);
 	}
 
-	bool Device::GetTextureInfo(const TextureHandle texture, TextureInfo & out, Error & error) const noexcept
+	bool Device::get_texture_info(const TextureHandle texture, TextureInfo & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().introspection == nullptr)
+		if (m_blocks->device().introspection == nullptr)
 		{
-			return Decline<bool>(&error, kNoIntrospection);
+			return decline<bool>(&error, kNoIntrospection);
 		}
 
-		bool answered = m_blocks->Device().introspection->getTextureInfo(m_impl, texture, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().introspection->getTextureInfo(m_impl, texture, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -1318,32 +1355,32 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<TextureInfo> Device::GetTextureInfoWithResult(const TextureHandle texture) const noexcept
+	Result<TextureInfo> Device::get_texture_info_with_result(const TextureHandle texture) const noexcept
 	{
 		TextureInfo out{};
 		Error error{};
-		static_cast<void>(GetTextureInfo(texture, out, error));
-		return AsResult(out, error);
+		static_cast<void>(get_texture_info(texture, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::GetBufferInfo(const BufferHandle buffer, BufferInfo & out) const noexcept
+	bool Device::get_buffer_info(const BufferHandle buffer, BufferInfo & out) const noexcept
 	{
 		Error error{};
-		return GetBufferInfo(buffer, out, error);
+		return get_buffer_info(buffer, out, error);
 	}
 
-	bool Device::GetBufferInfo(const BufferHandle buffer, BufferInfo & out, Error & error) const noexcept
+	bool Device::get_buffer_info(const BufferHandle buffer, BufferInfo & out, Error & error) const noexcept
 	{
 		out	  = {};
 		error = {};
 
-		if (m_blocks->Device().introspection == nullptr)
+		if (m_blocks->device().introspection == nullptr)
 		{
-			return Decline<bool>(&error, kNoIntrospection);
+			return decline<bool>(&error, kNoIntrospection);
 		}
 
-		bool answered = m_blocks->Device().introspection->getBufferInfo(m_impl, buffer, &out, &error);
-		Settle(answered, error);
+		bool answered = m_blocks->device().introspection->getBufferInfo(m_impl, buffer, &out, &error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -1352,51 +1389,53 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<BufferInfo> Device::GetBufferInfoWithResult(const BufferHandle buffer) const noexcept
+	Result<BufferInfo> Device::get_buffer_info_with_result(const BufferHandle buffer) const noexcept
 	{
 		BufferInfo out{};
 		Error error{};
-		static_cast<void>(GetBufferInfo(buffer, out, error));
-		return AsResult(out, error);
+		static_cast<void>(get_buffer_info(buffer, out, error));
+		return as_result(out, error);
 	}
 
-	ValidationMessageCounts Device::GetValidationMessageCounts() const noexcept
+	ValidationMessageCounts Device::get_validation_message_counts() const noexcept
 	{
-		return m_blocks->Device().core->getValidationMessageCounts(m_impl);
+		return m_blocks->device().core->getValidationMessageCounts(m_impl);
 	}
 
-	bool Device::Destroy(BufferHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(BufferHandle handle, const DestroyDesc & desc) noexcept
 	{
 		MemorySpan released{};
 		bool hasSpan = false;
 
 		bool destroyed = false;
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-			destroyed = m_blocks->Device().core->destroy(m_impl,
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eBuffer,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				nullptr);
+				nullptr
+			);
 			if (destroyed)
 			{
-				hasSpan = TakeRetiredSpan(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, desc, released);
+				hasSpan = take_retired_span(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, desc, released);
 			}
 		}
 
 		if (hasSpan)
 		{
-			detail::CheckNoGuardHeld();
-			m_blocks->Allocator()->Free(*this, released);
+			detail::check_no_guard_held();
+			m_blocks->allocator()->free(*this, released);
 		}
 
 		return destroyed;
 	}
 
-	bool Device::Destroy(BufferHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(BufferHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		MemorySpan released{};
@@ -1404,62 +1443,66 @@ namespace azo::rhi
 
 		bool destroyed = false;
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-			destroyed = m_blocks->Device().core->destroy(m_impl,
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eBuffer,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				&error);
+				&error
+			);
 			if (destroyed)
 			{
-				hasSpan = TakeRetiredSpan(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, desc, released);
+				hasSpan = take_retired_span(*m_blocks, ResourceType::eBuffer, handle.index, handle.generation, desc, released);
 			}
 		}
 
 		if (hasSpan)
 		{
-			detail::CheckNoGuardHeld();
-			m_blocks->Allocator()->Free(*this, released);
+			detail::check_no_guard_held();
+			m_blocks->allocator()->free(*this, released);
 		}
 
 		return destroyed;
 	}
 
-	bool Device::Destroy(TextureHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(TextureHandle handle, const DestroyDesc & desc) noexcept
 	{
 		MemorySpan released{};
 		bool hasSpan = false;
 
 		bool destroyed = false;
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-			destroyed = m_blocks->Device().core->destroy(m_impl,
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eTexture,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				nullptr);
+				nullptr
+			);
 			if (destroyed)
 			{
-				hasSpan = TakeRetiredSpan(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, desc, released);
+				hasSpan = take_retired_span(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, desc, released);
 			}
 		}
 
 		if (hasSpan)
 		{
-			detail::CheckNoGuardHeld();
-			m_blocks->Allocator()->Free(*this, released);
+			detail::check_no_guard_held();
+			m_blocks->allocator()->free(*this, released);
 		}
 
 		return destroyed;
 	}
 
-	bool Device::Destroy(TextureHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(TextureHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		MemorySpan released{};
@@ -1467,530 +1510,596 @@ namespace azo::rhi
 
 		bool destroyed = false;
 		{
-			const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-			destroyed = m_blocks->Device().core->destroy(m_impl,
+			const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+			destroyed = m_blocks->device().core->destroy(
+				m_impl,
 				ResourceType::eTexture,
 				{
 					.index		= handle.index,
 					.generation = handle.generation,
 				},
 				desc,
-				&error);
+				&error
+			);
 			if (destroyed)
 			{
-				hasSpan = TakeRetiredSpan(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, desc, released);
+				hasSpan = take_retired_span(*m_blocks, ResourceType::eTexture, handle.index, handle.generation, desc, released);
 			}
 		}
 
 		if (hasSpan)
 		{
-			detail::CheckNoGuardHeld();
-			m_blocks->Allocator()->Free(*this, released);
+			detail::check_no_guard_held();
+			m_blocks->allocator()->free(*this, released);
 		}
 
 		return destroyed;
 	}
 
-	bool Device::Destroy(TextureViewHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(TextureViewHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTextureView));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTextureView));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTextureView,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(TextureViewHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(TextureViewHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTextureView));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTextureView));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTextureView,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(SamplerHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(SamplerHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eSampler));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eSampler));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eSampler,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(SamplerHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(SamplerHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eSampler));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eSampler));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eSampler,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(HeapHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(HeapHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eHeap));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eHeap,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(HeapHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(HeapHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eHeap));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eHeap,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSetLayout));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSetLayout));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSetLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(DescriptorSetLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSetLayout));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSetLayout));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSetLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(DescriptorSetHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(DescriptorSetHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSet,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(DescriptorSetHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(DescriptorSetHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eDescriptorSet,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(PipelineLayoutHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(PipelineLayoutHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::ePipelineLayout));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineLayout));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(PipelineLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(PipelineLayoutHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::ePipelineLayout));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineLayout));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineLayout,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eGraphicsPipeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eGraphicsPipeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eGraphicsPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(GraphicsPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eGraphicsPipeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eGraphicsPipeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eGraphicsPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(ComputePipelineHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(ComputePipelineHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eComputePipeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eComputePipeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eComputePipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(ComputePipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(ComputePipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eComputePipeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eComputePipeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eComputePipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eRayTracingPipeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eRayTracingPipeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eRayTracingPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(RayTracingPipelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eRayTracingPipeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eRayTracingPipeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eRayTracingPipeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(PipelineCacheHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(PipelineCacheHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::ePipelineCache));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineCache));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineCache,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(PipelineCacheHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(PipelineCacheHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::ePipelineCache));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::ePipelineCache));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::ePipelineCache,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(AccelerationStructureHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(AccelerationStructureHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eAccelerationStructure));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eAccelerationStructure));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eAccelerationStructure,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(AccelerationStructureHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(AccelerationStructureHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eAccelerationStructure));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eAccelerationStructure));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eAccelerationStructure,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(QueryPoolHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(QueryPoolHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eQueryPool));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eQueryPool));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eQueryPool,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(QueryPoolHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(QueryPoolHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eQueryPool));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eQueryPool));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eQueryPool,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(TimelineHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(TimelineHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTimeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(TimelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(TimelineHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eTimeline,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::Destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc) noexcept
+	bool Device::destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eBinarySemaphore,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			nullptr);
+			nullptr
+		);
 	}
 
-	bool Device::Destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc, Error & error) noexcept
+	bool Device::destroy(BinarySemaphoreHandle handle, const DestroyDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
-		return m_blocks->Device().core->destroy(m_impl,
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
+		return m_blocks->device().core->destroy(
+			m_impl,
 			ResourceType::eBinarySemaphore,
 			{
 				.index		= handle.index,
 				.generation = handle.generation,
 			},
 			desc,
-			&error);
+			&error
+		);
 	}
 
-	bool Device::CollectGarbage() noexcept
+	bool Device::collect_garbage() noexcept
 	{
-		const CoreDeviceApi * core = m_blocks->Device().core;
+		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = CollectEveryKind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			nullptr,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				m_blocks->Tracker().TakeAll(type, released);
+				m_blocks->tracker().take_all(type, released);
 				return core->collectGarbage(m_impl, type, kindError);
-			});
+			}
+		);
 
-		FreeSpans(*this, m_blocks->Allocator(), released);
+		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
 	}
 
-	bool Device::CollectGarbage(Error & error) noexcept
+	bool Device::collect_garbage(Error & error) noexcept
 	{
 		error					   = {};
-		const CoreDeviceApi * core = m_blocks->Device().core;
+		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = CollectEveryKind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			&error,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				m_blocks->Tracker().TakeAll(type, released);
+				m_blocks->tracker().take_all(type, released);
 				return core->collectGarbage(m_impl, type, kindError);
-			});
+			}
+		);
 
-		FreeSpans(*this, m_blocks->Allocator(), released);
+		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
 	}
 
-	bool Device::CollectGarbage(TimelineHandle timeline, std::uint64_t completedValue) noexcept
+	bool Device::collect_garbage(TimelineHandle timeline, std::uint64_t completedValue) noexcept
 	{
-		const CoreDeviceApi * core = m_blocks->Device().core;
+		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = CollectEveryKind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			nullptr,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				m_blocks->Tracker().TakeReleasable(type, timeline, completedValue, released);
+				m_blocks->tracker().take_releasable(type, timeline, completedValue, released);
 				return core->collectGarbageTimeline(m_impl, type, timeline, completedValue, kindError);
-			});
+			}
+		);
 
-		FreeSpans(*this, m_blocks->Allocator(), released);
+		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
 	}
 
-	bool Device::CollectGarbage(TimelineHandle timeline, std::uint64_t completedValue, Error & error) noexcept
+	bool Device::collect_garbage(TimelineHandle timeline, std::uint64_t completedValue, Error & error) noexcept
 	{
 		error					   = {};
-		const CoreDeviceApi * core = m_blocks->Device().core;
+		const CoreDeviceApi * core = m_blocks->device().core;
 
 		detail::HostVector<MemorySpan> released;
-		const bool collected = CollectEveryKind(*m_blocks,
+		const bool collected = collect_every_kind(
+			*m_blocks,
 			&error,
 			[&](const ResourceType type, Error * kindError) noexcept
 			{
-				m_blocks->Tracker().TakeReleasable(type, timeline, completedValue, released);
+				m_blocks->tracker().take_releasable(type, timeline, completedValue, released);
 				return core->collectGarbageTimeline(m_impl, type, timeline, completedValue, kindError);
-			});
+			}
+		);
 
-		FreeSpans(*this, m_blocks->Allocator(), released);
+		free_spans(*this, m_blocks->allocator(), released);
 		return collected;
 	}
 
 	BufferHandle Device::AdoptBufferRaw(GraphicsApiId api, const void * nativeImport, const AdoptedBufferDesc & desc, Error * error) noexcept
 	{
-		if (m_blocks->Device().adoption == nullptr)
+		if (m_blocks->device().adoption == nullptr)
 		{
-			return Decline<BufferHandle>(error, kNoAdoption);
+			return decline<BufferHandle>(error, kNoAdoption);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-		return m_blocks->Device().adoption->adoptBuffer(m_impl, api, nativeImport, desc, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+		return m_blocks->device().adoption->adoptBuffer(m_impl, api, nativeImport, desc, error);
 	}
 
 	TextureHandle Device::AdoptTextureRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTextureDesc & desc, Error * error) noexcept
 	{
-		if (m_blocks->Device().adoption == nullptr)
+		if (m_blocks->device().adoption == nullptr)
 		{
-			return Decline<TextureHandle>(error, kNoAdoption);
+			return decline<TextureHandle>(error, kNoAdoption);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-		return m_blocks->Device().adoption->adoptTexture(m_impl, api, nativeImport, desc, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+		return m_blocks->device().adoption->adoptTexture(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeBufferRaw(GraphicsApiId api, BufferHandle buffer, void * outNativeImport, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeBuffer(m_impl, api, buffer, outNativeImport, error)
-													  : Decline<bool>(error, kNoAdoption);
+		return m_blocks->device().adoption != nullptr ? m_blocks->device().adoption->getNativeBuffer(m_impl, api, buffer, outNativeImport, error)
+													  : decline<bool>(error, kNoAdoption);
 	}
 
 	bool Device::GetNativeTextureRaw(GraphicsApiId api, TextureHandle texture, void * outNativeImport, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeTexture(m_impl, api, texture, outNativeImport, error)
-													  : Decline<bool>(error, kNoAdoption);
+		return m_blocks->device().adoption != nullptr ? m_blocks->device().adoption->getNativeTexture(m_impl, api, texture, outNativeImport, error)
+													  : decline<bool>(error, kNoAdoption);
 	}
 
-	bool Device::ExportBuffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out) noexcept
+	bool Device::export_buffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out) noexcept
 	{
 		Error error{};
-		return ExportBuffer(buffer, type, out, error);
+		return export_buffer(buffer, type, out, error);
 	}
 
-	bool Device::ExportBuffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
+	bool Device::export_buffer(BufferHandle buffer, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<bool>(&error, kNoExternalSharing);
+			return decline<bool>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-		bool exported = m_blocks->Device().externalSharing->exportBuffer(m_impl, buffer, type, &out, &error);
-		Settle(exported, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+		bool exported = m_blocks->device().externalSharing->exportBuffer(m_impl, buffer, type, &out, &error);
+		settle(exported, error);
 
 		if (!exported)
 		{
@@ -2000,32 +2109,32 @@ namespace azo::rhi
 		return exported;
 	}
 
-	Result<ExternalHandle> Device::ExportBufferWithResult(BufferHandle buffer, ExternalHandleType type) noexcept
+	Result<ExternalHandle> Device::export_buffer_with_result(BufferHandle buffer, ExternalHandleType type) noexcept
 	{
 		ExternalHandle out{};
 		Error error{};
-		static_cast<void>(ExportBuffer(buffer, type, out, error));
-		return AsResult(out, error);
+		static_cast<void>(export_buffer(buffer, type, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::ExportHeap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out) noexcept
+	bool Device::export_heap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out) noexcept
 	{
 		Error error{};
-		return ExportHeap(heap, type, out, error);
+		return export_heap(heap, type, out, error);
 	}
 
-	bool Device::ExportHeap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
+	bool Device::export_heap(HeapHandle heap, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<bool>(&error, kNoExternalSharing);
+			return decline<bool>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eHeap));
-		bool exported = m_blocks->Device().externalSharing->exportHeap(m_impl, heap, type, &out, &error);
-		Settle(exported, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
+		bool exported = m_blocks->device().externalSharing->exportHeap(m_impl, heap, type, &out, &error);
+		settle(exported, error);
 
 		if (!exported)
 		{
@@ -2035,32 +2144,32 @@ namespace azo::rhi
 		return exported;
 	}
 
-	Result<ExternalHandle> Device::ExportHeapWithResult(HeapHandle heap, ExternalHandleType type) noexcept
+	Result<ExternalHandle> Device::export_heap_with_result(HeapHandle heap, ExternalHandleType type) noexcept
 	{
 		ExternalHandle out{};
 		Error error{};
-		static_cast<void>(ExportHeap(heap, type, out, error));
-		return AsResult(out, error);
+		static_cast<void>(export_heap(heap, type, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::ExportTexture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out) noexcept
+	bool Device::export_texture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out) noexcept
 	{
 		Error error{};
-		return ExportTexture(texture, type, out, error);
+		return export_texture(texture, type, out, error);
 	}
 
-	bool Device::ExportTexture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
+	bool Device::export_texture(TextureHandle texture, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<bool>(&error, kNoExternalSharing);
+			return decline<bool>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-		bool exported = m_blocks->Device().externalSharing->exportTexture(m_impl, texture, type, &out, &error);
-		Settle(exported, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+		bool exported = m_blocks->device().externalSharing->exportTexture(m_impl, texture, type, &out, &error);
+		settle(exported, error);
 
 		if (!exported)
 		{
@@ -2070,32 +2179,32 @@ namespace azo::rhi
 		return exported;
 	}
 
-	Result<ExternalHandle> Device::ExportTextureWithResult(TextureHandle texture, ExternalHandleType type) noexcept
+	Result<ExternalHandle> Device::export_texture_with_result(TextureHandle texture, ExternalHandleType type) noexcept
 	{
 		ExternalHandle out{};
 		Error error{};
-		static_cast<void>(ExportTexture(texture, type, out, error));
-		return AsResult(out, error);
+		static_cast<void>(export_texture(texture, type, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::ExportTimeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out) noexcept
+	bool Device::export_timeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out) noexcept
 	{
 		Error error{};
-		return ExportTimeline(timeline, type, out, error);
+		return export_timeline(timeline, type, out, error);
 	}
 
-	bool Device::ExportTimeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
+	bool Device::export_timeline(TimelineHandle timeline, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<bool>(&error, kNoExternalSharing);
+			return decline<bool>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
-		bool exported = m_blocks->Device().externalSharing->exportTimeline(m_impl, timeline, type, &out, &error);
-		Settle(exported, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
+		bool exported = m_blocks->device().externalSharing->exportTimeline(m_impl, timeline, type, &out, &error);
+		settle(exported, error);
 
 		if (!exported)
 		{
@@ -2105,32 +2214,32 @@ namespace azo::rhi
 		return exported;
 	}
 
-	Result<ExternalHandle> Device::ExportTimelineWithResult(TimelineHandle timeline, ExternalHandleType type) noexcept
+	Result<ExternalHandle> Device::export_timeline_with_result(TimelineHandle timeline, ExternalHandleType type) noexcept
 	{
 		ExternalHandle out{};
 		Error error{};
-		static_cast<void>(ExportTimeline(timeline, type, out, error));
-		return AsResult(out, error);
+		static_cast<void>(export_timeline(timeline, type, out, error));
+		return as_result(out, error);
 	}
 
-	bool Device::ExportBinarySemaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out) noexcept
+	bool Device::export_binary_semaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out) noexcept
 	{
 		Error error{};
-		return ExportBinarySemaphore(semaphore, type, out, error);
+		return export_binary_semaphore(semaphore, type, out, error);
 	}
 
-	bool Device::ExportBinarySemaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
+	bool Device::export_binary_semaphore(BinarySemaphoreHandle semaphore, ExternalHandleType type, ExternalHandle & out, Error & error) noexcept
 	{
 		out	  = {};
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<bool>(&error, kNoExternalSharing);
+			return decline<bool>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
-		bool exported = m_blocks->Device().externalSharing->exportBinarySemaphore(m_impl, semaphore, type, &out, &error);
-		Settle(exported, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
+		bool exported = m_blocks->device().externalSharing->exportBinarySemaphore(m_impl, semaphore, type, &out, &error);
+		settle(exported, error);
 
 		if (!exported)
 		{
@@ -2140,327 +2249,331 @@ namespace azo::rhi
 		return exported;
 	}
 
-	Result<ExternalHandle> Device::ExportBinarySemaphoreWithResult(BinarySemaphoreHandle semaphore, ExternalHandleType type) noexcept
+	Result<ExternalHandle> Device::export_binary_semaphore_with_result(BinarySemaphoreHandle semaphore, ExternalHandleType type) noexcept
 	{
 		ExternalHandle out{};
 		Error error{};
-		static_cast<void>(ExportBinarySemaphore(semaphore, type, out, error));
-		return AsResult(out, error);
+		static_cast<void>(export_binary_semaphore(semaphore, type, out, error));
+		return as_result(out, error);
 	}
 
-	BufferHandle Device::ImportBuffer(const ExternalBufferImportDesc & desc) noexcept
+	BufferHandle Device::import_buffer(const ExternalBufferImportDesc & desc) noexcept
 	{
 		Error error{};
-		return ImportBuffer(desc, error);
+		return import_buffer(desc, error);
 	}
 
-	BufferHandle Device::ImportBuffer(const ExternalBufferImportDesc & desc, Error & error) noexcept
+	BufferHandle Device::import_buffer(const ExternalBufferImportDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<BufferHandle>(&error, kNoExternalSharing);
+			return decline<BufferHandle>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBuffer));
-		BufferHandle produced = m_blocks->Device().externalSharing->importBuffer(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBuffer));
+		BufferHandle produced = m_blocks->device().externalSharing->importBuffer(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<BufferHandle> Device::ImportBufferWithResult(const ExternalBufferImportDesc & desc) noexcept
+	Result<BufferHandle> Device::import_buffer_with_result(const ExternalBufferImportDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(ImportBuffer(desc, error), error);
+		return as_result(import_buffer(desc, error), error);
 	}
 
-	HeapHandle Device::ImportHeap(const ExternalHeapImportDesc & desc) noexcept
+	HeapHandle Device::import_heap(const ExternalHeapImportDesc & desc) noexcept
 	{
 		Error error{};
-		return ImportHeap(desc, error);
+		return import_heap(desc, error);
 	}
 
-	HeapHandle Device::ImportHeap(const ExternalHeapImportDesc & desc, Error & error) noexcept
+	HeapHandle Device::import_heap(const ExternalHeapImportDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<HeapHandle>(&error, kNoExternalSharing);
+			return decline<HeapHandle>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eHeap));
-		HeapHandle produced = m_blocks->Device().externalSharing->importHeap(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eHeap));
+		HeapHandle produced = m_blocks->device().externalSharing->importHeap(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<HeapHandle> Device::ImportHeapWithResult(const ExternalHeapImportDesc & desc) noexcept
+	Result<HeapHandle> Device::import_heap_with_result(const ExternalHeapImportDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(ImportHeap(desc, error), error);
+		return as_result(import_heap(desc, error), error);
 	}
 
-	TextureHandle Device::ImportTexture(const ExternalTextureImportDesc & desc) noexcept
+	TextureHandle Device::import_texture(const ExternalTextureImportDesc & desc) noexcept
 	{
 		Error error{};
-		return ImportTexture(desc, error);
+		return import_texture(desc, error);
 	}
 
-	TextureHandle Device::ImportTexture(const ExternalTextureImportDesc & desc, Error & error) noexcept
+	TextureHandle Device::import_texture(const ExternalTextureImportDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<TextureHandle>(&error, kNoExternalSharing);
+			return decline<TextureHandle>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTexture));
-		TextureHandle produced = m_blocks->Device().externalSharing->importTexture(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTexture));
+		TextureHandle produced = m_blocks->device().externalSharing->importTexture(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<TextureHandle> Device::ImportTextureWithResult(const ExternalTextureImportDesc & desc) noexcept
+	Result<TextureHandle> Device::import_texture_with_result(const ExternalTextureImportDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(ImportTexture(desc, error), error);
+		return as_result(import_texture(desc, error), error);
 	}
 
-	TimelineHandle Device::ImportTimeline(const ExternalTimelineImportDesc & desc) noexcept
+	TimelineHandle Device::import_timeline(const ExternalTimelineImportDesc & desc) noexcept
 	{
 		Error error{};
-		return ImportTimeline(desc, error);
+		return import_timeline(desc, error);
 	}
 
-	TimelineHandle Device::ImportTimeline(const ExternalTimelineImportDesc & desc, Error & error) noexcept
+	TimelineHandle Device::import_timeline(const ExternalTimelineImportDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<TimelineHandle>(&error, kNoExternalSharing);
+			return decline<TimelineHandle>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
-		TimelineHandle produced = m_blocks->Device().externalSharing->importTimeline(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
+		TimelineHandle produced = m_blocks->device().externalSharing->importTimeline(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<TimelineHandle> Device::ImportTimelineWithResult(const ExternalTimelineImportDesc & desc) noexcept
+	Result<TimelineHandle> Device::import_timeline_with_result(const ExternalTimelineImportDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(ImportTimeline(desc, error), error);
+		return as_result(import_timeline(desc, error), error);
 	}
 
-	BinarySemaphoreHandle Device::ImportBinarySemaphore(const ExternalBinarySemaphoreImportDesc & desc) noexcept
+	BinarySemaphoreHandle Device::import_binary_semaphore(const ExternalBinarySemaphoreImportDesc & desc) noexcept
 	{
 		Error error{};
-		return ImportBinarySemaphore(desc, error);
+		return import_binary_semaphore(desc, error);
 	}
 
-	BinarySemaphoreHandle Device::ImportBinarySemaphore(const ExternalBinarySemaphoreImportDesc & desc, Error & error) noexcept
+	BinarySemaphoreHandle Device::import_binary_semaphore(const ExternalBinarySemaphoreImportDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<BinarySemaphoreHandle>(&error, kNoExternalSharing);
+			return decline<BinarySemaphoreHandle>(&error, kNoExternalSharing);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
-		BinarySemaphoreHandle produced = m_blocks->Device().externalSharing->importBinarySemaphore(m_impl, desc, &error);
-		Settle(produced, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
+		BinarySemaphoreHandle produced = m_blocks->device().externalSharing->importBinarySemaphore(m_impl, desc, &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<BinarySemaphoreHandle> Device::ImportBinarySemaphoreWithResult(const ExternalBinarySemaphoreImportDesc & desc) noexcept
+	Result<BinarySemaphoreHandle> Device::import_binary_semaphore_with_result(const ExternalBinarySemaphoreImportDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(ImportBinarySemaphore(desc, error), error);
+		return as_result(import_binary_semaphore(desc, error), error);
 	}
 
-	bool Device::CloseExportedHandle(const ExternalHandle & handle) noexcept
+	bool Device::close_exported_handle(const ExternalHandle & handle) noexcept
 	{
 		Error error{};
-		return CloseExportedHandle(handle, error);
+		return close_exported_handle(handle, error);
 	}
 
-	bool Device::CloseExportedHandle(const ExternalHandle & handle, Error & error) noexcept
+	bool Device::close_exported_handle(const ExternalHandle & handle, Error & error) noexcept
 	{
 		error = {};
-		if (m_blocks->Device().externalSharing == nullptr)
+		if (m_blocks->device().externalSharing == nullptr)
 		{
-			return Decline<bool>(&error, kNoExternalSharing);
+			return decline<bool>(&error, kNoExternalSharing);
 		}
 
-		bool closed = m_blocks->Device().externalSharing->closeExportedHandle(m_impl, handle, &error);
-		Settle(closed, error);
+		bool closed = m_blocks->device().externalSharing->closeExportedHandle(m_impl, handle, &error);
+		settle(closed, error);
 		return closed;
 	}
 
 	TextureViewHandle Device::AdoptTextureViewRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTextureViewDesc & desc, Error * error) noexcept
 	{
-		if (m_blocks->Device().adoption == nullptr)
+		if (m_blocks->device().adoption == nullptr)
 		{
-			return Decline<TextureViewHandle>(error, kNoAdoption);
+			return decline<TextureViewHandle>(error, kNoAdoption);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTextureView));
-		return m_blocks->Device().adoption->adoptTextureView(m_impl, api, nativeImport, desc, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTextureView));
+		return m_blocks->device().adoption->adoptTextureView(m_impl, api, nativeImport, desc, error);
 	}
 
 	SamplerHandle Device::AdoptSamplerRaw(GraphicsApiId api, const void * nativeImport, const AdoptedSamplerDesc & desc, Error * error) noexcept
 	{
-		if (m_blocks->Device().adoption == nullptr)
+		if (m_blocks->device().adoption == nullptr)
 		{
-			return Decline<SamplerHandle>(error, kNoAdoption);
+			return decline<SamplerHandle>(error, kNoAdoption);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eSampler));
-		return m_blocks->Device().adoption->adoptSampler(m_impl, api, nativeImport, desc, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eSampler));
+		return m_blocks->device().adoption->adoptSampler(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeTextureViewRaw(GraphicsApiId api, TextureViewHandle view, void * outNativeImport, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeTextureView(m_impl, api, view, outNativeImport, error)
-													  : Decline<bool>(error, kNoAdoption);
+		return m_blocks->device().adoption != nullptr ? m_blocks->device().adoption->getNativeTextureView(m_impl, api, view, outNativeImport, error)
+													  : decline<bool>(error, kNoAdoption);
 	}
 
 	bool Device::GetNativeSamplerRaw(GraphicsApiId api, SamplerHandle sampler, void * outNativeImport, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeSampler(m_impl, api, sampler, outNativeImport, error)
-													  : Decline<bool>(error, kNoAdoption);
+		return m_blocks->device().adoption != nullptr ? m_blocks->device().adoption->getNativeSampler(m_impl, api, sampler, outNativeImport, error)
+													  : decline<bool>(error, kNoAdoption);
 	}
 
 	TimelineHandle Device::AdoptTimelineRaw(GraphicsApiId api, const void * nativeImport, const AdoptedTimelineDesc & desc, Error * error) noexcept
 	{
-		if (m_blocks->Device().adoption == nullptr)
+		if (m_blocks->device().adoption == nullptr)
 		{
-			return Decline<TimelineHandle>(error, kNoAdoption);
+			return decline<TimelineHandle>(error, kNoAdoption);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eTimeline));
-		return m_blocks->Device().adoption->adoptTimeline(m_impl, api, nativeImport, desc, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eTimeline));
+		return m_blocks->device().adoption->adoptTimeline(m_impl, api, nativeImport, desc, error);
 	}
 
 	BinarySemaphoreHandle Device::AdoptBinarySemaphoreRaw(
-		GraphicsApiId api, const void * nativeImport, const AdoptedBinarySemaphoreDesc & desc, Error * error) noexcept
+		GraphicsApiId api,
+		const void * nativeImport,
+		const AdoptedBinarySemaphoreDesc & desc,
+		Error * error
+	) noexcept
 	{
-		if (m_blocks->Device().adoption == nullptr)
+		if (m_blocks->device().adoption == nullptr)
 		{
-			return Decline<BinarySemaphoreHandle>(error, kNoAdoption);
+			return decline<BinarySemaphoreHandle>(error, kNoAdoption);
 		}
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eBinarySemaphore));
-		return m_blocks->Device().adoption->adoptBinarySemaphore(m_impl, api, nativeImport, desc, error);
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eBinarySemaphore));
+		return m_blocks->device().adoption->adoptBinarySemaphore(m_impl, api, nativeImport, desc, error);
 	}
 
 	bool Device::GetNativeTimelineRaw(GraphicsApiId api, TimelineHandle timeline, void * outNativeImport, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeTimeline(m_impl, api, timeline, outNativeImport, error)
-													  : Decline<bool>(error, kNoAdoption);
+		return m_blocks->device().adoption != nullptr ? m_blocks->device().adoption->getNativeTimeline(m_impl, api, timeline, outNativeImport, error)
+													  : decline<bool>(error, kNoAdoption);
 	}
 
 	bool Device::GetNativeBinarySemaphoreRaw(GraphicsApiId api, BinarySemaphoreHandle semaphore, void * outNativeImport, Error * error) noexcept
 	{
-		return m_blocks->Device().adoption != nullptr ? m_blocks->Device().adoption->getNativeBinarySemaphore(m_impl, api, semaphore, outNativeImport, error)
-													  : Decline<bool>(error, kNoAdoption);
+		return m_blocks->device().adoption != nullptr ? m_blocks->device().adoption->getNativeBinarySemaphore(m_impl, api, semaphore, outNativeImport, error)
+													  : decline<bool>(error, kNoAdoption);
 	}
 
-	QueueType Queue::GetType() const noexcept
+	QueueType Queue::get_type() const noexcept
 	{
 		return m_blocks->core->getType(m_impl);
 	}
 
-	bool Queue::Submit(const SubmitDesc & desc) noexcept
+	bool Queue::submit(const SubmitDesc & desc) noexcept
 	{
 		return m_blocks->core->submit(m_impl, desc, nullptr);
 	}
 
-	bool Queue::Submit(const SubmitDesc & desc, Error & error) noexcept
+	bool Queue::submit(const SubmitDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->core->submit(m_impl, desc, &error);
 	}
 
-	bool Queue::WaitIdle() noexcept
+	bool Queue::wait_idle() noexcept
 	{
 		return m_blocks->core->waitIdle(m_impl, nullptr);
 	}
 
-	bool Queue::WaitIdle(Error & error) noexcept
+	bool Queue::wait_idle(Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->core->waitIdle(m_impl, &error);
 	}
 
-	bool Queue::Wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds) noexcept
+	bool Queue::wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds) noexcept
 	{
 		return m_blocks->core->wait(m_impl, timeline, value, timeoutNanoseconds, nullptr);
 	}
 
-	bool Queue::Wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error & error) noexcept
+	bool Queue::wait(TimelineHandle timeline, std::uint64_t value, std::uint64_t timeoutNanoseconds, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->core->wait(m_impl, timeline, value, timeoutNanoseconds, &error);
 	}
 
-	bool Queue::Signal(TimelineHandle timeline, std::uint64_t value) noexcept
+	bool Queue::signal(TimelineHandle timeline, std::uint64_t value) noexcept
 	{
 		return m_blocks->core->signal(m_impl, timeline, value, nullptr);
 	}
 
-	bool Queue::Signal(TimelineHandle timeline, std::uint64_t value, Error & error) noexcept
+	bool Queue::signal(TimelineHandle timeline, std::uint64_t value, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->core->signal(m_impl, timeline, value, &error);
 	}
 
-	bool Queue::BindSparse(const SparseBindDesc & desc) noexcept
+	bool Queue::bind_sparse(const SparseBindDesc & desc) noexcept
 	{
-		return m_blocks->sparse != nullptr ? m_blocks->sparse->bindSparse(m_impl, desc, nullptr) : Decline<bool>(nullptr, kNoSparse);
+		return m_blocks->sparse != nullptr ? m_blocks->sparse->bindSparse(m_impl, desc, nullptr) : decline<bool>(nullptr, kNoSparse);
 	}
 
-	bool Queue::BindSparse(const SparseBindDesc & desc, Error & error) noexcept
+	bool Queue::bind_sparse(const SparseBindDesc & desc, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->sparse != nullptr ? m_blocks->sparse->bindSparse(m_impl, desc, &error) : Decline<bool>(&error, kNoSparse);
+		return m_blocks->sparse != nullptr ? m_blocks->sparse->bindSparse(m_impl, desc, &error) : decline<bool>(&error, kNoSparse);
 	}
 
-	bool Queue::BeginDebugLabel(const char * name, std::uint32_t color) noexcept
+	bool Queue::begin_debug_label(const char * name, std::uint32_t color) noexcept
 	{
 		return m_blocks->core->beginDebugLabel(m_impl, name, color, nullptr);
 	}
 
-	bool Queue::BeginDebugLabel(const char * name, std::uint32_t color, Error & error) noexcept
+	bool Queue::begin_debug_label(const char * name, std::uint32_t color, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->core->beginDebugLabel(m_impl, name, color, &error);
 	}
 
-	bool Queue::EndDebugLabel() noexcept
+	bool Queue::end_debug_label() noexcept
 	{
 		return m_blocks->core->endDebugLabel(m_impl, nullptr);
 	}
 
-	bool Queue::EndDebugLabel(Error & error) noexcept
+	bool Queue::end_debug_label(Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->core->endDebugLabel(m_impl, &error);
 	}
 
-	bool Queue::GetCompletedValue(TimelineHandle timeline, std::uint64_t & out) const noexcept
+	bool Queue::get_completed_value(TimelineHandle timeline, std::uint64_t & out) const noexcept
 	{
 		Error error{};
-		return GetCompletedValue(timeline, out, error);
+		return get_completed_value(timeline, out, error);
 	}
 
-	bool Queue::GetCompletedValue(TimelineHandle timeline, std::uint64_t & out, Error & error) const noexcept
+	bool Queue::get_completed_value(TimelineHandle timeline, std::uint64_t & out, Error & error) const noexcept
 	{
 		out	  = 0;
 		error = {};
 
 		bool answered = m_blocks->core->getCompletedValue(m_impl, timeline, &out, &error);
-		Settle(answered, error);
+		settle(answered, error);
 		if (!answered)
 		{
 			out = {};
@@ -2469,616 +2582,699 @@ namespace azo::rhi
 		return answered;
 	}
 
-	Result<std::uint64_t> Queue::GetCompletedValueWithResult(TimelineHandle timeline) const noexcept
+	Result<std::uint64_t> Queue::get_completed_value_with_result(TimelineHandle timeline) const noexcept
 	{
 		std::uint64_t out = 0;
 		Error error{};
-		static_cast<void>(GetCompletedValue(timeline, out, error));
-		return AsResult(out, error);
+		static_cast<void>(get_completed_value(timeline, out, error));
+		return as_result(out, error);
 	}
 
-	CommandList CommandPool::Allocate(const char * debugName) noexcept
+	CommandList CommandPool::allocate(const char * debugName) noexcept
 	{
 		Error error{};
-		return Allocate(debugName, error);
+		return allocate(debugName, error);
 	}
 
-	CommandList CommandPool::Allocate(const char * debugName, Error & error) noexcept
+	CommandList CommandPool::allocate(const char * debugName, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->ObjectGuard());
+		const std::scoped_lock guard(m_blocks->object_guard());
 		void * impl						 = m_dispatch->allocate(m_impl, debugName, &error);
-		const CommandListBlocks * blocks = detail::CheckedChild<RenderCommandApi>(impl, &error) ? m_blocks->CommandList(impl) : nullptr;
-		Settle(blocks, error);
+		const CommandListBlocks * blocks = detail::checked_child<RenderCommandApi>(impl, &error) ? m_blocks->command_list(impl) : nullptr;
+		settle(blocks, error);
 
-		return blocks != nullptr ? detail::FacadeBuilder::MakeCommandList(impl, blocks) : CommandList{};
+		return blocks != nullptr ? detail::FacadeBuilder::make_command_list(impl, blocks) : CommandList{};
 	}
 
-	Result<CommandList> CommandPool::AllocateWithResult(const char * debugName) noexcept
+	Result<CommandList> CommandPool::allocate_with_result(const char * debugName) noexcept
 	{
 		Error error{};
-		return AsResult(Allocate(debugName, error), error);
+		return as_result(allocate(debugName, error), error);
 	}
 
-	bool CommandPool::Reset(RetirePoint safeAfter) noexcept
+	bool CommandPool::reset(RetirePoint safeAfter) noexcept
 	{
 		return m_dispatch->reset(m_impl, safeAfter, nullptr);
 	}
 
-	bool CommandPool::Reset(RetirePoint safeAfter, Error & error) noexcept
+	bool CommandPool::reset(RetirePoint safeAfter, Error & error) noexcept
 	{
 		error = {};
 		return m_dispatch->reset(m_impl, safeAfter, &error);
 	}
 
-	bool CommandList::Begin() noexcept
+	bool CommandList::begin() noexcept
 	{
 		return m_blocks->render->begin(m_impl, nullptr);
 	}
 
-	bool CommandList::Begin(Error & error) noexcept
+	bool CommandList::begin(Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->begin(m_impl, &error);
 	}
 
-	bool CommandList::End() noexcept
+	bool CommandList::end() noexcept
 	{
 		return m_blocks->render->end(m_impl, nullptr);
 	}
 
-	bool CommandList::End(Error & error) noexcept
+	bool CommandList::end(Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->end(m_impl, &error);
 	}
 
-	bool CommandList::Barriers(const BarrierBatch & barriers) noexcept
+	bool CommandList::barriers(const BarrierBatch & barriers) noexcept
 	{
 		return m_blocks->render->barriers(m_impl, barriers, nullptr);
 	}
 
-	bool CommandList::Barriers(const BarrierBatch & barriers, Error & error) noexcept
+	bool CommandList::barriers(const BarrierBatch & barriers, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->barriers(m_impl, barriers, &error);
 	}
 
-	bool CommandList::Transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse) noexcept
+	bool CommandList::transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse) noexcept
 	{
 		Error ignored{};
-		return Transition(texture, fromUse, toUse, ignored);
+		return transition(texture, fromUse, toUse, ignored);
 	}
 
-	bool CommandList::Transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
+	bool CommandList::transition(const TextureHandle texture, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
 	{
-		const std::array textures{ TextureBarrier{ .texture = texture,
-			.before											= { .use = fromUse },
-			.after											= { .use = toUse },
-			.range											= { .aspects = kAllAspects, .mipCount = kAllMips, .layerCount = kAllLayers } } };
-		return Barriers(BarrierBatch{ .textures = textures }, error);
+		const std::array textures{
+			TextureBarrier{
+				.texture = texture,
+				.before	 = { .use = fromUse },
+				.after	 = { .use = toUse },
+				.range	 = { .aspects = kAllAspects, .mipCount = kAllMips, .layerCount = kAllLayers },
+			},
+		};
+		return barriers(BarrierBatch{ .textures = textures }, error);
 	}
 
-	bool CommandList::Transition(const BufferHandle buffer, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse) noexcept
+	bool CommandList::transition(const BufferHandle buffer, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse) noexcept
 	{
 		Error ignored{};
-		return Transition(buffer, fromUse, toUse, ignored);
+		return transition(buffer, fromUse, toUse, ignored);
 	}
 
-	bool CommandList::Transition(const BufferHandle buffer, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
+	bool CommandList::transition(const BufferHandle buffer, const Flags<ResourceUse> fromUse, const Flags<ResourceUse> toUse, Error & error) noexcept
 	{
 		const std::array buffers{ BufferBarrier{ .buffer = buffer, .before = { .use = fromUse }, .after = { .use = toUse } } };
-		return Barriers(BarrierBatch{ .buffers = buffers }, error);
+		return barriers(BarrierBatch{ .buffers = buffers }, error);
 	}
 
-	bool CommandList::AliasBarriers(std::span<const AliasBarrier> barriers) noexcept
+	bool CommandList::alias_barriers(std::span<const AliasBarrier> barriers) noexcept
 	{
-		return m_blocks->aliasing != nullptr ? m_blocks->aliasing->aliasBarriers(m_impl, barriers, nullptr) : Decline<bool>(nullptr, kNoAliasing);
+		return m_blocks->aliasing != nullptr ? m_blocks->aliasing->aliasBarriers(m_impl, barriers, nullptr) : decline<bool>(nullptr, kNoAliasing);
 	}
 
-	bool CommandList::AliasBarriers(std::span<const AliasBarrier> barriers, Error & error) noexcept
+	bool CommandList::alias_barriers(std::span<const AliasBarrier> barriers, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->aliasing != nullptr ? m_blocks->aliasing->aliasBarriers(m_impl, barriers, &error) : Decline<bool>(&error, kNoAliasing);
+		return m_blocks->aliasing != nullptr ? m_blocks->aliasing->aliasBarriers(m_impl, barriers, &error) : decline<bool>(&error, kNoAliasing);
 	}
 
-	bool CommandList::BeginRendering(const BeginRenderingDesc & desc) noexcept
+	bool CommandList::begin_rendering(const BeginRenderingDesc & desc) noexcept
 	{
 		return m_blocks->render->beginRendering(m_impl, desc, nullptr);
 	}
 
-	bool CommandList::BeginRendering(const BeginRenderingDesc & desc, Error & error) noexcept
+	bool CommandList::begin_rendering(const BeginRenderingDesc & desc, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->beginRendering(m_impl, desc, &error);
 	}
 
-	bool CommandList::EndRendering() noexcept
+	bool CommandList::end_rendering() noexcept
 	{
 		return m_blocks->render->endRendering(m_impl, nullptr);
 	}
 
-	bool CommandList::EndRendering(Error & error) noexcept
+	bool CommandList::end_rendering(Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->endRendering(m_impl, &error);
 	}
 
-	bool CommandList::SetGraphicsPipeline(GraphicsPipelineHandle pipeline) noexcept
+	bool CommandList::set_graphics_pipeline(GraphicsPipelineHandle pipeline) noexcept
 	{
 		return m_blocks->render->setGraphicsPipeline(m_impl, pipeline, nullptr);
 	}
 
-	bool CommandList::SetGraphicsPipeline(GraphicsPipelineHandle pipeline, Error & error) noexcept
+	bool CommandList::set_graphics_pipeline(GraphicsPipelineHandle pipeline, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setGraphicsPipeline(m_impl, pipeline, &error);
 	}
 
-	bool CommandList::SetComputePipeline(ComputePipelineHandle pipeline) noexcept
+	bool CommandList::set_compute_pipeline(ComputePipelineHandle pipeline) noexcept
 	{
 		return m_blocks->render->setComputePipeline(m_impl, pipeline, nullptr);
 	}
 
-	bool CommandList::SetComputePipeline(ComputePipelineHandle pipeline, Error & error) noexcept
+	bool CommandList::set_compute_pipeline(ComputePipelineHandle pipeline, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setComputePipeline(m_impl, pipeline, &error);
 	}
 
-	bool CommandList::SetRayTracingPipeline(RayTracingPipelineHandle pipeline) noexcept
+	bool CommandList::set_ray_tracing_pipeline(RayTracingPipelineHandle pipeline) noexcept
 	{
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->setRayTracingPipeline(m_impl, pipeline, nullptr)
-											   : Decline<bool>(nullptr, kNoRayTracingCommand);
+											   : decline<bool>(nullptr, kNoRayTracingCommand);
 	}
 
-	bool CommandList::SetRayTracingPipeline(RayTracingPipelineHandle pipeline, Error & error) noexcept
+	bool CommandList::set_ray_tracing_pipeline(RayTracingPipelineHandle pipeline, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->setRayTracingPipeline(m_impl, pipeline, &error)
-											   : Decline<bool>(&error, kNoRayTracingCommand);
+											   : decline<bool>(&error, kNoRayTracingCommand);
 	}
 
-	bool CommandList::BindDescriptorSet(
-		PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set, std::span<const DynamicDescriptorOffset> dynamicOffsets) noexcept
+	bool CommandList::bind_descriptor_set(
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets
+	) noexcept
 	{
 		return m_blocks->render->bindDescriptorSet(m_impl, layout, setIndex, set, dynamicOffsets, nullptr);
 	}
 
-	bool CommandList::BindDescriptorSet(PipelineLayoutHandle layout, std::uint32_t setIndex, DescriptorSetHandle set,
-		std::span<const DynamicDescriptorOffset> dynamicOffsets, Error & error) noexcept
+	bool CommandList::bind_descriptor_set(
+		PipelineLayoutHandle layout,
+		std::uint32_t setIndex,
+		DescriptorSetHandle set,
+		std::span<const DynamicDescriptorOffset> dynamicOffsets,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->bindDescriptorSet(m_impl, layout, setIndex, set, dynamicOffsets, &error);
 	}
 
-	bool CommandList::PushConstants(
-		PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data) noexcept
+	bool CommandList::push_constants(
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data
+	) noexcept
 	{
 		return m_blocks->render->pushConstants(m_impl, layout, stages, offset, size, data, nullptr);
 	}
 
-	bool CommandList::PushConstants(
-		PipelineLayoutHandle layout, Flags<ShaderStage> stages, std::uint32_t offset, std::uint32_t size, const void * data, Error & error) noexcept
+	bool CommandList::push_constants(
+		PipelineLayoutHandle layout,
+		Flags<ShaderStage> stages,
+		std::uint32_t offset,
+		std::uint32_t size,
+		const void * data,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->pushConstants(m_impl, layout, stages, offset, size, data, &error);
 	}
 
-	bool CommandList::SetViewport(const Viewport & viewport) noexcept
+	bool CommandList::set_viewport(const Viewport & viewport) noexcept
 	{
 		return m_blocks->render->setViewport(m_impl, viewport, nullptr);
 	}
 
-	bool CommandList::SetViewport(const Viewport & viewport, Error & error) noexcept
+	bool CommandList::set_viewport(const Viewport & viewport, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setViewport(m_impl, viewport, &error);
 	}
 
-	bool CommandList::SetScissor(const Rect2D & scissor) noexcept
+	bool CommandList::set_scissor(const Rect2D & scissor) noexcept
 	{
 		return m_blocks->render->setScissor(m_impl, scissor, nullptr);
 	}
 
-	bool CommandList::SetScissor(const Rect2D & scissor, Error & error) noexcept
+	bool CommandList::set_scissor(const Rect2D & scissor, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setScissor(m_impl, scissor, &error);
 	}
 
-	bool CommandList::SetBlendConstants(float r, float g, float b, float a) noexcept
+	bool CommandList::set_blend_constants(float r, float g, float b, float a) noexcept
 	{
 		return m_blocks->render->setBlendConstants(m_impl, r, g, b, a, nullptr);
 	}
 
-	bool CommandList::SetBlendConstants(float r, float g, float b, float a, Error & error) noexcept
+	bool CommandList::set_blend_constants(float r, float g, float b, float a, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setBlendConstants(m_impl, r, g, b, a, &error);
 	}
 
-	bool CommandList::SetStencilReference(std::uint32_t reference) noexcept
+	bool CommandList::set_stencil_reference(std::uint32_t reference) noexcept
 	{
 		return m_blocks->render->setStencilReference(m_impl, reference, nullptr);
 	}
 
-	bool CommandList::SetStencilReference(std::uint32_t reference, Error & error) noexcept
+	bool CommandList::set_stencil_reference(std::uint32_t reference, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setStencilReference(m_impl, reference, &error);
 	}
 
-	bool CommandList::SetDepthBias(float constantFactor, float clamp, float slopeFactor) noexcept
+	bool CommandList::set_depth_bias(float constantFactor, float clamp, float slopeFactor) noexcept
 	{
 		return m_blocks->render->setDepthBias(m_impl, constantFactor, clamp, slopeFactor, nullptr);
 	}
 
-	bool CommandList::SetDepthBias(float constantFactor, float clamp, float slopeFactor, Error & error) noexcept
+	bool CommandList::set_depth_bias(float constantFactor, float clamp, float slopeFactor, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setDepthBias(m_impl, constantFactor, clamp, slopeFactor, &error);
 	}
 
-	bool CommandList::SetVertexBuffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset) noexcept
+	bool CommandList::set_vertex_buffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset) noexcept
 	{
 		return m_blocks->render->setVertexBuffer(m_impl, slot, buffer, offset, nullptr);
 	}
 
-	bool CommandList::SetVertexBuffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error & error) noexcept
+	bool CommandList::set_vertex_buffer(std::uint32_t slot, BufferHandle buffer, std::uint64_t offset, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setVertexBuffer(m_impl, slot, buffer, offset, &error);
 	}
 
-	bool CommandList::SetIndexBuffer(BufferHandle buffer, std::uint64_t offset, bool index32) noexcept
+	bool CommandList::set_index_buffer(BufferHandle buffer, std::uint64_t offset, bool index32) noexcept
 	{
 		return m_blocks->render->setIndexBuffer(m_impl, buffer, offset, index32, nullptr);
 	}
 
-	bool CommandList::SetIndexBuffer(BufferHandle buffer, std::uint64_t offset, bool index32, Error & error) noexcept
+	bool CommandList::set_index_buffer(BufferHandle buffer, std::uint64_t offset, bool index32, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->setIndexBuffer(m_impl, buffer, offset, index32, &error);
 	}
 
-	bool CommandList::Draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance) noexcept
+	bool CommandList::draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance) noexcept
 	{
 		return m_blocks->render->draw(m_impl, vertexCount, instanceCount, firstVertex, firstInstance, nullptr);
 	}
 
-	bool CommandList::Draw(
-		std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance, Error & error) noexcept
+	bool CommandList::draw(
+		std::uint32_t vertexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstVertex,
+		std::uint32_t firstInstance,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->draw(m_impl, vertexCount, instanceCount, firstVertex, firstInstance, &error);
 	}
 
-	bool CommandList::DrawIndexed(
-		std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset, std::uint32_t firstInstance) noexcept
+	bool CommandList::draw_indexed(
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance
+	) noexcept
 	{
 		return m_blocks->render->drawIndexed(m_impl, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, nullptr);
 	}
 
-	bool CommandList::DrawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-		std::uint32_t firstInstance, Error & error) noexcept
+	bool CommandList::draw_indexed(
+		std::uint32_t indexCount,
+		std::uint32_t instanceCount,
+		std::uint32_t firstIndex,
+		std::int32_t vertexOffset,
+		std::uint32_t firstInstance,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->drawIndexed(m_impl, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, &error);
 	}
 
-	bool CommandList::DrawIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept
+	bool CommandList::draw_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept
 	{
 		return m_blocks->indirect != nullptr ? m_blocks->indirect->drawIndirect(m_impl, args, offset, drawCount, stride, nullptr)
-											 : Decline<bool>(nullptr, kNoIndirect);
+											 : decline<bool>(nullptr, kNoIndirect);
 	}
 
-	bool CommandList::DrawIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept
+	bool CommandList::draw_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->indirect != nullptr ? m_blocks->indirect->drawIndirect(m_impl, args, offset, drawCount, stride, &error)
-											 : Decline<bool>(&error, kNoIndirect);
+											 : decline<bool>(&error, kNoIndirect);
 	}
 
-	bool CommandList::DrawIndexedIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept
+	bool CommandList::draw_indexed_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride) noexcept
 	{
 		return m_blocks->indirect != nullptr ? m_blocks->indirect->drawIndexedIndirect(m_impl, args, offset, drawCount, stride, nullptr)
-											 : Decline<bool>(nullptr, kNoIndirect);
+											 : decline<bool>(nullptr, kNoIndirect);
 	}
 
-	bool CommandList::DrawIndexedIndirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept
+	bool CommandList::draw_indexed_indirect(BufferHandle args, std::uint64_t offset, std::uint32_t drawCount, std::uint32_t stride, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->indirect != nullptr ? m_blocks->indirect->drawIndexedIndirect(m_impl, args, offset, drawCount, stride, &error)
-											 : Decline<bool>(&error, kNoIndirect);
+											 : decline<bool>(&error, kNoIndirect);
 	}
 
-	bool CommandList::DrawIndirectCount(
-		BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount, std::uint32_t stride) noexcept
+	bool CommandList::draw_indirect_count(
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride
+	) noexcept
 	{
 		return m_blocks->indirectCount != nullptr
 				   ? m_blocks->indirectCount->drawIndirectCount(m_impl, args, argsOffset, count, countOffset, maxDrawCount, stride, nullptr)
-				   : Decline<bool>(nullptr, kNoIndirectCount);
+				   : decline<bool>(nullptr, kNoIndirectCount);
 	}
 
-	bool CommandList::DrawIndirectCount(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount,
-		std::uint32_t stride, Error & error) noexcept
+	bool CommandList::draw_indirect_count(
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->indirectCount != nullptr
 				   ? m_blocks->indirectCount->drawIndirectCount(m_impl, args, argsOffset, count, countOffset, maxDrawCount, stride, &error)
-				   : Decline<bool>(&error, kNoIndirectCount);
+				   : decline<bool>(&error, kNoIndirectCount);
 	}
 
-	bool CommandList::DrawIndexedIndirectCount(
-		BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset, std::uint32_t maxDrawCount, std::uint32_t stride) noexcept
+	bool CommandList::draw_indexed_indirect_count(
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride
+	) noexcept
 	{
 		return m_blocks->indirectCount != nullptr
 				   ? m_blocks->indirectCount->drawIndexedIndirectCount(m_impl, args, argsOffset, count, countOffset, maxDrawCount, stride, nullptr)
-				   : Decline<bool>(nullptr, kNoIndirectCount);
+				   : decline<bool>(nullptr, kNoIndirectCount);
 	}
 
-	bool CommandList::DrawIndexedIndirectCount(BufferHandle args, std::uint64_t argsOffset, BufferHandle count, std::uint64_t countOffset,
-		std::uint32_t maxDrawCount, std::uint32_t stride, Error & error) noexcept
+	bool CommandList::draw_indexed_indirect_count(
+		BufferHandle args,
+		std::uint64_t argsOffset,
+		BufferHandle count,
+		std::uint64_t countOffset,
+		std::uint32_t maxDrawCount,
+		std::uint32_t stride,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->indirectCount != nullptr
 				   ? m_blocks->indirectCount->drawIndexedIndirectCount(m_impl, args, argsOffset, count, countOffset, maxDrawCount, stride, &error)
-				   : Decline<bool>(&error, kNoIndirectCount);
+				   : decline<bool>(&error, kNoIndirectCount);
 	}
 
-	bool CommandList::Dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ) noexcept
+	bool CommandList::dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ) noexcept
 	{
 		return m_blocks->render->dispatch(m_impl, groupCountX, groupCountY, groupCountZ, nullptr);
 	}
 
-	bool CommandList::Dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error & error) noexcept
+	bool CommandList::dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY, std::uint32_t groupCountZ, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->dispatch(m_impl, groupCountX, groupCountY, groupCountZ, &error);
 	}
 
-	bool CommandList::DispatchIndirect(BufferHandle args, std::uint64_t offset) noexcept
+	bool CommandList::dispatch_indirect(BufferHandle args, std::uint64_t offset) noexcept
 	{
-		return m_blocks->indirect != nullptr ? m_blocks->indirect->dispatchIndirect(m_impl, args, offset, nullptr) : Decline<bool>(nullptr, kNoIndirect);
+		return m_blocks->indirect != nullptr ? m_blocks->indirect->dispatchIndirect(m_impl, args, offset, nullptr) : decline<bool>(nullptr, kNoIndirect);
 	}
 
-	bool CommandList::DispatchIndirect(BufferHandle args, std::uint64_t offset, Error & error) noexcept
+	bool CommandList::dispatch_indirect(BufferHandle args, std::uint64_t offset, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->indirect != nullptr ? m_blocks->indirect->dispatchIndirect(m_impl, args, offset, &error) : Decline<bool>(&error, kNoIndirect);
+		return m_blocks->indirect != nullptr ? m_blocks->indirect->dispatchIndirect(m_impl, args, offset, &error) : decline<bool>(&error, kNoIndirect);
 	}
 
-	bool CommandList::BuildAccelerationStructures(std::span<const AccelerationStructureBuildDesc> builds) noexcept
+	bool CommandList::build_acceleration_structures(std::span<const AccelerationStructureBuildDesc> builds) noexcept
 	{
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->buildAccelerationStructures(m_impl, builds, nullptr)
-											   : Decline<bool>(nullptr, kNoRayTracingCommand);
+											   : decline<bool>(nullptr, kNoRayTracingCommand);
 	}
 
-	bool CommandList::BuildAccelerationStructures(std::span<const AccelerationStructureBuildDesc> builds, Error & error) noexcept
+	bool CommandList::build_acceleration_structures(std::span<const AccelerationStructureBuildDesc> builds, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->buildAccelerationStructures(m_impl, builds, &error)
-											   : Decline<bool>(&error, kNoRayTracingCommand);
+											   : decline<bool>(&error, kNoRayTracingCommand);
 	}
 
-	bool CommandList::CopyAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept
+	bool CommandList::copy_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept
 	{
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->copyAccelerationStructure(m_impl, dst, src, nullptr)
-											   : Decline<bool>(nullptr, kNoRayTracingCommand);
+											   : decline<bool>(nullptr, kNoRayTracingCommand);
 	}
 
-	bool CommandList::CopyAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept
+	bool CommandList::copy_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->copyAccelerationStructure(m_impl, dst, src, &error)
-											   : Decline<bool>(&error, kNoRayTracingCommand);
+											   : decline<bool>(&error, kNoRayTracingCommand);
 	}
 
-	bool CommandList::CompactAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept
+	bool CommandList::compact_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src) noexcept
 	{
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->compactAccelerationStructure(m_impl, dst, src, nullptr)
-											   : Decline<bool>(nullptr, kNoRayTracingCommand);
+											   : decline<bool>(nullptr, kNoRayTracingCommand);
 	}
 
-	bool CommandList::CompactAccelerationStructure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept
+	bool CommandList::compact_acceleration_structure(AccelerationStructureHandle dst, AccelerationStructureHandle src, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->compactAccelerationStructure(m_impl, dst, src, &error)
-											   : Decline<bool>(&error, kNoRayTracingCommand);
+											   : decline<bool>(&error, kNoRayTracingCommand);
 	}
 
-	bool CommandList::TraceRays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth) noexcept
+	bool CommandList::trace_rays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth) noexcept
 	{
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->traceRays(m_impl, sbt, width, height, depth, nullptr)
-											   : Decline<bool>(nullptr, kNoRayTracingCommand);
+											   : decline<bool>(nullptr, kNoRayTracingCommand);
 	}
 
-	bool CommandList::TraceRays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth, Error & error) noexcept
+	bool CommandList::trace_rays(const ShaderBindingTableDesc & sbt, std::uint32_t width, std::uint32_t height, std::uint32_t depth, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->rayTracing != nullptr ? m_blocks->rayTracing->traceRays(m_impl, sbt, width, height, depth, &error)
-											   : Decline<bool>(&error, kNoRayTracingCommand);
+											   : decline<bool>(&error, kNoRayTracingCommand);
 	}
 
-	bool CommandList::CopyBuffer(BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size) noexcept
+	bool CommandList::copy_buffer(BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size) noexcept
 	{
 		return m_blocks->render->copyBuffer(m_impl, dst, dstOffset, src, srcOffset, size, nullptr);
 	}
 
-	bool CommandList::CopyBuffer(
-		BufferHandle dst, std::uint64_t dstOffset, BufferHandle src, std::uint64_t srcOffset, std::uint64_t size, Error & error) noexcept
+	bool CommandList::copy_buffer(
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		BufferHandle src,
+		std::uint64_t srcOffset,
+		std::uint64_t size,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->render->copyBuffer(m_impl, dst, dstOffset, src, srcOffset, size, &error);
 	}
 
-	bool CommandList::CopyBufferToTexture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions) noexcept
+	bool CommandList::copy_buffer_to_texture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions) noexcept
 	{
 		return m_blocks->render->copyBufferToTexture(m_impl, dst, src, regions, nullptr);
 	}
 
-	bool CommandList::CopyBufferToTexture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept
+	bool CommandList::copy_buffer_to_texture(TextureHandle dst, BufferHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->copyBufferToTexture(m_impl, dst, src, regions, &error);
 	}
 
-	bool CommandList::CopyTextureToBuffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions) noexcept
+	bool CommandList::copy_texture_to_buffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions) noexcept
 	{
 		return m_blocks->render->copyTextureToBuffer(m_impl, dst, src, regions, nullptr);
 	}
 
-	bool CommandList::CopyTextureToBuffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept
+	bool CommandList::copy_texture_to_buffer(BufferHandle dst, TextureHandle src, std::span<const BufferTextureCopy> regions, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->copyTextureToBuffer(m_impl, dst, src, regions, &error);
 	}
 
-	bool CommandList::CopyTexture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions) noexcept
+	bool CommandList::copy_texture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions) noexcept
 	{
 		return m_blocks->render->copyTexture(m_impl, dst, src, regions, nullptr);
 	}
 
-	bool CommandList::CopyTexture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error & error) noexcept
+	bool CommandList::copy_texture(TextureHandle dst, TextureHandle src, std::span<const TextureCopy> regions, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->copyTexture(m_impl, dst, src, regions, &error);
 	}
 
-	bool CommandList::ClearBuffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value) noexcept
+	bool CommandList::clear_buffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value) noexcept
 	{
 		return m_blocks->render->clearBuffer(m_impl, buffer, offset, size, value, nullptr);
 	}
 
-	bool CommandList::ClearBuffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error & error) noexcept
+	bool CommandList::clear_buffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size, std::uint32_t value, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->clearBuffer(m_impl, buffer, offset, size, value, &error);
 	}
 
-	bool CommandList::ClearTexture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges) noexcept
+	bool CommandList::clear_texture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges) noexcept
 	{
 		return m_blocks->render->clearTexture(m_impl, texture, color, ranges, nullptr);
 	}
 
-	bool CommandList::ClearTexture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error & error) noexcept
+	bool CommandList::clear_texture(TextureHandle texture, const ClearColor & color, std::span<const TextureSubresourceRange> ranges, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->clearTexture(m_impl, texture, color, ranges, &error);
 	}
 
-	bool CommandList::ResolveTexture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions) noexcept
+	bool CommandList::resolve_texture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions) noexcept
 	{
 		return m_blocks->render->resolveTexture(m_impl, dst, src, regions, nullptr);
 	}
 
-	bool CommandList::ResolveTexture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error & error) noexcept
+	bool CommandList::resolve_texture(TextureHandle dst, TextureHandle src, std::span<const TextureResolve> regions, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->resolveTexture(m_impl, dst, src, regions, &error);
 	}
 
-	bool CommandList::Blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter) noexcept
+	bool CommandList::blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter) noexcept
 	{
 		return m_blocks->render->blit(m_impl, dst, src, regions, filter, nullptr);
 	}
 
-	bool CommandList::Blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error & error) noexcept
+	bool CommandList::blit(TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->blit(m_impl, dst, src, regions, filter, &error);
 	}
 
-	bool CommandList::GenerateMips(TextureHandle texture) noexcept
+	bool CommandList::generate_mips(TextureHandle texture) noexcept
 	{
 		return m_blocks->render->generateMips(m_impl, texture, nullptr);
 	}
 
-	bool CommandList::GenerateMips(TextureHandle texture, Error & error) noexcept
+	bool CommandList::generate_mips(TextureHandle texture, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->generateMips(m_impl, texture, &error);
 	}
 
-	bool CommandList::ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount) noexcept
+	bool CommandList::reset_query_pool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount) noexcept
 	{
 		return m_blocks->query != nullptr ? m_blocks->query->resetQueryPool(m_impl, pool, firstQuery, queryCount, nullptr)
-										  : Decline<bool>(nullptr, kNoQueryCommand);
+										  : decline<bool>(nullptr, kNoQueryCommand);
 	}
 
-	bool CommandList::ResetQueryPool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error & error) noexcept
+	bool CommandList::reset_query_pool(QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->query != nullptr ? m_blocks->query->resetQueryPool(m_impl, pool, firstQuery, queryCount, &error)
-										  : Decline<bool>(&error, kNoQueryCommand);
+										  : decline<bool>(&error, kNoQueryCommand);
 	}
 
-	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept
+	bool CommandList::write_timestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage) noexcept
 	{
-		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, nullptr) : Decline<bool>(nullptr, kNoQueryCommand);
+		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, nullptr) : decline<bool>(nullptr, kNoQueryCommand);
 	}
 
-	bool CommandList::WriteTimestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept
-	{
-		error = {};
-		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, &error) : Decline<bool>(&error, kNoQueryCommand);
-	}
-
-	bool CommandList::BeginQuery(QueryPoolHandle pool, std::uint32_t query) noexcept
-	{
-		return m_blocks->query != nullptr ? m_blocks->query->beginQuery(m_impl, pool, query, nullptr) : Decline<bool>(nullptr, kNoQueryCommand);
-	}
-
-	bool CommandList::BeginQuery(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept
+	bool CommandList::write_timestamp(QueryPoolHandle pool, std::uint32_t query, Flags<Stage> stage, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->query != nullptr ? m_blocks->query->beginQuery(m_impl, pool, query, &error) : Decline<bool>(&error, kNoQueryCommand);
+		return m_blocks->query != nullptr ? m_blocks->query->writeTimestamp(m_impl, pool, query, stage, &error) : decline<bool>(&error, kNoQueryCommand);
 	}
 
-	bool CommandList::EndQuery(QueryPoolHandle pool, std::uint32_t query) noexcept
+	bool CommandList::begin_query(QueryPoolHandle pool, std::uint32_t query) noexcept
 	{
-		return m_blocks->query != nullptr ? m_blocks->query->endQuery(m_impl, pool, query, nullptr) : Decline<bool>(nullptr, kNoQueryCommand);
+		return m_blocks->query != nullptr ? m_blocks->query->beginQuery(m_impl, pool, query, nullptr) : decline<bool>(nullptr, kNoQueryCommand);
 	}
 
-	bool CommandList::EndQuery(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept
+	bool CommandList::begin_query(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept
 	{
 		error = {};
-		return m_blocks->query != nullptr ? m_blocks->query->endQuery(m_impl, pool, query, &error) : Decline<bool>(&error, kNoQueryCommand);
+		return m_blocks->query != nullptr ? m_blocks->query->beginQuery(m_impl, pool, query, &error) : decline<bool>(&error, kNoQueryCommand);
 	}
 
-	bool CommandList::ResolveQueryData(
-		QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset) noexcept
+	bool CommandList::end_query(QueryPoolHandle pool, std::uint32_t query) noexcept
+	{
+		return m_blocks->query != nullptr ? m_blocks->query->endQuery(m_impl, pool, query, nullptr) : decline<bool>(nullptr, kNoQueryCommand);
+	}
+
+	bool CommandList::end_query(QueryPoolHandle pool, std::uint32_t query, Error & error) noexcept
+	{
+		error = {};
+		return m_blocks->query != nullptr ? m_blocks->query->endQuery(m_impl, pool, query, &error) : decline<bool>(&error, kNoQueryCommand);
+	}
+
+	bool CommandList::resolve_query_data(
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset
+	) noexcept
 	{
 		return m_blocks->query != nullptr ? m_blocks->query->resolveQueryData(m_impl, pool, firstQuery, queryCount, dst, dstOffset, nullptr)
-										  : Decline<bool>(nullptr, kNoQueryCommand);
+										  : decline<bool>(nullptr, kNoQueryCommand);
 	}
 
-	bool CommandList::ResolveQueryData(
-		QueryPoolHandle pool, std::uint32_t firstQuery, std::uint32_t queryCount, BufferHandle dst, std::uint64_t dstOffset, Error & error) noexcept
+	bool CommandList::resolve_query_data(
+		QueryPoolHandle pool,
+		std::uint32_t firstQuery,
+		std::uint32_t queryCount,
+		BufferHandle dst,
+		std::uint64_t dstOffset,
+		Error & error
+	) noexcept
 	{
 		error = {};
 		return m_blocks->query != nullptr ? m_blocks->query->resolveQueryData(m_impl, pool, firstQuery, queryCount, dst, dstOffset, &error)
-										  : Decline<bool>(&error, kNoQueryCommand);
+										  : decline<bool>(&error, kNoQueryCommand);
 	}
 
-	bool CommandList::BeginDebugLabel(const char * name, std::uint32_t color) noexcept
+	bool CommandList::begin_debug_label(const char * name, std::uint32_t color) noexcept
 	{
 		return m_blocks->render->beginDebugLabel(m_impl, name, color, nullptr);
 	}
 
-	bool CommandList::BeginDebugLabel(const char * name, std::uint32_t color, Error & error) noexcept
+	bool CommandList::begin_debug_label(const char * name, std::uint32_t color, Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->beginDebugLabel(m_impl, name, color, &error);
 	}
 
-	bool CommandList::EndDebugLabel() noexcept
+	bool CommandList::end_debug_label() noexcept
 	{
 		return m_blocks->render->endDebugLabel(m_impl, nullptr);
 	}
 
-	bool CommandList::EndDebugLabel(Error & error) noexcept
+	bool CommandList::end_debug_label(Error & error) noexcept
 	{
 		error = {};
 		return m_blocks->render->endDebugLabel(m_impl, &error);
@@ -3087,25 +3283,25 @@ namespace azo::rhi
 	bool CommandList::BeginNativeMutation(GraphicsApiId api, const NativeMutationDesc & desc, Error * error) noexcept
 	{
 		return m_blocks->nativeEscape != nullptr ? m_blocks->nativeEscape->beginNativeMutation(m_impl, api, desc, error)
-												 : Decline<bool>(error, kNoNativeEscape);
+												 : decline<bool>(error, kNoNativeEscape);
 	}
 
 	bool CommandList::EndNativeMutation(const NativeMutationDesc & desc, Error * error) noexcept
 	{
-		return m_blocks->nativeEscape != nullptr ? m_blocks->nativeEscape->endNativeMutation(m_impl, desc, error) : Decline<bool>(error, kNoNativeEscape);
+		return m_blocks->nativeEscape != nullptr ? m_blocks->nativeEscape->endNativeMutation(m_impl, desc, error) : decline<bool>(error, kNoNativeEscape);
 	}
 
-	AcquireResult Swapchain::AcquireNextImage(std::uint64_t timeoutNanoseconds) noexcept
+	AcquireResult Swapchain::acquire_next_image(std::uint64_t timeoutNanoseconds) noexcept
 	{
 		Error error{};
-		return AcquireNextImage(timeoutNanoseconds, error);
+		return acquire_next_image(timeoutNanoseconds, error);
 	}
 
-	AcquireResult Swapchain::AcquireNextImage(std::uint64_t timeoutNanoseconds, Error & error) noexcept
+	AcquireResult Swapchain::acquire_next_image(std::uint64_t timeoutNanoseconds, Error & error) noexcept
 	{
 		error				   = {};
 		AcquireResult produced = m_dispatch->acquireNextImage(m_impl, timeoutNanoseconds, &error);
-		Settle(produced, error);
+		settle(produced, error);
 
 		if (produced.status == SwapchainStatus::eOk || produced.status == SwapchainStatus::eSuboptimal)
 		{
@@ -3117,125 +3313,125 @@ namespace azo::rhi
 		return produced;
 	}
 
-	Result<AcquireResult> Swapchain::AcquireNextImageWithResult(std::uint64_t timeoutNanoseconds) noexcept
+	Result<AcquireResult> Swapchain::acquire_next_image_with_result(std::uint64_t timeoutNanoseconds) noexcept
 	{
 		Error error{};
-		return AsResult(AcquireNextImage(timeoutNanoseconds, error), error);
+		return as_result(acquire_next_image(timeoutNanoseconds, error), error);
 	}
 
-	PresentResult Swapchain::Present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept
+	PresentResult Swapchain::present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept
 	{
 		Error error{};
-		return Present(queue, imageIndex, renderFinished, error);
+		return present(queue, imageIndex, renderFinished, error);
 	}
 
-	PresentResult Swapchain::Present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, Error & error) noexcept
+	PresentResult Swapchain::present(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished, Error & error) noexcept
 	{
 		error				   = {};
-		PresentResult produced = m_dispatch->present(m_impl, imageIndex, renderFinished, detail::FacadeBuilder::ImplOf(queue), &error);
-		Settle(produced, error);
+		PresentResult produced = m_dispatch->present(m_impl, imageIndex, renderFinished, detail::FacadeBuilder::impl_of(queue), &error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<PresentResult> Swapchain::PresentWithResult(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept
+	Result<PresentResult> Swapchain::present_with_result(Queue & queue, std::uint32_t imageIndex, BinarySemaphoreHandle renderFinished) noexcept
 	{
 		Error error{};
-		return AsResult(Present(queue, imageIndex, renderFinished, error), error);
+		return as_result(present(queue, imageIndex, renderFinished, error), error);
 	}
 
-	TextureHandle Swapchain::GetBackBuffer(std::uint32_t imageIndex) const noexcept
+	TextureHandle Swapchain::get_back_buffer(std::uint32_t imageIndex) const noexcept
 	{
 		return m_dispatch->getBackBuffer(m_impl, imageIndex);
 	}
 
-	TextureViewHandle Swapchain::GetBackBufferView(std::uint32_t imageIndex) const noexcept
+	TextureViewHandle Swapchain::get_back_buffer_view(std::uint32_t imageIndex) const noexcept
 	{
 		return m_dispatch->getBackBufferView(m_impl, imageIndex);
 	}
 
-	BinarySemaphoreHandle Swapchain::GetPerImagePresentSemaphore(std::uint32_t imageIndex) const noexcept
+	BinarySemaphoreHandle Swapchain::get_per_image_present_semaphore(std::uint32_t imageIndex) const noexcept
 	{
 		return m_dispatch->getPerImagePresentSemaphore(m_impl, imageIndex);
 	}
 
-	Format Swapchain::GetFormat() const noexcept
+	Format Swapchain::get_format() const noexcept
 	{
 		return m_dispatch->getFormat(m_impl);
 	}
 
-	bool Swapchain::SupportsReadback() const noexcept
+	bool Swapchain::supports_readback() const noexcept
 	{
 		return m_dispatch->supportsReadback(m_impl);
 	}
 
-	std::uint32_t Swapchain::GetImageCount() const noexcept
+	std::uint32_t Swapchain::get_image_count() const noexcept
 	{
 		return m_dispatch->getImageCount(m_impl);
 	}
 
-	std::uint32_t Swapchain::GetWidth() const noexcept
+	std::uint32_t Swapchain::get_width() const noexcept
 	{
 		return m_dispatch->getWidth(m_impl);
 	}
 
-	std::uint32_t Swapchain::GetHeight() const noexcept
+	std::uint32_t Swapchain::get_height() const noexcept
 	{
 		return m_dispatch->getHeight(m_impl);
 	}
 
-	bool Swapchain::Resize(std::uint32_t width, std::uint32_t height) noexcept
+	bool Swapchain::resize(std::uint32_t width, std::uint32_t height) noexcept
 	{
 		return m_dispatch->resize(m_impl, width, height, nullptr);
 	}
 
-	bool Swapchain::Resize(std::uint32_t width, std::uint32_t height, Error & error) noexcept
+	bool Swapchain::resize(std::uint32_t width, std::uint32_t height, Error & error) noexcept
 	{
 		error = {};
 		return m_dispatch->resize(m_impl, width, height, &error);
 	}
 
-	bool Swapchain::SetPresentMode(PresentMode mode) noexcept
+	bool Swapchain::set_present_mode(PresentMode mode) noexcept
 	{
 		return m_dispatch->setPresentMode(m_impl, mode, nullptr);
 	}
 
-	PresentMode Swapchain::GetPresentMode() const noexcept
+	PresentMode Swapchain::get_present_mode() const noexcept
 	{
 		return m_dispatch->getPresentMode(m_impl);
 	}
 
-	DescriptorSetHandle DescriptorArena::Allocate(const DescriptorSetAllocDesc & desc) noexcept
+	DescriptorSetHandle DescriptorArena::allocate(const DescriptorSetAllocDesc & desc) noexcept
 	{
 		Error error{};
-		return Allocate(desc, error);
+		return allocate(desc, error);
 	}
 
-	DescriptorSetHandle DescriptorArena::Allocate(const DescriptorSetAllocDesc & desc, Error & error) noexcept
+	DescriptorSetHandle DescriptorArena::allocate(const DescriptorSetAllocDesc & desc, Error & error) noexcept
 	{
 		error = {};
 
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
 		DescriptorSetHandle produced = m_dispatch->allocate(m_impl, desc, &error);
-		Settle(produced, error);
+		settle(produced, error);
 		return produced;
 	}
 
-	Result<DescriptorSetHandle> DescriptorArena::AllocateWithResult(const DescriptorSetAllocDesc & desc) noexcept
+	Result<DescriptorSetHandle> DescriptorArena::allocate_with_result(const DescriptorSetAllocDesc & desc) noexcept
 	{
 		Error error{};
-		return AsResult(Allocate(desc, error), error);
+		return as_result(allocate(desc, error), error);
 	}
 
-	bool DescriptorArena::Reset(RetirePoint safeAfter) noexcept
+	bool DescriptorArena::reset(RetirePoint safeAfter) noexcept
 	{
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
 		return m_dispatch->reset(m_impl, safeAfter, nullptr);
 	}
 
-	bool DescriptorArena::Reset(RetirePoint safeAfter, Error & error) noexcept
+	bool DescriptorArena::reset(RetirePoint safeAfter, Error & error) noexcept
 	{
 		error = {};
-		const std::scoped_lock guard(m_blocks->Guard(ResourceType::eDescriptorSet));
+		const std::scoped_lock guard(m_blocks->guard(ResourceType::eDescriptorSet));
 		return m_dispatch->reset(m_impl, safeAfter, &error);
 	}
 
@@ -3245,12 +3441,12 @@ namespace azo::rhi
 		{
 			{
 				const detail::LifetimeLock lifetime;
-				m_blocks->Device().core->destroyDevice(m_impl);
+				m_blocks->device().core->destroyDevice(m_impl);
 			}
 
-			m_blocks->Tracker().Forget();
+			m_blocks->tracker().forget();
 
-			detail::ReleaseDeviceBlocks(m_blocks);
+			detail::release_device_blocks(m_blocks);
 		}
 
 		m_impl	 = nullptr;
@@ -3260,12 +3456,16 @@ namespace azo::rhi
 	namespace
 	{
 
-		[[nodiscard]] void * CreateBackendInstance(
-			GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc, Error & error)
+		[[nodiscard]] void * create_backend_instance(
+			GraphicsApiRegistry & registry,
+			std::span<const GraphicsApiId> preferredApis,
+			const InstanceDesc & desc,
+			Error & error
+		)
 		{
 			for (GraphicsApiId id : preferredApis)
 			{
-				const BackendCreateInfo * backend = detail::RegistryAccess::Find(registry, id);
+				const BackendCreateInfo * backend = detail::RegistryAccess::find(registry, id);
 				if (backend == nullptr || backend->createInstance == nullptr)
 				{
 					continue;
@@ -3295,15 +3495,15 @@ namespace azo::rhi
 			return nullptr;
 		}
 
-		[[nodiscard]] const InstanceApi * BlockOrRelease(void * instanceImpl, Error & error)
+		[[nodiscard]] const InstanceApi * block_or_release(void * instanceImpl, Error & error)
 		{
-			const auto * block = detail::CheckedBlock<InstanceApi>(instanceImpl, &error);
+			const auto * block = detail::checked_block<InstanceApi>(instanceImpl, &error);
 			if (block != nullptr)
 			{
 				return block;
 			}
 
-			if (const auto * partial = detail::QueryBlock<InstanceApi>(instanceImpl); partial != nullptr && partial->destroyInstance != nullptr)
+			if (const auto * partial = detail::query_block<InstanceApi>(instanceImpl); partial != nullptr && partial->destroyInstance != nullptr)
 			{
 				const detail::LifetimeLock lifetime;
 				partial->destroyInstance(instanceImpl);
@@ -3312,7 +3512,7 @@ namespace azo::rhi
 			return nullptr;
 		}
 
-		[[nodiscard]] Result<UniqueDevice> CreateDeviceOn(const BackendCreateInfo & backend, const InstanceDesc & instanceDesc, const DeviceDesc & desc)
+		[[nodiscard]] Result<UniqueDevice> create_device_on(const BackendCreateInfo & backend, const InstanceDesc & instanceDesc, const DeviceDesc & desc)
 		{
 			Error error{};
 
@@ -3327,7 +3527,7 @@ namespace azo::rhi
 				return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null instance" } : error;
 			}
 
-			const InstanceApi * dispatch = BlockOrRelease(instanceImpl, error);
+			const InstanceApi * dispatch = block_or_release(instanceImpl, error);
 			if (dispatch == nullptr)
 			{
 				return error;
@@ -3346,60 +3546,60 @@ namespace azo::rhi
 				return error.code == ErrorCode::eOk ? Error{ .code = ErrorCode::eUnknown, .message = "backend returned a null device", } : error;
 			}
 
-			BackendBlockSet * blocks = detail::ResolveDeviceBlocks(deviceImpl, desc, &error);
+			BackendBlockSet * blocks = detail::resolve_device_blocks(deviceImpl, desc, &error);
 			if (blocks == nullptr)
 			{
-				detail::ReleaseUndrivableDevice(deviceImpl);
+				detail::release_undrivable_device(deviceImpl);
 
 				const detail::LifetimeLock lifetime;
 				dispatch->destroyInstance(instanceImpl);
 				return error;
 			}
 
-			return detail::FacadeBuilder::MakeUniqueDevice(deviceImpl, blocks);
+			return detail::FacadeBuilder::make_unique_device(deviceImpl, blocks);
 		}
 
 	}
 
-	Result<UniqueInstance> CreateInstance(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc)
+	Result<UniqueInstance> create_instance(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const InstanceDesc & desc)
 	{
 		Error error{};
-		void * instanceImpl = CreateBackendInstance(registry, preferredApis, desc, error);
+		void * instanceImpl = create_backend_instance(registry, preferredApis, desc, error);
 		if (instanceImpl == nullptr)
 		{
 			return error;
 		}
 
-		const InstanceApi * dispatch = BlockOrRelease(instanceImpl, error);
+		const InstanceApi * dispatch = block_or_release(instanceImpl, error);
 		if (dispatch == nullptr)
 		{
 			return error;
 		}
 
-		return detail::FacadeBuilder::MakeUniqueInstance(instanceImpl, dispatch);
+		return detail::FacadeBuilder::make_unique_instance(instanceImpl, dispatch);
 	}
 
-	Result<UniqueDevice> CreateDevice(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const DeviceDesc & desc)
+	Result<UniqueDevice> create_device(GraphicsApiRegistry & registry, std::span<const GraphicsApiId> preferredApis, const DeviceDesc & desc)
 	{
-		if (const Result<void> checked = detail::CheckDeviceDesc(desc); !checked)
+		if (const Result<void> checked = detail::check_device_desc(desc); !checked)
 		{
-			return checked.GetError();
+			return checked.get_error();
 		}
 
-		const InstanceDesc instanceDesc = InstanceDescForDevice(desc);
+		const InstanceDesc instanceDesc = instance_desc_for_device(desc);
 
 		Error refusal{};
 		bool anyTried = false;
 
 		for (const GraphicsApiId id : preferredApis)
 		{
-			const BackendCreateInfo * backend = detail::RegistryAccess::Find(registry, id);
+			const BackendCreateInfo * backend = detail::RegistryAccess::find(registry, id);
 			if (backend == nullptr || backend->createInstance == nullptr)
 			{
 				continue;
 			}
 
-			Result<UniqueDevice> device = CreateDeviceOn(*backend, instanceDesc, desc);
+			Result<UniqueDevice> device = create_device_on(*backend, instanceDesc, desc);
 			if (device)
 			{
 				return device;
@@ -3407,7 +3607,7 @@ namespace azo::rhi
 
 			if (!anyTried)
 			{
-				refusal	 = device.GetError();
+				refusal	 = device.get_error();
 				anyTried = true;
 			}
 		}
