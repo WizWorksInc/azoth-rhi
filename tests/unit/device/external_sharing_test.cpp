@@ -227,7 +227,8 @@ namespace
 			const std::array waits{ rhi::TimelinePoint{ .timeline = consumedTimeline, .value = 1 } };
 			const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
 			ASSERT_TRUE(
-				test::Ok(consumerQueue.submit({ .commandLists = lists, .waits = waits, .signals = signals, .debugName = "external.consume" }, error), error));
+				test::Ok(consumerQueue.submit({ .commandLists = lists, .waits = waits, .signals = signals, .debugName = "external.consume" }, error), error)
+			);
 
 			ASSERT_TRUE(test::Ok(consumerQueue.wait(done, 1, kNoTimeout, error), error)) << "the consumer never reached its own completion signal";
 		}

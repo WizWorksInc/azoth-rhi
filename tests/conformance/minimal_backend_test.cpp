@@ -40,12 +40,16 @@ namespace
 	[[nodiscard]] rhi::BackendSelection Selection(rhi::Result<void> (*registerInto)(rhi::GraphicsApiRegistry &), const char * name)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = name, .includeAvailable = false } };
-		EXPECT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
-			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimal"),
-			.canonicalName = "azoth.rhi.test.minimal",
-			.displayName   = "Minimal fixture",
-			.Register	   = registerInto,
-		})));
+		EXPECT_TRUE(
+			test::Ok(backends.add(
+				rhi::BackendEntry{
+					.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimal"),
+					.canonicalName = "azoth.rhi.test.minimal",
+					.displayName   = "Minimal fixture",
+					.Register	   = registerInto,
+				}
+			))
+		);
 		return backends;
 	}
 
@@ -139,12 +143,16 @@ namespace
 	TEST(MinimalBackend, gate_PresentingFixture)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
-			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
-			.canonicalName = "azoth.rhi.test.minimalPresenting",
-			.displayName   = "Minimal presenting fixture",
-			.Register	   = &minimal::RegisterPresenting,
-		})));
+		ASSERT_TRUE(
+			test::Ok(backends.add(
+				rhi::BackendEntry{
+					.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
+					.canonicalName = "azoth.rhi.test.minimalPresenting",
+					.displayName   = "Minimal presenting fixture",
+					.Register	   = &minimal::RegisterPresenting,
+				}
+			))
+		);
 
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
@@ -171,12 +179,16 @@ namespace
 	TEST(MinimalBackend, gate_AFrameNotAPresent)
 	{
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
-			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
-			.canonicalName = "azoth.rhi.test.minimalPresenting",
-			.displayName   = "Minimal presenting fixture",
-			.Register	   = &minimal::RegisterPresenting,
-		})));
+		ASSERT_TRUE(
+			test::Ok(backends.add(
+				rhi::BackendEntry{
+					.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
+					.canonicalName = "azoth.rhi.test.minimalPresenting",
+					.displayName   = "Minimal presenting fixture",
+					.Register	   = &minimal::RegisterPresenting,
+				}
+			))
+		);
 
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
@@ -257,12 +269,16 @@ namespace
 		}
 
 		rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
-			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
-			.canonicalName = "azoth.rhi.test.minimalPresenting",
-			.displayName   = "Minimal presenting fixture",
-			.Register	   = &minimal::RegisterPresenting,
-		})));
+		ASSERT_TRUE(
+			test::Ok(backends.add(
+				rhi::BackendEntry{
+					.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
+					.canonicalName = "azoth.rhi.test.minimalPresenting",
+					.displayName   = "Minimal presenting fixture",
+					.Register	   = &minimal::RegisterPresenting,
+				}
+			))
+		);
 
 		const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(owner));
@@ -312,12 +328,16 @@ namespace
 		const auto openAScope = [](const rhi::ValidationMode validation) noexcept
 		{
 			rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-			EXPECT_TRUE(test::Ok(backends.add(rhi::BackendEntry{
-				.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
-				.canonicalName = "azoth.rhi.test.minimalPresenting",
-				.displayName   = "Minimal presenting fixture",
-				.Register	   = &minimal::RegisterPresenting,
-			})));
+			EXPECT_TRUE(
+				test::Ok(backends.add(
+					rhi::BackendEntry{
+						.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
+						.canonicalName = "azoth.rhi.test.minimalPresenting",
+						.displayName   = "Minimal presenting fixture",
+						.Register	   = &minimal::RegisterPresenting,
+					}
+				))
+			);
 
 			const rhi::Result<rhi::UniqueDevice> owner = backends.create_device(rhi::DeviceDesc{ .validation = validation });
 			EXPECT_TRUE(test::Ok(owner));
@@ -382,12 +402,16 @@ namespace
 		EXPECT_EQ(declined.sparseTier, rhi::SparseTier::eNone) << "SparseApi";
 
 		rhi::BackendSelection presenting{ rhi::BackendPreference{ .requested = "minimalPresenting", .includeAvailable = false } };
-		ASSERT_TRUE(test::Ok(presenting.add(rhi::BackendEntry{
-			.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
-			.canonicalName = "azoth.rhi.test.minimalPresenting",
-			.displayName   = "Minimal presenting fixture",
-			.Register	   = &minimal::RegisterPresenting,
-		})));
+		ASSERT_TRUE(
+			test::Ok(presenting.add(
+				rhi::BackendEntry{
+					.id			   = rhi::make_graphics_api_id("azoth.rhi.test.minimalPresenting"),
+					.canonicalName = "azoth.rhi.test.minimalPresenting",
+					.displayName   = "Minimal presenting fixture",
+					.Register	   = &minimal::RegisterPresenting,
+				}
+			))
+		);
 
 		const rhi::Result<rhi::UniqueDevice> withSurfaces = presenting.create_device(rhi::DeviceDesc{});
 		ASSERT_TRUE(test::Ok(withSurfaces));

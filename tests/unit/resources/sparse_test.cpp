@@ -104,8 +104,9 @@ namespace
 		ASSERT_TRUE(test::Ok(queue.is_valid(), error));
 
 		const std::array<rhi::SparseBufferBind, 1> bind{
-			rhi::SparseBufferBind{
-				.buffer = ordinary, .resourceOffset = 0, .page = rhi::SparseMemoryPage{ .heap = heap, .heapOffset = 0, .size = kPageBytes } },
+			rhi::SparseBufferBind{ .buffer = ordinary,
+				.resourceOffset			   = 0,
+				.page					   = rhi::SparseMemoryPage{ .heap = heap, .heapOffset = 0, .size = kPageBytes } },
 		};
 
 		rhi::SparseBindDesc bound{};

@@ -30,15 +30,15 @@ namespace builder_config_test
 	struct Api final : rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "test.rhi.builder-config";
-		static constexpr std::string_view kDisplayName	= "Builder config fixture";
-		static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Builder config fixture";
+		static constexpr rhi::GraphicsApiId kId			 = rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	struct OtherApi final : rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "test.rhi.other-builder-config";
-		static constexpr std::string_view kDisplayName	= "Other builder config fixture";
-		static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Other builder config fixture";
+		static constexpr rhi::GraphicsApiId kId			 = rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	struct DeviceConfig final
@@ -212,12 +212,14 @@ namespace
 				[](auto & config)
 				{
 					config.queueLimit = 7;
-				})
+				}
+			)
 			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 11;
-				});
+				}
+			);
 		Observe(builder);
 		EXPECT_EQ(observed.deviceBlocks, 1u);
 		EXPECT_EQ(observed.instanceBlocks, 1u);
@@ -233,12 +235,14 @@ namespace
 				[](auto & config)
 				{
 					config.queueLimit = 7;
-				})
+				}
+			)
 			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 11;
-				});
+				}
+			);
 		EXPECT_TRUE(test::Failed(builder.build<Api>(), rhi::ErrorCode::eUnsupportedFeature));
 		EXPECT_EQ(observed.deviceCalls, 1u);
 		EXPECT_EQ(observed.queueLimit, 7u);
@@ -254,12 +258,14 @@ namespace
 				{
 					config.queueLimit	= 7;
 					config.memoryBudget = 11;
-				})
+				}
+			)
 			.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 9;
-				});
+				}
+			);
 		Observe(builder);
 		EXPECT_EQ(observed.deviceBlocks, 1u);
 		EXPECT_EQ(observed.queueLimit, 9u);
@@ -274,23 +280,27 @@ namespace
 				[](auto & config)
 				{
 					config.queueLimit = 7;
-				})
+				}
+			)
 			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 11;
-				});
+				}
+			);
 		rhi::DeviceBuilder copy = original;
 		copy.configure<Api>(
 				[](auto & config)
 				{
 					config.queueLimit = 9;
-				})
+				}
+		)
 			.configure_instance<Api>(
 				[](auto & config)
 				{
 					config.adapterLimit = 13;
-				});
+				}
+			);
 		Observe(original);
 		EXPECT_EQ(observed.queueLimit, 7u);
 		EXPECT_EQ(observed.adapterLimit, 11u);
@@ -308,7 +318,8 @@ namespace
 				[](auto & config)
 				{
 					config.queueLimit = 7;
-				});
+				}
+			);
 			surviving = original;
 		}
 		rhi::DeviceBuilder moved = std::move(surviving);
@@ -324,12 +335,14 @@ namespace
 				[](auto & config)
 				{
 					config.queueLimit = 7;
-				})
+				}
+			)
 			.configure<builder_config_test::OtherApi>(
 				[](auto & config)
 				{
 					config.queueLimit = 31;
-				});
+				}
+			);
 		Observe(builder);
 		EXPECT_EQ(observed.deviceBlocks, 2u);
 		EXPECT_EQ(observed.queueLimit, 7u);

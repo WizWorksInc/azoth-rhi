@@ -66,7 +66,8 @@ namespace
 				.initialSize = junk.size(),
 				.debugName	 = "azoth.rhi.test.foreignCache",
 			},
-			error);
+			error
+		);
 
 		if (!cache.is_valid())
 		{
@@ -156,9 +157,14 @@ namespace
 			asSource.isSource		   = true;
 
 			rhi::Error sourceError{};
-			EXPECT_FALSE(Dev()
-					.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = asSource, .debugName = "azoth.rhi.test.source" }, sourceError)
-					.is_valid());
+			EXPECT_FALSE(
+				Dev()
+					.create_compute_pipeline(
+						rhi::ComputePipelineDesc{ .layout = layout, .shader = asSource, .debugName = "azoth.rhi.test.source" },
+						sourceError
+					)
+					.is_valid()
+			);
 			EXPECT_EQ(sourceError.code, rhi::ErrorCode::eUnsupportedFormat) << "a device reporting no source support took a source binary anyway";
 		}
 

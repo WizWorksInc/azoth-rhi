@@ -34,21 +34,35 @@ namespace bench
 	{
 
 		bool IndirectSetGraphicsPipeline(
-			[[maybe_unused]] void * impl, [[maybe_unused]] rhi::GraphicsPipelineHandle pipeline, [[maybe_unused]] rhi::Error * error) noexcept
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] rhi::GraphicsPipelineHandle pipeline,
+			[[maybe_unused]] rhi::Error * error
+		) noexcept
 		{
 			return true;
 		}
 
-		bool IndirectBindDescriptorSet([[maybe_unused]] void * impl, [[maybe_unused]] rhi::PipelineLayoutHandle layout, [[maybe_unused]] std::uint32_t setIndex,
-			[[maybe_unused]] rhi::DescriptorSetHandle set, [[maybe_unused]] std::span<const rhi::DynamicDescriptorOffset> dynamicOffsets,
-			[[maybe_unused]] rhi::Error * error) noexcept
+		bool IndirectBindDescriptorSet(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] rhi::PipelineLayoutHandle layout,
+			[[maybe_unused]] std::uint32_t setIndex,
+			[[maybe_unused]] rhi::DescriptorSetHandle set,
+			[[maybe_unused]] std::span<const rhi::DynamicDescriptorOffset> dynamicOffsets,
+			[[maybe_unused]] rhi::Error * error
+		) noexcept
 		{
 			return true;
 		}
 
-		bool IndirectPushConstants([[maybe_unused]] void * impl, [[maybe_unused]] rhi::PipelineLayoutHandle layout,
-			[[maybe_unused]] rhi::Flags<rhi::ShaderStage> stages, [[maybe_unused]] std::uint32_t offset, [[maybe_unused]] std::uint32_t size,
-			[[maybe_unused]] const void * data, [[maybe_unused]] rhi::Error * error) noexcept
+		bool IndirectPushConstants(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] rhi::PipelineLayoutHandle layout,
+			[[maybe_unused]] rhi::Flags<rhi::ShaderStage> stages,
+			[[maybe_unused]] std::uint32_t offset,
+			[[maybe_unused]] std::uint32_t size,
+			[[maybe_unused]] const void * data,
+			[[maybe_unused]] rhi::Error * error
+		) noexcept
 		{
 			return true;
 		}
@@ -63,15 +77,27 @@ namespace bench
 			return true;
 		}
 
-		bool IndirectDraw([[maybe_unused]] void * impl, [[maybe_unused]] std::uint32_t vertexCount, [[maybe_unused]] std::uint32_t instanceCount,
-			[[maybe_unused]] std::uint32_t firstVertex, [[maybe_unused]] std::uint32_t firstInstance, [[maybe_unused]] rhi::Error * error) noexcept
+		bool IndirectDraw(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] std::uint32_t vertexCount,
+			[[maybe_unused]] std::uint32_t instanceCount,
+			[[maybe_unused]] std::uint32_t firstVertex,
+			[[maybe_unused]] std::uint32_t firstInstance,
+			[[maybe_unused]] rhi::Error * error
+		) noexcept
 		{
 			return true;
 		}
 
-		bool IndirectDrawIndexed([[maybe_unused]] void * impl, [[maybe_unused]] std::uint32_t indexCount, [[maybe_unused]] std::uint32_t instanceCount,
-			[[maybe_unused]] std::uint32_t firstIndex, [[maybe_unused]] std::int32_t vertexOffset, [[maybe_unused]] std::uint32_t firstInstance,
-			[[maybe_unused]] rhi::Error * error) noexcept
+		bool IndirectDrawIndexed(
+			[[maybe_unused]] void * impl,
+			[[maybe_unused]] std::uint32_t indexCount,
+			[[maybe_unused]] std::uint32_t instanceCount,
+			[[maybe_unused]] std::uint32_t firstIndex,
+			[[maybe_unused]] std::int32_t vertexOffset,
+			[[maybe_unused]] std::uint32_t firstInstance,
+			[[maybe_unused]] rhi::Error * error
+		) noexcept
 		{
 			return true;
 		}

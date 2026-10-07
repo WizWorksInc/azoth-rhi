@@ -17,6 +17,7 @@
 #include "conformance/matchers.hpp"
 #include "harness/backends.hpp"
 #include "harness/environment.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -154,6 +155,7 @@ int main(int argc, char ** argv)
 	// NOLINTEND(concurrency-mt-unsafe)
 
 	::testing::InitGoogleMock(&argc, argv);
+	const azo::rhi::support::TracyLifetime tracyLifetime;
 
 	if (const std::string problem = azo::rhi::test::ValidateBackendSelection(); !problem.empty())
 	{

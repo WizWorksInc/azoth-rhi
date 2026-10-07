@@ -63,11 +63,13 @@ namespace fw::scene
 		primitive.attributes[AttributeType::eTangent]  = DescribeArray(tangents, ComponentType::eFloat, DataType::eVec4);
 		primitive.indices							   = DescribeArray(indices, ComponentType::eUnsignedInt, DataType::eScalar);
 
-		std::erase_if(primitive.attributes,
+		std::erase_if(
+			primitive.attributes,
 			[](const auto & entry)
 			{
 				return entry.second.count == 0;
-			});
+			}
+		);
 
 		return primitive;
 	}

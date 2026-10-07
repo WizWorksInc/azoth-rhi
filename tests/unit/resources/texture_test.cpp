@@ -286,8 +286,10 @@ namespace
 	TEST_P(TextureTest, TreatsAnExplicitSelfMappingAsTheIdentitySwizzle)
 	{
 		static_assert(rhi::ComponentMapping{}.is_identity());
-		static_assert(rhi::ComponentMapping{
-			.r = rhi::ComponentSwizzle::eR, .g = rhi::ComponentSwizzle::eG, .b = rhi::ComponentSwizzle::eB, .a = rhi::ComponentSwizzle::eA }
+		static_assert(rhi::ComponentMapping{ .r = rhi::ComponentSwizzle::eR,
+			.g									= rhi::ComponentSwizzle::eG,
+			.b									= rhi::ComponentSwizzle::eB,
+			.a									= rhi::ComponentSwizzle::eA }
 				.is_identity());
 		static_assert(!rhi::ComponentMapping{ .r = rhi::ComponentSwizzle::eG }.is_identity());
 		static_assert(!rhi::ComponentMapping{ .a = rhi::ComponentSwizzle::eOne }.is_identity());
@@ -300,9 +302,10 @@ namespace
 		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 
 		rhi::TextureViewDesc viewDesc = test::samples::FullTextureView();
-		viewDesc.swizzle			  = rhi::ComponentMapping{
-			.r = rhi::ComponentSwizzle::eR, .g = rhi::ComponentSwizzle::eG, .b = rhi::ComponentSwizzle::eB, .a = rhi::ComponentSwizzle::eA
-		};
+		viewDesc.swizzle			  = rhi::ComponentMapping{ .r = rhi::ComponentSwizzle::eR,
+			.g										 = rhi::ComponentSwizzle::eG,
+			.b										 = rhi::ComponentSwizzle::eB,
+			.a										 = rhi::ComponentSwizzle::eA };
 
 		const rhi::TextureViewHandle view = Dev().create_texture_view(texture, viewDesc, error);
 		EXPECT_TRUE(test::Ok(view.is_valid(), error)) << "an explicit self-mapping was refused as a swizzle";
@@ -567,7 +570,8 @@ namespace
 				.generation = 3,
 			},
 			test::samples::FullTextureView(),
-			error);
+			error
+		);
 
 		EXPECT_FALSE(view.is_valid()) << "a view was created over a texture handle the device never issued";
 	}

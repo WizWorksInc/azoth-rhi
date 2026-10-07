@@ -62,12 +62,12 @@ namespace azo::rhi
 		/**
 		 * \brief Returns the swapchain's image format.
 		 */
-		Format (*getFormat)(void * impl) noexcept			 = nullptr;
+		Format (*getFormat)(void * impl) noexcept = nullptr;
 
 		/**
 		 * \brief Returns the effective presentation mode.
 		 */
-		PresentMode (*getPresentMode)(void * impl) noexcept	 = nullptr;
+		PresentMode (*getPresentMode)(void * impl) noexcept = nullptr;
 
 		/**
 		 * \brief Returns the number of swapchain images.
@@ -77,12 +77,12 @@ namespace azo::rhi
 		/**
 		 * \brief Returns the swapchain image width.
 		 */
-		std::uint32_t (*getWidth)(void * impl) noexcept		 = nullptr;
+		std::uint32_t (*getWidth)(void * impl) noexcept = nullptr;
 
 		/**
 		 * \brief Returns the swapchain image height.
 		 */
-		std::uint32_t (*getHeight)(void * impl) noexcept	 = nullptr;
+		std::uint32_t (*getHeight)(void * impl) noexcept = nullptr;
 
 		/**
 		 * \brief Resizes the swapchain images.

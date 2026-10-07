@@ -79,16 +79,19 @@ namespace
 
 	TEST(Decorator, ADeviceWithValidationOffIsNotBehindAnything)
 	{
-		ForEachBackendDevice(rhi::ValidationMode::eOff,
+		ForEachBackendDevice(
+			rhi::ValidationMode::eOff,
 			[](const test::Backend & backend, const rhi::Device device)
 			{
 				EXPECT_EQ(ValidatorOf(device), nullptr) << backend.displayName << " came up behind the validation layer with validation off";
-			});
+			}
+		);
 	}
 
 	TEST(Decorator, gate_ValidationOffIsFree)
 	{
-		ForEachBackendDevice(rhi::ValidationMode::eOff,
+		ForEachBackendDevice(
+			rhi::ValidationMode::eOff,
 			[](const test::Backend & backend, const rhi::Device device)
 			{
 				void * impl						  = rhi::detail::FacadeBuilder::impl_of(device);
@@ -97,7 +100,8 @@ namespace
 
 				ASSERT_NE(theirs, nullptr);
 				EXPECT_EQ(held, theirs) << backend.displayName << " resolved something other than the block its backend published";
-			});
+			}
+		);
 	}
 
 	TEST(Decorator, EveryBackendIsCheckedByTheSameCodeWhenValidationIsOn)
@@ -105,7 +109,8 @@ namespace
 		const rhi::CoreDeviceApi * shared = nullptr;
 		std::size_t checked				  = 0;
 
-		const std::size_t declinedForAnotherReason = ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
+		const std::size_t declinedForAnotherReason = ForEachBackendDevice(
+			rhi::ValidationMode::eDeveloper,
 			[&](const test::Backend & backend, const rhi::Device device)
 			{
 				const rhi::CoreDeviceApi * held = rhi::detail::FacadeBuilder::blocks_of(device)->device().core;
@@ -118,7 +123,8 @@ namespace
 
 				EXPECT_EQ(held, shared) << backend.displayName << " is being checked by something other than the one validation layer";
 				++checked;
-			});
+			}
+		);
 
 		if (checked == 0 && declinedForAnotherReason == 0)
 		{
@@ -147,7 +153,8 @@ namespace
 		Verdict expected{};
 		std::size_t compared = 0;
 
-		ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
+		ForEachBackendDevice(
+			rhi::ValidationMode::eDeveloper,
 			[&](const test::Backend & backend, rhi::Device device)
 			{
 				rhi::Error error{};
@@ -187,7 +194,8 @@ namespace
 				EXPECT_EQ(seen.destroyedCode, expected.destroyedCode)
 					<< backend.displayName << " and " << first->displayName << " report different codes for a double destroy";
 				++compared;
-			});
+			}
+		);
 
 		if (compared == 0 && test::SelectedBackends().size() < 2)
 		{
@@ -199,7 +207,8 @@ namespace
 
 	TEST(Decorator, TheLayerDeclinesWhatTheBackendDeclined)
 	{
-		ForEachBackendDevice(rhi::ValidationMode::eDeveloper,
+		ForEachBackendDevice(
+			rhi::ValidationMode::eDeveloper,
 			[](const test::Backend & backend, const rhi::Device device)
 			{
 				const rhi::DeviceCaps & caps = device.get_caps();
@@ -209,7 +218,8 @@ namespace
 				EXPECT_EQ(caps.supportsPlacedResources, blocks.placedMemory != nullptr) << backend.displayName;
 				EXPECT_EQ(caps.supportsPipelineCache, blocks.pipelineCache != nullptr) << backend.displayName;
 				EXPECT_EQ(caps.supportsMemoryBudget, blocks.residency != nullptr) << backend.displayName;
-			});
+			}
+		);
 	}
 
 	TEST_P(DecoratorTest, RealWorkGoesThroughTheLayerUnchanged)
@@ -500,14 +510,16 @@ namespace
 		rhi::CommandList second = pool.allocate("azoth.rhi.test.arrival.second", error);
 		ASSERT_TRUE(test::Ok(first.begin(error), error));
 		const std::array firstBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = copied, .after = source } };
-		const std::array firstTextures{ rhi::TextureBarrier{
-			.texture = texture, .before = copied, .after = source, .range = test::samples::WholeColorRange() } };
+		const std::array firstTextures{
+			rhi::TextureBarrier{ .texture = texture, .before = copied, .after = source, .range = test::samples::WholeColorRange() }
+		};
 		ASSERT_TRUE(test::Ok(first.barriers({ .buffers = firstBuffers, .textures = firstTextures }, error), error));
 		ASSERT_TRUE(test::Ok(first.end(error), error));
 		ASSERT_TRUE(test::Ok(second.begin(error), error));
 		const std::array secondBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = source, .after = stored } };
-		const std::array secondTextures{ rhi::TextureBarrier{
-			.texture = texture, .before = source, .after = sampled, .range = test::samples::WholeColorRange() } };
+		const std::array secondTextures{
+			rhi::TextureBarrier{ .texture = texture, .before = source, .after = sampled, .range = test::samples::WholeColorRange() }
+		};
 		ASSERT_TRUE(test::Ok(second.barriers({ .buffers = secondBuffers, .textures = secondTextures }, error), error));
 		ASSERT_TRUE(test::Ok(second.end(error), error));
 		rhi::Queue queue = device.Get().get_queue(rhi::QueueType::eGraphics);
@@ -556,13 +568,17 @@ namespace
 		rhi::CommandList acquire = pool.allocate("azoth.rhi.test.owner.acquire", error);
 		rhi::CommandList release = pool.allocate("azoth.rhi.test.owner.release", error);
 		ASSERT_TRUE(test::Ok(acquire.begin(error), error));
-		const std::array acquired{ rhi::BufferBarrier{
-			.buffer = buffer, .before = copied, .after = copied, .ownership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } } };
+		const std::array acquired{ rhi::BufferBarrier{ .buffer = buffer,
+			.before											   = copied,
+			.after											   = copied,
+			.ownership										   = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } } };
 		ASSERT_TRUE(test::Ok(acquire.barriers({ .buffers = acquired }, error), error));
 		ASSERT_TRUE(test::Ok(acquire.end(error), error));
 		ASSERT_TRUE(test::Ok(release.begin(error), error));
-		const std::array released{ rhi::BufferBarrier{
-			.buffer = buffer, .before = copied, .after = copied, .ownership = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
+		const std::array released{ rhi::BufferBarrier{ .buffer = buffer,
+			.before											   = copied,
+			.after											   = copied,
+			.ownership										   = { .op = rhi::OwnershipOp::eRelease, .counterpart = rhi::QueueType::eCompute } } };
 		ASSERT_TRUE(test::Ok(release.barriers({ .buffers = released }, error), error));
 		ASSERT_TRUE(test::Ok(release.end(error), error));
 		rhi::Queue queue = device.Get().get_queue(rhi::QueueType::eGraphics);
@@ -648,8 +664,12 @@ namespace
 				ASSERT_TRUE(test::Ok(wrong.begin(error), error));
 				const std::array wrongBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = wrongBefore, .after = stored } };
 				const std::array wrongTextures{ rhi::TextureBarrier{ .texture = texture, .before = wrongBefore, .after = sampled, .range = whole } };
-				ASSERT_TRUE(test::Ok(
-					wrong.barriers(checkBuffer ? rhi::BarrierBatch{ .buffers = wrongBuffers } : rhi::BarrierBatch{ .textures = wrongTextures }, error), error));
+				ASSERT_TRUE(
+					test::Ok(
+						wrong.barriers(checkBuffer ? rhi::BarrierBatch{ .buffers = wrongBuffers } : rhi::BarrierBatch{ .textures = wrongTextures }, error),
+						error
+					)
+				);
 				ASSERT_TRUE(test::Ok(wrong.end(error), error));
 				std::array<const rhi::CommandList *, 2> mismatched{ &first, &wrong };
 				rhi::Error wrongError{};
@@ -662,8 +682,10 @@ namespace
 		const std::array secondBuffers{ rhi::BufferBarrier{ .buffer = buffer, .before = source, .after = stored, .size = split },
 			rhi::BufferBarrier{ .buffer = buffer, .before = copied, .after = stored, .offset = split, .size = bufferDesc.size - split } };
 		const std::array secondTextures{ rhi::TextureBarrier{ .texture = texture, .before = source, .after = sampled, .range = corner },
-			rhi::TextureBarrier{
-				.texture = texture, .before = copied, .after = sampled, .range = { .baseLayer = 1, .layerCount = textureDesc.arrayLayers - 1 } },
+			rhi::TextureBarrier{ .texture = texture,
+				.before					  = copied,
+				.after					  = sampled,
+				.range					  = { .baseLayer = 1, .layerCount = textureDesc.arrayLayers - 1 } },
 			rhi::TextureBarrier{ .texture = texture,
 				.before					  = copied,
 				.after					  = sampled,
@@ -869,7 +891,9 @@ namespace
 			rhi::DescriptorBinding{ .binding = 0, .type = rhi::DescriptorType::eStorageBuffer, .count = 1 },
 		};
 		const rhi::DescriptorSetLayoutHandle layout = device.Get().create_descriptor_set_layout(
-			rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.oneStorageBinding" }, error);
+			rhi::DescriptorSetLayoutDesc{ .bindings = bindings, .debugName = "azoth.rhi.test.oneStorageBinding" },
+			error
+		);
 		ASSERT_TRUE(test::Ok(layout.is_valid(), error));
 
 		rhi::DescriptorArena arena = device.Get().create_descriptor_arena(test::samples::DescriptorArena(), error);
@@ -1017,7 +1041,8 @@ namespace
 			[&list, &strayError, &accepted]
 			{
 				accepted = list.begin_debug_label("azoth.rhi.test.stray", 0, strayError);
-			});
+			}
+		);
 		stray.join();
 
 		EXPECT_FALSE(accepted) << "a command recorded from a thread other than the one that began the list was accepted";

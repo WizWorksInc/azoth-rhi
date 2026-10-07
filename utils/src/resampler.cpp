@@ -98,7 +98,7 @@ namespace azo::rhi::utils
 			}
 #endif
 #ifdef AZOTH_RHI_UTILS_HAVE_DXIL
-			if (api == D3D12Api::id)
+			if (api == D3D12Api::kId)
 			{
 				binary.format	  = ShaderBinaryFormat::eDxil;
 				binary.data		  = shaders::kResample_dxil;
@@ -164,7 +164,9 @@ namespace azo::rhi::utils
 		const std::array setLayouts{ resampler.m_setLayout };
 
 		resampler.m_layout = device.create_pipeline_layout(
-			PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "azoth.rhi.utils.resample.layout" }, error);
+			PipelineLayoutDesc{ .sets = setLayouts, .pushConstants = pushConstants, .debugName = "azoth.rhi.utils.resample.layout" },
+			error
+		);
 		if (!resampler.m_layout.is_valid())
 		{
 			return error;
@@ -179,7 +181,8 @@ namespace azo::rhi::utils
 				.addressW  = AddressMode::eClampToEdge,
 				.debugName = "azoth.rhi.utils.resample.sampler",
 			},
-			error);
+			error
+		);
 		if (!resampler.m_sampler.is_valid())
 		{
 			return error;
@@ -192,7 +195,8 @@ namespace azo::rhi::utils
 				.pipelineCache = desc.cache,
 				.debugName	   = desc.debugName != nullptr ? desc.debugName : "azoth.rhi.utils.resample.pipeline",
 			},
-			error);
+			error
+		);
 		if (!resampler.m_pipeline.is_valid())
 		{
 			return error;
@@ -324,10 +328,14 @@ namespace azo::rhi::utils
 		const ResourceState lastState = hardware ? ResourceState{ .use = ResourceUse::eCopySrc, .stages = Stage::eCopy } : kWritten;
 
 		const std::array exit{
-			TextureBarrier{
-				.texture = texture, .before = above, .after = kReadable, .range = { .baseMip = 0, .mipCount = last, .layerCount = info.desc.arrayLayers } },
-			TextureBarrier{
-				.texture = texture, .before = lastState, .after = kReadable, .range = { .baseMip = last, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
+			TextureBarrier{ .texture = texture,
+				.before				 = above,
+				.after				 = kReadable,
+				.range				 = { .baseMip = 0, .mipCount = last, .layerCount = info.desc.arrayLayers } },
+			TextureBarrier{ .texture = texture,
+				.before				 = lastState,
+				.after				 = kReadable,
+				.range				 = { .baseMip = last, .mipCount = 1, .layerCount = info.desc.arrayLayers } },
 		};
 
 		return list.barriers(BarrierBatch{ .textures = exit }, error);
@@ -341,9 +349,11 @@ namespace azo::rhi::utils
 
 		if (srgb && !info.desc.allowFormatViews)
 		{
-			return Fail(error,
+			return Fail(
+				error,
 				ErrorCode::eInvalidArgument,
-				"resampling an sRGB texture through compute needs TextureDesc::allowFormatViews, no API permitting an sRGB storage image");
+				"resampling an sRGB texture through compute needs TextureDesc::allowFormatViews, no API permitting an sRGB storage image"
+			);
 		}
 		if (!info.desc.usage.contains(TextureUsage::eStorage))
 		{
@@ -354,16 +364,19 @@ namespace azo::rhi::utils
 			return Fail(error, ErrorCode::eInvalidArgument, "the compute resample path needs TextureUsage::eSampled on the texture it reads");
 		}
 
-		const TextureViewHandle source = m_device.create_texture_view(texture,
+		const TextureViewHandle source = m_device.create_texture_view(
+			texture,
 			TextureViewDesc{
 				.type	   = TextureViewType::eTex2DArray,
 				.range	   = { .baseMip = dstMip - 1, .mipCount = 1, .layerCount = layers },
 				.usage	   = Flags<TextureUsage>(TextureUsage::eSampled),
 				.debugName = "azoth.rhi.utils.resample.source",
 			},
-			error);
+			error
+		);
 
-		const TextureViewHandle destination = m_device.create_texture_view(texture,
+		const TextureViewHandle destination = m_device.create_texture_view(
+			texture,
 			TextureViewDesc{
 				.type	   = TextureViewType::eTex2DArray,
 				.format	   = storageForm,
@@ -371,7 +384,8 @@ namespace azo::rhi::utils
 				.usage	   = Flags<TextureUsage>(TextureUsage::eStorage),
 				.debugName = "azoth.rhi.utils.resample.destination",
 			},
-			error);
+			error
+		);
 
 		if (!source.is_valid() || !destination.is_valid())
 		{
@@ -431,8 +445,14 @@ namespace azo::rhi::utils
 			   list.dispatch(GroupCount(constants.dstWidth), GroupCount(constants.dstHeight), layers, error);
 	}
 
-	bool Resampler::Blit(CommandList & list, const TextureHandle dst, const TextureHandle src, const std::span<const TextureBlit> regions, const Filter filter,
-		Error & error) noexcept
+	bool Resampler::Blit(
+		CommandList & list,
+		const TextureHandle dst,
+		const TextureHandle src,
+		const std::span<const TextureBlit> regions,
+		const Filter filter,
+		Error & error
+	) noexcept
 	{
 		if (!IsValid())
 		{
@@ -453,8 +473,10 @@ namespace azo::rhi::utils
 			return list.blit(dst, src, regions, filter, error);
 		}
 
-		return Fail(error,
+		return Fail(
+			error,
 			ErrorCode::eUnsupportedFeature,
-			"this device has no hardware scaled blit for these formats, and the compute path resamples whole levels, not regions");
+			"this device has no hardware scaled blit for these formats, and the compute path resamples whole levels, not regions"
+		);
 	}
 }

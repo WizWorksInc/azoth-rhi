@@ -39,6 +39,7 @@
 #include "harness.hpp"
 #include "raw_vulkan.hpp"
 #include "scene.hpp"
+#include "tracy_lifetime.hpp"
 
 #ifdef TRACY_ENABLE
 	#include "azoth/rhi/host/profiler.hpp"
@@ -125,7 +126,12 @@ namespace vsnri
 		void Report(const char * what, const rhi::Error & error)
 		{
 			std::println(
-				stderr, "azoth arm: {} failed: {} (code {})", what, error.message != nullptr ? error.message : "no message", static_cast<int>(error.code));
+				stderr,
+				"azoth arm: {} failed: {} (code {})",
+				what,
+				error.message != nullptr ? error.message : "no message",
+				static_cast<int>(error.code)
+			);
 		}
 
 		void ReportValidation(const rhi::ValidationMessageSeverity severity, const char * message, void *) noexcept
@@ -134,7 +140,11 @@ namespace vsnri
 		}
 
 		[[nodiscard]] rhi::TextureBarrier Transition(
-			const rhi::TextureHandle texture, const rhi::ResourceState & before, const rhi::ResourceState & after, const rhi::Flags<rhi::TextureAspect> aspects)
+			const rhi::TextureHandle texture,
+			const rhi::ResourceState & before,
+			const rhi::ResourceState & after,
+			const rhi::Flags<rhi::TextureAspect> aspects
+		)
 		{
 			return rhi::TextureBarrier{ .texture = texture, .before = before, .after = after, .range = { .aspects = aspects } };
 		}
@@ -437,9 +447,11 @@ namespace vsnri
 			Slot & slot				  = WaitForSlot(timing);
 
 			rhi::Error error{};
-			const rhi::MappedMemory globals = m_device.map(m_globals,
+			const rhi::MappedMemory globals = m_device.map(
+				m_globals,
 				rhi::MapDesc{ .mode = rhi::MapMode::eWrite, .offset = std::uint64_t{ index } * kGlobalsStride, .size = sizeof(SceneGlobals) },
-				error);
+				error
+			);
 			if (globals.data == nullptr)
 			{
 				Report("Map(globals)", error);
@@ -719,7 +731,11 @@ namespace vsnri
 		}
 
 		[[nodiscard]] bool CreateUploadBuffer(
-			const std::uint64_t size, const rhi::Flags<rhi::BufferUsage> usage, void (*fill)(void *), rhi::BufferHandle & buffer)
+			const std::uint64_t size,
+			const rhi::Flags<rhi::BufferUsage> usage,
+			void (*fill)(void *),
+			rhi::BufferHandle & buffer
+		)
 		{
 			rhi::Error error{};
 			buffer = m_device.create_buffer(rhi::BufferDesc{ .size = size, .usage = usage, .memory = rhi::MemoryUsage::eCpuUpload }, error);
@@ -749,11 +765,17 @@ namespace vsnri
 		}
 
 		[[nodiscard]] bool CreateTexture(
-			const rhi::Format format, const rhi::Flags<rhi::TextureUsage> usage, const std::uint32_t extent, rhi::TextureHandle & texture)
+			const rhi::Format format,
+			const rhi::Flags<rhi::TextureUsage> usage,
+			const std::uint32_t extent,
+			rhi::TextureHandle & texture
+		)
 		{
 			rhi::Error error{};
 			texture = m_device.create_texture(
-				rhi::TextureDesc{ .type = rhi::TextureType::eTex2D, .format = format, .width = extent, .height = extent, .usage = usage }, error);
+				rhi::TextureDesc{ .type = rhi::TextureType::eTex2D, .format = format, .width = extent, .height = extent, .usage = usage },
+				error
+			);
 			if (!texture.is_valid())
 			{
 				Report("CreateTexture", error);
@@ -762,13 +784,20 @@ namespace vsnri
 			return texture.is_valid();
 		}
 
-		[[nodiscard]] bool CreateView(const rhi::TextureHandle texture, const rhi::Format format, const rhi::Flags<rhi::TextureAspect> aspects,
-			const rhi::Flags<rhi::TextureUsage> usage, rhi::TextureViewHandle & view)
+		[[nodiscard]] bool CreateView(
+			const rhi::TextureHandle texture,
+			const rhi::Format format,
+			const rhi::Flags<rhi::TextureAspect> aspects,
+			const rhi::Flags<rhi::TextureUsage> usage,
+			rhi::TextureViewHandle & view
+		)
 		{
 			rhi::Error error{};
-			view = m_device.create_texture_view(texture,
+			view = m_device.create_texture_view(
+				texture,
 				rhi::TextureViewDesc{ .type = rhi::TextureViewType::eTex2D, .format = format, .range = { .aspects = aspects }, .usage = usage },
-				error);
+				error
+			);
 			if (!view.is_valid())
 			{
 				Report("CreateTextureView", error);
@@ -840,14 +869,16 @@ namespace vsnri
 		[[nodiscard]] bool CreateDescriptors()
 		{
 			rhi::Error error{};
-			m_sampler = m_device.create_sampler(rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
-												   .minFilter				= rhi::Filter::eLinear,
-												   .mipmapMode				= rhi::MipmapMode::eNearest,
-												   .addressU				= rhi::AddressMode::eClampToEdge,
-												   .addressV				= rhi::AddressMode::eClampToEdge,
-												   .addressW				= rhi::AddressMode::eClampToEdge,
-												   .maxLod					= 0.0f },
-				error);
+			m_sampler = m_device.create_sampler(
+				rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
+					.minFilter				 = rhi::Filter::eLinear,
+					.mipmapMode				 = rhi::MipmapMode::eNearest,
+					.addressU				 = rhi::AddressMode::eClampToEdge,
+					.addressV				 = rhi::AddressMode::eClampToEdge,
+					.addressW				 = rhi::AddressMode::eClampToEdge,
+					.maxLod					 = 0.0f },
+				error
+			);
 			if (!m_sampler.is_valid())
 			{
 				Report("CreateSampler", error);
@@ -855,7 +886,9 @@ namespace vsnri
 			}
 
 			m_arena = m_device.create_descriptor_arena(
-				rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = kMaterials + 4, .maxDescriptors = kMaterials + 8 }, error);
+				rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = kMaterials + 4, .maxDescriptors = kMaterials + 8 },
+				error
+			);
 			if (!m_arena.is_valid())
 			{
 				Report("CreateDescriptorArena", error);
@@ -886,9 +919,11 @@ namespace vsnri
 
 			std::array<rhi::DescriptorWriteBuffer, kMaterials + 2> buffers{};
 			buffers.at(0) = rhi::DescriptorWriteBuffer{ .set = m_objectsSet, .binding = 0, .type = rhi::DescriptorType::eStorageBuffer, .buffer = m_objects };
-			buffers.at(1) = rhi::DescriptorWriteBuffer{
-				.set = m_churnSet, .binding = 0, .type = rhi::DescriptorType::eUniformBuffer, .buffer = m_materials, .range = kMaterialStride
-			};
+			buffers.at(1) = rhi::DescriptorWriteBuffer{ .set = m_churnSet,
+				.binding									 = 0,
+				.type										 = rhi::DescriptorType::eUniformBuffer,
+				.buffer										 = m_materials,
+				.range										 = kMaterialStride };
 			for (std::uint32_t material = 0; material < kMaterials; ++material)
 			{
 				buffers.at(material + 2) = rhi::DescriptorWriteBuffer{ .set = m_materialSets.at(material),
@@ -1395,7 +1430,12 @@ namespace vsnri
 		{
 			const bool written = list.write_timestamp(m_timestamps, FirstTimestamp(index) + 1, rhi::Stage::eAllCommands);
 			return list.resolve_query_data(
-					   m_timestamps, FirstTimestamp(index), kFrameTimestamps, m_timestampReadback, FirstTimestamp(index) * sizeof(std::uint64_t)) &&
+					   m_timestamps,
+					   FirstTimestamp(index),
+					   kFrameTimestamps,
+					   m_timestampReadback,
+					   FirstTimestamp(index) * sizeof(std::uint64_t)
+				   ) &&
 				   written;
 		}
 
@@ -1404,9 +1444,11 @@ namespace vsnri
 			std::array<std::uint64_t, kFrameTimestamps> stamps{};
 
 			rhi::Error error{};
-			const rhi::MappedMemory mapped = m_device.map(m_timestampReadback,
+			const rhi::MappedMemory mapped = m_device.map(
+				m_timestampReadback,
 				rhi::MapDesc{ .mode = rhi::MapMode::eRead, .offset = FirstTimestamp(index) * sizeof(std::uint64_t), .size = sizeof(stamps) },
-				error);
+				error
+			);
 			if (mapped.data == nullptr)
 			{
 				Report("Map(timestamps)", error);
@@ -1435,10 +1477,12 @@ namespace vsnri
 				return false;
 			}
 
-			m_timestampReadback = m_device.create_buffer(rhi::BufferDesc{ .size = std::uint64_t{ kFramesInFlight } * kFrameTimestamps * sizeof(std::uint64_t),
-															.usage			   = rhi::BufferUsage::eCopyDst,
-															.memory			   = rhi::MemoryUsage::eCpuReadback },
-				error);
+			m_timestampReadback = m_device.create_buffer(
+				rhi::BufferDesc{ .size = std::uint64_t{ kFramesInFlight } * kFrameTimestamps * sizeof(std::uint64_t),
+					.usage			   = rhi::BufferUsage::eCopyDst,
+					.memory			   = rhi::MemoryUsage::eCpuReadback },
+				error
+			);
 			if (!m_timestampReadback.is_valid())
 			{
 				Report("CreateBuffer(readback)", error);
@@ -1454,12 +1498,17 @@ namespace vsnri
 
 			rhi::Error error{};
 			m_sceneVertices = m_device.create_buffer(
-				rhi::BufferDesc{ .size = scene.vertices.size() * sizeof(SceneVertex), .usage = rhi::Flags<Usage>(Usage::eVertex) | Usage::eCopyDst }, error);
+				rhi::BufferDesc{ .size = scene.vertices.size() * sizeof(SceneVertex), .usage = rhi::Flags<Usage>(Usage::eVertex) | Usage::eCopyDst },
+				error
+			);
 			m_sceneIndices = m_device.create_buffer(
-				rhi::BufferDesc{ .size = scene.indices.size() * sizeof(std::uint32_t), .usage = rhi::Flags<Usage>(Usage::eIndex) | Usage::eCopyDst }, error);
+				rhi::BufferDesc{ .size = scene.indices.size() * sizeof(std::uint32_t), .usage = rhi::Flags<Usage>(Usage::eIndex) | Usage::eCopyDst },
+				error
+			);
 			m_globals = m_device.create_buffer(
 				rhi::BufferDesc{ .size = std::uint64_t{ kGlobalsStride } * kFramesInFlight, .usage = Usage::eUniform, .memory = rhi::MemoryUsage::eCpuUpload },
-				error);
+				error
+			);
 			if (!m_sceneVertices.is_valid() || !m_sceneIndices.is_valid() || !m_globals.is_valid())
 			{
 				Report("CreateBuffer(scene)", error);
@@ -1474,26 +1523,29 @@ namespace vsnri
 				const rhi::Format format	= SceneFormat(source.format);
 				const auto mips				= static_cast<std::uint32_t>(source.mips.size());
 
-				m_sceneTextures.at(index) =
-					m_device.create_texture(rhi::TextureDesc{ .type = rhi::TextureType::eTex2D,
-											   .format			   = format,
-											   .width			   = source.width,
-											   .height			   = source.height,
-											   .mipLevels		   = mips,
-											   .usage			   = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst },
-						error);
+				m_sceneTextures.at(index) = m_device.create_texture(
+					rhi::TextureDesc{ .type = rhi::TextureType::eTex2D,
+						.format				= format,
+						.width				= source.width,
+						.height				= source.height,
+						.mipLevels			= mips,
+						.usage				= rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst },
+					error
+				);
 				if (!m_sceneTextures.at(index).is_valid())
 				{
 					Report("CreateTexture(scene)", error);
 					return false;
 				}
 
-				m_sceneTextureViews.at(index) = m_device.create_texture_view(m_sceneTextures.at(index),
+				m_sceneTextureViews.at(index) = m_device.create_texture_view(
+					m_sceneTextures.at(index),
 					rhi::TextureViewDesc{ .type = rhi::TextureViewType::eTex2D,
 						.format					= format,
 						.range					= { .aspects = kColorAspect, .mipCount = mips },
 						.usage					= rhi::TextureUsage::eSampled },
-					error);
+					error
+				);
 				if (!m_sceneTextureViews.at(index).is_valid())
 				{
 					Report("CreateTextureView(scene)", error);
@@ -1522,7 +1574,9 @@ namespace vsnri
 
 			rhi::Error error{};
 			const rhi::BufferHandle staging = m_device.create_buffer(
-				rhi::BufferDesc{ .size = stagingBytes, .usage = rhi::BufferUsage::eCopySrc, .memory = rhi::MemoryUsage::eCpuUpload }, error);
+				rhi::BufferDesc{ .size = stagingBytes, .usage = rhi::BufferUsage::eCopySrc, .memory = rhi::MemoryUsage::eCpuUpload },
+				error
+			);
 			if (!staging.is_valid())
 			{
 				Report("CreateBuffer(staging)", error);
@@ -1577,9 +1631,11 @@ namespace vsnri
 				for (std::uint32_t mip = 0; mip < texture.mips.size(); ++mip)
 				{
 					const SceneMip & level = texture.mips.at(mip);
-					regions.push_back(rhi::BufferTextureCopy{ .bufferOffset = textureOffsets.at(index) + level.offset,
-						.subresource										= { .aspects = kColorAspect, .mip = mip },
-						.textureExtent										= { .width = level.width, .height = level.height, .depth = 1 } });
+					regions.push_back(
+						rhi::BufferTextureCopy{ .bufferOffset = textureOffsets.at(index) + level.offset,
+							.subresource					  = { .aspects = kColorAspect, .mip = mip },
+							.textureExtent					  = { .width = level.width, .height = level.height, .depth = 1 } }
+					);
 				}
 				ok = list.copy_buffer_to_texture(m_sceneTextures.at(index), staging, regions, error);
 			}
@@ -1639,14 +1695,16 @@ namespace vsnri
 		[[nodiscard]] bool CreateAssetDescriptors(const SceneAsset & scene)
 		{
 			rhi::Error error{};
-			m_assetSampler = m_device.create_sampler(rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
-														.minFilter				 = rhi::Filter::eLinear,
-														.mipmapMode				 = rhi::MipmapMode::eLinear,
-														.addressU				 = rhi::AddressMode::eRepeat,
-														.addressV				 = rhi::AddressMode::eRepeat,
-														.addressW				 = rhi::AddressMode::eRepeat,
-														.maxLod					 = kSceneSamplerMaxLod },
-				error);
+			m_assetSampler = m_device.create_sampler(
+				rhi::SamplerDesc{ .magFilter = rhi::Filter::eLinear,
+					.minFilter				 = rhi::Filter::eLinear,
+					.mipmapMode				 = rhi::MipmapMode::eLinear,
+					.addressU				 = rhi::AddressMode::eRepeat,
+					.addressV				 = rhi::AddressMode::eRepeat,
+					.addressW				 = rhi::AddressMode::eRepeat,
+					.maxLod					 = kSceneSamplerMaxLod },
+				error
+			);
 			if (!m_assetSampler.is_valid())
 			{
 				Report("CreateSampler(asset)", error);
@@ -1654,10 +1712,12 @@ namespace vsnri
 			}
 
 			const auto materials = static_cast<std::uint32_t>(scene.materials.size());
-			m_assetArena		 = m_device.create_descriptor_arena(rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent,
-																	  .maxSets					  = materials + kFramesInFlight,
-																	  .maxDescriptors			  = (materials * kTexturesAMaterial) + (kFramesInFlight * 2) },
-				error);
+			m_assetArena		 = m_device.create_descriptor_arena(
+				rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent,
+					.maxSets					= materials + kFramesInFlight,
+					.maxDescriptors				= (materials * kTexturesAMaterial) + (kFramesInFlight * 2) },
+				error
+			);
 			if (!m_assetArena.is_valid())
 			{
 				Report("CreateDescriptorArena(asset)", error);
@@ -1694,12 +1754,14 @@ namespace vsnri
 			std::vector<rhi::DescriptorWriteSampler> samplers;
 			for (std::uint32_t index = 0; index < kFramesInFlight; ++index)
 			{
-				buffers.push_back(rhi::DescriptorWriteBuffer{ .set = m_globalSets.at(index),
-					.binding									   = 0,
-					.type										   = rhi::DescriptorType::eUniformBuffer,
-					.buffer										   = m_globals,
-					.offset										   = std::uint64_t{ index } * kGlobalsStride,
-					.range										   = kGlobalsStride });
+				buffers.push_back(
+					rhi::DescriptorWriteBuffer{ .set = m_globalSets.at(index),
+						.binding					 = 0,
+						.type						 = rhi::DescriptorType::eUniformBuffer,
+						.buffer						 = m_globals,
+						.offset						 = std::uint64_t{ index } * kGlobalsStride,
+						.range						 = kGlobalsStride }
+				);
 				samplers.push_back(rhi::DescriptorWriteSampler{ .set = m_globalSets.at(index), .binding = 1, .sampler = m_assetSampler });
 			}
 
@@ -1708,11 +1770,13 @@ namespace vsnri
 			{
 				for (std::uint32_t slot = 0; slot < kTexturesAMaterial; ++slot)
 				{
-					textures.push_back(rhi::DescriptorWriteTexture{ .set = m_assetMaterialSets.at(material),
-						.binding										 = 0,
-						.arrayIndex										 = slot,
-						.type											 = rhi::DescriptorType::eTextureSRV,
-						.view											 = m_sceneTextureViews.at(scene.materials.at(material).textures.at(slot)) });
+					textures.push_back(
+						rhi::DescriptorWriteTexture{ .set = m_assetMaterialSets.at(material),
+							.binding					  = 0,
+							.arrayIndex					  = slot,
+							.type						  = rhi::DescriptorType::eTextureSRV,
+							.view						  = m_sceneTextureViews.at(scene.materials.at(material).textures.at(slot)) }
+					);
 				}
 			}
 
@@ -1731,12 +1795,18 @@ namespace vsnri
 		{
 			const std::array bindings{ rhi::VertexBindingDesc{ .binding = 0, .stride = kSceneVertexStride, .perInstance = false } };
 			const std::array attributes{
-				rhi::VertexAttributeDesc{
-					.location = 0, .binding = 0, .format = rhi::Format::eRGB32Float, .offset = static_cast<std::uint32_t>(offsetof(SceneVertex, position)) },
-				rhi::VertexAttributeDesc{
-					.location = 1, .binding = 0, .format = rhi::Format::eRGB32Float, .offset = static_cast<std::uint32_t>(offsetof(SceneVertex, normal)) },
-				rhi::VertexAttributeDesc{
-					.location = 2, .binding = 0, .format = rhi::Format::eRG32Float, .offset = static_cast<std::uint32_t>(offsetof(SceneVertex, uv)) },
+				rhi::VertexAttributeDesc{ .location = 0,
+					.binding						= 0,
+					.format							= rhi::Format::eRGB32Float,
+					.offset							= static_cast<std::uint32_t>(offsetof(SceneVertex, position)) },
+				rhi::VertexAttributeDesc{ .location = 1,
+					.binding						= 0,
+					.format							= rhi::Format::eRGB32Float,
+					.offset							= static_cast<std::uint32_t>(offsetof(SceneVertex, normal)) },
+				rhi::VertexAttributeDesc{ .location = 2,
+					.binding						= 0,
+					.format							= rhi::Format::eRG32Float,
+					.offset							= static_cast<std::uint32_t>(offsetof(SceneVertex, uv)) },
 			};
 			const rhi::VertexInputDesc vertexInput{ .bindings = bindings, .attributes = attributes, .topology = rhi::PrimitiveTopology::eTriangleList };
 
@@ -1954,13 +2024,15 @@ namespace vsnri
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	vsnri::RaiseThreadPriority();
 
 	const vsnri::HarnessOptions options = vsnri::ReadHarnessOptions(argc, argv);
 
 #ifdef TRACY_ENABLE
-	static rhi::TracyProfiler profiler;
-	rhi::set_profiler(&profiler);
+	rhi::TracyProfiler profiler;
+	const rhi::ScopedProfiler installedProfiler{ &profiler };
 #endif
 	vsnri::WaitForProfiler(options);
 

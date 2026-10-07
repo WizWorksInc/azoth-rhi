@@ -429,7 +429,8 @@ namespace
 							unmapsRefused.fetch_add(1, std::memory_order_relaxed);
 						}
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & worker : workers)

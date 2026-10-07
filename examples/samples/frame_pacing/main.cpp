@@ -25,6 +25,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <algorithm>
 #include <array>
@@ -65,6 +66,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };

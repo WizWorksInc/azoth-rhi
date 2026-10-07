@@ -120,7 +120,12 @@ namespace fw::scene
 		};
 
 		[[nodiscard]] bool CreateMappedBuffer(
-			MappedBuffer & buffer, std::uint64_t sizeBytes, azo::rhi::Flags<azo::rhi::BufferUsage> usage, std::uint64_t stride, const char * debugName);
+			MappedBuffer & buffer,
+			std::uint64_t sizeBytes,
+			azo::rhi::Flags<azo::rhi::BufferUsage> usage,
+			std::uint64_t stride,
+			const char * debugName
+		);
 
 		[[nodiscard]] bool Write(const MappedBuffer & buffer, std::uint64_t offset, const void * data, std::uint64_t sizeBytes) const;
 
@@ -129,7 +134,12 @@ namespace fw::scene
 		[[nodiscard]] MeshGpu AllocateMeshInternal(const MeshPrimitive & meshPrimitive);
 
 		[[nodiscard]] bool AllocateAttribute(
-			const MeshPrimitive & meshPrimitive, AttributeType attributeType, std::uint32_t elementSize, std::size_t vertexCount, std::uint64_t & outOffset);
+			const MeshPrimitive & meshPrimitive,
+			AttributeType attributeType,
+			std::uint32_t elementSize,
+			std::size_t vertexCount,
+			std::uint64_t & outOffset
+		);
 
 		[[nodiscard]] bool AllocateIndices(const Accessor & indices, MeshGpu & meshGpu);
 

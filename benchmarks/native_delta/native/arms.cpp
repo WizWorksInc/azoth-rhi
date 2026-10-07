@@ -59,7 +59,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_D3D12
-		if (g_api == rhi::D3D12Api::id)
+		if (g_api == rhi::D3D12Api::kId)
 		{
 			g_ready = PrepareD3D12(device, work);
 			return g_ready;
@@ -110,7 +110,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_D3D12
-		if (g_api == rhi::D3D12Api::id)
+		if (g_api == rhi::D3D12Api::kId)
 		{
 			return D3D12Gap(kind);
 		}
@@ -131,8 +131,13 @@ namespace bench::native
 		return false;
 	}
 
-	bool Record([[maybe_unused]] const Kind kind, [[maybe_unused]] rhi::CommandList & list, [[maybe_unused]] const Workload & work,
-		[[maybe_unused]] const std::size_t commands, std::uint64_t & elapsed)
+	bool Record(
+		[[maybe_unused]] const Kind kind,
+		[[maybe_unused]] rhi::CommandList & list,
+		[[maybe_unused]] const Workload & work,
+		[[maybe_unused]] const std::size_t commands,
+		std::uint64_t & elapsed
+	)
 	{
 		elapsed = 0;
 
@@ -159,7 +164,7 @@ namespace bench::native
 #endif
 
 #ifdef AZOTH_RHI_BENCH_D3D12
-		if (g_api == rhi::D3D12Api::id)
+		if (g_api == rhi::D3D12Api::kId)
 		{
 			return RecordD3D12(kind, list, mutation, work, commands, elapsed);
 		}

@@ -79,9 +79,11 @@ namespace
 
 	TEST(IsDepthFormat, AgreesWithASweepOfEveryEnumeratorInTheRange)
 	{
-		constexpr std::array depthFormats{
-			rhi::Format::eD16UNorm, rhi::Format::eD24UNormS8UInt, rhi::Format::eD32Float, rhi::Format::eD32FloatS8UInt, rhi::Format::eX8D24UNorm
-		};
+		constexpr std::array depthFormats{ rhi::Format::eD16UNorm,
+			rhi::Format::eD24UNormS8UInt,
+			rhi::Format::eD32Float,
+			rhi::Format::eD32FloatS8UInt,
+			rhi::Format::eX8D24UNorm };
 
 		for (std::uint16_t value = 0; value <= static_cast<std::uint16_t>(rhi::Format::eBC6HSFloat); ++value)
 		{

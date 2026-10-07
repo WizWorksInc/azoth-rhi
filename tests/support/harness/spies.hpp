@@ -41,11 +41,13 @@ namespace azo::rhi::test
 			liveBytes.fetch_add(static_cast<std::int64_t>(size), std::memory_order_relaxed);
 
 			const std::scoped_lock lock(m_mutex);
-			m_live.emplace(memory,
+			m_live.emplace(
+				memory,
 				Block{
 					.size	   = size,
 					.alignment = alignment,
-				});
+				}
+			);
 			return memory;
 		}
 
@@ -322,41 +324,49 @@ namespace azo::rhi::test
 		void gpu_allocate(const void * address, const std::uint64_t size, const CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
-			gpuAllocations.push_back(GpuEvent{
-				.address = address,
-				.size	 = size,
-				.pool	 = pool != nullptr ? pool : "",
-			});
+			gpuAllocations.push_back(
+				GpuEvent{
+					.address = address,
+					.size	 = size,
+					.pool	 = pool != nullptr ? pool : "",
+				}
+			);
 		}
 
 		void gpu_free(const void * address, const CString pool) override
 		{
 			const std::scoped_lock lock(m_mutex);
-			gpuFrees.push_back(GpuEvent{
-				.address = address,
-				.size	 = 0,
-				.pool	 = pool != nullptr ? pool : "",
-			});
+			gpuFrees.push_back(
+				GpuEvent{
+					.address = address,
+					.size	 = 0,
+					.pool	 = pool != nullptr ? pool : "",
+				}
+			);
 		}
 
 		void enter_fiber(const FiberId fiber, const CString name) override
 		{
 			const std::scoped_lock lock(m_mutex);
-			fiberEvents.push_back(FiberEvent{
-				.fiber	 = fiber,
-				.name	 = name != nullptr ? name : "",
-				.named	 = name != nullptr,
-				.entered = true,
-			});
+			fiberEvents.push_back(
+				FiberEvent{
+					.fiber	 = fiber,
+					.name	 = name != nullptr ? name : "",
+					.named	 = name != nullptr,
+					.entered = true,
+				}
+			);
 		}
 
 		void leave_fiber(const FiberId fiber) override
 		{
 			const std::scoped_lock lock(m_mutex);
-			fiberEvents.push_back(FiberEvent{
-				.fiber	 = fiber,
-				.entered = false,
-			});
+			fiberEvents.push_back(
+				FiberEvent{
+					.fiber	 = fiber,
+					.entered = false,
+				}
+			);
 		}
 
 		struct GpuEvent final

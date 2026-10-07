@@ -65,7 +65,7 @@ namespace azo::rhi
 	namespace native
 	{
 
-		void * ResolveVulkanLoader()
+		void * resolve_vulkan_loader()
 		{
 			return nullptr;
 		}

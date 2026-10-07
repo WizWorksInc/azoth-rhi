@@ -32,8 +32,14 @@ namespace bench::native
 	[[nodiscard]] bool PrepareVulkan(azo::rhi::Device device, const Workload & work);
 	void ReleaseVulkan();
 	[[nodiscard]] std::string_view VulkanGap(Kind kind);
-	[[nodiscard]] bool RecordVulkan(Kind kind, azo::rhi::CommandList & list, const azo::rhi::NativeMutationDesc & mutation, const Workload & work,
-		std::size_t commands, std::uint64_t & elapsed);
+	[[nodiscard]] bool RecordVulkan(
+		Kind kind,
+		azo::rhi::CommandList & list,
+		const azo::rhi::NativeMutationDesc & mutation,
+		const Workload & work,
+		std::size_t commands,
+		std::uint64_t & elapsed
+	);
 
 #endif
 
@@ -43,8 +49,14 @@ namespace bench::native
 	void ReleaseMetal();
 	[[nodiscard]] std::string_view MetalGap(Kind kind);
 	[[nodiscard]] bool MetalRecordsNothing(Kind kind);
-	[[nodiscard]] bool RecordMetal(Kind kind, azo::rhi::CommandList & list, const azo::rhi::NativeMutationDesc & mutation, const Workload & work,
-		std::size_t commands, std::uint64_t & elapsed);
+	[[nodiscard]] bool RecordMetal(
+		Kind kind,
+		azo::rhi::CommandList & list,
+		const azo::rhi::NativeMutationDesc & mutation,
+		const Workload & work,
+		std::size_t commands,
+		std::uint64_t & elapsed
+	);
 
 #endif
 
@@ -52,8 +64,14 @@ namespace bench::native
 
 	[[nodiscard]] bool PrepareD3D12(azo::rhi::Device device, const Workload & work);
 	[[nodiscard]] std::string_view D3D12Gap(Kind kind);
-	[[nodiscard]] bool RecordD3D12(Kind kind, azo::rhi::CommandList & list, const azo::rhi::NativeMutationDesc & mutation, const Workload & work,
-		std::size_t commands, std::uint64_t & elapsed);
+	[[nodiscard]] bool RecordD3D12(
+		Kind kind,
+		azo::rhi::CommandList & list,
+		const azo::rhi::NativeMutationDesc & mutation,
+		const Workload & work,
+		std::size_t commands,
+		std::uint64_t & elapsed
+	);
 
 #endif
 

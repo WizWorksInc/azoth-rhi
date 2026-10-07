@@ -143,17 +143,17 @@ namespace azo::rhi::vulkan
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 				if (!device->externalMemoryWin32)
 				{
-					return Fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
+					return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 				}
 
 				const auto got = device->device.getMemoryWin32HandleKHR(vk::MemoryGetWin32HandleInfoKHR(memory, *bit), device->dispatch);
 				if (got.result != vk::Result::eSuccess)
 				{
-					return FailNative(error, "vkGetMemoryWin32HandleKHR failed", got.result);
+					return fail_native(error, "vkGetMemoryWin32HandleKHR failed", got.result);
 				}
 
 				*out = ExternalHandle{ .type = type, .handle = got.value };
-				return Succeed(error);
+				return succeed(error);
 #else
 				break;
 #endif
@@ -215,17 +215,17 @@ namespace azo::rhi::vulkan
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 				if (!device->externalSemaphoreWin32)
 				{
-					return Fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
+					return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 				}
 
 				const auto got = device->device.getSemaphoreWin32HandleKHR(vk::SemaphoreGetWin32HandleInfoKHR(semaphore, *bit), device->dispatch);
 				if (got.result != vk::Result::eSuccess)
 				{
-					return FailNative(error, "vkGetSemaphoreWin32HandleKHR failed", got.result);
+					return fail_native(error, "vkGetSemaphoreWin32HandleKHR failed", got.result);
 				}
 
 				*out = ExternalHandle{ .type = type, .handle = got.value };
-				return Succeed(error);
+				return succeed(error);
 #else
 				break;
 #endif
@@ -295,18 +295,18 @@ namespace azo::rhi::vulkan
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 				if (!device->externalMemoryWin32)
 				{
-					return Fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
+					return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 				}
 
 				if (handle.handle == nullptr)
 				{
-					return Fail(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Win32 handle");
+					return fail(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Win32 handle");
 				}
 
 				chain.win32.handleType = *bit;
 				chain.win32.handle	   = handle.handle;
 				chain.head			   = &chain.win32;
-				return Succeed(error);
+				return succeed(error);
 #else
 				break;
 #endif
@@ -675,12 +675,12 @@ namespace azo::rhi::vulkan
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 				if (!device->externalSemaphoreWin32)
 				{
-					return Fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
+					return fail(error, ErrorCode::eUnsupportedFeature, kNoTransport);
 				}
 
 				if (handle.handle == nullptr)
 				{
-					return Fail(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Win32 handle");
+					return fail(error, ErrorCode::eInvalidArgument, "import of a handle carrying no Win32 handle");
 				}
 
 				vk::ImportSemaphoreWin32HandleInfoKHR info;
@@ -689,10 +689,10 @@ namespace azo::rhi::vulkan
 				info.handle		= handle.handle;
 				if (const vk::Result imported = device->device.importSemaphoreWin32HandleKHR(info, device->dispatch); imported != vk::Result::eSuccess)
 				{
-					return FailNative(error, "the imported semaphore payload was refused, which is how a handle from another device fails", imported);
+					return fail_native(error, "the imported semaphore payload was refused, which is how a handle from another device fails", imported);
 				}
 
-				return Succeed(error);
+				return succeed(error);
 #else
 				break;
 #endif

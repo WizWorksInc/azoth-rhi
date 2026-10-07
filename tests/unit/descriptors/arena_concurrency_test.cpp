@@ -68,7 +68,8 @@ namespace
 						.variableDescriptorCount = 0,
 						.debugName				 = "azoth.rhi.test.concurrentSet",
 					},
-					allocError));
+					allocError
+				));
 			}
 		};
 
@@ -81,12 +82,14 @@ namespace
 			[&]
 			{
 				hammer(first, fromFirst);
-			});
+			}
+		);
 		std::thread secondThread(
 			[&]
 			{
 				hammer(second, fromSecond);
-			});
+			}
+		);
 		firstThread.join();
 		secondThread.join();
 

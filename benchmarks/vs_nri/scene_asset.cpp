@@ -189,7 +189,8 @@ namespace vsnri
 			int height	 = 0;
 			int channels = 0;
 			const std::unique_ptr<stbi_uc, PixelDeleter> pixels(
-				stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(file.data()), static_cast<int>(file.size()), &width, &height, &channels, kRgba));
+				stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(file.data()), static_cast<int>(file.size()), &width, &height, &channels, kRgba)
+			);
 			if (pixels == nullptr)
 			{
 				error = stbi_failure_reason();
@@ -223,8 +224,13 @@ namespace vsnri
 			return texture;
 		}
 
-		[[nodiscard]] bool LoadImage(const fastgltf::Image & image, const std::filesystem::path & documentDirectory,
-			const std::filesystem::path & textureDirectory, SceneTexture & texture, std::string & error)
+		[[nodiscard]] bool LoadImage(
+			const fastgltf::Image & image,
+			const std::filesystem::path & documentDirectory,
+			const std::filesystem::path & textureDirectory,
+			SceneTexture & texture,
+			std::string & error
+		)
 		{
 			const auto * uri = std::get_if<fastgltf::sources::URI>(&image.data);
 			if (uri == nullptr)
@@ -295,7 +301,8 @@ namespace vsnri
 
 			std::array<float, 3> low{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
 			std::array<float, 3> high{ std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() };
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+				asset,
 				positions,
 				[&](const fastgltf::math::fvec3 value, const std::size_t index)
 				{
@@ -305,26 +312,31 @@ namespace vsnri
 						low.at(axis)  = std::min(low.at(axis), value[axis]);
 						high.at(axis) = std::max(high.at(axis), value[axis]);
 					}
-				});
+				}
+			);
 
 			if (normal != primitive.attributes.end())
 			{
-				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset,
+				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+					asset,
 					asset.accessors[normal->accessorIndex],
 					[&](const fastgltf::math::fvec3 value, const std::size_t index)
 					{
 						scene.vertices[base + index].normal = { value.x(), value.y(), value.z() };
-					});
+					}
+				);
 			}
 
 			if (uv != primitive.attributes.end())
 			{
-				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset,
+				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
+					asset,
 					asset.accessors[uv->accessorIndex],
 					[&](const fastgltf::math::fvec2 value, const std::size_t index)
 					{
 						scene.vertices[base + index].uv = { value.x(), value.y() };
-					});
+					}
+				);
 			}
 
 			SceneMesh mesh{};
@@ -333,17 +345,20 @@ namespace vsnri
 			mesh.vertexOffset = static_cast<std::int32_t>(base);
 
 			const std::array center{ (low[0] + high[0]) * 0.5f, (low[1] + high[1]) * 0.5f, (low[2] + high[2]) * 0.5f };
-			const float radius = 0.5f * std::sqrt(((high[0] - low[0]) * (high[0] - low[0])) + ((high[1] - low[1]) * (high[1] - low[1])) +
-												  ((high[2] - low[2]) * (high[2] - low[2])));
-			mesh.bounds		   = { center[0], center[1], center[2], radius };
+			const float radius =
+				0.5f *
+				std::sqrt(((high[0] - low[0]) * (high[0] - low[0])) + ((high[1] - low[1]) * (high[1] - low[1])) + ((high[2] - low[2]) * (high[2] - low[2])));
+			mesh.bounds = { center[0], center[1], center[2], radius };
 
 			scene.indices.reserve(scene.indices.size() + indices.count);
-			fastgltf::iterateAccessor<std::uint32_t>(asset,
+			fastgltf::iterateAccessor<std::uint32_t>(
+				asset,
 				indices,
 				[&](const std::uint32_t index)
 				{
 					scene.indices.push_back(index);
-				});
+				}
+			);
 
 			scene.triangles += indices.count / 3;
 			scene.meshes.push_back(mesh);
@@ -423,7 +438,8 @@ namespace vsnri
 		std::vector<std::uint32_t> firstMesh(asset.meshes.size(), std::numeric_limits<std::uint32_t>::max());
 
 		bool ok = true;
-		fastgltf::iterateSceneNodes(asset,
+		fastgltf::iterateSceneNodes(
+			asset,
 			asset.defaultScene.value_or(0),
 			fastgltf::math::fmat4x4(),
 			[&](const fastgltf::Node & node, const fastgltf::math::fmat4x4 & world)
@@ -459,13 +475,16 @@ namespace vsnri
 				for (std::size_t primitive = 0; primitive < primitives.size(); ++primitive)
 				{
 					const fastgltf::Optional<std::size_t> & material = primitives[primitive].materialIndex;
-					scene.instances.push_back(SceneInstance{
-						.mesh	  = firstMesh.at(meshIndex) + static_cast<std::uint32_t>(primitive),
-						.material = material.has_value() ? static_cast<std::uint32_t>(*material) : defaultMaterial,
-						.model	  = model,
-					});
+					scene.instances.push_back(
+						SceneInstance{
+							.mesh	  = firstMesh.at(meshIndex) + static_cast<std::uint32_t>(primitive),
+							.material = material.has_value() ? static_cast<std::uint32_t>(*material) : defaultMaterial,
+							.model	  = model,
+						}
+					);
 				}
-			});
+			}
+		);
 
 		if (ok && scene.instances.empty())
 		{

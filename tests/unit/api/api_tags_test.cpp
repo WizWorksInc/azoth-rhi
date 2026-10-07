@@ -96,14 +96,14 @@ namespace
 	struct NotDerived final
 	{
 		static constexpr std::string_view kCanonicalName = "test.tag";
-		static constexpr std::string_view kDisplayName	= "Test Tag";
+		static constexpr std::string_view kDisplayName	 = "Test Tag";
 		static constexpr rhi::GraphicsApiId id{ 1 };
 	};
 
 	struct NotEmpty final : rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "test.tag";
-		static constexpr std::string_view kDisplayName	= "Test Tag";
+		static constexpr std::string_view kDisplayName	 = "Test Tag";
 		static constexpr rhi::GraphicsApiId id{ 1 };
 		int state = 0;
 	};
@@ -111,7 +111,7 @@ namespace
 	struct NotFinal : rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "test.tag";
-		static constexpr std::string_view kDisplayName	= "Test Tag";
+		static constexpr std::string_view kDisplayName	 = "Test Tag";
 		static constexpr rhi::GraphicsApiId id{ 1 };
 	};
 

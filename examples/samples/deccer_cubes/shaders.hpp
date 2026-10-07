@@ -46,8 +46,14 @@ namespace deccer
 
 		[[nodiscard]] bool Open(azo::rhi::GraphicsApiId api, std::string & error);
 
-		[[nodiscard]] azo::rhi::ShaderBinary Compile(const char * moduleName, const char * source, const char * entryPoint, azo::rhi::ShaderStage stage,
-			std::string & error, Threadgroup threadgroup = {});
+		[[nodiscard]] azo::rhi::ShaderBinary Compile(
+			const char * moduleName,
+			const char * source,
+			const char * entryPoint,
+			azo::rhi::ShaderStage stage,
+			std::string & error,
+			Threadgroup threadgroup = {}
+		);
 
 	private:
 		struct Session;

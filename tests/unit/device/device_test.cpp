@@ -104,11 +104,13 @@ namespace
 
 		const auto anySet = [](const auto & bytes)
 		{
-			return std::ranges::any_of(bytes,
+			return std::ranges::any_of(
+				bytes,
 				[](const std::uint8_t byte)
 				{
 					return byte != 0;
-				});
+				}
+			);
 		};
 
 		if (CurrentBackend().id == rhi::VulkanApi::kId)
@@ -322,11 +324,13 @@ namespace
 		EXPECT_EQ(granted.sparseTier, rhi::SparseTier::eNone) << "sparse is a ladder, so an undeclared device sits at the bottom of it, not partway up";
 
 		const rhi::DeviceCaps & declared = Caps();
-		const bool anyGranted			 = std::ranges::any_of(kEveryFeature,
+		const bool anyGranted			 = std::ranges::any_of(
+			kEveryFeature,
 			[&declared](const rhi::DeviceFeature feature) noexcept
 			{
 				return declared.supports(feature);
-			});
+			}
+		);
 
 		for (const rhi::DeviceFeature feature : kEveryFeature)
 		{
@@ -387,11 +391,13 @@ namespace
 
 		const rhi::DeviceCaps & available = Caps();
 		// NOLINTNEXTLINE(readability-qualified-auto): libc++ makes this array iterator a raw pointer and MSVC does not, so auto * here builds on one and not the other.
-		const auto missing = std::ranges::find_if(kEveryFeature,
+		const auto missing = std::ranges::find_if(
+			kEveryFeature,
 			[&available](const rhi::DeviceFeature feature) noexcept
 			{
 				return !available.supports(feature);
-			});
+			}
+		);
 
 		if (missing == kEveryFeature.end())
 		{

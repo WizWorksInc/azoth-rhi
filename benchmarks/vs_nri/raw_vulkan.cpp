@@ -220,10 +220,20 @@ namespace vsnri::raw
 			}
 
 			const std::array stages{
-				VkPipelineShaderStageCreateInfo{
-					VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vertex, "main", nullptr },
-				VkPipelineShaderStageCreateInfo{
-					VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragment, "main", nullptr },
+				VkPipelineShaderStageCreateInfo{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+					nullptr,
+					0,
+					VK_SHADER_STAGE_VERTEX_BIT,
+					vertex,
+					"main",
+					nullptr },
+				VkPipelineShaderStageCreateInfo{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+					nullptr,
+					0,
+					VK_SHADER_STAGE_FRAGMENT_BIT,
+					fragment,
+					"main",
+					nullptr },
 			};
 
 			const VkVertexInputBindingDescription binding{ 0, kVertexStride, VK_VERTEX_INPUT_RATE_VERTEX };

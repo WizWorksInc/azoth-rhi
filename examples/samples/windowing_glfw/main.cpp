@@ -28,6 +28,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "native/glfw_natives.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <array>
 #include <cmath>
@@ -181,6 +182,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	const std::uint64_t frameLimit = args.size() > 1 ? std::strtoull(args[1], nullptr, 10) : 0;
 
@@ -221,7 +224,9 @@ int main(int argc, char ** argv)
 	const rhi::Extent2D initial		 = window.DrawableSize();
 
 	rhi::Swapchain swapchain = dev.create_swapchain(
-		rhi::SwapchainDesc{ .surface = surface, .width = initial.width, .height = initial.height, .debugName = "present.swapchain" }, error);
+		rhi::SwapchainDesc{ .surface = surface, .width = initial.width, .height = initial.height, .debugName = "present.swapchain" },
+		error
+	);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "present.timeline" }, error);
 	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "present.pool" }, error);

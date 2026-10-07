@@ -43,6 +43,7 @@
 #include "ibl.hpp"
 #include "scene.hpp"
 #include "shaders.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -110,7 +111,13 @@ namespace
 	};
 
 	[[nodiscard]] bool Upload(
-		rhi::Device dev, rhi::Queue & queue, const rhi::TimelineHandle timeline, const std::uint64_t signalValue, const deccer::Scene & scene, GpuScene & gpu)
+		rhi::Device dev,
+		rhi::Queue & queue,
+		const rhi::TimelineHandle timeline,
+		const std::uint64_t signalValue,
+		const deccer::Scene & scene,
+		GpuScene & gpu
+	)
 	{
 		rhi::Error error{};
 
@@ -133,7 +140,8 @@ namespace
 				.memory	   = rhi::MemoryUsage::eCpuUpload,
 				.debugName = "deccer.staging",
 			},
-			error);
+			error
+		);
 
 		gpu.vertices = dev.create_buffer(
 			rhi::BufferDesc{
@@ -142,7 +150,8 @@ namespace
 				.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eVertex) | rhi::BufferUsage::eCopyDst,
 				.debugName = "deccer.vertices",
 			},
-			error);
+			error
+		);
 
 		gpu.indices = dev.create_buffer(
 			rhi::BufferDesc{
@@ -151,7 +160,8 @@ namespace
 				.usage	   = rhi::Flags<rhi::BufferUsage>(rhi::BufferUsage::eIndex) | rhi::BufferUsage::eCopyDst,
 				.debugName = "deccer.indices",
 			},
-			error);
+			error
+		);
 
 		if (!staging.is_valid() || !gpu.vertices.is_valid() || !gpu.indices.is_valid())
 		{
@@ -195,14 +205,17 @@ namespace
 					.allowFormatViews = true,
 					.debugName		  = "deccer.texture",
 				},
-				error);
+				error
+			);
 
-			const rhi::TextureViewHandle view = dev.create_texture_view(texture,
+			const rhi::TextureViewHandle view = dev.create_texture_view(
+				texture,
 				rhi::TextureViewDesc{
 					.range	   = { .mipCount = mips },
 					.debugName = "deccer.textureView",
 				},
-				error);
+				error
+			);
 
 			if (!texture.is_valid() || !view.is_valid())
 			{
@@ -235,7 +248,8 @@ namespace
 				.maxDescriptors = resampleSets * 3,
 				.debugName		= "deccer.resample.arena",
 			},
-			error);
+			error
+		);
 
 		if (!resampleArena.is_valid())
 		{
@@ -260,28 +274,34 @@ namespace
 		std::vector<rhi::TextureBarrier> toSample;
 		for (const rhi::BufferHandle buffer : { gpu.vertices, gpu.indices })
 		{
-			toCopy.push_back(rhi::BufferBarrier{
-				.buffer = buffer,
-				.before = { .use = rhi::ResourceUse::eDiscard },
-				.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
-			});
-			toRead.push_back(rhi::BufferBarrier{
-				.buffer = buffer,
-				.before = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
-				.after	= { .use = rhi::Flags<rhi::ResourceUse>(rhi::ResourceUse::eVertexBuffer) | rhi::ResourceUse::eIndexBuffer,
-					.stages		= rhi::Stage::eVertexWork },
-			});
+			toCopy.push_back(
+				rhi::BufferBarrier{
+					.buffer = buffer,
+					.before = { .use = rhi::ResourceUse::eDiscard },
+					.after	= { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				}
+			);
+			toRead.push_back(
+				rhi::BufferBarrier{
+					.buffer = buffer,
+					.before = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+					.after	= { .use = rhi::Flags<rhi::ResourceUse>(rhi::ResourceUse::eVertexBuffer) | rhi::ResourceUse::eIndexBuffer,
+						.stages		= rhi::Stage::eVertexWork },
+				}
+			);
 		}
 
 		for (std::size_t i = 0; i < gpu.textures.size(); ++i)
 		{
 			const rhi::TextureSubresourceRange whole{ .mipCount = fw::assets::MipCount(scene.images[i].width, scene.images[i].height) };
-			toCopyDst.push_back(rhi::TextureBarrier{
-				.texture = gpu.textures[i],
-				.before	 = { .use = rhi::ResourceUse::eDiscard },
-				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
-				.range	 = whole,
-			});
+			toCopyDst.push_back(
+				rhi::TextureBarrier{
+					.texture = gpu.textures[i],
+					.before	 = { .use = rhi::ResourceUse::eDiscard },
+					.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+					.range	 = whole,
+				}
+			);
 		}
 
 		bool recorded = list.barriers(rhi::BarrierBatch{ .buffers = toCopy, .textures = toCopyDst }, error) &&
@@ -321,7 +341,11 @@ namespace
 	}
 
 	[[nodiscard]] bool WriteFrame(
-		rhi::Device dev, const rhi::BufferHandle buffer, const fw::scene::PerspectiveCamera & camera, const std::uint32_t specularMips)
+		rhi::Device dev,
+		const rhi::BufferHandle buffer,
+		const fw::scene::PerspectiveCamera & camera,
+		const std::uint32_t specularMips
+	)
 	{
 		const float tangentY = std::tan(glm::radians(camera.GetFieldOfView()) * 0.5f);
 
@@ -365,6 +389,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	const std::string bundled	   = fw::util::AssetPath(kSceneFile).string();
 	const char * gltfPath		   = args.size() > 1 ? args[1] : bundled.c_str();
@@ -434,7 +460,8 @@ int main(int argc, char ** argv)
 			.height	   = initial.height,
 			.debugName = "deccer.swapchain",
 		},
-		error);
+		error
+	);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "deccer.timeline" }, error);
 	if (surface.value == 0 || !swapchain.is_valid() || !queue.is_valid() || !timeline.is_valid())
@@ -480,7 +507,8 @@ int main(int argc, char ** argv)
 			.memory	   = rhi::MemoryUsage::eCpuToGpu,
 			.debugName = "deccer.frame",
 		},
-		error);
+		error
+	);
 
 	const rhi::SamplerHandle sampler = dev.create_sampler(rhi::SamplerDesc{ .debugName = "deccer.sampler" }, error);
 	if (!frameBuffer.is_valid() || !sampler.is_valid())
@@ -513,7 +541,8 @@ int main(int argc, char ** argv)
 			.maxDescriptors = (materialCount * static_cast<std::uint32_t>(materialBindings.size())) + 1,
 			.debugName		= "deccer.arena",
 		},
-		error);
+		error
+	);
 	if (!frameSetLayout.is_valid() || !materialSetLayout.is_valid() || !arena.is_valid())
 	{
 		fw::ReportError("failed to create the descriptor layouts", error);
@@ -669,14 +698,17 @@ int main(int argc, char ** argv)
 					.usage	   = rhi::TextureUsage::eDepthStencilAttachment,
 					.debugName = "deccer.depth",
 				},
-				error);
-			target.view = dev.create_texture_view(target.texture,
+				error
+			);
+			target.view = dev.create_texture_view(
+				target.texture,
 				rhi::TextureViewDesc{
 					.format	   = kDepthFormat,
 					.range	   = { .aspects = rhi::TextureAspect::eDepth },
 					.debugName = "deccer.depthView",
 				},
-				error);
+				error
+			);
 
 			if (!target.texture.is_valid() || !target.view.is_valid())
 			{
@@ -795,12 +827,13 @@ int main(int argc, char ** argv)
 								.width		  = swapchain.get_width(),
 								.height		  = swapchain.get_height(),
 							},
-							error) &&
+							error
+						) &&
 						list.set_viewport(viewport, error) && list.set_scissor(scissor, error) &&
 						list.bind_descriptor_set(pipelineDesc.layout, kFrameSet, frameSet, {}, error) &&
-						list.bind_descriptor_set(pipelineDesc.layout, kMaterialSet, materialSets[0], {}, error) && list.set_graphics_pipeline(skyPipeline, error) &&
-						list.draw(3, 1, 0, 0, error) && list.set_graphics_pipeline(pipeline, error) && list.set_vertex_buffer(0, gpu.vertices, 0, error) &&
-						list.set_index_buffer(gpu.indices, 0, true, error);
+						list.bind_descriptor_set(pipelineDesc.layout, kMaterialSet, materialSets[0], {}, error) &&
+						list.set_graphics_pipeline(skyPipeline, error) && list.draw(3, 1, 0, 0, error) && list.set_graphics_pipeline(pipeline, error) &&
+						list.set_vertex_buffer(0, gpu.vertices, 0, error) && list.set_index_buffer(gpu.indices, 0, true, error);
 
 		for (const deccer::Draw & draw : scene.draws)
 		{

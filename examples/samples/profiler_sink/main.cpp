@@ -27,6 +27,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <algorithm>
 #include <array>
@@ -90,11 +91,13 @@ namespace
 		{
 			const std::scoped_lock lock(m_mutex);
 
-			std::ranges::sort(m_zones,
+			std::ranges::sort(
+				m_zones,
 				[](const Entry & lhs, const Entry & rhs)
 				{
 					return lhs.value > rhs.value;
-				});
+				}
+			);
 
 			std::int64_t total = 0;
 			for (const Entry & zone : m_zones)
@@ -242,6 +245,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	rhi::set_profiler(&g_profiler);
 
 	constexpr rhi::BuildInfo build = rhi::get_build_info();

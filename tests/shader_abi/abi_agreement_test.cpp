@@ -193,7 +193,8 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			Slang::ComPtr<slang::IComponentType> composed;
 			Slang::ComPtr<slang::IComponentType> linked;
 			if (SLANG_FAILED(
-					m_session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+					m_session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+				) ||
 				SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())))
 			{
 				error = "the shader did not link";
@@ -253,7 +254,8 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			Slang::ComPtr<slang::IComponentType> composed;
 			Slang::ComPtr<slang::IComponentType> linked;
 			if (SLANG_FAILED(
-					m_session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+					m_session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+				) ||
 				SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())))
 			{
 				error = "the shader did not link";
@@ -295,7 +297,12 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 		}
 
 		[[nodiscard]] bool CompileEntryPoint(
-			const char * source, const char * moduleName, const char * entryPointName, std::vector<std::uint8_t> & out, std::string & error)
+			const char * source,
+			const char * moduleName,
+			const char * entryPointName,
+			std::vector<std::uint8_t> & out,
+			std::string & error
+		)
 		{
 			Slang::ComPtr<slang::IBlob> diagnostics;
 			slang::IModule * module = m_session->loadModuleFromSourceString(moduleName, moduleName, source, diagnostics.writeRef());
@@ -318,7 +325,8 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			Slang::ComPtr<slang::IComponentType> linked;
 			Slang::ComPtr<slang::IBlob> code;
 			if (SLANG_FAILED(
-					m_session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+					m_session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+				) ||
 				SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())) ||
 				SLANG_FAILED(linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef())))
 			{
@@ -439,7 +447,8 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 			const Reflected actual = session.Locate(entry.block, entry.member, error);
 			ASSERT_TRUE(actual.found) << entry.what << ": " << error;
 
-			const rhi::NativeBinding expected = rhi::native_binding_for(rhi::MetalApi::kId, rhi::BindingTier::eUnbounded, layout.Abi(), entry.set, entry.binding);
+			const rhi::NativeBinding expected =
+				rhi::native_binding_for(rhi::MetalApi::kId, rhi::BindingTier::eUnbounded, layout.Abi(), entry.set, entry.binding);
 			ASSERT_TRUE(expected.exists) << entry.what << ": the ABI has no answer for a set argument buffers can address";
 
 			EXPECT_EQ(actual.space, expected.resource.space) << entry.what << ": Slang and the published ABI disagree on the buffer index the set binds at";
@@ -591,7 +600,7 @@ void skyMain(uint3 id : SV_DispatchThreadID)
 
 		const rhi::GraphicsPipelineHandle pipeline = device.create_graphics_pipeline(pipelineDesc, rhiError);
 		EXPECT_TRUE(pipeline.is_valid()) << "a pipeline whose shader follows the vertex ABI was refused: "
-										<< (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
+										 << (rhiError.message != nullptr ? rhiError.message : "no diagnostic");
 
 		if (pipeline.is_valid())
 		{
@@ -723,8 +732,10 @@ void computeMain(uint3 thread : SV_DispatchThreadID)
 		};
 
 		rhi::Error buildError{};
-		const rhi::ComputePipelineHandle pipeline =
-			device.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "abi.setNumbering.pipeline" }, buildError);
+		const rhi::ComputePipelineHandle pipeline = device.create_compute_pipeline(
+			rhi::ComputePipelineDesc{ .layout = layout, .shader = shader, .debugName = "abi.setNumbering.pipeline" },
+			buildError
+		);
 
 		EXPECT_FALSE(pipeline.is_valid()) << "a shader wanting its set at an index this layout never binds was accepted, which dispatches and reads zeros";
 		EXPECT_TRUE(buildError.message != nullptr) << "the refusal carried no diagnostic";

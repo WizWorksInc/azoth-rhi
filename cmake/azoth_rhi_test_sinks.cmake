@@ -42,7 +42,8 @@ mark_as_advanced(AZOTH_RHI_TRACY_TAG AZOTH_RHI_WINPIX_VERSION)
 # Called before the profiling detection, since the point is for that detection to find these the same
 # way it would find a host's.
 macro(azoth_rhi_fetch_test_sinks)
-    if(AZOTH_RHI_TESTS_FETCH_TRACY)
+    set(AZOTH_RHI_FETCHED_TRACY_MANUAL_LIFETIME OFF)
+    if(AZOTH_RHI_TESTS_FETCH_TRACY AND NOT TARGET Tracy::TracyClient AND NOT TARGET "${AZOTH_RHI_TRACY_TARGET}")
         # On demand because a client with no server listening keeps every zone it records for the
         # life of the process and a suite records a great many. Fibers on, since the fiber half of
         # the sink compiles to nothing without them and would go untested by the job that exists to
@@ -57,6 +58,12 @@ macro(azoth_rhi_fetch_test_sinks)
                 GIT_SHALLOW TRUE
         )
         FetchContent_MakeAvailable(tracy)
+        get_target_property(_azoth_rhi_tracy_type TracyClient TYPE)
+        if(APPLE AND _azoth_rhi_tracy_type STREQUAL "SHARED_LIBRARY")
+            # macOS shared clients must start their workers after dyld has finished loading.
+            target_compile_definitions(TracyClient PUBLIC TRACY_DELAYED_INIT TRACY_MANUAL_LIFETIME)
+            set(AZOTH_RHI_FETCHED_TRACY_MANUAL_LIFETIME ON)
+        endif()
     endif()
 
     if(AZOTH_RHI_TESTS_FETCH_PIX)
@@ -80,7 +87,11 @@ macro(azoth_rhi_fetch_test_sinks)
         )
         FetchContent_MakeAvailable(winpix)
 
-        string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" _winpix_proc)
+        if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+            string(TOLOWER "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" _winpix_proc)
+        else()
+            string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" _winpix_proc)
+        endif()
         if(_winpix_proc MATCHES "arm64|aarch64")
             set(_winpix_arch ARM64)
         else()
@@ -96,6 +107,10 @@ macro(azoth_rhi_fetch_test_sinks)
         target_include_directories(winpix SYSTEM INTERFACE "${winpix_SOURCE_DIR}/Include/WinPixEventRuntime")
     endif()
 endmacro()
+
+function(azoth_rhi_use_tracy_lifetime target)
+    target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/support")
+endfunction()
 
 # Windows resolves a DLL from the directory the executable is in. Without this a suite cannot start,
 # which PRE_TEST discovery hits before any case runs and reports as a CMake error out of DiscoverTests

@@ -155,13 +155,15 @@ namespace
 		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::UploadBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		const rhi::MappedMemory mapped = Dev().map(buffer,
+		const rhi::MappedMemory mapped = Dev().map(
+			buffer,
 			rhi::MapDesc{
 				.mode	= rhi::MapMode::eWrite,
 				.offset = 0,
 				.size	= test::samples::kBufferSize,
 			},
-			error);
+			error
+		);
 		if (mapped.data == nullptr)
 		{
 			EXPECT_TRUE(test::ErrorIsPopulated(error));

@@ -30,6 +30,7 @@
 #include "shared/pass_plan.hpp"
 #include "shared/shapes.hpp"
 #include "shared/spread_gate.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <benchmark/benchmark.h>
 
@@ -89,11 +90,13 @@ namespace
 		case Kind::ePushConstants:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				accepted += static_cast<std::uint64_t>(list.push_constants(work.layout,
+				accepted += static_cast<std::uint64_t>(list.push_constants(
+					work.layout,
 					rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment,
 					0,
 					kPushConstantBytes,
-					work.pushConstants.data()));
+					work.pushConstants.data()
+				));
 			}
 			break;
 
@@ -142,6 +145,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	std::array<std::string, 2> flagDefaults{ "--benchmark_repetitions=9", "--benchmark_display_aggregates_only=true" };
 
 	std::vector<char *> args = bench::WithFlagDefaults(argc, argv, flagDefaults);
@@ -239,7 +244,8 @@ int main(int argc, char ** argv)
 			.maxDescriptors = 1,
 			.debugName		= "bench.arena",
 		},
-		error);
+		error
+	);
 	if (!work.scratch.is_valid() || !setLayout.is_valid() || !work.layout.is_valid() || !arena.is_valid())
 	{
 		bench::ReportError("failed to create the binding resources", error);
@@ -451,11 +457,13 @@ int main(int argc, char ** argv)
 
 		if (const std::string_view gap = bench::native::Gap(kind); !gap.empty())
 		{
-			benchmark::RegisterBenchmark(name,
+			benchmark::RegisterBenchmark(
+				name,
 				[gap](benchmark::State & state)
 				{
 					state.SkipWithMessage(std::string(gap));
-				})
+				}
+			)
 				->UseManualTime()
 				->Unit(benchmark::kNanosecond);
 			continue;
@@ -469,7 +477,8 @@ int main(int argc, char ** argv)
 
 		const std::size_t commandsAPass = plan.commands;
 
-		auto * registered = benchmark::RegisterBenchmark(name,
+		auto * registered = benchmark::RegisterBenchmark(
+			name,
 			[&, kind, commandsAPass](benchmark::State & state)
 			{
 				if (passFailed)
@@ -521,7 +530,8 @@ int main(int argc, char ** argv)
 				{
 					state.counters[kDeltaShareCounter] = benchmark::Counter((rhiNs - nativeNs) / nativeNs * 100.0);
 				}
-			});
+			}
+		);
 
 		registered->UseManualTime()->Unit(benchmark::kNanosecond);
 

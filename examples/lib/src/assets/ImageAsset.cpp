@@ -61,7 +61,8 @@ namespace fw::assets
 
 		const std::unique_ptr<void, PixelDeleter> pixels(
 			wantFloat ? static_cast<void *>(stbi_loadf_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kChannels))
-					  : static_cast<void *>(stbi_load_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kChannels)));
+					  : static_cast<void *>(stbi_load_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kChannels))
+		);
 
 		if (pixels == nullptr)
 		{

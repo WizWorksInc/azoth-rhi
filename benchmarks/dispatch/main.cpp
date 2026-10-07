@@ -30,6 +30,7 @@
 #include "shared/pass_plan.hpp"
 #include "shared/shapes.hpp"
 #include "shared/spread_gate.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <benchmark/benchmark.h>
 
@@ -138,7 +139,8 @@ namespace
 		fixture.timeline	= dev.create_timeline(rhi::TimelineDesc{ .debugName = "bench.timeline" }, error);
 		fixture.queue		= dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 		fixture.pool		= dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "bench.pool" }, error);
-		if (!fixture.work.target.is_valid() || !fixture.view.is_valid() || !fixture.timeline.is_valid() || !fixture.queue.is_valid() || !fixture.pool.is_valid())
+		if (!fixture.work.target.is_valid() || !fixture.view.is_valid() || !fixture.timeline.is_valid() || !fixture.queue.is_valid() ||
+			!fixture.pool.is_valid())
 		{
 			bench::ReportError("failed to create the recording resources", error);
 			return false;
@@ -175,7 +177,8 @@ namespace
 				.maxDescriptors = 1,
 				.debugName		= "bench.arena",
 			},
-			error);
+			error
+		);
 		if (!fixture.work.scratch.is_valid() || !fixture.setLayout.is_valid() || !fixture.work.layout.is_valid() || !fixture.arena.is_valid())
 		{
 			bench::ReportError("failed to create the binding resources", error);
@@ -305,11 +308,13 @@ namespace
 		case Kind::ePushConstants:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				taken += static_cast<std::uint64_t>(list.push_constants(work.layout,
+				taken += static_cast<std::uint64_t>(list.push_constants(
+					work.layout,
 					rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment,
 					0,
 					kPushConstantBytes,
-					work.pushConstants.data()));
+					work.pushConstants.data()
+				));
 			}
 			break;
 
@@ -355,7 +360,13 @@ namespace
 	}
 
 	[[nodiscard]] std::uint64_t RecordIndirect(
-		const Kind kind, const IndirectApi & block, void * impl, const Workload & work, const std::size_t commands, std::uint64_t & accepted)
+		const Kind kind,
+		const IndirectApi & block,
+		void * impl,
+		const Workload & work,
+		const std::size_t commands,
+		std::uint64_t & accepted
+	)
 	{
 		const IndirectApi * table = &block;
 		benchmark::DoNotOptimize(table);
@@ -383,13 +394,15 @@ namespace
 		case Kind::ePushConstants:
 			for (std::size_t index = 0; index < commands; ++index)
 			{
-				taken += static_cast<std::uint64_t>(table->pushConstants(impl,
+				taken += static_cast<std::uint64_t>(table->pushConstants(
+					impl,
 					work.layout,
 					rhi::Flags<rhi::ShaderStage>(rhi::ShaderStage::eVertex) | rhi::ShaderStage::eFragment,
 					0,
 					kPushConstantBytes,
 					work.pushConstants.data(),
-					nullptr));
+					nullptr
+				));
 			}
 			break;
 
@@ -491,10 +504,12 @@ namespace
 
 		if (rhiAccepted != commands)
 		{
-			std::println("{} refused a {} under validation {}, so the measurement is not of a recording",
+			std::println(
+				"{} refused a {} under validation {}, so the measurement is not of a recording",
 				commands - rhiAccepted,
 				bench::KindName(kind),
-				bench::ValidationName(fixture.validation));
+				bench::ValidationName(fixture.validation)
+			);
 			return false;
 		}
 
@@ -540,6 +555,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	std::array<std::string, 2> flagDefaults{ "--benchmark_repetitions=9", "--benchmark_display_aggregates_only=true" };
 
 	std::vector<char *> args = bench::WithFlagDefaults(argc, argv, flagDefaults);
@@ -634,11 +651,13 @@ int main(int argc, char ** argv)
 			if (bench::NeedsPipeline(kind) && !fixture.gap.empty())
 			{
 				const std::string_view gap = fixture.gap;
-				benchmark::RegisterBenchmark(name,
+				benchmark::RegisterBenchmark(
+					name,
 					[gap](benchmark::State & state)
 					{
 						state.SkipWithMessage(std::string(gap));
-					})
+					}
+				)
 					->UseManualTime()
 					->Unit(benchmark::kNanosecond);
 				continue;
@@ -652,7 +671,8 @@ int main(int argc, char ** argv)
 
 			const std::size_t commandsAPass = plan.commands;
 
-			auto * registered = benchmark::RegisterBenchmark(name,
+			auto * registered = benchmark::RegisterBenchmark(
+				name,
 				[&fixture, &passFailed, kind, commandsAPass](benchmark::State & state)
 				{
 					if (passFailed)
@@ -693,7 +713,8 @@ int main(int argc, char ** argv)
 					{
 						state.counters[kDeltaShareCounter] = benchmark::Counter((rhiNs - indirectNs) / indirectNs * 100.0);
 					}
-				});
+				}
+			);
 
 			registered->UseManualTime()->Unit(benchmark::kNanosecond);
 

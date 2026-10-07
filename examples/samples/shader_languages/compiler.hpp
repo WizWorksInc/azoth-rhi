@@ -52,7 +52,12 @@ namespace langs
 		[[nodiscard]] bool Open(azo::rhi::GraphicsApiId api, std::string & error);
 
 		[[nodiscard]] azo::rhi::ShaderBinary Compile(
-			const char * fileName, const char * entryPoint, SourceLanguage language, Threadgroup threadgroup, std::string & error);
+			const char * fileName,
+			const char * entryPoint,
+			SourceLanguage language,
+			Threadgroup threadgroup,
+			std::string & error
+		);
 
 	private:
 		[[nodiscard]] azo::rhi::ShaderBinary LoadPrebuilt(const char * fileName, const char * entryPoint, Threadgroup threadgroup, std::string & error);

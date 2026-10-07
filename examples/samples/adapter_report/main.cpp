@@ -18,6 +18,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -95,7 +96,10 @@ namespace
 		}
 
 		std::string memory = std::format(
-			"      memory:  {} MiB dedicated, {} MiB shared", Mebibytes(adapter.dedicatedVideoMemoryBytes), Mebibytes(adapter.sharedSystemMemoryBytes));
+			"      memory:  {} MiB dedicated, {} MiB shared",
+			Mebibytes(adapter.dedicatedVideoMemoryBytes),
+			Mebibytes(adapter.sharedSystemMemoryBytes)
+		);
 		if (adapter.unifiedMemoryArchitecture)
 		{
 			memory += ", unified";
@@ -132,6 +136,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
@@ -154,11 +160,13 @@ int main(int argc, char ** argv)
 	for (const rhi::BackendInfo & backend : backends.preferred())
 	{
 		LOG_INFO(fw::Log(), "{}", backend.displayName);
-		LOG_INFO(fw::Log(),
+		LOG_INFO(
+			fw::Log(),
 			"  surfaces: {}, debug markers: {}, native access: {}",
 			Yes(backend.supportsSurfaces),
 			Yes(backend.supportsDebugMarkers),
-			Yes(backend.supportsExternalNativeAccess));
+			Yes(backend.supportsExternalNativeAccess)
+		);
 
 		const rhi::Result<rhi::UniqueInstance> instance = backends.create_instance(backend.id, desc);
 		if (!instance)

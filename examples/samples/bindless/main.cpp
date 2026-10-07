@@ -29,6 +29,7 @@
 #include "FW/shader/SlangCompiler.hpp"
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <array>
 #include <cmath>
@@ -73,6 +74,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
@@ -95,10 +98,12 @@ int main(int argc, char ** argv)
 	}
 	if (!caps.supportsUpdateAfterBind || !caps.supportsPartiallyBoundDescriptors)
 	{
-		LOG_INFO(fw::Log(),
+		LOG_INFO(
+			fw::Log(),
 			"this device is missing update after bind ({}) or partially bound descriptors ({})",
 			caps.supportsUpdateAfterBind ? "yes" : "no",
-			caps.supportsPartiallyBoundDescriptors ? "yes" : "no");
+			caps.supportsPartiallyBoundDescriptors ? "yes" : "no"
+		);
 		return fw::kSkipExitCode;
 	}
 
@@ -166,7 +171,8 @@ int main(int argc, char ** argv)
 				.usage	   = rhi::Flags<rhi::TextureUsage>(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst | rhi::TextureUsage::eColorAttachment,
 				.debugName = "bindless.texture",
 			},
-			error);
+			error
+		);
 		views.at(slot) = dev.create_texture_view(textures.at(slot), rhi::TextureViewDesc{ .debugName = "bindless.textureView" }, error);
 		if (!textures.at(slot).is_valid() || !views.at(slot).is_valid())
 		{
@@ -184,7 +190,8 @@ int main(int argc, char ** argv)
 			.memory	   = rhi::MemoryUsage::eGpuOnly,
 			.debugName = "bindless.output",
 		},
-		error);
+		error
+	);
 	const rhi::BufferHandle readback = dev.create_buffer(
 		rhi::BufferDesc{
 			.size	   = kOutputBytes,
@@ -192,7 +199,8 @@ int main(int argc, char ** argv)
 			.memory	   = rhi::MemoryUsage::eCpuReadback,
 			.debugName = "bindless.readback",
 		},
-		error);
+		error
+	);
 
 	if (!sampler.is_valid() || !output.is_valid() || !readback.is_valid())
 	{
@@ -207,7 +215,8 @@ int main(int argc, char ** argv)
 			.maxDescriptors = kTextures + 2,
 			.debugName		= "bindless.arena",
 		},
-		error);
+		error
+	);
 
 	const rhi::DescriptorSetHandle set =
 		arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .variableDescriptorCount = kTextures, .debugName = "bindless.descriptors" }, error);
@@ -231,13 +240,15 @@ int main(int argc, char ** argv)
 	earlyWrites.reserve(kWrittenEarly);
 	for (std::uint32_t slot = 0; slot < kWrittenEarly; ++slot)
 	{
-		earlyWrites.push_back(rhi::DescriptorWriteTexture{
-			.set		= set,
-			.binding	= 2,
-			.arrayIndex = slot,
-			.type		= rhi::DescriptorType::eTextureSRV,
-			.view		= views.at(slot),
-		});
+		earlyWrites.push_back(
+			rhi::DescriptorWriteTexture{
+				.set		= set,
+				.binding	= 2,
+				.arrayIndex = slot,
+				.type		= rhi::DescriptorType::eTextureSRV,
+				.view		= views.at(slot),
+			}
+		);
 	}
 	if (!dev.update_descriptors(std::span(earlyWrites), error))
 	{
@@ -261,16 +272,20 @@ int main(int argc, char ** argv)
 	toShaderRead.reserve(kTextures);
 	for (std::uint32_t slot = 0; slot < kTextures; ++slot)
 	{
-		toCopyDst.push_back(rhi::TextureBarrier{
-			.texture = textures.at(slot),
-			.before	 = { .use = rhi::ResourceUse::eDiscard },
-			.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
-		});
-		toShaderRead.push_back(rhi::TextureBarrier{
-			.texture = textures.at(slot),
-			.before	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
-			.after	 = { .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eCompute },
-		});
+		toCopyDst.push_back(
+			rhi::TextureBarrier{
+				.texture = textures.at(slot),
+				.before	 = { .use = rhi::ResourceUse::eDiscard },
+				.after	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+			}
+		);
+		toShaderRead.push_back(
+			rhi::TextureBarrier{
+				.texture = textures.at(slot),
+				.before	 = { .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy },
+				.after	 = { .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eCompute },
+			}
+		);
 	}
 
 	const std::array outputToWrite{
@@ -314,13 +329,15 @@ int main(int argc, char ** argv)
 	lateWrites.reserve(kTextures - kWrittenEarly);
 	for (std::uint32_t slot = kWrittenEarly; slot < kTextures; ++slot)
 	{
-		lateWrites.push_back(rhi::DescriptorWriteTexture{
-			.set		= set,
-			.binding	= 2,
-			.arrayIndex = slot,
-			.type		= rhi::DescriptorType::eTextureSRV,
-			.view		= views.at(slot),
-		});
+		lateWrites.push_back(
+			rhi::DescriptorWriteTexture{
+				.set		= set,
+				.binding	= 2,
+				.arrayIndex = slot,
+				.type		= rhi::DescriptorType::eTextureSRV,
+				.view		= views.at(slot),
+			}
+		);
 	}
 	if (!dev.update_descriptors(std::span(lateWrites), error))
 	{
@@ -366,13 +383,15 @@ int main(int argc, char ** argv)
 		const float tolerance = 1.5f / 255.0f;
 		if (std::abs(gathered.at(base) - expected.r) > tolerance || std::abs(gathered.at(base + 1) - expected.g) > tolerance)
 		{
-			LOG_ERROR(fw::Log(),
+			LOG_ERROR(
+				fw::Log(),
 				"slot {} came back {:.3f},{:.3f} and was cleared to {:.3f},{:.3f}",
 				slot,
 				gathered.at(base),
 				gathered.at(base + 1),
 				expected.r,
-				expected.g);
+				expected.g
+			);
 			wrong += 1;
 		}
 	}

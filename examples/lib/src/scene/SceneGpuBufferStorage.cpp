@@ -161,16 +161,23 @@ namespace fw::scene
 
 		if (!CreateMappedBuffer(m_geometry, m_config.geometryCapacityBytes, geometryUsage, 0, kGeometryBufferName) ||
 			!CreateMappedBuffer(
-				m_transforms, m_config.objectCapacity * sizeof(TransformGpu), azo::rhi::BufferUsage::eStorage, sizeof(TransformGpu), kTransformStorageName))
+				m_transforms,
+				m_config.objectCapacity * sizeof(TransformGpu),
+				azo::rhi::BufferUsage::eStorage,
+				sizeof(TransformGpu),
+				kTransformStorageName
+			))
 		{
 			return;
 		}
 
-		if (!CreateMappedBuffer(m_materials,
+		if (!CreateMappedBuffer(
+				m_materials,
 				std::max<std::uint64_t>(m_config.objectCapacity * m_materialStride, 1),
 				azo::rhi::BufferUsage::eStorage,
 				m_materialStride,
-				kMaterialStorageName))
+				kMaterialStorageName
+			))
 		{
 			return;
 		}
@@ -229,10 +236,12 @@ namespace fw::scene
 
 		for (std::uint32_t binding = 0; const auto & [attributeType, accessorType] : m_config.attributeLayout)
 		{
-			result.push_back(azo::rhi::VertexBindingDesc{
-				.binding = binding++,
-				.stride	 = GetAccessorSize(accessorType),
-			});
+			result.push_back(
+				azo::rhi::VertexBindingDesc{
+					.binding = binding++,
+					.stride	 = GetAccessorSize(accessorType),
+				}
+			);
 		}
 
 		return result;
@@ -245,20 +254,27 @@ namespace fw::scene
 
 		for (std::uint32_t binding = 0; const auto & [attributeType, accessorType] : m_config.attributeLayout)
 		{
-			result.push_back(azo::rhi::VertexAttributeDesc{
-				.location = binding,
-				.binding  = binding,
-				.format	  = ConvertAccessorTypeToFormat(accessorType),
-				.offset	  = 0,
-			});
+			result.push_back(
+				azo::rhi::VertexAttributeDesc{
+					.location = binding,
+					.binding  = binding,
+					.format	  = ConvertAccessorTypeToFormat(accessorType),
+					.offset	  = 0,
+				}
+			);
 			++binding;
 		}
 
 		return result;
 	}
 
-	bool SceneGpuBufferStorage::CreateMappedBuffer(MappedBuffer & buffer, const std::uint64_t sizeBytes, const azo::rhi::Flags<azo::rhi::BufferUsage> usage,
-		const std::uint64_t stride, const char * debugName)
+	bool SceneGpuBufferStorage::CreateMappedBuffer(
+		MappedBuffer & buffer,
+		const std::uint64_t sizeBytes,
+		const azo::rhi::Flags<azo::rhi::BufferUsage> usage,
+		const std::uint64_t stride,
+		const char * debugName
+	)
 	{
 		azo::rhi::Error error{};
 
@@ -270,7 +286,8 @@ namespace fw::scene
 				.memory	   = azo::rhi::MemoryUsage::eCpuToGpu,
 				.debugName = debugName,
 			},
-			error);
+			error
+		);
 
 		if (!buffer.handle.is_valid())
 		{
@@ -389,8 +406,13 @@ namespace fw::scene
 		return meshGpu;
 	}
 
-	bool SceneGpuBufferStorage::AllocateAttribute(const MeshPrimitive & meshPrimitive, const AttributeType attributeType, const std::uint32_t elementSize,
-		const std::size_t vertexCount, std::uint64_t & outOffset)
+	bool SceneGpuBufferStorage::AllocateAttribute(
+		const MeshPrimitive & meshPrimitive,
+		const AttributeType attributeType,
+		const std::uint32_t elementSize,
+		const std::size_t vertexCount,
+		std::uint64_t & outOffset
+	)
 	{
 		if (const Accessor * accessor = FindAttribute(meshPrimitive, attributeType); accessor != nullptr)
 		{
@@ -463,11 +485,13 @@ namespace fw::scene
 		const std::uint64_t offset = AlignUp(m_geometryCursor, kGeometryAlignment);
 		if (offset > m_config.geometryCapacityBytes || sizeBytes > m_config.geometryCapacityBytes - offset)
 		{
-			LOG_INFO(fw::Log(),
+			LOG_INFO(
+				fw::Log(),
 				"scene storage: the geometry buffer has no room for {} more bytes, {} of {} used",
 				sizeBytes,
 				m_geometryCursor,
-				m_config.geometryCapacityBytes);
+				m_config.geometryCapacityBytes
+			);
 			return false;
 		}
 

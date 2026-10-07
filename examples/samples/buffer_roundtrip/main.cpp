@@ -26,6 +26,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <algorithm>
 #include <array>
@@ -131,6 +132,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
@@ -214,8 +217,8 @@ int main(int argc, char ** argv)
 	};
 
 	const bool recorded = list.barriers(rhi::BarrierBatch{ .buffers = intoStorage }, error) && list.copy_buffer(storage, 0, upload, 0, kBufferBytes, error) &&
-						  list.barriers(rhi::BarrierBatch{ .buffers = outOfStorage }, error) && list.copy_buffer(readback, 0, storage, 0, kBufferBytes, error) &&
-						  list.end(error);
+						  list.barriers(rhi::BarrierBatch{ .buffers = outOfStorage }, error) &&
+						  list.copy_buffer(readback, 0, storage, 0, kBufferBytes, error) && list.end(error);
 	if (!recorded)
 	{
 		fw::ReportError("failed to record the copies", error);

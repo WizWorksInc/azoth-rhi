@@ -27,13 +27,15 @@ namespace fw
 		if (error.nativeCode != 0)
 		{
 			// Both forms, because an HRESULT is read as hex and a VkResult as a small signed integer.
-			LOG_ERROR(Log(),
+			LOG_ERROR(
+				Log(),
 				"{}: {} (error code {}, native 0x{:08x} / {})",
 				what,
 				detail,
 				static_cast<unsigned>(error.code),
 				static_cast<unsigned>(error.nativeCode),
-				error.nativeCode);
+				error.nativeCode
+			);
 			return;
 		}
 

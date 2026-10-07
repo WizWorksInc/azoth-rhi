@@ -43,11 +43,13 @@ namespace azo::rhi::test
 				std::vector<Backend> entries;
 				for (const BackendEntry & entry : rhi::available_backends())
 				{
-					entries.push_back(Backend{ .id = entry.id,
-						.canonicalName			   = names.emplace_back(entry.canonicalName).c_str(),
-						.shortName				   = names.emplace_back(short_api_name(entry.canonicalName)).c_str(),
-						.displayName			   = names.emplace_back(entry.displayName).c_str(),
-						.RegisterInto			   = entry.Register });
+					entries.push_back(
+						Backend{ .id	   = entry.id,
+							.canonicalName = names.emplace_back(entry.canonicalName).c_str(),
+							.shortName	   = names.emplace_back(short_api_name(entry.canonicalName)).c_str(),
+							.displayName   = names.emplace_back(entry.displayName).c_str(),
+							.RegisterInto  = entry.Register }
+					);
 				}
 				return entries;
 			}();
@@ -111,11 +113,13 @@ namespace azo::rhi::test
 				std::vector<Backend> filtered;
 				for (const Backend & backend : all)
 				{
-					const bool wanted = std::ranges::any_of(requested,
+					const bool wanted = std::ranges::any_of(
+						requested,
 						[&backend](std::string_view name)
 						{
 							return NameRefersTo(name, backend);
-						});
+						}
+					);
 					if (wanted)
 					{
 						filtered.push_back(backend);
@@ -147,11 +151,13 @@ namespace azo::rhi::test
 			std::string unknown;
 			for (const std::string_view name : Split(value))
 			{
-				const bool known = std::ranges::any_of(AvailableBackends(),
+				const bool known = std::ranges::any_of(
+					AvailableBackends(),
 					[name](const Backend & backend)
 					{
 						return NameRefersTo(name, backend);
-					});
+					}
+				);
 				if (!known)
 				{
 					if (!unknown.empty())
@@ -179,11 +185,13 @@ namespace azo::rhi::test
 		std::string excluded;
 		for (const std::string_view name : Split(RequiredBackends()))
 		{
-			const bool selected = std::ranges::any_of(SelectedBackends(),
+			const bool selected = std::ranges::any_of(
+				SelectedBackends(),
 				[name](const Backend & backend)
 				{
 					return NameRefersTo(name, backend);
-				});
+				}
+			);
 			if (!selected)
 			{
 				if (!excluded.empty())
@@ -214,24 +222,30 @@ namespace azo::rhi::test
 	bool BackendIsRequired(const std::string_view shortName)
 	{
 		const std::vector<std::string_view> required = Split(RequiredBackends());
-		return std::ranges::any_of(AvailableBackends(),
+		return std::ranges::any_of(
+			AvailableBackends(),
 			[shortName, &required](const Backend & backend)
 			{
-				return shortName == backend.shortName && std::ranges::any_of(required,
+				return shortName == backend.shortName && std::ranges::any_of(
+															 required,
 															 [&backend](std::string_view name)
 															 {
 																 return NameRefersTo(name, backend);
-															 });
-			});
+															 }
+														 );
+			}
+		);
 	}
 
 	bool BackendIsSelected(const std::string_view shortName)
 	{
-		return std::ranges::any_of(SelectedBackends(),
+		return std::ranges::any_of(
+			SelectedBackends(),
 			[shortName](const Backend & backend)
 			{
 				return shortName == backend.shortName;
-			});
+			}
+		);
 	}
 
 	const Backend * FindBackend(const GraphicsApiId id) noexcept

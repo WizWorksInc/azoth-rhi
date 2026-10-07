@@ -72,8 +72,10 @@ namespace
 		static_assert(raii::detail::kBorrows<raii::DescriptorArena>);
 		static_assert(raii::detail::kBorrows<raii::Swapchain>);
 
-		static_assert(raii::detail::DeviceDestroyable<rhi::DescriptorSetHandle> && raii::detail::kBorrows<raii::DescriptorSet>,
-			"a descriptor set has a Device::Destroy and is still borrowed. If that changed, the reason has to change with it");
+		static_assert(
+			raii::detail::DeviceDestroyable<rhi::DescriptorSetHandle> && raii::detail::kBorrows<raii::DescriptorSet>,
+			"a descriptor set has a Device::Destroy and is still borrowed. If that changed, the reason has to change with it"
+		);
 
 		static_assert(!raii::detail::DeviceDestroyable<rhi::DescriptorArenaHandle>);
 
@@ -179,7 +181,8 @@ namespace
 				.variableDescriptorCount = 0,
 				.debugName				 = "azoth.rhi.test.borrowed",
 			},
-			error);
+			error
+		);
 		ASSERT_TRUE(test::Ok(borrowed.is_valid(), error));
 
 		ASSERT_TRUE(test::Ok(arena.value().reset(rhi::RetirePoint{}, error), error));

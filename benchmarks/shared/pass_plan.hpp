@@ -37,7 +37,12 @@ namespace bench
 	using ProbePass = std::function<bool(std::size_t commands, std::uint64_t & wallNanoseconds, std::uint64_t & timedNanoseconds)>;
 
 	[[nodiscard]] PassPlan PlanPasses(
-		const Options & options, std::size_t benchmarks, std::size_t repetitions, double preferredMinTimeSeconds, const ProbePass & probe);
+		const Options & options,
+		std::size_t benchmarks,
+		std::size_t repetitions,
+		double preferredMinTimeSeconds,
+		const ProbePass & probe
+	);
 
 	[[nodiscard]] bool WarmUp(double milliseconds, const Options & options, const ProbePass & pass);
 

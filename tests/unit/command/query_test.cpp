@@ -63,13 +63,15 @@ namespace
 
 	[[nodiscard]] bool ReadTimestampPair(rhi::Device device, rhi::BufferHandle results, std::uint64_t & first, std::uint64_t & second, rhi::Error & error)
 	{
-		const rhi::MappedMemory mapped = device.map(results,
+		const rhi::MappedMemory mapped = device.map(
+			results,
 			rhi::MapDesc{
 				.mode	= rhi::MapMode::eRead,
 				.offset = 0,
 				.size	= kResultStride * 2,
 			},
-			error);
+			error
+		);
 		if (mapped.data == nullptr)
 		{
 			return false;

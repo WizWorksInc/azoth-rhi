@@ -24,8 +24,8 @@ namespace
 	struct StaticLibraryApi final : azo::rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "studio.rhi.staticlib";
-		static constexpr std::string_view kDisplayName	= "Studio Static Library";
-		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Studio Static Library";
+		static constexpr azo::rhi::GraphicsApiId kId	 = azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<StaticLibraryApi>);

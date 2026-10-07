@@ -104,12 +104,14 @@ namespace bench
 		if (error.nativeCode != 0)
 		{
 			// Both forms, because an HRESULT is read as hex and a VkResult as a small signed integer.
-			std::println("{}: {} (error code {}, native 0x{:08x} / {})",
+			std::println(
+				"{}: {} (error code {}, native 0x{:08x} / {})",
 				what,
 				detail,
 				static_cast<unsigned>(error.code),
 				static_cast<unsigned>(error.nativeCode),
-				error.nativeCode);
+				error.nativeCode
+			);
 			return;
 		}
 
@@ -247,20 +249,24 @@ namespace bench
 
 	bool NamesFlag(const std::span<char * const> args, const std::string_view flag)
 	{
-		return std::ranges::any_of(args,
+		return std::ranges::any_of(
+			args,
 			[flag](const char * const argument)
 			{
 				return IsFlag(argument, flag);
-			});
+			}
+		);
 	}
 
 	bool NamesOption(const std::span<char * const> args, const std::string_view option)
 	{
-		return std::ranges::any_of(args,
+		return std::ranges::any_of(
+			args,
 			[option](const char * const argument)
 			{
 				return std::string_view(argument) == option;
-			});
+			}
+		);
 	}
 
 }

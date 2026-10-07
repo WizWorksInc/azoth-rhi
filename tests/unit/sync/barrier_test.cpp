@@ -137,8 +137,11 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		const std::array barriers{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
+		const std::array barriers{ rhi::TextureBarrier{ .texture = texture,
+			.before												 = UntouchedState(),
+			.after												 = CopyDestinationState(),
+			.ownership											 = {},
+			.range												 = test::samples::WholeColorRange() } };
 
 		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = barriers }, error), error));
 
@@ -160,17 +163,25 @@ namespace
 		const std::array buffers{
 			rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() },
 		};
-		const std::array textures{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
+		const std::array textures{ rhi::TextureBarrier{ .texture = texture,
+			.before												 = UntouchedState(),
+			.after												 = CopyDestinationState(),
+			.ownership											 = {},
+			.range												 = test::samples::WholeColorRange() } };
 
-		EXPECT_TRUE(test::Ok(recording.List().barriers(
-								 rhi::BarrierBatch{
-									 .memory   = {},
-									 .buffers  = buffers,
-									 .textures = textures,
-								 },
-								 error),
-			error));
+		EXPECT_TRUE(
+			test::Ok(
+				recording.List().barriers(
+					rhi::BarrierBatch{
+						.memory	  = {},
+						.buffers  = buffers,
+						.textures = textures,
+					},
+					error
+				),
+				error
+			)
+		);
 
 		EXPECT_TRUE(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));

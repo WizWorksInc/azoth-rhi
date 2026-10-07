@@ -454,7 +454,8 @@ namespace
 		const rhi::Result<rhi::UniqueDevice> device = rhi::create_device(registry, preferred, desc);
 
 		ASSERT_FALSE(device.has_value());
-		EXPECT_NE(device.get_error().code, rhi::ErrorCode::eUnsupportedApi) << "a backend was tried and refused, so the report is its reason and not an absence";
+		EXPECT_NE(device.get_error().code, rhi::ErrorCode::eUnsupportedApi)
+			<< "a backend was tried and refused, so the report is its reason and not an absence";
 	}
 
 	TEST(CreateDevice, RejectsAHoledInstanceTableBeforeReachingCreateDeviceThroughIt)

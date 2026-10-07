@@ -74,12 +74,14 @@ namespace
 		SilentProfiler sink;
 		const test::ScopedProfiler scope(&sink);
 
-		sink.begin_zone(rhi::ZoneLocation{
-			.name  = "test",
-			.file  = __FILE__,
-			.line  = __LINE__,
-			.color = 0,
-		});
+		sink.begin_zone(
+			rhi::ZoneLocation{
+				.name  = "test",
+				.file  = __FILE__,
+				.line  = __LINE__,
+				.color = 0,
+			}
+		);
 		sink.end_zone();
 		sink.plot("test", 1);
 		sink.gpu_free(nullptr, "test");

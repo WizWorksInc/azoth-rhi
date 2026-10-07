@@ -98,6 +98,7 @@ function(azoth_rhi_add_gtest_suite target)
     endif()
 
     add_executable(${target})
+    azoth_rhi_use_tracy_lifetime(${target})
 
     # The entry point is compiled into each suite and not into the shared harness library because
     # the validation-mode definitions are applied per target and the banner it prints has to describe

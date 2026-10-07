@@ -28,6 +28,7 @@
 #include "compiler.hpp"
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <array>
 #include <cmath>
@@ -156,7 +157,8 @@ namespace
 				.maxDescriptors = 1,
 				.debugName		= "languages.arena",
 			},
-			error);
+			error
+		);
 
 		const rhi::DescriptorSetHandle set = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "languages.descriptors" }, error);
 		const std::array writes{
@@ -237,6 +239,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	const char * requested = args.size() > 1 ? args[1] : nullptr;
 

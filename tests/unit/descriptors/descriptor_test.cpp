@@ -81,7 +81,8 @@ namespace
 				.bindings  = bindings,
 				.debugName = "azoth.rhi.test.mixedSet",
 			},
-			error);
+			error
+		);
 
 		ASSERT_TRUE(test::Ok(handle.is_valid(), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(handle, {}, error), error));
@@ -247,7 +248,8 @@ namespace
 				.variableDescriptorCount = 0,
 				.debugName				 = "azoth.rhi.test.staleSet",
 			},
-			error);
+			error
+		);
 		ASSERT_TRUE(test::Ok(stale.is_valid(), error));
 
 		ASSERT_TRUE(test::Ok(arena.reset(rhi::RetirePoint{}, error), error));
@@ -285,7 +287,8 @@ namespace
 				.variableDescriptorCount = 0,
 				.debugName				 = "azoth.rhi.test.liveSet",
 			},
-			error);
+			error
+		);
 		ASSERT_TRUE(test::Ok(live.is_valid(), error));
 
 		test::Recording recording(Dev());
@@ -344,10 +347,18 @@ namespace
 		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		const std::array writes{
-			rhi::DescriptorWriteBuffer{
-				.set = set, .binding = 0, .type = rhi::DescriptorType::eDynamicUniformBuffer, .buffer = roomy, .offset = 0, .range = kRange },
-			rhi::DescriptorWriteBuffer{
-				.set = set, .binding = 1, .type = rhi::DescriptorType::eDynamicUniformBuffer, .buffer = snug, .offset = 0, .range = kRange },
+			rhi::DescriptorWriteBuffer{ .set = set,
+				.binding					 = 0,
+				.type						 = rhi::DescriptorType::eDynamicUniformBuffer,
+				.buffer						 = roomy,
+				.offset						 = 0,
+				.range						 = kRange },
+			rhi::DescriptorWriteBuffer{ .set = set,
+				.binding					 = 1,
+				.type						 = rhi::DescriptorType::eDynamicUniformBuffer,
+				.buffer						 = snug,
+				.offset						 = 0,
+				.range						 = kRange },
 		};
 		ASSERT_TRUE(test::Ok(Dev().update_descriptors(std::span(writes), error), error));
 
@@ -387,7 +398,8 @@ namespace
 				.variableDescriptorCount = 0,
 				.debugName				 = "azoth.rhi.test.set",
 			},
-			error);
+			error
+		);
 		ASSERT_TRUE(test::Ok(set.is_valid(), error));
 
 		rhi::BufferDesc uniformDesc		= test::samples::StorageBuffer();

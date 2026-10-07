@@ -40,11 +40,13 @@ namespace
 	[[nodiscard]] bool OrderContains(const rhi::BackendSelection & backends, const std::string_view canonicalName)
 	{
 		const std::span<const rhi::BackendInfo> order = backends.preferred();
-		return std::ranges::any_of(order,
+		return std::ranges::any_of(
+			order,
 			[canonicalName](const rhi::BackendInfo & info)
 			{
 				return info.canonicalName == canonicalName;
-			});
+			}
+		);
 	}
 
 	TEST(ModuleLoading, LoadsAndDescribesItself)
@@ -172,7 +174,8 @@ namespace
 					{
 						unloadedCount.fetch_add(1, std::memory_order_relaxed);
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & worker : workers)

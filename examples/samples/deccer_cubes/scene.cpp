@@ -114,7 +114,12 @@ namespace deccer
 		}
 
 		[[nodiscard]] bool DecodeImage(
-			const fastgltf::Asset & asset, const fastgltf::Image & image, const std::filesystem::path & directory, Image & out, std::string & error)
+			const fastgltf::Asset & asset,
+			const fastgltf::Image & image,
+			const std::filesystem::path & directory,
+			Image & out,
+			std::string & error
+		)
 		{
 			const std::string_view name = image.name.empty() ? std::string_view("unnamed") : std::string_view(image.name);
 
@@ -150,7 +155,8 @@ namespace deccer
 										std::span(reinterpret_cast<const std::uint8_t *>(vector.bytes.data()) + bufferView.byteOffset, bufferView.byteLength);
 								},
 							},
-							buffer.data);
+							buffer.data
+						);
 					},
 					[&](const fastgltf::sources::URI & uri)
 					{
@@ -161,7 +167,8 @@ namespace deccer
 						}
 					},
 				},
-				image.data);
+				image.data
+			);
 
 			if (encoded.empty())
 			{
@@ -173,7 +180,8 @@ namespace deccer
 			int height	 = 0;
 			int channels = 0;
 			const std::unique_ptr<stbi_uc, PixelDeleter> pixels(
-				stbi_load_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kRgba));
+				stbi_load_from_memory(encoded.data(), static_cast<int>(encoded.size()), &width, &height, &channels, kRgba)
+			);
 
 			if (pixels == nullptr)
 			{
@@ -205,8 +213,14 @@ namespace deccer
 			return asset.textures[material.pbrData.baseColorTexture->textureIndex].imageIndex;
 		}
 
-		[[nodiscard]] bool AppendPrimitive(const fastgltf::Asset & asset, const fastgltf::Primitive & primitive, const std::array<float, 16> & model,
-			std::uint32_t textureIndex, Scene & scene, std::string & error)
+		[[nodiscard]] bool AppendPrimitive(
+			const fastgltf::Asset & asset,
+			const fastgltf::Primitive & primitive,
+			const std::array<float, 16> & model,
+			std::uint32_t textureIndex,
+			Scene & scene,
+			std::string & error
+		)
 		{
 			const auto * position = primitive.findAttribute("POSITION");
 			const auto * normal	  = primitive.findAttribute("NORMAL");
@@ -240,34 +254,42 @@ namespace deccer
 			const std::size_t base = scene.vertices.size();
 			scene.vertices.resize(base + positions.count);
 
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+				asset,
 				positions,
 				[&](const fastgltf::math::fvec3 value, const std::size_t index)
 				{
 					scene.vertices[base + index].position = { value.x(), value.y(), value.z() };
-				});
+				}
+			);
 
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+				asset,
 				normals,
 				[&](const fastgltf::math::fvec3 value, const std::size_t index)
 				{
 					scene.vertices[base + index].normal = { value.x(), value.y(), value.z() };
-				});
+				}
+			);
 
-			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset,
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
+				asset,
 				uvs,
 				[&](const fastgltf::math::fvec2 value, const std::size_t index)
 				{
 					scene.vertices[base + index].uv = { value.x(), value.y() };
-				});
+				}
+			);
 
 			scene.indices.reserve(scene.indices.size() + indices.count);
-			fastgltf::iterateAccessor<std::uint32_t>(asset,
+			fastgltf::iterateAccessor<std::uint32_t>(
+				asset,
 				indices,
 				[&](const std::uint32_t index)
 				{
 					scene.indices.push_back(index);
-				});
+				}
+			);
 
 			scene.draws.push_back(draw);
 			return true;
@@ -319,7 +341,8 @@ namespace deccer
 		const std::size_t root = asset.defaultScene.value_or(0);
 
 		bool ok = true;
-		fastgltf::iterateSceneNodes(asset,
+		fastgltf::iterateSceneNodes(
+			asset,
 			root,
 			fastgltf::math::fmat4x4(),
 			[&](const fastgltf::Node & node, const fastgltf::math::fmat4x4 & world)
@@ -361,7 +384,8 @@ namespace deccer
 						return;
 					}
 				}
-			});
+			}
+		);
 
 		if (!ok)
 		{

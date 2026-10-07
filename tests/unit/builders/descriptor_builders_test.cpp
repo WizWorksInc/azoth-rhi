@@ -175,11 +175,13 @@ namespace
 	{
 		rhi::PipelineLayoutBuilder builder;
 		builder
-			.push_constant(rhi::PushConstantRange{
-				.stages = rhi::ShaderStage::eVertex,
-				.offset = 0,
-				.size	= 16,
-			})
+			.push_constant(
+				rhi::PushConstantRange{
+					.stages = rhi::ShaderStage::eVertex,
+					.offset = 0,
+					.size	= 16,
+				}
+			)
 			.push_constant(rhi::ShaderStage::eFragment, 16, 32);
 
 		const rhi::PipelineLayoutDesc desc = builder.build();

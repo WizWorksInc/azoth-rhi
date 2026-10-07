@@ -102,7 +102,8 @@ namespace
 						const std::scoped_lock guard(lock);
 						++counter;
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & worker : workers)
@@ -129,7 +130,8 @@ namespace
 				}
 				const std::scoped_lock guard(lock);
 				EXPECT_EQ(guarded, 1234);
-			});
+			}
+		);
 
 		guarded = 1234;
 		written.store(true, std::memory_order_release);

@@ -101,12 +101,14 @@ set_target_properties(rhi_bench_vs_nri_harness PROPERTIES FOLDER benchmarks)
 
 # The NRI arm links no part of this library, which also keeps its VMA and NRI's from meeting in one link.
 add_executable(rhi_bench_vs_nri_nri nri_arm.cpp)
+azoth_rhi_use_tracy_lifetime(rhi_bench_vs_nri_nri)
 target_link_libraries(rhi_bench_vs_nri_nri PRIVATE rhi_bench_vs_nri_harness NRI)
 set_target_properties(rhi_bench_vs_nri_nri PROPERTIES
         FOLDER benchmarks
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(rhi_bench_vs_nri_azoth azoth_arm.cpp)
+azoth_rhi_use_tracy_lifetime(rhi_bench_vs_nri_azoth)
 target_link_libraries(rhi_bench_vs_nri_azoth PRIVATE rhi_bench_vs_nri_harness azoth::rhi azoth::rhi-native-vulkan)
 set_target_properties(rhi_bench_vs_nri_azoth PROPERTIES
         FOLDER benchmarks

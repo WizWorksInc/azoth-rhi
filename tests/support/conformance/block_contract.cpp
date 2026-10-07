@@ -111,7 +111,8 @@ namespace azo::rhi::test::oracle
 							}
 						}
 						seen[static_cast<std::size_t>(index)] = mine;
-					});
+					}
+				);
 			}
 
 			start.store(true, std::memory_order_release);
@@ -167,17 +168,17 @@ namespace azo::rhi::test::oracle
 		CommandPool pool = device.create_command_pool(samples::CommandPool(QueueType::eGraphics), error);
 		ASSERT_TRUE(Ok(pool.is_valid(), error));
 		EXPECT_NE(QueryOnce<CommandPoolApi>(detail::FacadeBuilder::impl_of(pool)), nullptr) << "a command pool publishes no CommandPoolApi, so it can hand "
-																							  "out nothing";
+																							   "out nothing";
 
 		CommandList list = pool.allocate("azoth.rhi.conformance.requiredBlocks", error);
 		ASSERT_TRUE(Ok(list.is_valid(), error));
 		EXPECT_NE(QueryOnce<RenderCommandApi>(detail::FacadeBuilder::impl_of(list)), nullptr) << "a command list publishes no RenderCommandApi, so nothing "
-																								"can be recorded into it";
+																								 "can be recorded into it";
 
 		DescriptorArena arena = device.create_descriptor_arena(samples::DescriptorArena(), error);
 		ASSERT_TRUE(Ok(arena.is_valid(), error));
 		EXPECT_NE(QueryOnce<DescriptorArenaApi>(detail::FacadeBuilder::impl_of(arena)), nullptr) << "a descriptor arena publishes no DescriptorArenaApi, so "
-																								   "no set can be allocated from it";
+																									"no set can be allocated from it";
 	}
 
 	void CheckCapsFollowBlocks(Device device)

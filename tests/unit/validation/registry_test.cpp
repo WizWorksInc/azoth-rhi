@@ -226,7 +226,8 @@ namespace
 					}
 					reads.fetch_add(1, std::memory_order_relaxed);
 				}
-			});
+			}
+		);
 
 		constexpr std::uint32_t kSlotCeiling = 1u << 20;
 

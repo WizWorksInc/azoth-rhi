@@ -47,6 +47,7 @@ set_target_properties(rhi_bench_support PROPERTIES FOLDER benchmarks)
 # A fourth benchmark added through this gets its Windows runtime staged without anyone remembering to.
 function(azoth_rhi_add_benchmark target)
     add_executable(${target} ${ARGN})
+    azoth_rhi_use_tracy_lifetime(${target})
     target_link_libraries(${target} PRIVATE azoth::rhi-bench-support)
     set_target_properties(${target} PROPERTIES
             FOLDER benchmarks

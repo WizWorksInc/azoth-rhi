@@ -242,13 +242,19 @@ namespace
 		const rhi::BufferHandle buffer = device.Get().create_buffer(test::samples::StorageBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		EXPECT_TRUE(test::Ok(device.Get().destroy(buffer,
-								 rhi::DestroyDesc{
-									 .policy	= rhi::DestroyPolicy::eDeferUntilSafe,
-									 .safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 0 },
-								 },
-								 error),
-			error));
+		EXPECT_TRUE(
+			test::Ok(
+				device.Get().destroy(
+					buffer,
+					rhi::DestroyDesc{
+						.policy	   = rhi::DestroyPolicy::eDeferUntilSafe,
+						.safeAfter = rhi::RetirePoint{ .timeline = timeline, .value = 0 },
+					},
+					error
+				),
+				error
+			)
+		);
 
 		const std::size_t before = scheduler.acquired.load(std::memory_order_relaxed);
 		EXPECT_TRUE(test::Ok(device.Get().collect_garbage(error), error));
@@ -426,7 +432,8 @@ namespace
 					releasedOn = std::this_thread::get_id();
 					guard.unlock();
 					heldWhereReleased = rhi::detail::guards_held();
-				});
+				}
+			);
 			mover.join();
 
 			EXPECT_NE(releasedOn, acquiredOn) << "the release did not actually happen on another thread, so nothing migrated";
@@ -442,7 +449,8 @@ namespace
 					guard.lock();
 					retaken.store(true, std::memory_order_relaxed);
 					guard.unlock();
-				});
+				}
+			);
 
 			const auto givenUp = std::chrono::steady_clock::now() + std::chrono::seconds(5);
 			while (!retaken.load(std::memory_order_relaxed) && std::chrono::steady_clock::now() < givenUp)
@@ -468,7 +476,8 @@ namespace
 				[&]
 				{
 					guard.unlock();
-				});
+				}
+			);
 			mover.join();
 
 			EXPECT_EQ(rhi::detail::guards_held(), 0) << "the acquiring thread still counts a guard that was released elsewhere";
@@ -566,7 +575,8 @@ namespace
 						{
 							recorded.fetch_add(1, std::memory_order_relaxed);
 						}
-					});
+					}
+				);
 			}
 
 			for (std::thread & worker : workers)
@@ -603,7 +613,8 @@ namespace
 								created.fetch_add(1, std::memory_order_relaxed);
 								static_cast<void>(placing.Get().destroy(buffer, {}, error));
 							}
-						});
+						}
+					);
 				}
 
 				for (std::thread & worker : workers)
@@ -640,7 +651,8 @@ namespace
 								static_cast<void>(device.Get().destroy(buffer, {}, error));
 							}
 						}
-					});
+					}
+				);
 			}
 
 			for (std::thread & worker : workers)
@@ -698,7 +710,8 @@ namespace
 				}
 
 				creatorStopped.store(true, std::memory_order_relaxed);
-			});
+			}
+		);
 
 		constexpr std::size_t kAtLeastBuffers = 8;
 		constexpr int kAtLeastTextures		  = 64;

@@ -286,6 +286,7 @@ function(azoth_rhi_add_example name)
     set(_target rhi_${name})
 
     add_executable(${_target} ${ARG_SOURCES})
+    azoth_rhi_use_tracy_lifetime(${_target})
 
     # examples/lib is linked by every sample, not named by each one, so what is put there is
     # reachable from all of them. A sample that uses none of it pays nothing: the linker drops the objects

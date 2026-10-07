@@ -34,10 +34,14 @@ namespace fw::shader
 		SlangCompiler & operator=(SlangCompiler &&)		 = delete;
 		~SlangCompiler();
 
-		[[nodiscard]] bool Open(azo::rhi::GraphicsApiId api, std::string & error);
+		[[nodiscard]] bool open(azo::rhi::GraphicsApiId api, std::string & error);
 
-		[[nodiscard]] azo::rhi::ShaderBinary Compile(
-			const std::filesystem::path & relative, const char * entryPoint, azo::rhi::ShaderStage stage, std::string & error);
+		[[nodiscard]] azo::rhi::ShaderBinary compile(
+			const std::filesystem::path & relative,
+			const char * entryPoint,
+			azo::rhi::ShaderStage stage,
+			std::string & error
+		);
 
 	private:
 		struct Session;

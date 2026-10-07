@@ -100,14 +100,14 @@ jobs:
         run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
 
   no-exceptions:
-    name: ${{ matrix.name }} ${{ matrix.build_type }} no-exceptions
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target.name }} ${{ matrix.build_type }} no-exceptions
+    runs-on: ${{ matrix.target.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         build_type: [Debug, Release]
-        include:
+        target:
           - name: linux-clang18
             os: ubuntu-24.04
             cc: clang-18
@@ -136,10 +136,10 @@ jobs:
 
       - uses: ./.github/actions/setup-build
         with:
-          cc: ${{ matrix.cc }}
-          cxx: ${{ matrix.cxx }}
-          vulkan-driver: ${{ matrix.vulkan_driver }}
-          cache-key: no-exceptions-${{ matrix.name }}-${{ matrix.build_type }}
+          cc: ${{ matrix.target.cc }}
+          cxx: ${{ matrix.target.cxx }}
+          vulkan-driver: ${{ matrix.target.vulkan_driver }}
+          cache-key: no-exceptions-${{ matrix.target.name }}-${{ matrix.build_type }}
 
       - name: Configure
         run: |
@@ -152,7 +152,7 @@ jobs:
 
       - name: Test
         env:
-          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.require_backends }}
+          AZOTH_RHI_TEST_REQUIRE_BACKENDS: ${{ matrix.target.require_backends }}
         run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
 
   profiling-sinks:

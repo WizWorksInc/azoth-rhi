@@ -104,7 +104,11 @@ namespace vsnri
 
 	// Images the document names by file alone are looked for in textureDirectory, which is where NRI's sample data keeps them.
 	[[nodiscard]] bool LoadScene(
-		const std::filesystem::path & document, const std::filesystem::path & textureDirectory, SceneAsset & scene, std::string & error);
+		const std::filesystem::path & document,
+		const std::filesystem::path & textureDirectory,
+		SceneAsset & scene,
+		std::string & error
+	);
 
 	[[nodiscard]] std::filesystem::path DefaultSceneDataDirectory();
 

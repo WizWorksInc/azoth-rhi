@@ -75,7 +75,8 @@ namespace fw::scene
 				.maxAnisotropy	  = anisotropy ? 16.0f : 1.0f,
 				.debugName		  = "fw.scene.sampler",
 			},
-			error);
+			error
+		);
 
 		if (!m_sampler.is_valid())
 		{
@@ -134,28 +135,37 @@ namespace fw::scene
 	}
 
 	std::vector<azo::rhi::DescriptorWriteTexture> SceneGpuImageStorage::MakeDescriptorWrites(
-		const azo::rhi::DescriptorSetHandle set, const std::uint32_t binding) const
+		const azo::rhi::DescriptorSetHandle set,
+		const std::uint32_t binding
+	) const
 	{
 		std::vector<azo::rhi::DescriptorWriteTexture> writes;
 		writes.reserve(m_textures.size());
 
 		for (std::uint32_t index = 0; const Entry & entry : m_textures)
 		{
-			writes.push_back(azo::rhi::DescriptorWriteTexture{
-				.set		= set,
-				.binding	= binding,
-				.arrayIndex = index++,
-				.type		= azo::rhi::DescriptorType::eTextureSRV,
-				.view		= entry.view,
-				.sampler	= m_sampler,
-			});
+			writes.push_back(
+				azo::rhi::DescriptorWriteTexture{
+					.set		= set,
+					.binding	= binding,
+					.arrayIndex = index++,
+					.type		= azo::rhi::DescriptorType::eTextureSRV,
+					.view		= entry.view,
+					.sampler	= m_sampler,
+				}
+			);
 		}
 
 		return writes;
 	}
 
 	TextureId SceneGpuImageStorage::Upload(
-		std::string name, const std::span<const assets::ImageAsset> layers, const azo::rhi::TextureType type, const bool srgb, const bool mipmapped)
+		std::string name,
+		const std::span<const assets::ImageAsset> layers,
+		const azo::rhi::TextureType type,
+		const bool srgb,
+		const bool mipmapped
+	)
 	{
 		if (const TextureId existing = FindTexture(name); existing != kNoTexture)
 		{
@@ -208,15 +218,18 @@ namespace fw::scene
 				.allowFormatViews = mips > 1,
 				.debugName		  = name.c_str(),
 			},
-			error);
+			error
+		);
 
-		const azo::rhi::TextureViewHandle view = m_config.device.create_texture_view(texture,
+		const azo::rhi::TextureViewHandle view = m_config.device.create_texture_view(
+			texture,
 			azo::rhi::TextureViewDesc{
 				.type	   = type == azo::rhi::TextureType::eTexCube ? azo::rhi::TextureViewType::eTexCube : azo::rhi::TextureViewType::eTex2D,
 				.range	   = { .mipCount = mips, .layerCount = layerCount },
 				.debugName = name.c_str(),
 			},
-			error);
+			error
+		);
 
 		if (!texture.is_valid() || !view.is_valid())
 		{
@@ -241,7 +254,8 @@ namespace fw::scene
 				.memory	   = azo::rhi::MemoryUsage::eCpuUpload,
 				.debugName = "fw.scene.imageStaging",
 			},
-			error);
+			error
+		);
 
 		const azo::rhi::MappedMemory mapped =
 			staging.is_valid() ? m_config.device.map(staging, azo::rhi::MapDesc{ .mode = azo::rhi::MapMode::eWrite }, error) : azo::rhi::MappedMemory{};
@@ -263,7 +277,8 @@ namespace fw::scene
 		}
 
 		const bool staged = (mapped.coherent || m_config.device.flush_mapped_range(staging, 0, stagingBytes, error)) && m_config.device.unmap(staging, error);
-		const bool ok	  = staged && RecordAndSubmit(texture,
+		const bool ok	  = staged && RecordAndSubmit(
+										  texture,
 										  staging,
 										  CopyPlan{
 											  .layerOffsets = layerOffsets,
@@ -272,7 +287,8 @@ namespace fw::scene
 											  .mips			= mips,
 											  .layerCount	= layerCount,
 										  },
-										  error);
+										  error
+									  );
 
 		static_cast<void>(m_config.device.destroy(staging));
 
@@ -292,7 +308,11 @@ namespace fw::scene
 	}
 
 	bool SceneGpuImageStorage::RecordAndSubmit(
-		const azo::rhi::TextureHandle texture, const azo::rhi::BufferHandle staging, const CopyPlan & plan, azo::rhi::Error & error)
+		const azo::rhi::TextureHandle texture,
+		const azo::rhi::BufferHandle staging,
+		const CopyPlan & plan,
+		azo::rhi::Error & error
+	)
 	{
 		azo::rhi::CommandList list = m_pool.allocate("fw.scene.imageUpload", error);
 		if (!list.is_valid() || !list.begin(error))
@@ -315,11 +335,13 @@ namespace fw::scene
 		regions.reserve(plan.layerCount);
 		for (std::uint32_t layer = 0; layer < plan.layerCount; ++layer)
 		{
-			regions.push_back(azo::rhi::BufferTextureCopy{
-				.bufferOffset  = plan.layerOffsets[layer],
-				.subresource   = { .layer = layer },
-				.textureExtent = { .width = plan.width, .height = plan.height },
-			});
+			regions.push_back(
+				azo::rhi::BufferTextureCopy{
+					.bufferOffset  = plan.layerOffsets[layer],
+					.subresource   = { .layer = layer },
+					.textureExtent = { .width = plan.width, .height = plan.height },
+				}
+			);
 		}
 
 		const std::array toRead{
@@ -373,7 +395,8 @@ namespace fw::scene
 					.maxDescriptors = kResampleSets * 3,
 					.debugName		= "fw.scene.resampleArena",
 				},
-				error);
+				error
+			);
 
 			if (!m_resampleArena.is_valid())
 			{

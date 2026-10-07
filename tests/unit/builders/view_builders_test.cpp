@@ -50,13 +50,15 @@ namespace
 	{
 		const rhi::TextureViewDesc desc = rhi::TextureViewBuilder{}
 											  .mips(5, 5)
-											  .range(rhi::TextureSubresourceRange{
-												  .aspects	  = rhi::TextureAspect::eDepth,
-												  .baseMip	  = 0,
-												  .mipCount	  = 1,
-												  .baseLayer  = 0,
-												  .layerCount = 1,
-											  })
+											  .range(
+												  rhi::TextureSubresourceRange{
+													  .aspects	  = rhi::TextureAspect::eDepth,
+													  .baseMip	  = 0,
+													  .mipCount	  = 1,
+													  .baseLayer  = 0,
+													  .layerCount = 1,
+												  }
+											  )
 											  .build();
 
 		EXPECT_EQ(desc.range.baseMip, 0u);

@@ -168,8 +168,9 @@ namespace fw::shader
 		Slang::ComPtr<slang::IComponentType> composed;
 		Slang::ComPtr<slang::IComponentType> linked;
 		Slang::ComPtr<slang::IBlob> code;
-		if (SLANG_FAILED(m_session->session->createCompositeComponentType(
-				parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+		if (SLANG_FAILED(
+				m_session->session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+			) ||
 			SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())) ||
 			SLANG_FAILED(linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef())))
 		{

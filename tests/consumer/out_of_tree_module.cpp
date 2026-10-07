@@ -29,8 +29,8 @@ namespace
 	struct ConsumerModuleApi final : azo::rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "consumer.rhi.module";
-		static constexpr std::string_view kDisplayName	= "Out Of Tree Module";
-		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Out Of Tree Module";
+		static constexpr azo::rhi::GraphicsApiId kId	 = azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	azo::rhi::InstanceApi g_table{};

@@ -32,6 +32,7 @@
 #include "FW/platform/Sdl3Window.hpp"
 #include "FW/utility/AssetPath.hpp"
 #include "FW/utility/Log.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <SDL3/SDL.h>
 #include <slang-com-ptr.h>
@@ -80,7 +81,8 @@ namespace
 		Slang::ComPtr<slang::IBlob> code;
 
 		if (SLANG_FAILED(
-				session.createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+				session.createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+			) ||
 			SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())) ||
 			SLANG_FAILED(linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef())))
 		{
@@ -115,6 +117,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	const std::uint64_t frameLimit = args.size() > 1 ? std::strtoull(args[1], nullptr, 10) : 0;
 
@@ -175,7 +179,8 @@ int main(int argc, char ** argv)
 			.height	   = initial.height,
 			.debugName = "triangle.swapchain",
 		},
-		error);
+		error
+	);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "triangle.timeline" }, error);
 	rhi::CommandPool pool			   = dev.create_command_pool(rhi::CommandPoolDesc{ .debugName = "triangle.pool" }, error);
@@ -345,8 +350,8 @@ int main(int argc, char ** argv)
 		const bool recorded =
 			list.barriers(rhi::BarrierBatch{ .textures = toAttachment }, error) &&
 			list.begin_rendering(rhi::BeginRenderingDesc{ .colors = colors, .width = swapchain.get_width(), .height = swapchain.get_height() }, error) &&
-			list.set_graphics_pipeline(pipeline, error) && list.set_viewport(viewport, error) && list.set_scissor(scissor, error) && list.draw(3, 1, 0, 0, error) &&
-			list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.end(error);
+			list.set_graphics_pipeline(pipeline, error) && list.set_viewport(viewport, error) && list.set_scissor(scissor, error) &&
+			list.draw(3, 1, 0, 0, error) && list.end_rendering(error) && list.barriers(rhi::BarrierBatch{ .textures = toPresent }, error) && list.end(error);
 
 		if (!recorded)
 		{

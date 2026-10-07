@@ -163,7 +163,12 @@ namespace langs
 	}
 
 	rhi::ShaderBinary ShaderCompiler::Compile(
-		const char * fileName, const char * entryPoint, const SourceLanguage language, const Threadgroup threadgroup, std::string & error)
+		const char * fileName,
+		const char * entryPoint,
+		const SourceLanguage language,
+		const Threadgroup threadgroup,
+		std::string & error
+	)
 	{
 		if (language != SourceLanguage::eSlang)
 		{
@@ -199,8 +204,9 @@ namespace langs
 		Slang::ComPtr<slang::IComponentType> composed;
 		Slang::ComPtr<slang::IComponentType> linked;
 		Slang::ComPtr<slang::IBlob> code;
-		if (SLANG_FAILED(m_session->session->createCompositeComponentType(
-				parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+		if (SLANG_FAILED(
+				m_session->session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+			) ||
 			SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())) ||
 			SLANG_FAILED(linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef())))
 		{

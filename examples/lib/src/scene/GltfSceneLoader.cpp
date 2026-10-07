@@ -89,7 +89,8 @@ namespace fw::scene
 						object.SetScale(scale);
 					},
 				},
-				node.transform);
+				node.transform
+			);
 		}
 
 		template <typename VecT>
@@ -146,7 +147,10 @@ namespace fw::scene
 		}
 
 		[[nodiscard]] std::vector<std::uint8_t> ReadImageBytes(
-			const fastgltf::Asset & asset, const fastgltf::Image & image, const std::filesystem::path & documentPath)
+			const fastgltf::Asset & asset,
+			const fastgltf::Image & image,
+			const std::filesystem::path & documentPath
+		)
 		{
 			std::vector<std::uint8_t> bytes;
 
@@ -183,14 +187,16 @@ namespace fw::scene
 									fromBytes(Slice(std::span(vector.bytes.data(), vector.bytes.size()), bufferView));
 								},
 							},
-							buffer.data);
+							buffer.data
+						);
 					},
 					[&](const fastgltf::sources::URI & uri)
 					{
 						bytes = util::ReadFile(documentPath.parent_path() / std::string_view(uri.uri.path()));
 					},
 				},
-				image.data);
+				image.data
+			);
 
 			return bytes;
 		}
@@ -328,8 +334,15 @@ namespace fw::scene
 			return asset;
 		}
 
-		[[nodiscard]] bool AttachPrimitives(Scene & scene, const fastgltf::Asset & asset, const fastgltf::Mesh & source,
-			const std::shared_ptr<SceneObject> & object, TextureTable * textures, const GltfLoadOptions & options, std::uint32_t & meshCount)
+		[[nodiscard]] bool AttachPrimitives(
+			Scene & scene,
+			const fastgltf::Asset & asset,
+			const fastgltf::Mesh & source,
+			const std::shared_ptr<SceneObject> & object,
+			TextureTable * textures,
+			const GltfLoadOptions & options,
+			std::uint32_t & meshCount
+		)
 		{
 			const std::string_view given{ source.name };
 			const std::string meshName = given.empty() ? object->GetName() : std::string(given);

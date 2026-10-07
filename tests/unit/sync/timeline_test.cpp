@@ -139,7 +139,8 @@ namespace
 					.generation = 1,
 				},
 				completed,
-				queryError))
+				queryError
+			))
 		{
 			GTEST_SKIP() << "this backend does not reject an unknown timeline handle";
 		}
@@ -202,7 +203,8 @@ namespace
 				{
 					std::this_thread::sleep_for(std::chrono::milliseconds{ 100 });
 					signaled = queue.signal(timeline, value, signalError);
-				});
+				}
+			);
 			const bool waited = queue.wait(timeline, value, timeout, error);
 			signalThread.join();
 			EXPECT_TRUE(test::Ok(signaled, signalError));

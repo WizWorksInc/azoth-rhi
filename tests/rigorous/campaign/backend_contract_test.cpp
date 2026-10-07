@@ -169,14 +169,19 @@ namespace
 			const std::array signals{
 				rhi::TimelinePoint{ .timeline = timeline, .value = frame, .waitStages = rhi::Stage::eAllCommands },
 			};
-			ASSERT_TRUE(test::Ok(queue.submit(
-									 rhi::SubmitDesc{
-										 .commandLists = lists,
-										 .signals	   = signals,
-									 },
-									 error),
-				error))
-				<< "frame " << frame;
+			ASSERT_TRUE(
+				test::Ok(
+					queue.submit(
+						rhi::SubmitDesc{
+							.commandLists = lists,
+							.signals	  = signals,
+						},
+						error
+					),
+					error
+				)
+			) << "frame "
+			  << frame;
 			ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 			const rhi::DestroyDesc retired{
@@ -185,14 +190,19 @@ namespace
 			};
 			ASSERT_TRUE(test::Ok(Dev().destroy(transient, retired, error), error));
 			ASSERT_TRUE(test::Ok(Dev().collect_garbage(timeline, frame, error), error));
-			ASSERT_TRUE(test::Ok(pool.reset(
-									 rhi::RetirePoint{
-										 .timeline = timeline,
-										 .value	   = frame,
-									 },
-									 error),
-				error))
-				<< "frame " << frame << " could not reset its pool";
+			ASSERT_TRUE(
+				test::Ok(
+					pool.reset(
+						rhi::RetirePoint{
+							.timeline = timeline,
+							.value	  = frame,
+						},
+						error
+					),
+					error
+				)
+			) << "frame "
+			  << frame << " could not reset its pool";
 		}
 
 		AZO_RHI_EXPECT_NO_VALIDATION_ERRORS(Dev(), "running " << kFrames << " frames produced native validation errors");

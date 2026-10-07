@@ -154,12 +154,17 @@ namespace fw::render
 				.memory	   = azo::rhi::MemoryUsage::eCpuToGpu,
 				.debugName = "fw.render.bufferPool",
 			},
-			error);
+			error
+		);
 
 		if (!block->buffer.is_valid())
 		{
 			LOG_ERROR(
-				fw::Log(), "buffer pool: a block of {} bytes could not be created: {}", bytes, error.message != nullptr ? error.message : "no diagnostic");
+				fw::Log(),
+				"buffer pool: a block of {} bytes could not be created: {}",
+				bytes,
+				error.message != nullptr ? error.message : "no diagnostic"
+			);
 			return nullptr;
 		}
 

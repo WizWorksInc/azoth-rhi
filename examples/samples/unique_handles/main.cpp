@@ -24,6 +24,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <array>
 #include <cstdint>
@@ -55,7 +56,8 @@ namespace
 				.memory	   = rhi::MemoryUsage::eGpuOnly,
 				.debugName = name,
 			},
-			error);
+			error
+		);
 
 		if (!handle.is_valid())
 		{
@@ -200,6 +202,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = fw::RequestedBackend(argc, argv) } };
 
 	rhi::Result<rhi::UniqueDevice> device =

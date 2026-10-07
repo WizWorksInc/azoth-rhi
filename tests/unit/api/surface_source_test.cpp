@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "azoth/rhi/device/selection.hpp"
 #include "azoth/rhi/host/surface_source.hpp"
 #include "azoth/rhi/native/surface_payloads.hpp"
 
@@ -106,6 +107,16 @@ namespace
 		rhi::native::VulkanSurfacePayload vulkan{};
 		EXPECT_FALSE(window.provide(RequestFor(vulkan))) << "a window that has no Vulkan claimed to have answered";
 		EXPECT_EQ(vulkan.surface, 0u);
+	}
+
+	TEST(ResolveVulkanLoader, ReturnsNullWithoutVulkanBackend)
+	{
+		if (rhi::find_available_backend(rhi::VulkanApi::kId) != nullptr)
+		{
+			GTEST_SKIP() << "Vulkan backend is compiled in";
+		}
+
+		EXPECT_EQ(rhi::native::resolve_vulkan_loader(), nullptr);
 	}
 
 	TEST(ResolveVulkanLoader, AnswersTheSameThingEveryTime)

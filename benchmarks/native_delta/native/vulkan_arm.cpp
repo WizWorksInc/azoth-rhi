@@ -153,11 +153,12 @@ namespace bench::native
 		[[nodiscard]] std::uint64_t RecordShape(const Kind kind, const vk::CommandBuffer buffer, const Workload & work, const std::size_t commands)
 		{
 			const vk::detail::DispatchLoaderDynamic & dispatch = *g_arm.dispatch;
-			const vk::Viewport viewport(
-				work.viewport.x, work.viewport.y, work.viewport.width, work.viewport.height, work.viewport.minDepth, work.viewport.maxDepth);
+			const vk::Viewport
+				viewport(work.viewport.x, work.viewport.y, work.viewport.width, work.viewport.height, work.viewport.minDepth, work.viewport.maxDepth);
 			const vk::Rect2D scissor(vk::Offset2D(work.scissor.x, work.scissor.y), vk::Extent2D(work.scissor.width, work.scissor.height));
 
-			const vk::ImageMemoryBarrier2 imageBarrier(vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			const vk::ImageMemoryBarrier2 imageBarrier(
+				vk::PipelineStageFlagBits2::eColorAttachmentOutput,
 				vk::AccessFlagBits2::eColorAttachmentWrite,
 				vk::PipelineStageFlagBits2::eColorAttachmentOutput,
 				vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -166,7 +167,8 @@ namespace bench::native
 				VK_QUEUE_FAMILY_IGNORED,
 				VK_QUEUE_FAMILY_IGNORED,
 				g_arm.image,
-				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+				vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+			);
 			vk::DependencyInfo dependency;
 			dependency.setImageMemoryBarriers(imageBarrier);
 
@@ -190,12 +192,14 @@ namespace bench::native
 			case Kind::ePushConstants:
 				for (std::size_t index = 0; index < commands; ++index)
 				{
-					buffer.pushConstants(g_arm.layout,
+					buffer.pushConstants(
+						g_arm.layout,
 						vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
 						0,
 						kPushConstantBytes,
 						work.pushConstants.data(),
-						dispatch);
+						dispatch
+					);
 				}
 				break;
 
@@ -266,8 +270,14 @@ namespace bench::native
 		return {};
 	}
 
-	bool RecordVulkan(const Kind kind, rhi::CommandList & list, const rhi::NativeMutationDesc & mutation, const Workload & work, const std::size_t commands,
-		std::uint64_t & elapsed)
+	bool RecordVulkan(
+		const Kind kind,
+		rhi::CommandList & list,
+		const rhi::NativeMutationDesc & mutation,
+		const Workload & work,
+		const std::size_t commands,
+		std::uint64_t & elapsed
+	)
 	{
 		rhi::Error error{};
 		const bool recorded = list.modify_native<rhi::VulkanApi>(
@@ -276,7 +286,8 @@ namespace bench::native
 			{
 				elapsed = RecordShape(kind, view.commandBuffer, work, commands);
 			},
-			error);
+			error
+		);
 		if (!recorded)
 		{
 			ReportError("the native mutation scope was refused", error);

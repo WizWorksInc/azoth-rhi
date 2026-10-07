@@ -27,6 +27,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <algorithm>
 #include <array>
@@ -69,6 +70,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested } };
@@ -212,18 +215,22 @@ int main(int argc, char ** argv)
 		static_cast<void>(dev.unmap(readback, error));
 
 		const std::array<std::uint8_t, 4> expected{ Quantize(kClear.r), Quantize(kClear.g), Quantize(kClear.b), Quantize(kClear.a) };
-		LOG_INFO(fw::Log(),
+		LOG_INFO(
+			fw::Log(),
 			"cleared to   {} {} {} {}",
 			static_cast<int>(expected[0]),
 			static_cast<int>(expected[1]),
 			static_cast<int>(expected[2]),
-			static_cast<int>(expected[3]));
-		LOG_INFO(fw::Log(),
+			static_cast<int>(expected[3])
+		);
+		LOG_INFO(
+			fw::Log(),
 			"read back    {} {} {} {}",
 			static_cast<int>(texel[0]),
 			static_cast<int>(texel[1]),
 			static_cast<int>(texel[2]),
-			static_cast<int>(texel[3]));
+			static_cast<int>(texel[3])
+		);
 
 		for (std::size_t channel = 0; channel < texel.size(); ++channel)
 		{

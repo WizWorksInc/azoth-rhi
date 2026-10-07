@@ -96,24 +96,32 @@ namespace
 			.generation = 2,
 		};
 
-		static_assert(base == rhi::BufferHandle{
-								  .index	  = 7,
-								  .generation = 2,
-							  });
-		static_assert(base != rhi::BufferHandle{
-								  .index	  = 7,
-								  .generation = 3,
-							  });
-		static_assert(base != rhi::BufferHandle{
-								  .index	  = 8,
-								  .generation = 2,
-							  });
+		static_assert(
+			base == rhi::BufferHandle{
+						.index		= 7,
+						.generation = 2,
+					}
+		);
+		static_assert(
+			base != rhi::BufferHandle{
+						.index		= 7,
+						.generation = 3,
+					}
+		);
+		static_assert(
+			base != rhi::BufferHandle{
+						.index		= 8,
+						.generation = 2,
+					}
+		);
 
-		EXPECT_NE(base,
+		EXPECT_NE(
+			base,
 			(rhi::BufferHandle{
 				.index		= 7,
 				.generation = 3,
-			}));
+			})
+		);
 	}
 
 	TEST(HandleValue, InvalidIndexIsTheMaximumSoItNeverNamesARealSlot)
@@ -132,18 +140,24 @@ namespace
 		};
 		std::unordered_set<rhi::BufferHandle, decltype(hashHandle)> live(8, hashHandle);
 
-		live.insert(rhi::BufferHandle{
-			.index		= 1,
-			.generation = 1,
-		});
-		live.insert(rhi::BufferHandle{
-			.index		= 1,
-			.generation = 1,
-		});
-		live.insert(rhi::BufferHandle{
-			.index		= 1,
-			.generation = 2,
-		});
+		live.insert(
+			rhi::BufferHandle{
+				.index		= 1,
+				.generation = 1,
+			}
+		);
+		live.insert(
+			rhi::BufferHandle{
+				.index		= 1,
+				.generation = 1,
+			}
+		);
+		live.insert(
+			rhi::BufferHandle{
+				.index		= 1,
+				.generation = 2,
+			}
+		);
 
 		EXPECT_EQ(live.size(), 2u) << "a recycled slot and its predecessor collapsed into one entry";
 	}

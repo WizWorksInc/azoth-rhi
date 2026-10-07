@@ -168,7 +168,8 @@ namespace
 			[&]
 			{
 				accepted = list.end(foreignError);
-			});
+			}
+		);
 		other.join();
 
 		EXPECT_FALSE(accepted) << "a command list was closed from a thread other than the one recording it";
@@ -235,26 +236,36 @@ namespace
 			GTEST_SKIP() << "this backend refused a dynamic rendering scope: " << test::Describe(error);
 		}
 
-		EXPECT_TRUE(test::Ok(list.set_viewport(
-								 rhi::Viewport{
-									 .x		   = 0.0f,
-									 .y		   = 0.0f,
-									 .width	   = 64.0f,
-									 .height   = 64.0f,
-									 .minDepth = 0.0f,
-									 .maxDepth = 1.0f,
-								 },
-								 error),
-			error));
-		EXPECT_TRUE(test::Ok(list.set_scissor(
-								 rhi::Rect2D{
-									 .x		 = 0,
-									 .y		 = 0,
-									 .width	 = 64,
-									 .height = 64,
-								 },
-								 error),
-			error));
+		EXPECT_TRUE(
+			test::Ok(
+				list.set_viewport(
+					rhi::Viewport{
+						.x		  = 0.0f,
+						.y		  = 0.0f,
+						.width	  = 64.0f,
+						.height	  = 64.0f,
+						.minDepth = 0.0f,
+						.maxDepth = 1.0f,
+					},
+					error
+				),
+				error
+			)
+		);
+		EXPECT_TRUE(
+			test::Ok(
+				list.set_scissor(
+					rhi::Rect2D{
+						.x		= 0,
+						.y		= 0,
+						.width	= 64,
+						.height = 64,
+					},
+					error
+				),
+				error
+			)
+		);
 		EXPECT_TRUE(test::Ok(list.set_blend_constants(0.0f, 0.0f, 0.0f, 1.0f, error), error));
 		EXPECT_TRUE(test::Ok(list.set_stencil_reference(1, error), error));
 		EXPECT_TRUE(test::Ok(list.set_depth_bias(0.0f, 0.0f, 0.0f, error), error));
@@ -563,7 +574,8 @@ namespace
 							return;
 						}
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & worker : threads)
@@ -740,7 +752,8 @@ namespace
 		{
 			// The earlier submission has drained by now, so native allows this one and so must we.
 			ASSERT_TRUE(
-				test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .signals = second, .debugName = "azoth.rhi.test.resubmit" }, error), error));
+				test::Ok(queue.submit(rhi::SubmitDesc{ .commandLists = submitted, .signals = second, .debugName = "azoth.rhi.test.resubmit" }, error), error)
+			);
 			ASSERT_TRUE(test::Ok(queue.wait_idle(error), error));
 
 			std::uint64_t again = 0;
@@ -1336,7 +1349,8 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 					}
 				}
 				stop.store(true);
-			});
+			}
+		);
 
 		std::thread fetcher(
 			[&]
@@ -1347,7 +1361,8 @@ kernel void azothRhiTestCount(uint index [[thread_position_in_grid]])
 				{
 					static_cast<void>(local.Get().get_queue(asked[round % asked.size()], 0, mine));
 				}
-			});
+			}
+		);
 
 		fetcher.join();
 		submitter.join();

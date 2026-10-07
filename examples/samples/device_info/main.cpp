@@ -20,6 +20,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <algorithm>
 #include <array>
@@ -104,6 +105,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	constexpr rhi::BuildInfo build = rhi::get_build_info();
 	LOG_INFO(fw::Log(), "Azoth RHI {}", rhi::kVersionString);
 

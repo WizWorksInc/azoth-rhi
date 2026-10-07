@@ -203,12 +203,26 @@ namespace
 			rhi::ExternalHandleSupport timeline{};
 			rhi::ExternalHandleSupport binary{};
 
-			ASSERT_TRUE(test::Ok(
-				Inst().query_external_handle_support({ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eTimeline, .handleType = handleType }, timeline, error),
-				error));
-			ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(
-									 { .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eBinarySemaphore, .handleType = handleType }, binary, error),
-				error));
+			ASSERT_TRUE(
+				test::Ok(
+					Inst().query_external_handle_support(
+						{ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eTimeline, .handleType = handleType },
+						timeline,
+						error
+					),
+					error
+				)
+			);
+			ASSERT_TRUE(
+				test::Ok(
+					Inst().query_external_handle_support(
+						{ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eBinarySemaphore, .handleType = handleType },
+						binary,
+						error
+					),
+					error
+				)
+			);
 
 			if (timeline.exportable != binary.exportable || timeline.importable != binary.importable)
 			{
@@ -232,9 +246,16 @@ namespace
 		{
 			rhi::Error queryError{};
 			rhi::ExternalHandleSupport support{};
-			ASSERT_TRUE(test::Ok(Inst().query_external_handle_support(
-									 { .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eBuffer, .handleType = handleType }, support, queryError),
-				queryError));
+			ASSERT_TRUE(
+				test::Ok(
+					Inst().query_external_handle_support(
+						{ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eBuffer, .handleType = handleType },
+						support,
+						queryError
+					),
+					queryError
+				)
+			);
 
 			rhi::BufferDesc desc	   = test::samples::StorageBuffer();
 			desc.exportableHandleTypes = handleType;
@@ -284,9 +305,16 @@ namespace
 		{
 			rhi::Error queryError{};
 			rhi::ExternalHandleSupport support{};
-			ASSERT_TRUE(test::Ok(
-				Inst().query_external_handle_support({ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eHeap, .handleType = handleType }, support, queryError),
-				queryError));
+			ASSERT_TRUE(
+				test::Ok(
+					Inst().query_external_handle_support(
+						{ .adapterIndex = 0, .kind = rhi::ExternalObjectKind::eHeap, .handleType = handleType },
+						support,
+						queryError
+					),
+					queryError
+				)
+			);
 
 			rhi::HeapDesc desc		   = test::samples::GpuHeap(std::uint64_t{ 64 } * 1024);
 			desc.exportableHandleTypes = handleType;
@@ -320,9 +348,13 @@ namespace
 		{
 			rhi::Error error{};
 			rhi::ExternalHandleSupport support{};
-			ASSERT_TRUE(test::Ok(
-				Inst().query_external_handle_support({ .adapterIndex = 0, .kind = kind, .handleType = rhi::ExternalHandleType::eD3D12Heap }, support, error),
-				error));
+			ASSERT_TRUE(
+				test::Ok(
+					Inst()
+						.query_external_handle_support({ .adapterIndex = 0, .kind = kind, .handleType = rhi::ExternalHandleType::eD3D12Heap }, support, error),
+					error
+				)
+			);
 
 			EXPECT_FALSE(support.exportable) << "a semaphore was reported exportable through a heap handle type";
 			EXPECT_FALSE(support.importable) << "a semaphore was reported importable through a heap handle type";

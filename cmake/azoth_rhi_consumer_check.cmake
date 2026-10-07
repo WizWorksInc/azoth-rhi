@@ -45,6 +45,16 @@ if(DEFINED AZOTH_RHI_CONFIG AND NOT AZOTH_RHI_CONFIG STREQUAL "")
     set(_consumerConfigArgs "-DCMAKE_BUILD_TYPE=${AZOTH_RHI_CONFIG}")
 endif()
 
+load_cache("${AZOTH_RHI_BUILD_ROOT}" READ_WITH_PREFIX _parent_
+        CMAKE_GENERATOR CMAKE_GENERATOR_PLATFORM CMAKE_GENERATOR_TOOLSET)
+set(_generatorArgs -G "${_parent_CMAKE_GENERATOR}")
+if(NOT "${_parent_CMAKE_GENERATOR_PLATFORM}" STREQUAL "")
+    list(APPEND _generatorArgs -A "${_parent_CMAKE_GENERATOR_PLATFORM}")
+endif()
+if(NOT "${_parent_CMAKE_GENERATOR_TOOLSET}" STREQUAL "")
+    list(APPEND _generatorArgs -T "${_parent_CMAKE_GENERATOR_TOOLSET}")
+endif()
+
 set(_work "${AZOTH_RHI_BUILD_ROOT}/consumer-check")
 set(_prefix "${_work}/prefix")
 set(_build "${_work}/build")
@@ -76,7 +86,7 @@ _azoth_run_step("installing the build"
 
 _azoth_run_step("configuring a consumer against the installed prefix"
         "${AZOTH_RHI_CMAKE}" -S "${AZOTH_RHI_SOURCE_ROOT}/tests/consumer" -B "${_build}"
-        ${_consumerConfigArgs}
+        ${_generatorArgs} ${_consumerConfigArgs}
         -DCMAKE_PREFIX_PATH=${_prefix})
 
 _azoth_run_step("building the consumer"

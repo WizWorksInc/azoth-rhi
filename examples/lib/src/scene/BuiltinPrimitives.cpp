@@ -81,8 +81,13 @@ namespace fw::scene
 			}
 		}
 
-		void PushCapFan(std::vector<std::uint32_t> & indices, const std::uint32_t center, const std::uint32_t ringStart, const std::uint32_t sectorCount,
-			const bool facingUp)
+		void PushCapFan(
+			std::vector<std::uint32_t> & indices,
+			const std::uint32_t center,
+			const std::uint32_t ringStart,
+			const std::uint32_t sectorCount,
+			const bool facingUp
+		)
 		{
 			for (std::uint32_t sector = 0; sector < sectorCount; ++sector)
 			{

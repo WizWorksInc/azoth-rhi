@@ -36,7 +36,14 @@ namespace deccer
 		std::uint32_t specularMips = 0;
 	};
 
-	[[nodiscard]] bool BuildEnvironment(azo::rhi::Device dev, azo::rhi::Queue & queue, azo::rhi::TimelineHandle timeline, std::uint64_t signalValue,
-		ShaderCompiler & compiler, Environment & out, std::string & error);
+	[[nodiscard]] bool BuildEnvironment(
+		azo::rhi::Device dev,
+		azo::rhi::Queue & queue,
+		azo::rhi::TimelineHandle timeline,
+		std::uint64_t signalValue,
+		ShaderCompiler & compiler,
+		Environment & out,
+		std::string & error
+	);
 
 }

@@ -30,8 +30,8 @@ namespace
 	struct LoadableApi final : azo::rhi::GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "studio.rhi.loadable";
-		static constexpr std::string_view kDisplayName	= "Studio Loadable";
-		static constexpr azo::rhi::GraphicsApiId kId		= azo::rhi::make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Studio Loadable";
+		static constexpr azo::rhi::GraphicsApiId kId	 = azo::rhi::make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(azo::rhi::GraphicsApiTag<LoadableApi>);

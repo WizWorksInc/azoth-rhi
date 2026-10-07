@@ -87,7 +87,8 @@ namespace vsnri
 			{
 				const std::string name = std::string("record/") + std::string(ShapeName(shape));
 
-				benchmark::RegisterBenchmark(name,
+				benchmark::RegisterBenchmark(
+					name,
 					[&arm, shape, name](benchmark::State & state)
 					{
 						VSNRI_ZONE_DYNAMIC(name.c_str(), name.size());
@@ -127,7 +128,8 @@ namespace vsnri
 						state.counters["raw_ns"]	  = benchmark::Counter(PerUnit(rawTotal, commands));
 						state.counters["over_raw_ns"] = benchmark::Counter(PerUnit(libraryTotal, commands) - PerUnit(rawTotal, commands));
 						state.counters["allocs_pass"] = benchmark::Counter(PerUnit(HostAllocations() - allocationsBefore, static_cast<double>(passes)));
-					})
+					}
+				)
 					->UseManualTime()
 					->Unit(benchmark::kNanosecond)
 					->MinWarmUpTime(kWarmUpSeconds)
@@ -213,7 +215,8 @@ namespace vsnri
 			{
 				const std::string name = "sweep/draws:" + std::to_string(draws);
 
-				benchmark::RegisterBenchmark(name,
+				benchmark::RegisterBenchmark(
+					name,
 					[&arm, draws, name](benchmark::State & state)
 					{
 						VSNRI_ZONE_DYNAMIC(name.c_str(), name.size());
@@ -243,7 +246,8 @@ namespace vsnri
 						ReportFrameCounters(state, samples, HostAllocations() - allocationsBefore, true);
 						state.counters["draw_ns"] =
 							benchmark::Counter(PerUnit(samples.totals.recordNs, static_cast<double>(state.iterations()) * (draws + draws / 2)));
-					})
+					}
+				)
 					->UseManualTime()
 					->Unit(benchmark::kMicrosecond)
 					->MinWarmUpTime(kWarmUpSeconds)
@@ -261,7 +265,8 @@ namespace vsnri
 					const SceneWorkload & workload = workloads[replica];
 					const std::string name = "scene/replicas:" + std::to_string(kSceneReplicas.at(replica)) + "/policy:" + std::string(BindPolicyName(policy));
 
-					benchmark::RegisterBenchmark(name,
+					benchmark::RegisterBenchmark(
+						name,
 						[&arm, &workload, policy, name](benchmark::State & state)
 						{
 							VSNRI_ZONE_DYNAMIC(name.c_str(), name.size());
@@ -305,7 +310,8 @@ namespace vsnri
 
 							ReportFrameCounters(state, samples, HostAllocations() - allocationsBefore, true);
 							state.counters["draws_frame"] = benchmark::Counter(PerUnit(visibleTotal, static_cast<double>(state.iterations())));
-						})
+						}
+					)
 						->UseManualTime()
 						->Unit(benchmark::kMicrosecond)
 						->MinWarmUpTime(kWarmUpSeconds)
@@ -320,7 +326,8 @@ namespace vsnri
 			{
 				const std::string name = "threads/threads:" + std::to_string(threads);
 
-				benchmark::RegisterBenchmark(name,
+				benchmark::RegisterBenchmark(
+					name,
 					[&arm, threads, name](benchmark::State & state)
 					{
 						VSNRI_ZONE_DYNAMIC(name.c_str(), name.size());
@@ -350,7 +357,8 @@ namespace vsnri
 						ReportFrameCounters(state, samples, HostAllocations() - allocationsBefore, false);
 						state.counters["draw_ns"] =
 							benchmark::Counter(PerUnit(samples.totals.recordNs, static_cast<double>(state.iterations()) * kThreadedDraws));
-					})
+					}
+				)
 					->UseManualTime()
 					->Unit(benchmark::kMicrosecond)
 					->MinWarmUpTime(kWarmUpSeconds)
@@ -364,7 +372,8 @@ namespace vsnri
 			{
 				const std::string name = std::string("churn/") + std::string(ChurnName(churn));
 
-				benchmark::RegisterBenchmark(name,
+				benchmark::RegisterBenchmark(
+					name,
 					[&arm, churn, name](benchmark::State & state)
 					{
 						VSNRI_ZONE_DYNAMIC(name.c_str(), name.size());
@@ -391,7 +400,8 @@ namespace vsnri
 
 						state.counters["allocs_op"] =
 							benchmark::Counter(PerUnit(HostAllocations() - allocationsBefore, static_cast<double>(state.iterations())));
-					})
+					}
+				)
 					->UseManualTime()
 					->Unit(benchmark::kNanosecond)
 					->MinWarmUpTime(kWarmUpSeconds)
@@ -401,7 +411,8 @@ namespace vsnri
 
 		void RegisterSubmit(Arm & arm)
 		{
-			benchmark::RegisterBenchmark("submit/RoundTrip",
+			benchmark::RegisterBenchmark(
+				"submit/RoundTrip",
 				[&arm](benchmark::State & state)
 				{
 					VSNRI_ZONE("submit/RoundTrip");
@@ -427,7 +438,8 @@ namespace vsnri
 					}
 
 					state.counters["allocs_op"] = benchmark::Counter(PerUnit(HostAllocations() - allocationsBefore, static_cast<double>(state.iterations())));
-				})
+				}
+			)
 				->UseManualTime()
 				->Unit(benchmark::kMicrosecond)
 				->MinWarmUpTime(kWarmUpSeconds)
@@ -483,7 +495,9 @@ namespace vsnri
 			benchmark::AddCustomContext("scene_materials", std::to_string(scene.materials.size()));
 			benchmark::AddCustomContext("scene_triangles", std::to_string(scene.triangles));
 			benchmark::AddCustomContext(
-				"scene_textures", std::format("{} ({} rgba8, {} bc1, {} bc7, {} mips)", scene.textures.size(), formats[0], formats[1], formats[2], mips));
+				"scene_textures",
+				std::format("{} ({} rgba8, {} bc1, {} bc7, {} mips)", scene.textures.size(), formats[0], formats[1], formats[2], mips)
+			);
 			benchmark::AddCustomContext("scene_path_frames", std::to_string(kPathFrames));
 		}
 
@@ -573,7 +587,8 @@ namespace vsnri
 				[this, worker]
 				{
 					Loop(worker);
-				});
+				}
+			);
 		}
 	}
 
@@ -603,11 +618,13 @@ namespace vsnri
 		m_wake.notify_all();
 
 		std::unique_lock lock(m_mutex);
-		m_done.wait(lock,
+		m_done.wait(
+			lock,
 			[this]
 			{
 				return m_remaining == 0;
-			});
+			}
+		);
 		m_task = nullptr;
 	}
 
@@ -621,11 +638,13 @@ namespace vsnri
 			const std::function<void(std::uint32_t)> * task = nullptr;
 			{
 				std::unique_lock lock(m_mutex);
-				m_wake.wait(lock,
+				m_wake.wait(
+					lock,
 					[this, seen]
 					{
 						return m_stop || m_generation != seen;
-					});
+					}
+				);
 				if (m_stop)
 				{
 					return;

@@ -210,11 +210,13 @@ namespace
 		regions.reserve(levels - 1);
 		for (std::uint32_t level = 1; level < levels; ++level)
 		{
-			regions.push_back(rhi::BufferTextureCopy{
-				.bufferOffset  = LevelOffset(level),
-				.subresource   = { .mip = level },
-				.textureExtent = { .width = LevelDim(level), .height = LevelDim(level) },
-			});
+			regions.push_back(
+				rhi::BufferTextureCopy{
+					.bufferOffset  = LevelOffset(level),
+					.subresource   = { .mip = level },
+					.textureExtent = { .width = LevelDim(level), .height = LevelDim(level) },
+				}
+			);
 		}
 		return regions;
 	}

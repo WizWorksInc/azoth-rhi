@@ -168,8 +168,11 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		const std::array wholeToCopy{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
+		const std::array wholeToCopy{ rhi::TextureBarrier{ .texture = texture,
+			.before													= UntouchedState(),
+			.after													= CopyDestinationState(),
+			.ownership												= {},
+			.range													= test::samples::WholeColorRange() } };
 		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = wholeToCopy }, error), error));
 
 		constexpr rhi::TextureSubresourceRange secondMip{
@@ -180,11 +183,20 @@ namespace
 			.layerCount = 1,
 		};
 
-		const std::array touched{ rhi::NativeTouchedTexture{
-			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .range = secondMip, .finalState = ShaderReadState() } };
-		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
-								 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-			error));
+		const std::array touched{ rhi::NativeTouchedTexture{ .texture = texture,
+			.access													  = rhi::NativeMutationAccess::eReadWrite,
+			.range													  = secondMip,
+			.finalState												  = ShaderReadState() } };
+		ASSERT_TRUE(
+			test::Ok(
+				recording.List().modify_native<rhi::NullApi>(
+					rhi::NativeMutationDesc{ .textures = touched },
+					[](const rhi::native::NullCommandListView &) {},
+					error
+				),
+				error
+			)
+		);
 
 		constexpr rhi::TextureSubresourceRange firstMip{
 			.aspects	= rhi::TextureAspect::eColor,
@@ -194,13 +206,15 @@ namespace
 			.layerCount = 1,
 		};
 
-		const std::array untouchedOnward{ rhi::TextureBarrier{
-			.texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .ownership = {}, .range = firstMip } };
+		const std::array untouchedOnward{
+			rhi::TextureBarrier{ .texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .ownership = {}, .range = firstMip }
+		};
 		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = untouchedOnward }, error), error))
 			<< "a mip the native scope never named lost the state this recording left it in";
 
-		const std::array staleOnTouched{ rhi::TextureBarrier{
-			.texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .ownership = {}, .range = secondMip } };
+		const std::array staleOnTouched{
+			rhi::TextureBarrier{ .texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .ownership = {}, .range = secondMip }
+		};
 
 		rhi::Error staleError{};
 		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .textures = staleOnTouched }, staleError))
@@ -221,8 +235,9 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		const std::array wholeToCopy{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		const std::array wholeToCopy{
+			rhi::TextureBarrier{ .texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() }
+		};
 		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = wholeToCopy }, error), error));
 
 		constexpr rhi::TextureSubresourceRange firstMip{ .aspects = rhi::TextureAspect::eColor, .baseMip = 0, .mipCount = 1, .baseLayer = 0, .layerCount = 1 };
@@ -235,8 +250,9 @@ namespace
 		EXPECT_FALSE(recording.List().barriers(rhi::BarrierBatch{ .textures = stale }, staleError));
 		EXPECT_EQ(staleError.code, rhi::ErrorCode::eValidationFailed);
 
-		const std::array untouched{ rhi::TextureBarrier{
-			.texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .range = secondMip } };
+		const std::array untouched{
+			rhi::TextureBarrier{ .texture = texture, .before = CopyDestinationState(), .after = ShaderReadState(), .range = secondMip }
+		};
 		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = untouched }, error), error));
 		EXPECT_TRUE(recording.End());
 		EXPECT_TRUE(test::Ok(Dev().destroy(texture, {}, error), error));
@@ -252,8 +268,9 @@ namespace
 		const rhi::TextureHandle texture = Dev().create_texture(test::samples::MippedTexture2D(), error);
 		ASSERT_TRUE(test::Ok(texture.is_valid(), error));
 		const std::array buffers{ rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() } };
-		const std::array textures{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		const std::array textures{
+			rhi::TextureBarrier{ .texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() }
+		};
 		{
 			test::Recording first(Dev());
 			ASSERT_TRUE(test::Ok(first.IsRecording(), first.GetError()));
@@ -311,29 +328,43 @@ namespace
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
 		const std::array buffersToCopy{ rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() } };
-		const std::array texturesToCopy{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
+		const std::array texturesToCopy{ rhi::TextureBarrier{ .texture = texture,
+			.before													   = UntouchedState(),
+			.after													   = CopyDestinationState(),
+			.ownership												   = {},
+			.range													   = test::samples::WholeColorRange() } };
 		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .memory = {}, .buffers = buffersToCopy, .textures = texturesToCopy }, error), error));
 
-		const std::array touchedBuffers{ rhi::NativeTouchedBuffer{
-			.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() } };
-		const std::array touchedTextures{ rhi::NativeTouchedTexture{
-			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .range = test::samples::WholeColorRange(), .finalState = ShaderReadState() } };
+		const std::array touchedBuffers{
+			rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() }
+		};
+		const std::array touchedTextures{ rhi::NativeTouchedTexture{ .texture = texture,
+			.access															  = rhi::NativeMutationAccess::eReadWrite,
+			.range															  = test::samples::WholeColorRange(),
+			.finalState														  = ShaderReadState() } };
 
 		bool recorded = false;
-		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
-								 rhi::NativeMutationDesc{ .buffers = touchedBuffers, .textures = touchedTextures },
-								 [&recorded](const rhi::native::NullCommandListView &)
-								 {
-									 recorded = true;
-								 },
-								 error),
-			error));
+		ASSERT_TRUE(
+			test::Ok(
+				recording.List().modify_native<rhi::NullApi>(
+					rhi::NativeMutationDesc{ .buffers = touchedBuffers, .textures = touchedTextures },
+					[&recorded](const rhi::native::NullCommandListView &)
+					{
+						recorded = true;
+					},
+					error
+				),
+				error
+			)
+		);
 		EXPECT_TRUE(recorded) << "the callback the scope brackets never ran";
 
 		const std::array buffersOnward{ rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = CopyDestinationState() } };
-		const std::array texturesOnward{ rhi::TextureBarrier{
-			.texture = texture, .before = ShaderReadState(), .after = CopyDestinationState(), .ownership = {}, .range = test::samples::WholeColorRange() } };
+		const std::array texturesOnward{ rhi::TextureBarrier{ .texture = texture,
+			.before													   = ShaderReadState(),
+			.after													   = CopyDestinationState(),
+			.ownership												   = {},
+			.range													   = test::samples::WholeColorRange() } };
 		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .memory = {}, .buffers = buffersOnward, .textures = texturesOnward }, error), error))
 			<< "a barrier naming exactly what the native scope declared was refused, so the declaration is not read";
 
@@ -357,12 +388,20 @@ namespace
 		const std::array toCopy{ rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() } };
 		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 
-		const std::array touched{ rhi::NativeTouchedBuffer{
-			.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() } };
+		const std::array touched{
+			rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() }
+		};
 
-		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
-								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-			error));
+		ASSERT_TRUE(
+			test::Ok(
+				recording.List().modify_native<rhi::NullApi>(
+					rhi::NativeMutationDesc{ .buffers = touched },
+					[](const rhi::native::NullCommandListView &) {},
+					error
+				),
+				error
+			)
+		);
 
 		const std::array stale{ rhi::BufferBarrier{ .buffer = buffer, .before = CopyDestinationState(), .after = ShaderReadState() } };
 
@@ -394,9 +433,16 @@ namespace
 		{
 			test::Recording moving(Dev());
 			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
-			ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
-									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-				error));
+			ASSERT_TRUE(
+				test::Ok(
+					moving.List().modify_native<rhi::NullApi>(
+						rhi::NativeMutationDesc{ .buffers = touched },
+						[](const rhi::native::NullCommandListView &) {},
+						error
+					),
+					error
+				)
+			);
 			ASSERT_TRUE(moving.End());
 			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), moving.List(), error), error));
 		}
@@ -436,11 +482,19 @@ namespace
 			const std::array toCopy{ rhi::BufferBarrier{ .buffer = buffer, .before = UntouchedState(), .after = CopyDestinationState() } };
 			ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = toCopy }, error), error));
 
-			const std::array touched{ rhi::NativeTouchedBuffer{
-				.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true } };
-			ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
-									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-				error));
+			const std::array touched{
+				rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true }
+			};
+			ASSERT_TRUE(
+				test::Ok(
+					recording.List().modify_native<rhi::NullApi>(
+						rhi::NativeMutationDesc{ .buffers = touched },
+						[](const rhi::native::NullCommandListView &) {},
+						error
+					),
+					error
+				)
+			);
 
 			const std::array named{ rhi::BufferBarrier{ .buffer = buffer, .before = ShaderReadState(), .after = CopyDestinationState() } };
 			EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = named }, error), error))
@@ -473,15 +527,26 @@ namespace
 			test::Recording moving(Dev());
 			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
 
-			const std::array toCopy{ rhi::TextureBarrier{
-				.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+			const std::array toCopy{ rhi::TextureBarrier{ .texture = texture,
+				.before											   = UntouchedState(),
+				.after											   = CopyDestinationState(),
+				.range											   = test::samples::WholeColorRange() } };
 			ASSERT_TRUE(test::Ok(moving.List().barriers(rhi::BarrierBatch{ .textures = toCopy }, error), error));
 
-			const std::array touched{ rhi::NativeTouchedTexture{
-				.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true, .range = test::samples::WholeColorRange() } };
-			ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
-									 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-				error));
+			const std::array touched{ rhi::NativeTouchedTexture{ .texture = texture,
+				.access													  = rhi::NativeMutationAccess::eReadWrite,
+				.finalStateUnknown										  = true,
+				.range													  = test::samples::WholeColorRange() } };
+			ASSERT_TRUE(
+				test::Ok(
+					moving.List().modify_native<rhi::NullApi>(
+						rhi::NativeMutationDesc{ .textures = touched },
+						[](const rhi::native::NullCommandListView &) {},
+						error
+					),
+					error
+				)
+			);
 			ASSERT_TRUE(moving.End());
 			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), moving.List(), error), error));
 		}
@@ -489,8 +554,9 @@ namespace
 		test::Recording next(Dev());
 		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
 
-		const std::array onward{ rhi::TextureBarrier{
-			.texture = texture, .before = ShaderReadState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		const std::array onward{
+			rhi::TextureBarrier{ .texture = texture, .before = ShaderReadState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() }
+		};
 		ASSERT_TRUE(test::Ok(next.List().barriers(rhi::BarrierBatch{ .textures = onward }, error), error));
 		ASSERT_TRUE(next.End());
 		EXPECT_TRUE(test::Ok(SubmitAndWait(Dev(), next.List(), error), error))
@@ -511,9 +577,16 @@ namespace
 		test::Recording moving(Dev());
 		ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
 		const std::array touched{ rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true } };
-		ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
-								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-			error));
+		ASSERT_TRUE(
+			test::Ok(
+				moving.List().modify_native<rhi::NullApi>(
+					rhi::NativeMutationDesc{ .buffers = touched },
+					[](const rhi::native::NullCommandListView &) {},
+					error
+				),
+				error
+			)
+		);
 		ASSERT_TRUE(moving.End());
 
 		test::Recording next(Dev());
@@ -529,10 +602,13 @@ namespace
 
 		std::array<const rhi::CommandList *, 2> lists{ &moving.List(), &next.List() };
 		const std::array signals{ rhi::TimelinePoint{ .timeline = done, .value = 1 } };
-		EXPECT_TRUE(test::Ok(queue.submit({ .commandLists = lists, .signals = signals, .debugName = "azoth.rhi.test.nativeMutation" }, error) &&
-								 queue.wait(done, 1, test::kWaitTimeoutNanoseconds, error),
-			error))
-			<< "a submit checked the second list against the unknown state the first list's native scope left";
+		EXPECT_TRUE(
+			test::Ok(
+				queue.submit({ .commandLists = lists, .signals = signals, .debugName = "azoth.rhi.test.nativeMutation" }, error) &&
+					queue.wait(done, 1, test::kWaitTimeoutNanoseconds, error),
+				error
+			)
+		) << "a submit checked the second list against the unknown state the first list's native scope left";
 
 		EXPECT_TRUE(test::Ok(Dev().destroy(done, {}, error), error));
 		EXPECT_TRUE(test::Ok(Dev().destroy(buffer, {}, error), error));
@@ -550,23 +626,34 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		const std::array toCopy{ rhi::TextureBarrier{
-			.texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		const std::array toCopy{
+			rhi::TextureBarrier{ .texture = texture, .before = UntouchedState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() }
+		};
 		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = toCopy }, error), error));
 
-		const std::array touched{ rhi::NativeTouchedTexture{
-			.texture = texture, .access = rhi::NativeMutationAccess::eReadWrite, .finalStateUnknown = true, .range = test::samples::WholeColorRange() } };
-		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
-								 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-			error));
+		const std::array touched{ rhi::NativeTouchedTexture{ .texture = texture,
+			.access													  = rhi::NativeMutationAccess::eReadWrite,
+			.finalStateUnknown										  = true,
+			.range													  = test::samples::WholeColorRange() } };
+		ASSERT_TRUE(
+			test::Ok(
+				recording.List().modify_native<rhi::NullApi>(
+					rhi::NativeMutationDesc{ .textures = touched },
+					[](const rhi::native::NullCommandListView &) {},
+					error
+				),
+				error
+			)
+		);
 
 		rhi::Error refused{};
 		EXPECT_FALSE(recording.List().generate_mips(texture, refused)) << "generateMips trusted a state no barrier had named since the native scope";
 		EXPECT_TRUE(test::ErrorIsPopulated(refused));
 
 		const rhi::ResourceState copySource{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
-		const std::array named{ rhi::TextureBarrier{
-			.texture = texture, .before = ShaderReadState(), .after = copySource, .range = test::samples::WholeColorRange() } };
+		const std::array named{
+			rhi::TextureBarrier{ .texture = texture, .before = ShaderReadState(), .after = copySource, .range = test::samples::WholeColorRange() }
+		};
 		ASSERT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .textures = named }, error), error));
 		EXPECT_TRUE(test::Ok(recording.List().generate_mips(texture, error), error)) << "generateMips refused a chain a barrier had just named";
 
@@ -597,9 +684,16 @@ namespace
 		{
 			test::Recording moving(Dev());
 			ASSERT_TRUE(test::Ok(moving.IsRecording(), moving.GetError()));
-			ASSERT_TRUE(test::Ok(moving.List().modify_native<rhi::NullApi>(
-									 rhi::NativeMutationDesc{ .textures = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-				error));
+			ASSERT_TRUE(
+				test::Ok(
+					moving.List().modify_native<rhi::NullApi>(
+						rhi::NativeMutationDesc{ .textures = touched },
+						[](const rhi::native::NullCommandListView &) {},
+						error
+					),
+					error
+				)
+			);
 			ASSERT_TRUE(moving.End());
 			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), moving.List(), error), error));
 		}
@@ -611,8 +705,10 @@ namespace
 		test::Recording next(Dev());
 		ASSERT_TRUE(test::Ok(next.IsRecording(), next.GetError()));
 
-		const std::array stale{ rhi::TextureBarrier{
-			.texture = backBuffer, .before = CopyDestinationState(), .after = CopyDestinationState(), .range = test::samples::WholeColorRange() } };
+		const std::array stale{ rhi::TextureBarrier{ .texture = backBuffer,
+			.before											  = CopyDestinationState(),
+			.after											  = CopyDestinationState(),
+			.range											  = test::samples::WholeColorRange() } };
 
 		rhi::Error staleError{};
 		ASSERT_TRUE(test::Ok(next.List().barriers(rhi::BarrierBatch{ .textures = stale }, error), error));
@@ -637,9 +733,16 @@ namespace
 		{
 			test::Recording discarded(Dev());
 			ASSERT_TRUE(test::Ok(discarded.IsRecording(), discarded.GetError()));
-			ASSERT_TRUE(test::Ok(discarded.List().modify_native<rhi::NullApi>(
-									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-				error));
+			ASSERT_TRUE(
+				test::Ok(
+					discarded.List().modify_native<rhi::NullApi>(
+						rhi::NativeMutationDesc{ .buffers = touched },
+						[](const rhi::native::NullCommandListView &) {},
+						error
+					),
+					error
+				)
+			);
 			ASSERT_TRUE(discarded.End());
 		}
 
@@ -671,9 +774,16 @@ namespace
 
 		const std::array touched{ rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadOnly } };
 
-		ASSERT_TRUE(test::Ok(recording.List().modify_native<rhi::NullApi>(
-								 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-			error));
+		ASSERT_TRUE(
+			test::Ok(
+				recording.List().modify_native<rhi::NullApi>(
+					rhi::NativeMutationDesc{ .buffers = touched },
+					[](const rhi::native::NullCommandListView &) {},
+					error
+				),
+				error
+			)
+		);
 
 		const std::array onward{ rhi::BufferBarrier{ .buffer = buffer, .before = CopyDestinationState(), .after = ShaderReadState() } };
 		EXPECT_TRUE(test::Ok(recording.List().barriers(rhi::BarrierBatch{ .buffers = onward }, error), error))
@@ -692,15 +802,23 @@ namespace
 		const rhi::BufferHandle buffer = Dev().create_buffer(test::samples::StorageBuffer(), error);
 		ASSERT_TRUE(test::Ok(buffer.is_valid(), error));
 
-		const std::array touched{ rhi::NativeTouchedBuffer{
-			.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() } };
+		const std::array touched{
+			rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() }
+		};
 
 		{
 			test::Recording arriving(Dev());
 			ASSERT_TRUE(test::Ok(arriving.IsRecording(), arriving.GetError()));
-			ASSERT_TRUE(test::Ok(arriving.List().modify_native<rhi::NullApi>(
-									 rhi::NativeMutationDesc{ .buffers = touched }, [](const rhi::native::NullCommandListView &) {}, error),
-				error));
+			ASSERT_TRUE(
+				test::Ok(
+					arriving.List().modify_native<rhi::NullApi>(
+						rhi::NativeMutationDesc{ .buffers = touched },
+						[](const rhi::native::NullCommandListView &) {},
+						error
+					),
+					error
+				)
+			);
 			ASSERT_TRUE(arriving.End());
 			ASSERT_TRUE(test::Ok(SubmitAndWait(Dev(), arriving.List(), error), error));
 		}
@@ -774,8 +892,9 @@ namespace
 		test::Recording recording(Dev());
 		ASSERT_TRUE(test::Ok(recording.IsRecording(), recording.GetError()));
 
-		const std::array touched{ rhi::NativeTouchedBuffer{
-			.buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() } };
+		const std::array touched{
+			rhi::NativeTouchedBuffer{ .buffer = buffer, .access = rhi::NativeMutationAccess::eReadWrite, .finalState = ShaderReadState() }
+		};
 
 		bool recorded = false;
 		rhi::Error retiredError{};
@@ -785,8 +904,8 @@ namespace
 			{
 				recorded = true;
 			},
-			retiredError))
-			<< "a scope declaring a handle this device has taken back was opened";
+			retiredError
+		)) << "a scope declaring a handle this device has taken back was opened";
 		EXPECT_FALSE(recorded) << "the callback ran against a resource that no longer exists";
 		EXPECT_TRUE(test::ErrorIsPopulated(retiredError));
 

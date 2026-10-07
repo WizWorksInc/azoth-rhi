@@ -51,8 +51,8 @@ namespace
 		struct StudioApi final : rhi::GraphicsApiTagRoot
 		{
 			static constexpr std::string_view kCanonicalName = "studio.rhi.custom";
-			static constexpr std::string_view kDisplayName	= "Studio Custom";
-			static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
+			static constexpr std::string_view kDisplayName	 = "Studio Custom";
+			static constexpr rhi::GraphicsApiId kId			 = rhi::make_graphics_api_id(kCanonicalName);
 		};
 
 		static_assert(rhi::GraphicsApiTag<StudioApi>);
@@ -160,8 +160,8 @@ namespace
 		struct NumberedApi final : rhi::GraphicsApiTagRoot
 		{
 			static constexpr std::string_view kCanonicalName = kNames.at(N);
-			static constexpr std::string_view kDisplayName	= kNames.at(N);
-			static constexpr rhi::GraphicsApiId kId			= rhi::make_graphics_api_id(kCanonicalName);
+			static constexpr std::string_view kDisplayName	 = kNames.at(N);
+			static constexpr rhi::GraphicsApiId kId			 = rhi::make_graphics_api_id(kCanonicalName);
 		};
 
 		template <std::size_t N>
@@ -609,7 +609,8 @@ namespace
 							refused.fetch_add(1, std::memory_order_relaxed);
 						}
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & thread : workers)

@@ -47,6 +47,17 @@ set(AZOTH_RHI_TESTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 include(azoth_rhi_test_helpers)
 include(azoth_rhi_test_options)
 
+add_executable(rhi_tracy_lifetime tracy_lifetime.cpp)
+azoth_rhi_use_tracy_lifetime(rhi_tracy_lifetime)
+target_link_libraries(rhi_tracy_lifetime PRIVATE azoth::rhi)
+azoth_rhi_stage_test_runtime(rhi_tracy_lifetime)
+add_test(NAME tracy_lifetime COMMAND rhi_tracy_lifetime)
+set_tests_properties(tracy_lifetime PROPERTIES LABELS unit)
+
+if(AZOTH_RHI_FETCHED_TRACY_MANUAL_LIFETIME)
+    target_compile_definitions(rhi_tracy_lifetime PRIVATE AZOTH_RHI_TEST_MANUAL_TRACY)
+endif()
+
 add_library(AzothRHITest STATIC
         support/conformance/backend_contract.cpp
         support/conformance/block_contract.cpp

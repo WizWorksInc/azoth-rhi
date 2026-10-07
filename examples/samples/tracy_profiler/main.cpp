@@ -28,6 +28,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <tracy/Tracy.hpp>
 
@@ -75,11 +76,6 @@ namespace
 		std::atomic<std::uint64_t> m_zones{ 0 };
 	};
 
-	rhi::TracyProfiler g_tracy;
-	ZoneCounter g_counter;
-	std::array<rhi::Profiler *, 2> g_sinks{ &g_tracy, &g_counter };
-	rhi::BroadcastProfiler g_broadcast{ g_sinks };
-
 #ifdef TRACY_ON_DEMAND
 
 	bool WaitForServer()
@@ -103,7 +99,13 @@ namespace
 
 int main(int argc, char ** argv)
 {
-	rhi::set_profiler(&g_broadcast);
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
+	rhi::TracyProfiler tracy;
+	ZoneCounter counter;
+	const std::array<rhi::Profiler *, 2> sinks{ &tracy, &counter };
+	rhi::BroadcastProfiler broadcast{ sinks };
+	const rhi::ScopedProfiler installedProfiler{ &broadcast };
 
 	constexpr rhi::BuildInfo build = rhi::get_build_info();
 	if (!build.profilingEnabled)
@@ -256,8 +258,7 @@ int main(int argc, char ** argv)
 	dev.collect_garbage(timeline, kFrameCount, error);
 	dev.destroy(timeline, {}, error);
 
-	LOG_INFO(fw::Log(), "{} frames, {} RHI zones through both sinks", kFrameCount, g_counter.Zones());
+	LOG_INFO(fw::Log(), "{} frames, {} RHI zones through both sinks", kFrameCount, counter.Zones());
 
-	rhi::set_profiler(nullptr);
 	return 0;
 }

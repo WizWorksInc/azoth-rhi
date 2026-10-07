@@ -12,30 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "FW/utility/Log.hpp"
+#include "tracy_lifetime.hpp"
 
-#include <quill/Backend.h>
-#include <quill/Frontend.h>
-#include <quill/sinks/ConsoleSink.h>
+#include <gtest/gtest.h>
 
-#include <utility>
-
-namespace fw
+int main(int argc, char ** argv)
 {
-	quill::Logger * Log()
-	{
-		static quill::Logger * const logger = []
-		{
-			quill::Backend::start();
-
-			auto sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>("console");
-			return quill::Frontend::create_or_get_logger(
-				"sample",
-				std::move(sink),
-				quill::PatternFormatterOptions{ "%(time) %(log_level:<8) %(message)", "%H:%M:%S" }
-			);
-		}();
-
-		return logger;
-	}
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }

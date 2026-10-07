@@ -320,7 +320,8 @@ namespace
 
 		const rhi::RayTracingPipelineBuilder builder =
 			rhi::RayTracingPipelineBuilder{}.shaders(shaders).groups(groups).max_ray_recursion_depth(3).max_payload_bytes(32).max_attribute_bytes(8).debug_name(
-				"primary rays");
+				"primary rays"
+			);
 		const auto held							= builder.build();
 		const rhi::RayTracingPipelineDesc built = held.desc();
 

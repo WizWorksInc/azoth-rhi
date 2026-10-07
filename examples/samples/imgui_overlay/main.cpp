@@ -31,6 +31,7 @@
 #include "FW/utility/AssetPath.hpp"
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <imgui.h>
@@ -67,8 +68,15 @@ namespace
 		static_cast<void>(swapchain.resize(size.width, size.height, error));
 	}
 
-	[[nodiscard]] bool RecordFrame(rhi::CommandList & list, const rhi::Swapchain & swapchain, const rhi::AcquireResult & acquired,
-		rhi::imgui::Renderer & renderer, const ImDrawData & drawData, const std::uint32_t slot, rhi::Error & error)
+	[[nodiscard]] bool RecordFrame(
+		rhi::CommandList & list,
+		const rhi::Swapchain & swapchain,
+		const rhi::AcquireResult & acquired,
+		rhi::imgui::Renderer & renderer,
+		const ImDrawData & drawData,
+		const std::uint32_t slot,
+		rhi::Error & error
+	)
 	{
 		const std::array toAttachment{
 			rhi::TextureBarrier{
@@ -107,6 +115,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	const std::uint64_t frameLimit = args.size() > 1 ? std::strtoull(args[1], nullptr, 10) : 0;
 
@@ -165,7 +175,8 @@ int main(int argc, char ** argv)
 			.height	   = initial.height,
 			.debugName = "imgui.swapchain",
 		},
-		error);
+		error
+	);
 
 	if (surface.value == 0 || !queue.is_valid() || !swapchain.is_valid())
 	{
@@ -192,7 +203,8 @@ int main(int argc, char ** argv)
 			.maxDescriptors = kMaxTextures * 2,
 			.debugName		= "imgui.arena",
 		},
-		error);
+		error
+	);
 
 	if (!arena.is_valid())
 	{
@@ -200,13 +212,15 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	rhi::Result<rhi::imgui::Renderer> made = rhi::imgui::Renderer::Create(dev,
+	rhi::Result<rhi::imgui::Renderer> made = rhi::imgui::Renderer::Create(
+		dev,
 		rhi::imgui::RendererDesc{
 			.arena			= &arena,
 			.colorFormat	= swapchain.get_format(),
 			.framesInFlight = kFramesInFlight,
 			.debugName		= "imgui",
-		});
+		}
+	);
 
 	if (!made)
 	{
@@ -230,7 +244,8 @@ int main(int argc, char ** argv)
 		[](const SDL_Event & event)
 		{
 			ImGui_ImplSDL3_ProcessEvent(&event);
-		}))
+		}
+	))
 	{
 		if (frameLimit != 0 && ring.frame_index() >= frameLimit)
 		{

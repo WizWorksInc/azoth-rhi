@@ -33,7 +33,7 @@ namespace azo::rhi
 		/**
 		 * \brief Returns the backend's graphics API identifier.
 		 */
-		GraphicsApiId (*getGraphicsApiId)(void * impl) noexcept		 = nullptr;
+		GraphicsApiId (*getGraphicsApiId)(void * impl) noexcept = nullptr;
 		/**
 		 * \brief Returns the backend's graphics API name.
 		 */

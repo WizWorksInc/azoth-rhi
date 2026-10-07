@@ -156,17 +156,22 @@ namespace
 		ASSERT_TRUE(static_cast<bool>(fromAccessor(list))) << "the accessor reports no native command list for an open recording";
 
 		bool ran = false;
-		EXPECT_TRUE(test::Ok(list.modify_native<Api>(
-								 rhi::NativeMutationDesc{},
-								 [&](const auto & view)
-								 {
-									 ran = true;
-									 EXPECT_EQ(fromView(view), fromAccessor(list))
-										 << "the native scope handed back an object the accessor for the same command list does not agree with, which is what "
-											"casting the facade impl without resolving the validation decorator produces";
-								 },
-								 error),
-			error));
+		EXPECT_TRUE(
+			test::Ok(
+				list.modify_native<Api>(
+					rhi::NativeMutationDesc{},
+					[&](const auto & view)
+					{
+						ran = true;
+						EXPECT_EQ(fromView(view), fromAccessor(list))
+							<< "the native scope handed back an object the accessor for the same command list does not agree with, which is what "
+							   "casting the facade impl without resolving the validation decorator produces";
+					},
+					error
+				),
+				error
+			)
+		);
 		EXPECT_TRUE(ran) << "the callback the scope brackets never ran";
 		EXPECT_TRUE(test::Ok(list.end(error), error));
 	}
@@ -255,7 +260,10 @@ namespace
 		ASSERT_TRUE(adoptedTexture.is_valid()) << error.message;
 
 		const rhi::TextureViewHandle adoptedView = device.adopt_texture_view<rhi::VulkanApi>(
-			rhi::NativeTextureView<rhi::VulkanApi>{ .view = view }, { .texture = adoptedTexture, .format = rhi::Format::eRGBA8UNorm }, error);
+			rhi::NativeTextureView<rhi::VulkanApi>{ .view = view },
+			{ .texture = adoptedTexture, .format = rhi::Format::eRGBA8UNorm },
+			error
+		);
 		ASSERT_TRUE(adoptedView.is_valid()) << error.message;
 
 		const rhi::SamplerHandle adoptedSampler = device.adopt_sampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{ .sampler = sampler }, {}, error);
@@ -380,7 +388,10 @@ namespace
 
 		rhi::Error error{};
 		const rhi::TextureViewHandle adopted = device.adopt_texture_view<rhi::VulkanApi>(
-			rhi::NativeTextureView<rhi::VulkanApi>{ .view = vk::ImageView{} }, { .texture = rhi::TextureHandle{} }, error);
+			rhi::NativeTextureView<rhi::VulkanApi>{ .view = vk::ImageView{} },
+			{ .texture = rhi::TextureHandle{} },
+			error
+		);
 		EXPECT_FALSE(adopted.is_valid()) << "a view naming no texture was adopted anyway";
 		EXPECT_NE(error.code, rhi::ErrorCode::eOk);
 	}
@@ -491,7 +502,10 @@ namespace
 		ASSERT_TRUE(adoptedTexture.is_valid()) << error.message;
 
 		const rhi::TextureViewHandle adoptedView = device.adopt_texture_view<rhi::VulkanApi>(
-			rhi::NativeTextureView<rhi::VulkanApi>{ .view = view }, { .texture = adoptedTexture, .format = rhi::Format::eG8B8R8Biplanar420UNorm }, error);
+			rhi::NativeTextureView<rhi::VulkanApi>{ .view = view },
+			{ .texture = adoptedTexture, .format = rhi::Format::eG8B8R8Biplanar420UNorm },
+			error
+		);
 		ASSERT_TRUE(adoptedView.is_valid()) << error.message;
 
 		const rhi::SamplerHandle adoptedSampler = device.adopt_sampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{ .sampler = sampler }, {}, error);
@@ -616,11 +630,13 @@ namespace
 		const rhi::ResourceState arrived{ .use = rhi::ResourceUse::eCopyDst, .stages = rhi::Stage::eCopy };
 
 		rhi::Error error{};
-		const rhi::TextureHandle adopted = device.adopt_texture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
+		const rhi::TextureHandle adopted = device.adopt_texture<rhi::VulkanApi>(
+			rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
 			{ .desc				  = SharedTextureDesc(),
 				.initialState	  = arrived,
 				.initialOwnership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
-			error);
+			error
+		);
 		ASSERT_TRUE(adopted.is_valid()) << error.message;
 
 		rhi::CommandPool pool = device.create_command_pool({ .queueType = rhi::QueueType::eGraphics }, error);
@@ -668,7 +684,10 @@ namespace
 
 		rhi::Error error{};
 		const rhi::TextureHandle adopted = device.adopt_texture<rhi::VulkanApi>(
-			rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image }, { .desc = SharedTextureDesc(), .initialState = arrived }, error);
+			rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
+			{ .desc = SharedTextureDesc(), .initialState = arrived },
+			error
+		);
 		ASSERT_TRUE(adopted.is_valid()) << error.message;
 
 		rhi::CommandPool pool = device.create_command_pool({ .queueType = rhi::QueueType::eGraphics }, error);
@@ -719,9 +738,11 @@ namespace
 		ASSERT_TRUE(static_cast<bool>(produced.image));
 
 		rhi::Error error{};
-		const rhi::TextureHandle adopted = device.adopt_texture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
+		const rhi::TextureHandle adopted = device.adopt_texture<rhi::VulkanApi>(
+			rhi::NativeTexture<rhi::VulkanApi>{ .image = produced.image },
 			{ .desc = SharedTextureDesc(), .initialOwnership = { .op = rhi::OwnershipOp::eAcquire, .counterpart = rhi::QueueType::eCompute } },
-			error);
+			error
+		);
 		ASSERT_TRUE(adopted.is_valid()) << error.message;
 
 		rhi::CommandPool pool = device.create_command_pool({ .queueType = rhi::QueueType::eGraphics }, error);
@@ -758,7 +779,12 @@ namespace
 	{
 		template <typename Value>
 		void ExpectFormsAgree(
-			const rhi::CString operation, const bool plainSucceeded, const bool erroredSucceeded, const rhi::Error & error, const rhi::Result<Value> & resulted)
+			const rhi::CString operation,
+			const bool plainSucceeded,
+			const bool erroredSucceeded,
+			const rhi::Error & error,
+			const rhi::Result<Value> & resulted
+		)
 		{
 			SCOPED_TRACE(operation);
 
@@ -781,83 +807,107 @@ namespace
 
 		rhi::Error error{};
 
-		ExpectFormsAgree("Device::AdoptBuffer",
+		ExpectFormsAgree(
+			"Device::AdoptBuffer",
 			device.adopt_buffer<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {}).is_valid(),
 			device.adopt_buffer<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {}, error).is_valid(),
 			error,
-			device.adopt_buffer_with_result<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {}));
+			device.adopt_buffer_with_result<rhi::VulkanApi>(rhi::NativeBuffer<rhi::VulkanApi>{}, {})
+		);
 
-		ExpectFormsAgree("Device::AdoptTexture",
+		ExpectFormsAgree(
+			"Device::AdoptTexture",
 			device.adopt_texture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {}).is_valid(),
 			device.adopt_texture<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {}, error).is_valid(),
 			error,
-			device.adopt_texture_with_result<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {}));
+			device.adopt_texture_with_result<rhi::VulkanApi>(rhi::NativeTexture<rhi::VulkanApi>{}, {})
+		);
 
-		ExpectFormsAgree("Device::AdoptTextureView",
+		ExpectFormsAgree(
+			"Device::AdoptTextureView",
 			device.adopt_texture_view<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {}).is_valid(),
 			device.adopt_texture_view<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {}, error).is_valid(),
 			error,
-			device.adopt_texture_view_with_result<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {}));
+			device.adopt_texture_view_with_result<rhi::VulkanApi>(rhi::NativeTextureView<rhi::VulkanApi>{}, {})
+		);
 
-		ExpectFormsAgree("Device::AdoptSampler",
+		ExpectFormsAgree(
+			"Device::AdoptSampler",
 			device.adopt_sampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}).is_valid(),
 			device.adopt_sampler<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}, error).is_valid(),
 			error,
-			device.adopt_sampler_with_result<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {}));
+			device.adopt_sampler_with_result<rhi::VulkanApi>(rhi::NativeSampler<rhi::VulkanApi>{}, {})
+		);
 
-		ExpectFormsAgree("Device::AdoptTimeline",
+		ExpectFormsAgree(
+			"Device::AdoptTimeline",
 			device.adopt_timeline<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {}).is_valid(),
 			device.adopt_timeline<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {}, error).is_valid(),
 			error,
-			device.adopt_timeline_with_result<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {}));
+			device.adopt_timeline_with_result<rhi::VulkanApi>(rhi::NativeTimeline<rhi::VulkanApi>{}, {})
+		);
 
-		ExpectFormsAgree("Device::AdoptBinarySemaphore",
+		ExpectFormsAgree(
+			"Device::AdoptBinarySemaphore",
 			device.adopt_binary_semaphore<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {}).is_valid(),
 			device.adopt_binary_semaphore<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {}, error).is_valid(),
 			error,
-			device.adopt_binary_semaphore_with_result<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {}));
+			device.adopt_binary_semaphore_with_result<rhi::VulkanApi>(rhi::NativeBinarySemaphore<rhi::VulkanApi>{}, {})
+		);
 
 		rhi::NativeBuffer<rhi::VulkanApi> readBackBuffer{};
-		ExpectFormsAgree("Device::GetNativeBuffer",
+		ExpectFormsAgree(
+			"Device::GetNativeBuffer",
 			device.get_native_buffer<rhi::VulkanApi>(rhi::BufferHandle{}, readBackBuffer),
 			device.get_native_buffer<rhi::VulkanApi>(rhi::BufferHandle{}, readBackBuffer, error),
 			error,
-			device.get_native_buffer_with_result<rhi::VulkanApi>(rhi::BufferHandle{}));
+			device.get_native_buffer_with_result<rhi::VulkanApi>(rhi::BufferHandle{})
+		);
 
 		rhi::NativeTexture<rhi::VulkanApi> readBackTexture{};
-		ExpectFormsAgree("Device::GetNativeTexture",
+		ExpectFormsAgree(
+			"Device::GetNativeTexture",
 			device.get_native_texture<rhi::VulkanApi>(rhi::TextureHandle{}, readBackTexture),
 			device.get_native_texture<rhi::VulkanApi>(rhi::TextureHandle{}, readBackTexture, error),
 			error,
-			device.get_native_texture_with_result<rhi::VulkanApi>(rhi::TextureHandle{}));
+			device.get_native_texture_with_result<rhi::VulkanApi>(rhi::TextureHandle{})
+		);
 
 		rhi::NativeTextureView<rhi::VulkanApi> readBackView{};
-		ExpectFormsAgree("Device::GetNativeTextureView",
+		ExpectFormsAgree(
+			"Device::GetNativeTextureView",
 			device.get_native_texture_view<rhi::VulkanApi>(rhi::TextureViewHandle{}, readBackView),
 			device.get_native_texture_view<rhi::VulkanApi>(rhi::TextureViewHandle{}, readBackView, error),
 			error,
-			device.get_native_texture_view_with_result<rhi::VulkanApi>(rhi::TextureViewHandle{}));
+			device.get_native_texture_view_with_result<rhi::VulkanApi>(rhi::TextureViewHandle{})
+		);
 
 		rhi::NativeSampler<rhi::VulkanApi> readBackSampler{};
-		ExpectFormsAgree("Device::GetNativeSampler",
+		ExpectFormsAgree(
+			"Device::GetNativeSampler",
 			device.get_native_sampler<rhi::VulkanApi>(rhi::SamplerHandle{}, readBackSampler),
 			device.get_native_sampler<rhi::VulkanApi>(rhi::SamplerHandle{}, readBackSampler, error),
 			error,
-			device.get_native_sampler_with_result<rhi::VulkanApi>(rhi::SamplerHandle{}));
+			device.get_native_sampler_with_result<rhi::VulkanApi>(rhi::SamplerHandle{})
+		);
 
 		rhi::NativeTimeline<rhi::VulkanApi> readBackTimeline{};
-		ExpectFormsAgree("Device::GetNativeTimeline",
+		ExpectFormsAgree(
+			"Device::GetNativeTimeline",
 			device.get_native_timeline<rhi::VulkanApi>(rhi::TimelineHandle{}, readBackTimeline),
 			device.get_native_timeline<rhi::VulkanApi>(rhi::TimelineHandle{}, readBackTimeline, error),
 			error,
-			device.get_native_timeline_with_result<rhi::VulkanApi>(rhi::TimelineHandle{}));
+			device.get_native_timeline_with_result<rhi::VulkanApi>(rhi::TimelineHandle{})
+		);
 
 		rhi::NativeBinarySemaphore<rhi::VulkanApi> readBackSemaphore{};
-		ExpectFormsAgree("Device::GetNativeBinarySemaphore",
+		ExpectFormsAgree(
+			"Device::GetNativeBinarySemaphore",
 			device.get_native_binary_semaphore<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}, readBackSemaphore),
 			device.get_native_binary_semaphore<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}, readBackSemaphore, error),
 			error,
-			device.get_native_binary_semaphore_with_result<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{}));
+			device.get_native_binary_semaphore_with_result<rhi::VulkanApi>(rhi::BinarySemaphoreHandle{})
+		);
 	}
 
 #endif
@@ -907,15 +957,18 @@ namespace
 		const auto extensions = native.value().physicalDevice.enumerateDeviceExtensionProperties(nullptr, *native.value().dispatch);
 		ASSERT_EQ(extensions.result, vk::Result::eSuccess);
 
-		const bool advertised = std::ranges::any_of(extensions.value,
+		const bool advertised = std::ranges::any_of(
+			extensions.value,
 			[](const vk::ExtensionProperties & extension) noexcept
 			{
 				return std::string_view{ extension.extensionName } == VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME;
-			});
+			}
+		);
 
 		const bool reported = device.get_caps().conservativeRasterTier != rhi::ConservativeRasterTier::eNone;
-		EXPECT_EQ(reported, advertised) << (advertised ? "the driver advertises conservative rasterization and the tier reports none"
-													   : "a tier was reported on a driver without the extension");
+		EXPECT_EQ(reported, advertised)
+			<< (advertised ? "the driver advertises conservative rasterization and the tier reports none"
+						   : "a tier was reported on a driver without the extension");
 	}
 
 	TEST(VulkanAdoption, AQueueExposesItsFamilyIndexThroughTheNativePath)
@@ -950,7 +1003,8 @@ namespace
 			[](rhi::CommandList list)
 			{
 				return rhi::get_vulkan_command_buffer(list);
-			});
+			}
+		);
 	}
 
 	TEST(VulkanRayTracingUsage, RefusesABufferOnlyRayTracingCouldUse)
@@ -994,7 +1048,9 @@ namespace
 	}
 
 	[[nodiscard]] rhi::Result<rhi::UniqueInstance> CreateConfiguredVulkanInstance(
-		const rhi::native::VulkanInstanceConfig & config, rhi::GraphicsApiId key = rhi::VulkanApi::kId)
+		const rhi::native::VulkanInstanceConfig & config,
+		rhi::GraphicsApiId key = rhi::VulkanApi::kId
+	)
 	{
 		rhi::GraphicsApiRegistry registry;
 		if (const auto registered = rhi::register_backend<rhi::VulkanApi>(registry); !registered)
@@ -1058,7 +1114,8 @@ namespace
 			[](auto & config)
 			{
 				config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 };
-			});
+			}
+		);
 		const auto device = builder.build<rhi::VulkanApi>();
 		ASSERT_TRUE(test::Ok(device));
 		EXPECT_EQ(device.value().get().get_caps().apiVersion.major, 1u);
@@ -1075,7 +1132,8 @@ namespace
 			[](auto & config)
 			{
 				config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 9 };
-			});
+			}
+		);
 		EXPECT_TRUE(test::Failed(builder.build(registry, preferred), rhi::ErrorCode::eUnsupportedFeature));
 	}
 
@@ -1087,12 +1145,14 @@ namespace
 				[](auto & config)
 				{
 					config.minimumInstanceVersion = rhi::ApiVersion{ .major = 1, .minor = 2 };
-				})
+				}
+			)
 			.configure<rhi::VulkanApi>(
 				[](auto & config)
 				{
 					config.deviceVersion = rhi::ApiVersion{ .major = 1, .minor = 3 };
-				});
+				}
+			);
 		EXPECT_TRUE(test::Failed(builder.build<rhi::VulkanApi>(), rhi::ErrorCode::eUnsupportedFeature));
 	}
 
@@ -1341,7 +1401,8 @@ namespace
 			[](rhi::CommandList list)
 			{
 				return rhi::get_metal_command_buffer(list);
-			});
+			}
+		);
 	}
 
 #endif
@@ -1453,7 +1514,8 @@ namespace
 			[](rhi::CommandList list)
 			{
 				return rhi::get_metal4_command_buffer(list);
-			});
+			}
+		);
 	}
 
 #endif

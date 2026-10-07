@@ -27,8 +27,8 @@ namespace azo::rhi::test::minimal
 	struct HeadlessApi final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.test.minimal";
-		static constexpr std::string_view kDisplayName	= "Minimal headless fixture";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Minimal headless fixture";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<HeadlessApi>);
@@ -36,8 +36,8 @@ namespace azo::rhi::test::minimal
 	struct PresentingApi final : GraphicsApiTagRoot
 	{
 		static constexpr std::string_view kCanonicalName = "azoth.rhi.test.minimalPresenting";
-		static constexpr std::string_view kDisplayName	= "Minimal presenting fixture";
-		static constexpr GraphicsApiId kId				= make_graphics_api_id(kCanonicalName);
+		static constexpr std::string_view kDisplayName	 = "Minimal presenting fixture";
+		static constexpr GraphicsApiId kId				 = make_graphics_api_id(kCanonicalName);
 	};
 
 	static_assert(GraphicsApiTag<PresentingApi>);

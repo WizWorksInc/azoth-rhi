@@ -59,7 +59,12 @@ namespace bench::native
 		}
 
 		[[nodiscard]] bool RecordShape(
-			const Kind kind, ID3D12GraphicsCommandList * commandList, const Workload & work, const std::size_t commands, std::uint64_t & elapsed)
+			const Kind kind,
+			ID3D12GraphicsCommandList * commandList,
+			const Workload & work,
+			const std::size_t commands,
+			std::uint64_t & elapsed
+		)
 		{
 			const D3D12_VIEWPORT viewport{
 				.TopLeftX = work.viewport.x,
@@ -174,8 +179,14 @@ namespace bench::native
 		return {};
 	}
 
-	bool RecordD3D12(const Kind kind, rhi::CommandList & list, const rhi::NativeMutationDesc & mutation, const Workload & work, const std::size_t commands,
-		std::uint64_t & elapsed)
+	bool RecordD3D12(
+		const Kind kind,
+		rhi::CommandList & list,
+		const rhi::NativeMutationDesc & mutation,
+		const Workload & work,
+		const std::size_t commands,
+		std::uint64_t & elapsed
+	)
 	{
 		rhi::Error error{};
 		bool shaped			= false;

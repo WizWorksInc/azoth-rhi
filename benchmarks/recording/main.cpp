@@ -27,6 +27,7 @@
 #include "shared/options.hpp"
 #include "shared/pass_plan.hpp"
 #include "shared/spread_gate.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <benchmark/benchmark.h>
 
@@ -85,6 +86,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	std::array<std::string, 1> flagDefaults{ "--benchmark_repetitions=9" };
 
 	std::vector<char *> args = bench::WithFlagDefaults(argc, argv, flagDefaults);
@@ -246,7 +249,8 @@ int main(int argc, char ** argv)
 
 	bool passFailed = false;
 
-	auto * registered = benchmark::RegisterBenchmark("recording/dynamic_state",
+	auto * registered = benchmark::RegisterBenchmark(
+		"recording/dynamic_state",
 		[&](benchmark::State & state)
 		{
 			while (state.KeepRunningBatch(static_cast<benchmark::IterationCount>(commandsAPass)))
@@ -262,7 +266,8 @@ int main(int argc, char ** argv)
 
 				state.SetIterationTime(static_cast<double>(timedNanoseconds) / bench::kNanosecondsASecond);
 			}
-		});
+		}
+	);
 
 	registered->UseManualTime()->Unit(benchmark::kNanosecond);
 
@@ -288,9 +293,11 @@ int main(int argc, char ** argv)
 	if (gate.WorstSpreadPercent() > options.maxSpreadPercent)
 	{
 		std::println();
-		std::println("this machine resolves no better than {:.2f} percent, so it cannot see a {:.0f} percent change",
+		std::println(
+			"this machine resolves no better than {:.2f} percent, so it cannot see a {:.0f} percent change",
 			gate.WorstSpreadPercent(),
-			options.maxSpreadPercent);
+			options.maxSpreadPercent
+		);
 		return 1;
 	}
 

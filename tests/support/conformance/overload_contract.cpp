@@ -90,7 +90,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.create_texture_view_with_result(TextureHandle{}, samples::FullTextureView());
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::Map",
@@ -105,7 +106,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.map_with_result(BufferHandle{}, MapDesc{});
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::GetQueue",
@@ -120,7 +122,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.get_queue_with_result(QueueType::eGraphics, device.get_queue_count(QueueType::eGraphics));
-			}));
+			}
+		));
 
 		{
 			PlacedBufferDesc placed{};
@@ -138,7 +141,8 @@ namespace azo::rhi::test::oracle
 				[&]
 				{
 					return device.create_placed_buffer_with_result(placed);
-				}));
+				}
+			));
 
 			PlacedTextureDesc placedTexture{};
 			placedTexture.texture = samples::SampledTexture2D();
@@ -155,7 +159,8 @@ namespace azo::rhi::test::oracle
 				[&]
 				{
 					return device.create_placed_texture_with_result(placedTexture);
-				}));
+				}
+			));
 		}
 
 		reports.push_back(Probe(
@@ -176,7 +181,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateTexture",
@@ -196,7 +202,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateSampler",
@@ -216,7 +223,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateHeap",
@@ -236,7 +244,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		{
 			const samples::UniformLayout layout{};
@@ -258,7 +267,8 @@ namespace azo::rhi::test::oracle
 						static_cast<void>(CreatedAndReleased(device, result.value()));
 					}
 					return result;
-				}));
+				}
+			));
 
 			Error setupError{};
 			const DescriptorSetLayoutHandle setLayout = device.create_descriptor_set_layout(layout.Desc(), setupError);
@@ -281,7 +291,8 @@ namespace azo::rhi::test::oracle
 						static_cast<void>(CreatedAndReleased(device, result.value()));
 					}
 					return result;
-				}));
+				}
+			));
 
 			static_cast<void>(CreatedAndReleased(device, setLayout));
 		}
@@ -304,7 +315,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateBinarySemaphore",
@@ -324,7 +336,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateQueryPool",
@@ -344,7 +357,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateCommandPool",
@@ -359,7 +373,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.create_command_pool_with_result(samples::CommandPool());
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateDescriptorArena",
@@ -374,7 +389,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.create_descriptor_arena_with_result(samples::DescriptorArena());
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::GetBufferMemoryInfo",
@@ -391,7 +407,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.get_buffer_memory_info_with_result(samples::StorageBuffer());
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::GetTextureMemoryInfo",
@@ -408,7 +425,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.get_texture_memory_info_with_result(samples::SampledTexture2D());
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::QueryMemoryBudget",
@@ -425,7 +443,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.query_memory_budget_with_result(HeapType::eGpuLocal);
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CalibrateTimestamp",
@@ -442,7 +461,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.calibrate_timestamp_with_result(QueueType::eGraphics);
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::GetPipelineCacheData",
@@ -459,7 +479,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.get_pipeline_cache_data_with_result(PipelineCacheHandle{});
-			}));
+			}
+		));
 
 		if (caps.supportsPipelineCache)
 		{
@@ -481,7 +502,8 @@ namespace azo::rhi::test::oracle
 						static_cast<void>(CreatedAndReleased(device, result.value()));
 					}
 					return result;
-				}));
+				}
+			));
 		}
 
 		reports.push_back(Probe(
@@ -502,7 +524,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateComputePipeline",
@@ -522,7 +545,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateRayTracingPipeline",
@@ -542,7 +566,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateAccelerationStructure",
@@ -562,7 +587,8 @@ namespace azo::rhi::test::oracle
 					static_cast<void>(CreatedAndReleased(device, result.value()));
 				}
 				return result;
-			}));
+			}
+		));
 
 		reports.push_back(Probe(
 			"Device::CreateSwapchain",
@@ -577,7 +603,8 @@ namespace azo::rhi::test::oracle
 			[&]
 			{
 				return device.create_swapchain_with_result(SwapchainDesc{});
-			}));
+			}
+		));
 
 		{
 			Error error{};
@@ -597,7 +624,8 @@ namespace azo::rhi::test::oracle
 					[&]
 					{
 						return pool.allocate_with_result("azoth.rhi.conformance.overloadResult");
-					}));
+					}
+				));
 			}
 
 			DescriptorArena arena = device.create_descriptor_arena(samples::DescriptorArena(), error);
@@ -617,7 +645,8 @@ namespace azo::rhi::test::oracle
 					[&]
 					{
 						return arena.allocate_with_result(alloc);
-					}));
+					}
+				));
 			}
 
 			Queue queue = device.get_queue(QueueType::eGraphics, 0, error);
@@ -638,7 +667,8 @@ namespace azo::rhi::test::oracle
 					[&]
 					{
 						return queue.get_completed_value_with_result(TimelineHandle{});
-					}));
+					}
+				));
 			}
 		}
 

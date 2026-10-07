@@ -48,7 +48,12 @@ namespace bench
 	}
 
 	PassPlan PlanPasses(
-		const Options & options, const std::size_t benchmarks, const std::size_t repetitions, const double preferredMinTimeSeconds, const ProbePass & probe)
+		const Options & options,
+		const std::size_t benchmarks,
+		const std::size_t repetitions,
+		const double preferredMinTimeSeconds,
+		const ProbePass & probe
+	)
 	{
 		PassPlan plan{};
 

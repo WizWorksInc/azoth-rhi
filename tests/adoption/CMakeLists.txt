@@ -13,10 +13,12 @@
 # limitations under the License.
 
 add_executable(rhi_adoption
+        ../standalone_main.cpp
         native/adoption_test.cpp
         native/export_surface_test.cpp)
 
-target_link_libraries(rhi_adoption PRIVATE azoth::rhi azoth::rhi-test GTest::gtest GTest::gtest_main)
+target_link_libraries(rhi_adoption PRIVATE azoth::rhi azoth::rhi-test GTest::gtest)
+azoth_rhi_use_tracy_lifetime(rhi_adoption)
 set_target_properties(rhi_adoption PROPERTIES FOLDER tests)
 
 # Built by hand, so the staging azoth_rhi_add_gtest_suite would have done is asked for here.

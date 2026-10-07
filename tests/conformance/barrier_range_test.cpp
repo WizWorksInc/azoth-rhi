@@ -47,8 +47,13 @@ namespace
 	constexpr rhi::ResourceState kCopySrc{ .use = rhi::ResourceUse::eCopySrc, .stages = rhi::Stage::eCopy };
 	constexpr rhi::ResourceState kSampled{ .use = rhi::ResourceUse::eSampledRead, .stages = rhi::Stage::eFragmentShading };
 
-	[[nodiscard]] rhi::TextureBarrier Over(const rhi::TextureHandle texture, const std::uint32_t baseMip, const std::uint32_t mipCount,
-		const rhi::ResourceState & before, const rhi::ResourceState & after)
+	[[nodiscard]] rhi::TextureBarrier Over(
+		const rhi::TextureHandle texture,
+		const std::uint32_t baseMip,
+		const std::uint32_t mipCount,
+		const rhi::ResourceState & before,
+		const rhi::ResourceState & after
+	)
 	{
 		return rhi::TextureBarrier{ .texture = texture, .before = before, .after = after, .range = { .baseMip = baseMip, .mipCount = mipCount } };
 	}
@@ -186,8 +191,13 @@ namespace
 		static_cast<void>(recording.End());
 	}
 
-	[[nodiscard]] rhi::BufferBarrier Bytes(const rhi::BufferHandle buffer, const std::uint64_t offset, const std::uint64_t size,
-		const rhi::ResourceState & before, const rhi::ResourceState & after)
+	[[nodiscard]] rhi::BufferBarrier Bytes(
+		const rhi::BufferHandle buffer,
+		const std::uint64_t offset,
+		const std::uint64_t size,
+		const rhi::ResourceState & before,
+		const rhi::ResourceState & after
+	)
 	{
 		return rhi::BufferBarrier{ .buffer = buffer, .before = before, .after = after, .offset = offset, .size = size };
 	}

@@ -66,10 +66,16 @@ namespace
 		Reference(&rhi::make_presentation_backend);
 		Reference(&rhi::native::resolve_vulkan_loader);
 
-		Reference(static_cast<rhi::Result<rhi::UniqueInstance> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::InstanceDesc &)>(
-			&rhi::create_instance));
-		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::DeviceDesc &)>(
-			&rhi::create_device));
+		Reference(
+			static_cast<rhi::Result<rhi::UniqueInstance> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::InstanceDesc &)>(
+				&rhi::create_instance
+			)
+		);
+		Reference(
+			static_cast<rhi::Result<rhi::UniqueDevice> (*)(rhi::GraphicsApiRegistry &, std::span<const rhi::GraphicsApiId>, const rhi::DeviceDesc &)>(
+				&rhi::create_device
+			)
+		);
 
 		Reference(&rhi::create_device<rhi::NullApi>);
 
@@ -90,10 +96,16 @@ namespace
 		Reference(&rhi::BackendSelection::add_catalog);
 		Reference(static_cast<rhi::Result<rhi::UniqueInstance> (rhi::BackendSelection::*)(const rhi::InstanceDesc &)>(&rhi::BackendSelection::create_instance));
 		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (rhi::BackendSelection::*)(const rhi::DeviceDesc &)>(&rhi::BackendSelection::create_device));
-		Reference(static_cast<rhi::Result<rhi::UniqueInstance> (rhi::BackendSelection::*)(rhi::GraphicsApiId, const rhi::InstanceDesc &)>(
-			&rhi::BackendSelection::create_instance));
-		Reference(static_cast<rhi::Result<rhi::UniqueDevice> (rhi::BackendSelection::*)(rhi::GraphicsApiId, const rhi::DeviceDesc &)>(
-			&rhi::BackendSelection::create_device));
+		Reference(
+			static_cast<rhi::Result<rhi::UniqueInstance> (rhi::BackendSelection::*)(rhi::GraphicsApiId, const rhi::InstanceDesc &)>(
+				&rhi::BackendSelection::create_instance
+			)
+		);
+		Reference(
+			static_cast<rhi::Result<rhi::UniqueDevice> (rhi::BackendSelection::*)(rhi::GraphicsApiId, const rhi::DeviceDesc &)>(
+				&rhi::BackendSelection::create_device
+			)
+		);
 
 		Reference(&rhi::BackendModule::load);
 		Reference(&rhi::BackendModule::live_objects);

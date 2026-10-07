@@ -125,7 +125,13 @@ namespace deccer
 	}
 
 	rhi::ShaderBinary ShaderCompiler::Compile(
-		const char * moduleName, const char * source, const char * entryPoint, const rhi::ShaderStage stage, std::string & error, const Threadgroup threadgroup)
+		const char * moduleName,
+		const char * source,
+		const char * entryPoint,
+		const rhi::ShaderStage stage,
+		std::string & error,
+		const Threadgroup threadgroup
+	)
 	{
 		Slang::ComPtr<slang::IBlob> diagnostics;
 		slang::IModule * module = m_session->session->loadModuleFromSourceString(moduleName, moduleName, source, diagnostics.writeRef());
@@ -147,8 +153,9 @@ namespace deccer
 		Slang::ComPtr<slang::IComponentType> composed;
 		Slang::ComPtr<slang::IComponentType> linked;
 		Slang::ComPtr<slang::IBlob> code;
-		if (SLANG_FAILED(m_session->session->createCompositeComponentType(
-				parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+		if (SLANG_FAILED(
+				m_session->session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+			) ||
 			SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())) ||
 			SLANG_FAILED(linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef())))
 		{

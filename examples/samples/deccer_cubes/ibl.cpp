@@ -108,35 +108,54 @@ namespace deccer
 					.usage		 = rhi::Flags(rhi::TextureUsage::eStorage) | rhi::TextureUsage::eSampled,
 					.debugName	 = name,
 				},
-				error);
+				error
+			);
 		}
 
 		[[nodiscard]] rhi::TextureViewHandle CreateCubeView(
-			rhi::Device dev, const rhi::TextureHandle texture, const std::uint32_t mips, const char * name, rhi::Error & error)
+			rhi::Device dev,
+			const rhi::TextureHandle texture,
+			const std::uint32_t mips,
+			const char * name,
+			rhi::Error & error
+		)
 		{
-			return dev.create_texture_view(texture,
+			return dev.create_texture_view(
+				texture,
 				rhi::TextureViewDesc{
 					.type	   = rhi::TextureViewType::eTexCube,
 					.range	   = { .mipCount = mips, .layerCount = kCubeFaces },
 					.debugName = name,
 				},
-				error);
+				error
+			);
 		}
 
 		[[nodiscard]] rhi::TextureViewHandle CreateStorageView(
-			rhi::Device dev, const rhi::TextureHandle texture, const std::uint32_t mip, const char * name, rhi::Error & error)
+			rhi::Device dev,
+			const rhi::TextureHandle texture,
+			const std::uint32_t mip,
+			const char * name,
+			rhi::Error & error
+		)
 		{
-			return dev.create_texture_view(texture,
+			return dev.create_texture_view(
+				texture,
 				rhi::TextureViewDesc{
 					.type	   = rhi::TextureViewType::eTex2DArray,
 					.range	   = { .baseMip = mip, .mipCount = 1, .layerCount = kCubeFaces },
 					.debugName = name,
 				},
-				error);
+				error
+			);
 		}
 
 		[[nodiscard]] rhi::TextureBarrier WholeCube(
-			const rhi::TextureHandle texture, const std::uint32_t mips, const rhi::ResourceState & before, const rhi::ResourceState & after)
+			const rhi::TextureHandle texture,
+			const std::uint32_t mips,
+			const rhi::ResourceState & before,
+			const rhi::ResourceState & after
+		)
 		{
 			return rhi::TextureBarrier{
 				.texture = texture,
@@ -146,8 +165,13 @@ namespace deccer
 			};
 		}
 
-		[[nodiscard]] rhi::TextureBarrier CubeLevels(const rhi::TextureHandle texture, const std::uint32_t baseMip, const std::uint32_t mips,
-			const rhi::ResourceState & before, const rhi::ResourceState & after)
+		[[nodiscard]] rhi::TextureBarrier CubeLevels(
+			const rhi::TextureHandle texture,
+			const std::uint32_t baseMip,
+			const std::uint32_t mips,
+			const rhi::ResourceState & before,
+			const rhi::ResourceState & after
+		)
 		{
 			return rhi::TextureBarrier{
 				.texture = texture,
@@ -238,7 +262,8 @@ namespace deccer
 					.usage	   = rhi::Flags(rhi::TextureUsage::eSampled) | rhi::TextureUsage::eCopyDst,
 					.debugName = "deccer.environment.source",
 				},
-				error);
+				error
+			);
 
 			out.view = dev.create_texture_view(out.texture, rhi::TextureViewDesc{ .debugName = "deccer.environment.sourceView" }, error);
 
@@ -249,7 +274,8 @@ namespace deccer
 					.memory	   = rhi::MemoryUsage::eCpuUpload,
 					.debugName = "deccer.environment.sourceStaging",
 				},
-				error);
+				error
+			);
 
 			const rhi::MappedMemory mapped =
 				out.staging.is_valid() ? dev.map(out.staging, rhi::MapDesc{ .mode = rhi::MapMode::eWrite }, error) : rhi::MappedMemory{};
@@ -266,8 +292,15 @@ namespace deccer
 
 	}
 
-	bool BuildEnvironment(rhi::Device dev, rhi::Queue & queue, const rhi::TimelineHandle timeline, const std::uint64_t signalValue, ShaderCompiler & compiler,
-		Environment & out, std::string & error)
+	bool BuildEnvironment(
+		rhi::Device dev,
+		rhi::Queue & queue,
+		const rhi::TimelineHandle timeline,
+		const std::uint64_t signalValue,
+		ShaderCompiler & compiler,
+		Environment & out,
+		std::string & error
+	)
 	{
 		rhi::Error rhiError{};
 		const auto fail = [&](const char * what)
@@ -318,7 +351,8 @@ namespace deccer
 				.addressW  = rhi::AddressMode::eClampToEdge,
 				.debugName = "deccer.environment.sampler",
 			},
-			rhiError);
+			rhiError
+		);
 
 		const rhi::SamplerHandle equirectSampler = dev.create_sampler(
 			rhi::SamplerDesc{
@@ -327,11 +361,12 @@ namespace deccer
 				.addressW  = rhi::AddressMode::eClampToEdge,
 				.debugName = "deccer.environment.equirectSampler",
 			},
-			rhiError);
+			rhiError
+		);
 
 		if (!environment.is_valid() || !environmentCube.is_valid() || !environmentStorage.is_valid() || !out.irradiance.is_valid() ||
-			!out.irradianceView.is_valid() || !irradianceStorage.is_valid() || !out.specular.is_valid() || !out.specularView.is_valid() || !sampler.is_valid() ||
-			!equirectSampler.is_valid())
+			!out.irradianceView.is_valid() || !irradianceStorage.is_valid() || !out.specular.is_valid() || !out.specularView.is_valid() ||
+			!sampler.is_valid() || !equirectSampler.is_valid())
 		{
 			return fail("failed to create the environment textures");
 		}
@@ -360,7 +395,9 @@ namespace deccer
 		const std::array convolveLayouts{ convolveSet };
 
 		const rhi::PipelineLayoutHandle convolveLayout = dev.create_pipeline_layout(
-			rhi::PipelineLayoutDesc{ .sets = convolveLayouts, .pushConstants = pushConstants, .debugName = "deccer.convolve.layout" }, rhiError);
+			rhi::PipelineLayoutDesc{ .sets = convolveLayouts, .pushConstants = pushConstants, .debugName = "deccer.convolve.layout" },
+			rhiError
+		);
 
 		if (!convolveLayout.is_valid())
 		{
@@ -391,13 +428,19 @@ namespace deccer
 		}
 
 		const rhi::ComputePipelineHandle equirectPipeline = dev.create_compute_pipeline(
-			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = equirect, .debugName = "deccer.equirect.pipeline" }, rhiError);
+			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = equirect, .debugName = "deccer.equirect.pipeline" },
+			rhiError
+		);
 
 		const rhi::ComputePipelineHandle irradiancePipeline = dev.create_compute_pipeline(
-			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = irradiance, .debugName = "deccer.irradiance.pipeline" }, rhiError);
+			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = irradiance, .debugName = "deccer.irradiance.pipeline" },
+			rhiError
+		);
 
 		const rhi::ComputePipelineHandle prefilterPipeline = dev.create_compute_pipeline(
-			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = prefilter, .debugName = "deccer.prefilter.pipeline" }, rhiError);
+			rhi::ComputePipelineDesc{ .layout = convolveLayout, .shader = prefilter, .debugName = "deccer.prefilter.pipeline" },
+			rhiError
+		);
 
 		if (!equirectPipeline.is_valid() || !irradiancePipeline.is_valid() || !prefilterPipeline.is_valid())
 		{
@@ -412,7 +455,8 @@ namespace deccer
 				.maxDescriptors = setCount * 3,
 				.debugName		= "deccer.environment.arena",
 			},
-			rhiError);
+			rhiError
+		);
 
 		if (!arena.is_valid())
 		{

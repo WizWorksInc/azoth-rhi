@@ -74,7 +74,8 @@ namespace fw::scene
 			CollectObjects(root, objects);
 		}
 
-		std::ranges::sort(objects,
+		std::ranges::sort(
+			objects,
 			[&cameraPosition, backToFront](const std::shared_ptr<SceneObject> & lhs, const std::shared_ptr<SceneObject> & rhs)
 			{
 				const glm::vec3 toLhs = lhs->GetWorldPosition() - cameraPosition;
@@ -84,7 +85,8 @@ namespace fw::scene
 				const float rhsDistance = glm::dot(toRhs, toRhs);
 
 				return backToFront ? lhsDistance > rhsDistance : lhsDistance < rhsDistance;
-			});
+			}
+		);
 
 		for (const auto & object : objects)
 		{

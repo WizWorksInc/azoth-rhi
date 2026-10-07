@@ -15,6 +15,7 @@
 #include "harness.hpp"
 #include "raw_vulkan.hpp"
 #include "scene.hpp"
+#include "tracy_lifetime.hpp"
 
 // clang-format off
 #include <NRI.h>
@@ -51,20 +52,20 @@ namespace vsnri
 
 		constexpr nri::AccessLayoutStage kNothing{ nri::AccessBits::NONE, nri::Layout::UNDEFINED, nri::StageBits::NONE };
 		constexpr nri::AccessLayoutStage kSampled{ nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER };
-		constexpr nri::AccessLayoutStage kColorTarget{
-			nri::AccessBits::COLOR_ATTACHMENT_WRITE, nri::Layout::COLOR_ATTACHMENT, nri::StageBits::COLOR_ATTACHMENT
-		};
-		constexpr nri::AccessLayoutStage kDepthTarget{
-			nri::AccessBits::DEPTH_STENCIL_ATTACHMENT, nri::Layout::DEPTH_STENCIL_ATTACHMENT, nri::StageBits::DEPTH_STENCIL_ATTACHMENT
-		};
+		constexpr nri::AccessLayoutStage kColorTarget{ nri::AccessBits::COLOR_ATTACHMENT_WRITE,
+			nri::Layout::COLOR_ATTACHMENT,
+			nri::StageBits::COLOR_ATTACHMENT };
+		constexpr nri::AccessLayoutStage kDepthTarget{ nri::AccessBits::DEPTH_STENCIL_ATTACHMENT,
+			nri::Layout::DEPTH_STENCIL_ATTACHMENT,
+			nri::StageBits::DEPTH_STENCIL_ATTACHMENT };
 
 		// Every attachment is cleared before it is drawn to, so its old contents are discarded after whatever last read or wrote it.
-		constexpr nri::AccessLayoutStage kDiscardColor{
-			nri::AccessBits::COLOR_ATTACHMENT_WRITE, nri::Layout::UNDEFINED, nri::StageBits::FRAGMENT_SHADER | nri::StageBits::COLOR_ATTACHMENT
-		};
-		constexpr nri::AccessLayoutStage kDiscardDepth{
-			nri::AccessBits::DEPTH_STENCIL_ATTACHMENT_WRITE, nri::Layout::UNDEFINED, nri::StageBits::FRAGMENT_SHADER | nri::StageBits::DEPTH_STENCIL_ATTACHMENT
-		};
+		constexpr nri::AccessLayoutStage kDiscardColor{ nri::AccessBits::COLOR_ATTACHMENT_WRITE,
+			nri::Layout::UNDEFINED,
+			nri::StageBits::FRAGMENT_SHADER | nri::StageBits::COLOR_ATTACHMENT };
+		constexpr nri::AccessLayoutStage kDiscardDepth{ nri::AccessBits::DEPTH_STENCIL_ATTACHMENT_WRITE,
+			nri::Layout::UNDEFINED,
+			nri::StageBits::FRAGMENT_SHADER | nri::StageBits::DEPTH_STENCIL_ATTACHMENT };
 
 		constexpr nri::AccessStage kVertexInput{ nri::AccessBits::VERTEX_BUFFER, nri::StageBits::VERTEX_SHADER };
 		constexpr nri::AccessStage kIndexInput{ nri::AccessBits::INDEX_BUFFER, nri::StageBits::INDEX_INPUT };
@@ -611,8 +612,10 @@ namespace vsnri
 
 		[[nodiscard]] bool CreateUploadBuffer(const nri::BufferDesc & desc, void (*fill)(void *), nri::Buffer *& buffer)
 		{
-			if (!Succeeded(m_core.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::HOST_UPLOAD), desc, buffer),
-					"CreatePlacedBuffer"))
+			if (!Succeeded(
+					m_core.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::HOST_UPLOAD), desc, buffer),
+					"CreatePlacedBuffer"
+				))
 			{
 				return false;
 			}
@@ -651,7 +654,9 @@ namespace vsnri
 			desc.sampleNum = 1;
 
 			return Succeeded(
-				m_core.CreatePlacedTexture(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::DEVICE), desc, texture), "CreatePlacedTexture");
+				m_core.CreatePlacedTexture(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::DEVICE), desc, texture),
+				"CreatePlacedTexture"
+			);
 		}
 
 		[[nodiscard]] bool CreateView(nri::Texture * texture, const nri::TextureView type, const nri::Format format, nri::Descriptor *& view)
@@ -742,9 +747,12 @@ namespace vsnri
 
 			for (std::uint32_t material = 0; material < kMaterials; ++material)
 			{
-				const nri::BufferViewDesc view{
-					m_materials, nri::BufferView::CONSTANT_BUFFER, std::uint64_t{ material } * kMaterialStride, kMaterialStride, nri::Format::UNKNOWN, 0
-				};
+				const nri::BufferViewDesc view{ m_materials,
+					nri::BufferView::CONSTANT_BUFFER,
+					std::uint64_t{ material } * kMaterialStride,
+					kMaterialStride,
+					nri::Format::UNKNOWN,
+					0 };
 				if (!Succeeded(m_core.CreateBufferView(view, m_materialViews.at(material)), "CreateBufferView(material)"))
 				{
 					return false;
@@ -760,7 +768,9 @@ namespace vsnri
 			if (!Succeeded(m_core.CreateDescriptorPool(*m_device, pool, m_pool), "CreateDescriptorPool") ||
 				!Succeeded(m_core.AllocateDescriptorSets(*m_pool, *m_sceneLayout, 0, &m_objectsSet, 1, 0), "AllocateDescriptorSets(objects)") ||
 				!Succeeded(
-					m_core.AllocateDescriptorSets(*m_pool, *m_sceneLayout, 1, m_materialSets.data(), kMaterials, 0), "AllocateDescriptorSets(materials)") ||
+					m_core.AllocateDescriptorSets(*m_pool, *m_sceneLayout, 1, m_materialSets.data(), kMaterials, 0),
+					"AllocateDescriptorSets(materials)"
+				) ||
 				!Succeeded(m_core.AllocateDescriptorSets(*m_pool, *m_sceneLayout, 1, &m_churnSet, 1, 0), "AllocateDescriptorSets(churn)") ||
 				!Succeeded(m_core.AllocateDescriptorSets(*m_pool, *m_sceneLayout, 2, &m_shadowSet, 1, 0), "AllocateDescriptorSets(shadow)") ||
 				!Succeeded(m_core.AllocateDescriptorSets(*m_pool, *m_postLayout, 0, &m_postSet, 1, 0), "AllocateDescriptorSets(post)"))
@@ -1223,7 +1233,13 @@ namespace vsnri
 		{
 			m_core.CmdEndQuery(commandBuffer, *m_timestamps, FirstTimestamp(index) + 1);
 			m_core.CmdCopyQueries(
-				commandBuffer, *m_timestamps, FirstTimestamp(index), kFrameTimestamps, *m_timestampReadback, FirstTimestamp(index) * sizeof(std::uint64_t));
+				commandBuffer,
+				*m_timestamps,
+				FirstTimestamp(index),
+				kFrameTimestamps,
+				*m_timestampReadback,
+				FirstTimestamp(index) * sizeof(std::uint64_t)
+			);
 		}
 
 		void ReadTimestamps(const std::uint32_t index, FrameTiming & timing) const
@@ -1247,9 +1263,11 @@ namespace vsnri
 			const nri::QueryPoolDesc pool{ nri::QueryType::TIMESTAMP, kFramesInFlight * kFrameTimestamps };
 			const nri::BufferDesc readback{ std::uint64_t{ kFramesInFlight } * kFrameTimestamps * sizeof(std::uint64_t), 0, nri::BufferUsageBits::NONE };
 			if (!Succeeded(m_core.CreateQueryPool(*m_device, pool, m_timestamps), "CreateQueryPool") ||
-				!Succeeded(m_core.CreatePlacedBuffer(
-							   *m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::HOST_READBACK), readback, m_timestampReadback),
-					"CreatePlacedBuffer(readback)"))
+				!Succeeded(
+					m_core
+						.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::HOST_READBACK), readback, m_timestampReadback),
+					"CreatePlacedBuffer(readback)"
+				))
 			{
 				return false;
 			}
@@ -1263,7 +1281,9 @@ namespace vsnri
 			const auto placed = [this](const nri::MemoryLocation location, const nri::BufferDesc & desc, nri::Buffer *& buffer)
 			{
 				return Succeeded(
-					m_core.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(location), desc, buffer), "CreatePlacedBuffer(scene)");
+					m_core.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(location), desc, buffer),
+					"CreatePlacedBuffer(scene)"
+				);
 			};
 
 			const nri::BufferDesc vertices{ scene.vertices.size() * sizeof(SceneVertex), 0, nri::BufferUsageBits::VERTEX_BUFFER };
@@ -1292,9 +1312,11 @@ namespace vsnri
 				desc.layerNum  = 1;
 				desc.sampleNum = 1;
 
-				if (!Succeeded(m_core.CreatePlacedTexture(
-								   *m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::DEVICE), desc, m_sceneTextures.at(index)),
-						"CreatePlacedTexture(scene)") ||
+				if (!Succeeded(
+						m_core
+							.CreatePlacedTexture(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::DEVICE), desc, m_sceneTextures.at(index)),
+						"CreatePlacedTexture(scene)"
+					) ||
 					!CreateView(m_sceneTextures.at(index), nri::TextureView::TEXTURE, desc.format, m_sceneTextureViews.at(index)))
 				{
 					return false;
@@ -1336,8 +1358,14 @@ namespace vsnri
 
 			return Succeeded(
 				m_helper.UploadData(
-					*m_queue, textures.data(), static_cast<std::uint32_t>(textures.size()), buffers.data(), static_cast<std::uint32_t>(buffers.size())),
-				"UploadData");
+					*m_queue,
+					textures.data(),
+					static_cast<std::uint32_t>(textures.size()),
+					buffers.data(),
+					static_cast<std::uint32_t>(buffers.size())
+				),
+				"UploadData"
+			);
 		}
 
 		[[nodiscard]] bool CreateAssetLayout()
@@ -1383,9 +1411,12 @@ namespace vsnri
 
 			for (std::uint32_t index = 0; index < kFramesInFlight; ++index)
 			{
-				const nri::BufferViewDesc view{
-					m_globals, nri::BufferView::CONSTANT_BUFFER, std::uint64_t{ index } * kGlobalsStride, kGlobalsStride, nri::Format::UNKNOWN, 0
-				};
+				const nri::BufferViewDesc view{ m_globals,
+					nri::BufferView::CONSTANT_BUFFER,
+					std::uint64_t{ index } * kGlobalsStride,
+					kGlobalsStride,
+					nri::Format::UNKNOWN,
+					0 };
 				if (!Succeeded(m_core.CreateBufferView(view, m_globalsViews.at(index)), "CreateBufferView(globals)"))
 				{
 					return false;
@@ -1402,10 +1433,14 @@ namespace vsnri
 
 			m_assetMaterialSets.assign(materials, nullptr);
 			if (!Succeeded(m_core.CreateDescriptorPool(*m_device, pool, m_assetPool), "CreateDescriptorPool(asset)") ||
-				!Succeeded(m_core.AllocateDescriptorSets(*m_assetPool, *m_assetLayout, 0, m_globalSets.data(), kFramesInFlight, 0),
-					"AllocateDescriptorSets(globals)") ||
-				!Succeeded(m_core.AllocateDescriptorSets(*m_assetPool, *m_assetLayout, 1, m_assetMaterialSets.data(), materials, 0),
-					"AllocateDescriptorSets(asset materials)"))
+				!Succeeded(
+					m_core.AllocateDescriptorSets(*m_assetPool, *m_assetLayout, 0, m_globalSets.data(), kFramesInFlight, 0),
+					"AllocateDescriptorSets(globals)"
+				) ||
+				!Succeeded(
+					m_core.AllocateDescriptorSets(*m_assetPool, *m_assetLayout, 1, m_assetMaterialSets.data(), materials, 0),
+					"AllocateDescriptorSets(asset materials)"
+				))
 			{
 				return false;
 			}
@@ -1516,9 +1551,10 @@ namespace vsnri
 			const std::uint64_t started = Now();
 			for (std::uint32_t index = 0; index < count && created; ++index)
 			{
-				created =
-					Succeeded(m_core.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::DEVICE), desc, buffers.at(index)),
-						"CreatePlacedBuffer(churn)");
+				created = Succeeded(
+					m_core.CreatePlacedBuffer(*m_device, nullptr, static_cast<std::uint64_t>(nri::MemoryLocation::DEVICE), desc, buffers.at(index)),
+					"CreatePlacedBuffer(churn)"
+				);
 			}
 			for (nri::Buffer *& buffer : buffers)
 			{
@@ -1641,6 +1677,8 @@ namespace vsnri
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	vsnri::RaiseThreadPriority();
 
 	const vsnri::HarnessOptions options = vsnri::ReadHarnessOptions(argc, argv);

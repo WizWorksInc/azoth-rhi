@@ -194,7 +194,8 @@ namespace
 						}
 						perThreadHandles[worker].push_back(buffer);
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & worker : workers)
@@ -269,7 +270,8 @@ namespace
 							return;
 						}
 					}
-				});
+				}
+			);
 		}
 
 		for (std::thread & worker : workers)

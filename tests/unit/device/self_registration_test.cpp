@@ -39,11 +39,13 @@ namespace
 	[[nodiscard]] bool OrderContains(const rhi::BackendSelection & backends, const std::string_view canonicalName)
 	{
 		const std::span<const rhi::BackendInfo> order = backends.preferred();
-		return std::ranges::any_of(order,
+		return std::ranges::any_of(
+			order,
 			[canonicalName](const rhi::BackendInfo & info)
 			{
 				return info.canonicalName == canonicalName;
-			});
+			}
+		);
 	}
 
 	[[nodiscard]] bool SelfRegisteredContains(const std::string_view canonicalName)
@@ -126,14 +128,17 @@ namespace
 		}
 
 		const std::span<const rhi::BackendInfo> order = first.preferred();
-		EXPECT_TRUE(std::ranges::is_sorted(order,
-			[](const rhi::BackendInfo & lhs, const rhi::BackendInfo & rhs)
-			{
-				const rhi::BackendRank lhsRank = RankOf(lhs.id);
-				const rhi::BackendRank rhsRank = RankOf(rhs.id);
-				return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.canonicalName < rhs.canonicalName;
-			}))
-			<< "the order is not rank then canonical name, so something positional reached it";
+		EXPECT_TRUE(
+			std::ranges::is_sorted(
+				order,
+				[](const rhi::BackendInfo & lhs, const rhi::BackendInfo & rhs)
+				{
+					const rhi::BackendRank lhsRank = RankOf(lhs.id);
+					const rhi::BackendRank rhsRank = RankOf(rhs.id);
+					return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.canonicalName < rhs.canonicalName;
+				}
+			)
+		) << "the order is not rank then canonical name, so something positional reached it";
 	}
 
 }

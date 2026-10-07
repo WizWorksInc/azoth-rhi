@@ -30,6 +30,7 @@
 #include "FW/utility/AssetPath.hpp"
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <slang-com-ptr.h>
 #include <slang.h>
@@ -199,7 +200,8 @@ namespace
 		Slang::ComPtr<slang::IComponentType> linked;
 		Slang::ComPtr<slang::IBlob> code;
 		if (SLANG_FAILED(
-				session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())) ||
+				session->createCompositeComponentType(parts.data(), static_cast<SlangInt>(parts.size()), composed.writeRef(), diagnostics.writeRef())
+			) ||
 			SLANG_FAILED(composed->link(linked.writeRef(), diagnostics.writeRef())) ||
 			SLANG_FAILED(linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef())))
 		{
@@ -314,6 +316,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const std::span<char * const> args(argv, static_cast<std::size_t>(argc));
 	// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): the size test on this same line is the bounds check.
 	const char * requested = args.size() > 1 ? args[1] : nullptr;
@@ -342,14 +346,16 @@ int main(int argc, char ** argv)
 		return 77;
 	}
 
-	LOG_INFO(fw::Log(),
+	LOG_INFO(
+		fw::Log(),
 		"{} takes a group of {}x{}x{}, {} bytes of push constants and {} bindings, none of them written here:",
 		program.entryPoint,
 		program.threadgroup.at(0),
 		program.threadgroup.at(1),
 		program.threadgroup.at(2),
 		program.pushConstantSize,
-		program.bindings.size());
+		program.bindings.size()
+	);
 
 	for (const Reflected & reflected : program.bindings)
 	{
@@ -441,7 +447,8 @@ int main(int argc, char ** argv)
 			.maxDescriptors = static_cast<std::uint32_t>(bindings.size()),
 			.debugName		= "reflection.arena",
 		},
-		error);
+		error
+	);
 
 	const rhi::DescriptorSetHandle set = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = setLayout, .debugName = "reflection.descriptors" }, error);
 
@@ -449,13 +456,15 @@ int main(int argc, char ** argv)
 	writes.reserve(program.bindings.size());
 	for (const Reflected & reflected : program.bindings)
 	{
-		writes.push_back(rhi::DescriptorWriteBuffer{
-			.set	 = set,
-			.binding = reflected.binding.binding,
-			.type	 = reflected.binding.type,
-			.buffer	 = reflected.name == "output" ? output : input,
-			.range	 = kBufferSize,
-		});
+		writes.push_back(
+			rhi::DescriptorWriteBuffer{
+				.set	 = set,
+				.binding = reflected.binding.binding,
+				.type	 = reflected.binding.type,
+				.buffer	 = reflected.name == "output" ? output : input,
+				.range	 = kBufferSize,
+			}
+		);
 	}
 
 	if (!set.is_valid() || !dev.update_descriptors(std::span(writes), error))

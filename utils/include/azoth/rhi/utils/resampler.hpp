@@ -52,7 +52,13 @@ namespace azo::rhi::utils
 		[[nodiscard]] bool GenerateMips(CommandList & list, TextureHandle texture, Error & error) noexcept;
 
 		[[nodiscard]] bool Blit(
-			CommandList & list, TextureHandle dst, TextureHandle src, std::span<const TextureBlit> regions, Filter filter, Error & error) noexcept;
+			CommandList & list,
+			TextureHandle dst,
+			TextureHandle src,
+			std::span<const TextureBlit> regions,
+			Filter filter,
+			Error & error
+		) noexcept;
 
 		bool Retire(RetirePoint safeAfter, Error & error) noexcept;
 

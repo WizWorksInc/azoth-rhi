@@ -33,18 +33,44 @@ namespace bench
 	{
 		bool (*setGraphicsPipeline)(void * impl, azo::rhi::GraphicsPipelineHandle pipeline, azo::rhi::Error * error) noexcept = nullptr;
 
-		bool (*bindDescriptorSet)(void * impl, azo::rhi::PipelineLayoutHandle layout, std::uint32_t setIndex, azo::rhi::DescriptorSetHandle set,
-			std::span<const azo::rhi::DynamicDescriptorOffset> dynamicOffsets, azo::rhi::Error * error) noexcept = nullptr;
-		bool (*pushConstants)(void * impl, azo::rhi::PipelineLayoutHandle layout, azo::rhi::Flags<azo::rhi::ShaderStage> stages, std::uint32_t offset,
-			std::uint32_t size, const void * data, azo::rhi::Error * error) noexcept							 = nullptr;
+		bool (*bindDescriptorSet)(
+			void * impl,
+			azo::rhi::PipelineLayoutHandle layout,
+			std::uint32_t setIndex,
+			azo::rhi::DescriptorSetHandle set,
+			std::span<const azo::rhi::DynamicDescriptorOffset> dynamicOffsets,
+			azo::rhi::Error * error
+		) noexcept = nullptr;
+		bool (*pushConstants)(
+			void * impl,
+			azo::rhi::PipelineLayoutHandle layout,
+			azo::rhi::Flags<azo::rhi::ShaderStage> stages,
+			std::uint32_t offset,
+			std::uint32_t size,
+			const void * data,
+			azo::rhi::Error * error
+		) noexcept = nullptr;
 
 		bool (*setViewport)(void * impl, const azo::rhi::Viewport & viewport, azo::rhi::Error * error) noexcept = nullptr;
 		bool (*setScissor)(void * impl, const azo::rhi::Rect2D & scissor, azo::rhi::Error * error) noexcept		= nullptr;
 
-		bool (*draw)(void * impl, std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance,
-			azo::rhi::Error * error) noexcept							   = nullptr;
-		bool (*drawIndexed)(void * impl, std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset,
-			std::uint32_t firstInstance, azo::rhi::Error * error) noexcept = nullptr;
+		bool (*draw)(
+			void * impl,
+			std::uint32_t vertexCount,
+			std::uint32_t instanceCount,
+			std::uint32_t firstVertex,
+			std::uint32_t firstInstance,
+			azo::rhi::Error * error
+		) noexcept = nullptr;
+		bool (*drawIndexed)(
+			void * impl,
+			std::uint32_t indexCount,
+			std::uint32_t instanceCount,
+			std::uint32_t firstIndex,
+			std::int32_t vertexOffset,
+			std::uint32_t firstInstance,
+			azo::rhi::Error * error
+		) noexcept = nullptr;
 
 		bool (*barriers)(void * impl, const azo::rhi::BarrierBatch & barriers, azo::rhi::Error * error) noexcept = nullptr;
 	};

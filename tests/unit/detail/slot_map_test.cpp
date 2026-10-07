@@ -197,7 +197,8 @@ namespace
 			[&visited](const int & payload)
 			{
 				visited.push_back(payload);
-			});
+			}
+		);
 
 		EXPECT_EQ(visited, std::vector<int>{ 2 });
 	}
@@ -292,7 +293,8 @@ namespace
 
 					reads.fetch_add(1, std::memory_order_relaxed);
 				}
-			});
+			}
+		);
 
 		for (int index = 0; index < kAtLeastStored; ++index)
 		{

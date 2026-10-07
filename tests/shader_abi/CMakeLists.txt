@@ -27,12 +27,11 @@ if (NOT slang_FOUND)
     return()
 endif ()
 
-# gtest's own main and not the shared one, which brings a device harness parameterised over every
-# backend. One test here does create a device, but on whichever backend the build prefers and not on
-# each in turn, so the harness would cost more than it gives.
-add_executable(rhi_shader_abi abi_agreement_test.cpp)
+# This suite selects its own backend instead of using the shared device harness.
+add_executable(rhi_shader_abi abi_agreement_test.cpp ../standalone_main.cpp)
 
-target_link_libraries(rhi_shader_abi PRIVATE azoth::rhi GTest::gtest GTest::gtest_main slang::slang)
+target_link_libraries(rhi_shader_abi PRIVATE azoth::rhi GTest::gtest slang::slang)
+azoth_rhi_use_tracy_lifetime(rhi_shader_abi)
 set_target_properties(rhi_shader_abi PROPERTIES FOLDER tests)
 
 # Slang ships as a shared library, so on Windows it has to sit beside the executable or the test dies at

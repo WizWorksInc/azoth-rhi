@@ -174,10 +174,12 @@ namespace azo::rhi::test
 }
 
 #define AZO_RHI_BACKEND_SUITE(suite)                                                                                                                           \
-	INSTANTIATE_TEST_SUITE_P(Backends,                                                                                                                         \
+	INSTANTIATE_TEST_SUITE_P(                                                                                                                                  \
+		Backends,                                                                                                                                              \
 		suite,                                                                                                                                                 \
 		::testing::ValuesIn(::azo::rhi::test::AvailableBackends().begin(), ::azo::rhi::test::AvailableBackends().end()),                                       \
-		::azo::rhi::test::BackendParamName)
+		::azo::rhi::test::BackendParamName                                                                                                                     \
+	)
 
 #define AZO_RHI_REQUIRE_CAP(supported, capability)                                                                                                             \
 	do                                                                                                                                                         \

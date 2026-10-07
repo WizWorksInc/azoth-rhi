@@ -24,6 +24,7 @@
 
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <algorithm>
 #include <array>
@@ -74,11 +75,13 @@ namespace
 
 		static constexpr std::array kQueues{ rhi::QueueRequest{ .type = rhi::QueueType::eGraphics } };
 
-		rhi::Result<rhi::raii::Device> device = selection.create_device(rhi::DeviceDesc{
-			.queues			  = kQueues,
-			.requireSwapchain = false,
-			.debugName		  = "raii_handles",
-		});
+		rhi::Result<rhi::raii::Device> device = selection.create_device(
+			rhi::DeviceDesc{
+				.queues			  = kQueues,
+				.requireSwapchain = false,
+				.debugName		  = "raii_handles",
+			}
+		);
 
 		if (!device)
 		{
@@ -261,6 +264,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	rhi::Result<Resources> built = Build(fw::RequestedBackend(argc, argv));
 	if (!built)
 	{

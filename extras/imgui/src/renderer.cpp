@@ -69,8 +69,10 @@ namespace azo::rhi::imgui
 			}
 		}
 
-		static_assert(sizeof(ImDrawIdx) == sizeof(std::uint16_t) || sizeof(ImDrawIdx) == sizeof(std::uint32_t),
-			"Dear ImGui's index type has to be one of the two widths a draw can use");
+		static_assert(
+			sizeof(ImDrawIdx) == sizeof(std::uint16_t) || sizeof(ImDrawIdx) == sizeof(std::uint32_t),
+			"Dear ImGui's index type has to be one of the two widths a draw can use"
+		);
 
 		[[nodiscard]] ImTextureID PackSet(const DescriptorSetHandle set) noexcept
 		{
@@ -116,7 +118,7 @@ namespace azo::rhi::imgui
 			}
 #endif
 #ifdef AZOTH_RHI_IMGUI_HAVE_DXIL
-			if (api == D3D12Api::id)
+			if (api == D3D12Api::kId)
 			{
 				stages[0].format	 = ShaderBinaryFormat::eDxil;
 				stages[0].data		 = shaders::kImgui_vertex_dxil;
@@ -316,7 +318,8 @@ namespace azo::rhi::imgui
 				.addressW  = AddressMode::eClampToEdge,
 				.debugName = desc.debugName,
 			},
-			error);
+			error
+		);
 
 		const std::array bindings{
 			DescriptorBinding{ .binding = kImageBinding, .type = DescriptorType::eTextureSRV, .stages = ShaderStage::eFragment },
@@ -370,7 +373,8 @@ namespace azo::rhi::imgui
 				.dynamicStates = Flags<DynamicState>(DynamicState::eViewport) | DynamicState::eScissor,
 				.debugName	   = desc.debugName,
 			},
-			error);
+			error
+		);
 
 		return m_sampler.is_valid() && m_setLayout.is_valid() && m_pipelineLayout.is_valid() && m_pipeline.is_valid();
 	}
@@ -529,7 +533,8 @@ namespace azo::rhi::imgui
 					.memory	   = MemoryUsage::eCpuToGpu,
 					.debugName = "imgui.textureStaging",
 				},
-				error);
+				error
+			);
 
 			const MappedMemory mapped =
 				frame.staging.buffer.is_valid() ? m_device.map(frame.staging.buffer, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
@@ -579,7 +584,8 @@ namespace azo::rhi::imgui
 				.usage	   = Flags<TextureUsage>(TextureUsage::eSampled) | TextureUsage::eCopyDst,
 				.debugName = "imgui.texture",
 			},
-			error);
+			error
+		);
 
 		texture.view = m_device.create_texture_view(texture.texture, TextureViewDesc{ .debugName = "imgui.textureView" }, error);
 		if (!texture.texture.is_valid() || !texture.view.is_valid())
@@ -797,7 +803,8 @@ namespace azo::rhi::imgui
 				.memory	   = MemoryUsage::eCpuToGpu,
 				.debugName = "imgui.vertices",
 			},
-			error);
+			error
+		);
 
 		frame.indices = m_device.create_buffer(
 			BufferDesc{
@@ -807,7 +814,8 @@ namespace azo::rhi::imgui
 				.memory	   = MemoryUsage::eCpuToGpu,
 				.debugName = "imgui.indices",
 			},
-			error);
+			error
+		);
 
 		const MappedMemory vertexMap = frame.vertices.is_valid() ? m_device.map(frame.vertices, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};
 		const MappedMemory indexMap	 = frame.indices.is_valid() ? m_device.map(frame.indices, MapDesc{ .mode = MapMode::eWrite }, error) : MappedMemory{};

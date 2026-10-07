@@ -276,9 +276,8 @@ namespace vsnri
 
 	inline void FillIndices(void * destination)
 	{
-		constexpr std::array<std::uint16_t, kMeshIndices> kCube{
-			0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5
-		};
+		constexpr std::array<std::uint16_t, kMeshIndices>
+			kCube{ 0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5 };
 
 		std::array<std::uint16_t, std::size_t{ kMeshes } * kMeshIndices> indices{};
 		for (std::uint32_t mesh = 0; mesh < kMeshes; ++mesh)
@@ -528,23 +527,27 @@ namespace vsnri
 					const SceneInstance & instance		= asset.instances.at(source);
 					const std::array<float, 4> & sphere = spheres.at(source);
 
-					m_perDraw.push_back(SceneDraw{
-						.instance = static_cast<std::uint32_t>(m_models.size()),
-						.mesh	  = instance.mesh,
-						.material = instance.material,
-						.pipeline = asset.materials.at(instance.material).doubleSided ? 1u : 0u,
-					});
+					m_perDraw.push_back(
+						SceneDraw{
+							.instance = static_cast<std::uint32_t>(m_models.size()),
+							.mesh	  = instance.mesh,
+							.material = instance.material,
+							.pipeline = asset.materials.at(instance.material).doubleSided ? 1u : 0u,
+						}
+					);
 					m_models.push_back(math::Multiply(translation, instance.model));
 					m_spheres.push_back({ sphere[0] + shift[0], sphere[1], sphere[2] + shift[2], sphere[3] });
 				}
 			}
 
 			m_sorted = m_perDraw;
-			std::ranges::stable_sort(m_sorted,
+			std::ranges::stable_sort(
+				m_sorted,
 				[](const SceneDraw & a, const SceneDraw & b)
 				{
 					return a.pipeline != b.pipeline ? a.pipeline < b.pipeline : (a.material != b.material ? a.material < b.material : a.mesh < b.mesh);
-				});
+				}
+			);
 
 			const float gridHalf = 0.5f * static_cast<float>(side) * spacing;
 			m_orbit				 = std::max(gridHalf * 0.85f, radius * 2.5f);

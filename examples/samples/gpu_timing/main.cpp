@@ -31,6 +31,7 @@
 #include "FW/utility/Log.hpp"
 #include "FW/utility/Sample.hpp"
 #include "FW/utility/Timer.hpp"
+#include "tracy_lifetime.hpp"
 
 #include <array>
 #include <cstddef>
@@ -107,6 +108,8 @@ namespace
 
 int main(int argc, char ** argv)
 {
+	const azo::rhi::support::TracyLifetime tracyLifetime;
+
 	const char * requested = fw::RequestedBackend(argc, argv);
 
 	rhi::BackendSelection backends{ rhi::BackendPreference{ .requested = requested, .includeNull = false } };
@@ -133,11 +136,13 @@ int main(int argc, char ** argv)
 		return fw::kSkipExitCode;
 	}
 
-	LOG_INFO(fw::Log(),
+	LOG_INFO(
+		fw::Log(),
 		"timestamps in a rendering scope: {}, pipeline statistics: {}, calibration: {}",
 		caps.supportsTimestampWritesInScope ? "yes" : "no",
 		caps.supportsPipelineStatisticsQueries ? "yes" : "no",
-		caps.supportsTimestampCalibration ? "yes" : "no");
+		caps.supportsTimestampCalibration ? "yes" : "no"
+	);
 
 	fw::shader::SlangCompiler compiler;
 	std::string why;
@@ -169,7 +174,9 @@ int main(int argc, char ** argv)
 		rhi::PushConstantRange{ .stages = rhi::ShaderStage::eCompute, .offset = 0, .size = sizeof(Params) },
 	};
 	const rhi::PipelineLayoutHandle computeLayout = dev.create_pipeline_layout(
-		rhi::PipelineLayoutDesc{ .sets = workSetLayouts, .pushConstants = workPushConstants, .debugName = "timing.computeLayout" }, error);
+		rhi::PipelineLayoutDesc{ .sets = workSetLayouts, .pushConstants = workPushConstants, .debugName = "timing.computeLayout" },
+		error
+	);
 
 	const rhi::ComputePipelineHandle computePipeline =
 		dev.create_compute_pipeline(rhi::ComputePipelineDesc{ .layout = computeLayout, .shader = computeShader, .debugName = "timing.computePipeline" }, error);
@@ -181,7 +188,8 @@ int main(int argc, char ** argv)
 			.memory	   = rhi::MemoryUsage::eGpuOnly,
 			.debugName = "timing.accumulator",
 		},
-		error);
+		error
+	);
 
 	const rhi::TextureHandle target = dev.create_texture(
 		rhi::TextureDesc{
@@ -192,7 +200,8 @@ int main(int argc, char ** argv)
 			.usage	   = rhi::TextureUsage::eColorAttachment,
 			.debugName = "timing.target",
 		},
-		error);
+		error
+	);
 	const rhi::TextureViewHandle targetView = dev.create_texture_view(target, rhi::TextureViewDesc{ .debugName = "timing.targetView" }, error);
 
 	const rhi::PipelineLayoutHandle graphicsLayout = dev.create_pipeline_layout(rhi::PipelineLayoutDesc{ .debugName = "timing.graphicsLayout" }, error);
@@ -220,7 +229,9 @@ int main(int argc, char ** argv)
 	}
 
 	rhi::DescriptorArena arena = dev.create_descriptor_arena(
-		rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 1, .debugName = "timing.arena" }, error);
+		rhi::DescriptorArenaDesc{ .type = rhi::DescriptorArenaType::ePersistent, .maxSets = 1, .maxDescriptors = 1, .debugName = "timing.arena" },
+		error
+	);
 	const rhi::DescriptorSetHandle workSet = arena.allocate(rhi::DescriptorSetAllocDesc{ .layout = workSetLayout, .debugName = "timing.work" }, error);
 
 	const std::array workWrites{
@@ -265,7 +276,8 @@ int main(int argc, char ** argv)
 				.statistics = rhi::PipelineStatistic::eFragmentShaderInvocations,
 				.debugName	= "timing.statistics",
 			},
-			statisticsError);
+			statisticsError
+		);
 		if (!statistics.is_valid())
 		{
 			LOG_INFO(fw::Log(), "no statistics pool: {}", statisticsError.message != nullptr ? statisticsError.message : "no diagnostic");
@@ -279,7 +291,8 @@ int main(int argc, char ** argv)
 			.memory	   = rhi::MemoryUsage::eCpuReadback,
 			.debugName = "timing.results",
 		},
-		error);
+		error
+	);
 
 	const rhi::TimelineHandle timeline = dev.create_timeline(rhi::TimelineDesc{ .debugName = "timing.timeline" }, error);
 	rhi::Queue queue				   = dev.get_queue(rhi::QueueType::eGraphics, 0, error);

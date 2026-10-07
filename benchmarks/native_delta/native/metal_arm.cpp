@@ -268,8 +268,8 @@ namespace bench::native
 			case Kind::eDrawIndexed:
 				for (std::size_t index = 0; index < commands; ++index)
 				{
-					encoder->drawIndexedPrimitives(
-						MTL::PrimitiveTypeTriangle, NS::UInteger{ 3 }, MTL::IndexTypeUInt16, g_arm.buffer, 0, NS::UInteger{ 1 }, 0, 0);
+					encoder
+						->drawIndexedPrimitives(MTL::PrimitiveTypeTriangle, NS::UInteger{ 3 }, MTL::IndexTypeUInt16, g_arm.buffer, 0, NS::UInteger{ 1 }, 0, 0);
 				}
 				break;
 
@@ -281,7 +281,12 @@ namespace bench::native
 		}
 
 		[[nodiscard]] std::uint64_t RecordFour(
-			const Kind kind, MTL4::RenderCommandEncoder * encoder, MTL4::ArgumentTable * table, const Workload & work, const std::size_t commands)
+			const Kind kind,
+			MTL4::RenderCommandEncoder * encoder,
+			MTL4::ArgumentTable * table,
+			const Workload & work,
+			const std::size_t commands
+		)
 		{
 			const MTL::Viewport viewport{
 				.originX = work.viewport.x,
@@ -356,7 +361,15 @@ namespace bench::native
 				for (std::size_t index = 0; index < commands; ++index)
 				{
 					encoder->drawIndexedPrimitives(
-						MTL::PrimitiveTypeTriangle, NS::UInteger{ 3 }, MTL::IndexTypeUInt16, bufferAddress, g_arm.buffer->length(), NS::UInteger{ 1 }, 0, 0);
+						MTL::PrimitiveTypeTriangle,
+						NS::UInteger{ 3 },
+						MTL::IndexTypeUInt16,
+						bufferAddress,
+						g_arm.buffer->length(),
+						NS::UInteger{ 1 },
+						0,
+						0
+					);
 				}
 				break;
 
@@ -400,8 +413,14 @@ namespace bench::native
 		return !g_arm.four && kind == Kind::eBarrier;
 	}
 
-	bool RecordMetal(const Kind kind, rhi::CommandList & list, const rhi::NativeMutationDesc & mutation, const Workload & work, const std::size_t commands,
-		std::uint64_t & elapsed)
+	bool RecordMetal(
+		const Kind kind,
+		rhi::CommandList & list,
+		const rhi::NativeMutationDesc & mutation,
+		const Workload & work,
+		const std::size_t commands,
+		std::uint64_t & elapsed
+	)
 	{
 #ifdef AZOTH_RHI_BENCH_METAL4
 		if (g_arm.four)
@@ -421,7 +440,8 @@ namespace bench::native
 				{
 					elapsed = RecordFour(kind, fourEncoder, table, work, commands);
 				},
-				fourError);
+				fourError
+			);
 			if (!recordedFour)
 			{
 				ReportError("the native mutation scope was refused", fourError);
@@ -452,7 +472,8 @@ namespace bench::native
 			{
 				elapsed = RecordThree(kind, encoder, work, commands);
 			},
-			error);
+			error
+		);
 		if (!recorded)
 		{
 			ReportError("the native mutation scope was refused", error);
