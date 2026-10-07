@@ -1,8 +1,8 @@
 # Contributing
 
-Issues and pull requests are welcome. For anything large, open an issue first.
+Issues and pull requests are welcome. Open an issue before large changes.
 
-## Building
+## Build and test
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
@@ -12,32 +12,27 @@ ctest --test-dir build
 
 Build and test both Debug and Release before opening a pull request.
 
-## What the tests expect
-
-The suite tests the compiled backends and skips those unavailable on your machine.
-From the build directory, filter tests by label:
+Tests run against compiled backends and skip those unavailable on your machine.
+Filter by label from the build directory:
 
 ```bash
-ctest -L unit        # the per-module suites
-ctest -L conformance # the cross-backend contracts, including gate_api_boundary
-ctest -L rigorous    # the slower cross-backend campaigns
+ctest -L unit
+ctest -L conformance
+ctest -L rigorous
 ```
 
-AZOTH\_RHI\_TEST\_BACKENDS=vulkan,null restricts a run to named backends.
-AZOTH\_RHI\_TEST\_REQUIRE\_BACKENDS=metal fails the test if Metal cannot create a device, except when it reports
-no compatible adapter. That case still skips. CI sets this variable for each backend.
+## Expectations
 
-## What a change has to hold to
-
-- In public headers, keep Vulkan, D3D12, and Metal includes inside azoth/rhi/native/. A build gate and a CTest case check this.
-- Return eUnsupportedFeature for operations a backend cannot perform.
+- Keep Vulkan, D3D12, and Metal includes in public headers under azoth/rhi/native/. Build and CTest gates check this.
+- Return eUnsupportedFeature for unsupported operations.
 - Keep DeviceCaps consistent with device behavior.
 - Return errors through result types. Do not throw across the public API.
 
 ## Style
 
-Follow .clang-format, which CI checks. Comments should explain non-obvious decisions and backend constraints.
+Follow .clang-format. Comment on non-obvious decisions and backend constraints.
 
-## Commits
-
-Use short imperative subject lines and keep each change focused.
+- Give public operations and callbacks short Doxygen briefs.
+- If a parameter needs explanation (units, limits, null handling, ownership, or lifetime)
+- Any doxygen comment that has a parameter comment should describe every parameter, but Keep these non-confusing params terse.
+- Use short, imperative commit subjects and keep changes focused.
