@@ -115,8 +115,9 @@ namespace azo::rhi
 	public:
 		constexpr Result() noexcept = default;
 
-		// Intentionally implicit so a fallible function can return Error directly. NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor, misc-explicit-constructor)
-		constexpr Result(Error error) noexcept : m_error(error), m_hasValue(false) {}
+		// Intentionally implicit so a fallible function can return Error directly.
+		// ReSharper disable once CppNonExplicitConvertingConstructor
+		constexpr Result(Error error) noexcept : m_error(error), m_hasValue(false) {} // NOLINT(*-explicit-constructor)
 
 		[[nodiscard]] constexpr bool has_value() const noexcept
 		{
