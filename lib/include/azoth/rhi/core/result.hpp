@@ -67,11 +67,13 @@ namespace azo::rhi
 	class Result final
 	{
 	public:
-		// Intentionally implicit so a fallible function can return a value directly. NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor, misc-explicit-constructor)
-		constexpr Result(T value) noexcept : m_value(std::move(value)), m_hasValue(true) {}
+		// Intentionally implicit so a fallible function can return a value directly.
+		// ReSharper disable once CppNonExplicitConvertingConstructor
+		constexpr Result(T value) noexcept : m_value(std::move(value)), m_hasValue(true) {} // NOLINT(*-explicit-constructor)
 
-		// Intentionally implicit so a fallible function can return Error directly. NOLINTNEXTLINE(cppcoreguidelines-explicit-constructor, misc-explicit-constructor)
-		constexpr Result(Error error) noexcept : m_error(error) {}
+		// Intentionally implicit so a fallible function can return Error directly.
+		// ReSharper disable once CppNonExplicitConvertingConstructor
+		constexpr Result(Error error) noexcept : m_error(error) {} // NOLINT(*-explicit-constructor)
 
 		[[nodiscard]] constexpr bool has_value() const noexcept
 		{
